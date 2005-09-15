@@ -72,7 +72,7 @@ pdftexdir/libpdf.a: $(pdflib_sources) pdftexdir/pdftexextra.h
 LIBLUADIR=../../libs/lua51
 LIBLUASRCDIR=$(srcdir)/$(LIBLUADIR)
 LIBLUADEP=$(LIBLUADIR)/liblua.a
-$(LIBLUADEP): $(pdflib_sources) pdftexdir/pdftexextra.h
+$(LIBLUADEP):
 	mkdir -p $(LIBLUADIR) && cd $(LIBLUADIR) && cp -f $(LIBLUASRCDIR)/* . && $(MAKE) $(common_makeargs)
 
 

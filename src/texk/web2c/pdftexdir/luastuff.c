@@ -7,6 +7,10 @@
 #include <../lua51/lualib.h>
 #include <ptexlib.h>
 
+#define BUFSIZE (4096*256)
+
+char *buf;
+
 /* this is because ptexlib.h reads pdftexcoerce.h instead of 
    pdfetexcoerce.h */
 
@@ -40,10 +44,8 @@ scaled zgettexboxdepth AA((integer j));
 integer zsettexboxdepth AA((integer j,scaled v));
 #define settexboxdepth(j, v) zsettexboxdepth((integer) (j), (scaled) (v))
 
-
-#define BUFSIZE (4096*256)
-
-char *buf;
+integer getcurv AA((void));
+integer getcurh AA((void));
 
 int bufloc;
 
@@ -291,7 +293,7 @@ static const struct luaL_reg texlib [] = {
   {NULL, NULL}  /* sentinel */
 };
 
-void make_register_table (lua_State *L, char *tab, char *getfunc, char*setfunc)
+void make_table (lua_State *L, char *tab, char *getfunc, char*setfunc)
 {
   /* make the table */
   lua_pushstring(L,tab);
@@ -315,16 +317,57 @@ void make_register_table (lua_State *L, char *tab, char *getfunc, char*setfunc)
   lua_pop(L,1);  /* clean the stack */
 }
 
-
 int luaopen_tex (lua_State *L) 
 {
   luaL_openlib(L, "tex", texlib, 0);
-  make_register_table(L,"dimen","getdimen","setdimen");
-  make_register_table(L,"count","getcount","setcount");
-  make_register_table(L,"toks","gettoks","settoks");
-  make_register_table(L,"wd","getboxwd","setboxwd");
-  make_register_table(L,"ht","getboxht","setboxht");
-  make_register_table(L,"dp","getboxdp","setboxdp");
+  make_table(L,"dimen","getdimen","setdimen");
+  make_table(L,"count","getcount","setcount");
+  make_table(L,"toks","gettoks","settoks");
+  make_table(L,"wd","getboxwd","setboxwd");
+  make_table(L,"ht","getboxht","setboxht");
+  make_table(L,"dp","getboxdp","setboxdp");
+  return 1;
+}
+
+
+static int findcurv (lua_State *L) {
+  int j;
+  j = getcurv();
+  lua_pushnumber(L, j);
+  return 1;
+}
+
+static int findcurh (lua_State *L) {
+  int j;
+  j = getcurh();
+  lua_pushnumber(L, j);
+  return 1;
+}
+
+static int makecurv (lua_State *L) {
+  lua_pop(L,1); /* table at -1 */
+  return 0;
+}
+
+static int makecurh (lua_State *L) {
+  lua_pop(L,1); /* table at -1 */
+  return 0;
+}
+
+
+static const struct luaL_reg pdflib [] = {
+  {"getv", findcurv},
+  {"geth", findcurh},
+  {"setv", makecurv},
+  {"seth", makecurh},
+  {NULL, NULL}  /* sentinel */
+};
+
+int luaopen_pdf (lua_State *L) 
+{
+  luaL_openlib(L, "pdf", pdflib, 0);
+  make_table(L,"v","getv","setv");
+  make_table(L,"h","geth","seth");
   return 1;
 }
 
@@ -360,6 +403,7 @@ void luacall(strnumber s)
         luaopen_math(L);
         /*luaopen_io(L);*/
         luaopen_debug(L);
+        luaopen_pdf(L);
         luaopen_tex(L);
 		buf = malloc(BUFSIZE);
 		if (buf == NULL) {

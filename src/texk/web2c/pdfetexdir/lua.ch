@@ -431,6 +431,19 @@ begin
     set_tex_box_depth := 1;
 end;
 
+function get_cur_v: integer;
+begin
+    if is_shipping_page then
+        get_cur_v := cur_page_height - cur_v
+    else
+        get_cur_v := pdf_xform_height + pdf_xform_depth - cur_v;
+end;
+
+function get_cur_h: integer;
+begin
+    get_cur_h := cur_h;
+end;
+
 
 @* \[54] System-dependent changes.
 @z
