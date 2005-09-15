@@ -49,23 +49,24 @@ int bufloc;
 
 static int poolprint(lua_State * L)
 {
-    int i, j, k, len;
+    int i, j, k, n, len;
     const char *st;
-    i = lua_gettop(L);
-    if (!lua_isstring(L, i)) {
-      lua_pushstring(L, "LuaTeX Error: no string to print");
-      lua_error(L);
-    }
-    st = lua_tostring(L, i);
-    len = lua_strlen(L, i);
-    if (len) {
-      for (j = 0, k = bufloc; j < len; j++, k++) {
-		if (k < BUFSIZE)
-		  buf[k] = st[j];
+    n = lua_gettop(L);
+    for (i = 1; i <= n; i++) {
+      if (!lua_isstring(L, i)) {
+        lua_pushstring(L, "LuaTeX Error: no string to print");
+        lua_error(L);
       }
-      bufloc = k;
+      st = lua_tostring(L, i);
+      len = lua_strlen(L, i);
+      if (len) {
+        for (j = 0, k = bufloc; j < len; j++, k++) {
+          if (k < BUFSIZE)
+		    buf[k] = st[j];
+        }
+        bufloc = k;
+      }
     }
-
     return 0;
 }
 
