@@ -69,9 +69,9 @@
 @y
 @d pdftex_version==130 { \.{\\pdftexversion} }
 @d pdftex_revision=="3" { \.{\\pdftexrevision} }
-@d pdftex_version_string=='-1.30.3' {current \pdfTeX\ version}
+@d pdftex_version_string=='-0.1.0' {current \pdfTeX\ version}
 @#
-@d pdfTeX_banner=='This is pdfTeX, Version 3.141592',pdftex_version_string
+@d pdfTeX_banner=='This is pdfLuaTeX, Version 3.141592',pdftex_version_string
    {printed when \pdfTeX\ starts}
 @#
 @d TeX_banner=='This is TeX, Version 3.141592' {printed when \TeX\ starts}
@@ -1472,6 +1472,19 @@ begin
     pdf_last_v := pdf_origin_v;
 end;
 
+@
+@p procedure pdf_set_origin_temp; {set the origin to |cur_h|, |cur_v| inside group}
+begin
+    if (abs(cur_h - pdf_origin_h) >= min_bp_val) or
+        (abs(cur_v - pdf_origin_v) >= min_bp_val) then begin
+        pdf_print("1 0 0 1 ");
+        pdf_print_bp(cur_h - pdf_origin_h);
+        pdf_out(" ");
+        pdf_print_bp(pdf_origin_v - cur_v);
+        pdf_print_ln(" cm");
+    end;
+end;
+
 procedure pdf_end_string; {end the current string}
 begin
     if pdf_doing_string then begin
@@ -1618,37 +1631,31 @@ begin
 end;
 
 procedure pdf_set_rule(x, y, w, h: scaled); {draw a rule}
-begin                                                                           
+var temp_cur_h, temp_cur_v: scaled;
+begin
     pdf_end_text;
-    pdf_set_origin;
+    pdf_print_ln("q");
+    pdf_set_origin_temp;
     if h <= one_bp then begin
-        pdf_print_ln("q"); 
-        pdf_print_ln("[]0 d");                                                    
-        pdf_print_ln("0 J");                                                        
+        pdf_print("[]0 d 0 J ");
         pdf_print_bp(h); pdf_print_ln(" w");
-        pdf_print("0 "); pdf_print_bp((h + 1)/2); pdf_print_ln(" m");
+        pdf_print("0 "); pdf_print_bp((h + 1)/2); pdf_print(" m ");
         pdf_print_bp(w); pdf_print(" "); pdf_print_bp((h + 1)/2);
-        pdf_print_ln(" l");
-        pdf_print_ln("S");
-        pdf_print_ln("Q"); 
+        pdf_print_ln(" l S");
     end
     else if w <= one_bp then begin
-        pdf_print_ln("q"); 
-        pdf_print_ln("[]0 d");                                                    
-        pdf_print_ln("0 J");                                                        
+        pdf_print("[]0 d 0 J ");
         pdf_print_bp(w); pdf_print_ln(" w");
-        pdf_print_bp((w + 1)/2); pdf_print_ln(" 0 m");
+        pdf_print_bp((w + 1)/2); pdf_print(" 0 m ");
         pdf_print_bp((w + 1)/2); pdf_print(" "); pdf_print_bp(h);
-        pdf_print_ln(" l");
-        pdf_print_ln("S");
-        pdf_print_ln("Q"); 
+        pdf_print_ln(" l S");
     end
     else begin
-        pdf_print_bp(pdf_x(x)); pdf_out(" "); 
-        pdf_print_bp(pdf_y(y)); pdf_out(" "); 
-        pdf_print_bp(w); pdf_out(" "); 
+        pdf_print("0 0 ");
+        pdf_print_bp(w); pdf_out(" ");
         pdf_print_bp(h); pdf_print_ln(" re f");
     end;
+    pdf_print_ln("Q");
 end;
 
 
