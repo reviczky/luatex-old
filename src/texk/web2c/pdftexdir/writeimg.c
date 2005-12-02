@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1996-2002 Han The Thanh, <thanh@pdftex.org>
+Copyright (c) 1996-2002, 2005 Han The Thanh, <thanh@pdftex.org>
 
 This file is part of pdfTeX.
 
@@ -259,23 +259,12 @@ integer readimage(strnumber s, integer page_num, strnumber page_name, integer co
        already used by cur_file_name */
     if (page_name != 0)
       dest = xstrdup(makecstring(page_name));
-    cur_file_name = makecstring(s);
-#ifdef WIN32
-    /* unquote file name */
-    if (*cur_file_name == '"') {
-      char *p = cur_file_name;
-      char *q = cur_file_name;
-      while (p && *p) {
-    *q = (*p == '"' ? *(++p) : *p);
-    p++, q++;
-      }
-      *q = '\0';
-    }
-    fprintf(stderr, " %s\n", cur_file_name);
-#endif
+    cur_file_name = makecfilename(s);
     img_name(img) = kpse_find_file(cur_file_name, kpse_tex_format, true);
     if (img_name(img) == NULL)
         pdftex_fail("cannot find image file");
+    /* kpse_find_file perhaps changed the file name */
+    cur_file_name = img_name(img);
     /* type checks */
     checktypebyheader(img);
     checktypebyextension(img);

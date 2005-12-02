@@ -1111,32 +1111,19 @@ void getmatch(int i) {
 /* makecfilename
   input/ouput same as makecstring:
     input: string number
-    output: C string (buffer address that contains the string)
-  WIN32: quotes are removed.
+    output: C string with quotes removed.
 */
 char *makecfilename(strnumber s) {
     char *name = makecstring(s);
-#ifdef WIN32
-    /* unquote file name */
-    if (*name == '"') {
-        char *p = name;
-        char *q = name;
-        while (p && *p) {
-            *q = (*p == '"' ? *(++p) : *p);
-            p++, q++;
-        }
-        *q = '\0';
+    char *p = name;
+    char *q = name;
+
+    while (*p) {
+        if (*p != '"')
+            *q++ = *p;
+        p++;
     }
+    *q = '\0';
     fprintf(stderr, " %s\n", name);
-#endif
     return name;
-}
-
-
-boolean isquotebad() {
-#ifdef WIN32
-    return true;
-#else
-    return false;
-#endif
 }
