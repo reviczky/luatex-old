@@ -27,7 +27,7 @@
 @z
 
 @x [2]
-@d pdfTeX_banner=='This is pdfLuaTeX, Version 3.141592',pdftex_version_string
+@d pdfTeX_banner=='This is pdfTeX, Version 3.141592',pdftex_version_string
 @y
 @d pdfeTeX_banner=='This is pdfLuaTeX, Version 3.141592',pdftex_version_string,eTeX_version_string
    {printed when \pdfeTeX\ starts}
