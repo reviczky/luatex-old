@@ -28,10 +28,7 @@
 
 /* Some things are the same except for the name.  */
 #ifdef TeX
-#if defined (pdfeTeX)
-#define TEXMFPOOLNAME "pdfetex.pool"
-#define TEXMFENGINENAME "pdfetex"
-#elif defined (pdfTeX)
+#if defined (pdfTeX)
 #define TEXMFPOOLNAME "pdftex.pool"
 #define TEXMFENGINENAME "pdftex"
 #elif defined (eTeX)

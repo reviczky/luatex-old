@@ -48,7 +48,3 @@ extern void remembersourceinfo P2H(strnumber, int);
 #ifdef pdfTeX
 #include <pdftexdir/pdftex.h>
 #endif /* pdfTeX */
-
-#ifdef pdfeTeX
-#include <pdfetexdir/pdfetex.h>
-#endif /* pdfeTeX */
