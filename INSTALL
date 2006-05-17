@@ -1,7 +1,7 @@
-pdfTeX
+luaTeX
 ======
 
-INSTALL for pdfTeX 1.40.0-beta
+INSTALL for luaTeX-beta
 ==============================
 
 This distribution is a stripped-down version of the TeXlive distribution.
