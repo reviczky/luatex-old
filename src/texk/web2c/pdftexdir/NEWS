@@ -1,3 +1,98 @@
+---------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-beta-20060213 was released on 2006-02-13
+---------------------------------------------------------------
+- pdftex.web has been improved a bit
+- new patch:
+  - 473 \ifabsnum and \ifabsdim
+- the manual has been updated a bit and is again included
+
+---------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-beta-20060125 was released on 2006-01-25
+---------------------------------------------------------------
+- pdfTeX now includes pdfeTeX, i.e. there is no way to make a binary without
+  eTeX support. Also the sources of TeX, eTeX and pdfTeX have been merged into
+  one file pdftex.web
+- most pdfTeX change files are gone; only one file (pdftex.ch) remains.
+- improved patches:
+  - 393 Ensure newline before endstream
+
+---------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-beta-20060117 was released on 2006-01-17
+---------------------------------------------------------------
+- pdfTeX is now pdfeTeX, i.e. there is no way to make a binary without eTeX
+  support. Also the sources of TeX, eTeX and pdfTeX have been merged into one
+  file pdfetex.web
+- strip trailing zeros in fractions of reals written
+- removed patch 467 \ifindef
+- improved logging of objstreams
+
+----------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-alpha-20060111 was released on 2006-01-11
+----------------------------------------------------------------
+- new patches:
+  - 466 \primitive and \ifprimitive
+  - 467 \ifinedef
+- improved patches:
+  - 393 Ensure newline before endstream
+- pdfTeX now sets /ModDate and /Trapped by default (the values can be
+  overridden with /pdfinfo)
+- more fixes to remove warnings from -Wall
+
+----------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-alpha-20060106 was released on 2006-01-06
+----------------------------------------------------------------
+- many small fixes to remove warnings from -Wall
+- removed some unused variables
+- really fix bug 444
+- add some GCC extensions and use *nprintf instead of *printf where possible
+- fixed a unicode bug in ttf2afm
+  
+----------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-alpha-20051226 was released on 2005-12-26
+----------------------------------------------------------------
+- improved patches:
+  - 453	Object Streams for PDF-1.5
+  - take PK resolution from "pk_dpi" parameter in  texmf.cnf, if it has not
+    been set by the format file or by the user
+  - 432	Rules in a PDF qQ group
+- some fixes for Thanhs patch
+- some improvements from -Wall
+- .indent.pro for indent
+
+----------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-alpha-20051221 was released on 2005-12-21
+----------------------------------------------------------------
+- has a large patch from Thanh
+- pdflastlink has been fixed
+- remove generated pdf in case of fatal error
+
+----------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-alpha-20051208 was released on 2005-12-08
+----------------------------------------------------------------
+- improved patches:
+  - 386	grow obj_tab and dest_names arrays dynamically
+  - 453	Object Streams for PDF-1.5
+  - take PK resolution from "pk_dpi" parameter in  texmf.cnf, if it has not
+    been set by the format file or by the user
+- write out PDF statistics later to make them correct
+- makefile target pdfetex-all.pdf for a huge file
+
+----------------------------------------------------------------
+pdfTeX 3.141592-1.40.0-alpha-20051205 was released on 2005-12-05
+----------------------------------------------------------------
+- has these patches:
+  - 386	grow obj_tab and dest_names arrays dynamically
+  - 416	new primitive pdflastlink
+  - 427	Character positioning patch
+  - 432	Rules in a PDF qQ group
+  - 434	Remove queued map item handling
+  - 438	\pdfsavepos in DVI mode
+  - 443	512 zeros in Type1 fonts not copied anymore
+  - 447	Don't write /Encoding for non-reencoded fonts
+  - 453	Object Streams for PDF-1.5
+  - take PK resolution from "pk_dpi" parameter in  texmf.cnf, if it has not
+    been set by the format file or by the user
+
 -------------------------------------------------
 pdfTeX 3.141592-1.30.5 was released on 2005-12-04
 -------------------------------------------------

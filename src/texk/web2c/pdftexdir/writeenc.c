@@ -17,23 +17,23 @@ You should have received a copy of the GNU General Public License
 along with pdfTeX; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writeenc.c#13 $
+$Id: writeenc.c,v 1.3 2005/12/26 14:20:13 hahe Exp hahe $
 
 source code indentation by "indent -kr -nut"
 */
 
 #include "ptexlib.h"
-#include "avlstuff.h"
 
+/*@unused@*/
 static const char perforce_id[] =
-    "$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writeenc.c#13 $";
+    "$Id: writeenc.c,v 1.3 2005/12/26 14:20:13 hahe Exp hahe $";
 
-void read_enc(enc_entry * e)
+void read_enc (enc_entry * e)
 {
-    assert(e != NULL);
+    assert (e != NULL);
     if (e->loaded)
         return;
-    load_enc(e->name, e->glyph_names);
+    load_enc (e->name, e->glyph_names);
     e->loaded = true;
 }
 
@@ -42,40 +42,40 @@ void read_enc(enc_entry * e)
  * the 2nd argument is a pointer to the encoding entry; otherwise the 3rd is 
  * the object number of the Encoding object
  */
-void write_enc(char **glyph_names, enc_entry * e, integer eobjnum)
+void write_enc (char **glyph_names, enc_entry * e, integer eobjnum)
 {
     boolean is_notdef;
     int i;
     char **g;
     if (glyph_names == NULL) {
-        assert(e != NULL);
+        assert (e != NULL);
         if (e->objnum != 0)     /* the encoding has been written already */
             return;
-        pdfnewdict(0, 0);
+        pdfnewdict (0, 0, 1);
         e->objnum = objptr;
         g = e->glyph_names;
     } else {
-        pdfbegindict(eobjnum);
+        pdfbegindict (eobjnum, 1);
         g = glyph_names;
     }
-    pdf_printf("/Type /Encoding\n/Differences [ 0 /%s", g[0]);
+    pdf_printf ("/Type /Encoding\n/Differences [ 0 /%s", g[0]);
     is_notdef = (g[0] == notdef);
-    for (i = 1; i <= MAX_CHAR_CODE; i++) {
+    for (i = 1; i < 256; i++) {
         if (g[i] == notdef) {
             if (!is_notdef) {
-                pdf_printf(" %i/%s", i, notdef);
+                pdf_printf (" %i/%s", i, notdef);
                 is_notdef = true;
             }
         } else {
             if (is_notdef) {
-                pdf_printf(" %i", i);
+                pdf_printf (" %i", i);
                 is_notdef = false;
             }
-            pdf_printf("/%s", g[i]);
+            pdf_printf ("/%s", g[i]);
         }
     }
-    pdf_puts("]\n");
-    pdfenddict();
+    pdf_puts ("]\n");
+    pdfenddict ();
 }
 
 /**********************************************************************/
@@ -85,61 +85,61 @@ struct avl_table *enc_tree = NULL;
 
 /* AVL sort enc_entry into enc_tree by name */
 
-static int comp_enc_entry(const void *pa, const void *pb, void *p)
+static int comp_enc_entry (const void *pa, const void *pb, void *p)
 {
-    return strcmp(((const enc_entry *) pa)->name,
-                  ((const enc_entry *) pb)->name);
+    return strcmp (((const enc_entry *) pa)->name,
+                   ((const enc_entry *) pb)->name);
 }
 
-enc_entry *add_enc(char *s)
+enc_entry *add_enc (char *s)
 {
     int i;
     enc_entry tmp, *p;
     void **aa;
 
-    assert(s != NULL);
+    assert (s != NULL);
     if (enc_tree == NULL) {
-        enc_tree = avl_create(comp_enc_entry, NULL, &avl_xallocator);
-        assert(enc_tree != NULL);
+        enc_tree = avl_create (comp_enc_entry, NULL, &avl_xallocator);
+        assert (enc_tree != NULL);
     }
     tmp.name = s;
-    p = (enc_entry *) avl_find(enc_tree, &tmp);
+    p = (enc_entry *) avl_find (enc_tree, &tmp);
     if (p != NULL)              /* encoding already registered */
         return p;
-    p = xtalloc(1, enc_entry);
+    p = xtalloc (1, enc_entry);
     p->loaded = false;
-    p->name = xstrdup(s);
+    p->name = xstrdup (s);
     p->objnum = 0;
-    p->glyph_names = xtalloc(MAX_CHAR_CODE + 1, char *);
-    for (i = 0; i <= MAX_CHAR_CODE; i++)
+    p->glyph_names = xtalloc (256, char *);
+    for (i = 0; i < 256; i++)
         p->glyph_names[i] = (char *) notdef;
-    aa = avl_probe(enc_tree, p);
-    assert(aa != NULL);
+    aa = avl_probe (enc_tree, p);
+    assert (aa != NULL);
     return p;
 }
 
 /**********************************************************************/
 /* cleaning up... */
 
-static void destroy_enc_entry(void *pa, void *pb)
+static void destroy_enc_entry (void *pa, void *pb)
 {
     enc_entry *p;
     int i;
 
     p = (enc_entry *) pa;
-    xfree(p->name);
+    xfree (p->name);
     if (p->glyph_names != NULL)
-        for (i = 0; i <= MAX_CHAR_CODE; i++)
+        for (i = 0; i < 256; i++)
             if (p->glyph_names[i] != notdef)
-                xfree(p->glyph_names[i]);
-    xfree(p->glyph_names);
-    xfree(p);
+                xfree (p->glyph_names[i]);
+    xfree (p->glyph_names);
+    xfree (p);
 }
 
-void enc_free()
+void enc_free ()
 {
     if (enc_tree != NULL)
-        avl_destroy(enc_tree, destroy_enc_entry);
+        avl_destroy (enc_tree, destroy_enc_entry);
 }
 
 /**********************************************************************/

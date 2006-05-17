@@ -29,10 +29,10 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/image.h#10 $
 #define JPG_UINT8       unsigned char
 
 typedef struct {
-    int color_space;    /* used color space. See JPG_ constants */
-    JPG_UINT8  bits_per_component; /* bits per component                         */
-    JPG_UINT32 length;             /* length of file/data                        */
-    FILE *file;                    /* jpg file                                   */
+    int color_space;            /* used color space. See JPG_ constants */
+    JPG_UINT8 bits_per_component;       /* bits per component                         */
+    JPG_UINT32 length;          /* length of file/data                        */
+    FILE *file;                 /* jpg file                                   */
 } JPG_IMAGE_INFO;
 
 typedef struct {
@@ -45,7 +45,6 @@ typedef struct {
     integer orig_y;
     integer selected_page;
     integer page_box;
-    integer always_use_pdfpagebox;
     void *doc;
 } pdf_image_struct;
 
@@ -95,10 +94,11 @@ extern integer image_max;
 #define jpg_ptr(N)      (img_ptr(N)->image_struct.jpg)
 #define tif_ptr(N)      (img_ptr(N)->image_struct.tif)
 
-extern integer read_pdf_info(char*, char*, integer, integer, integer, integer);
-extern void write_epdf(void);
-extern void epdf_delete(void);
-extern void read_png_info(integer);
-extern void write_png(integer);
-extern void read_jpg_info(integer);
-extern void write_jpg(integer);
+extern integer read_pdf_info (char *, char *, integer, integer, integer,
+                              integer);
+extern void write_epdf (void);
+extern void epdf_delete (void);
+extern void read_png_info (integer);
+extern void write_png (integer);
+extern void read_jpg_info (integer);
+extern void write_jpg (integer);

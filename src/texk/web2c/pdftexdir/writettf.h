@@ -20,17 +20,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writettf.h#1 $
 */
 
-typedef signed char     TTF_CHAR;
-typedef unsigned char   TTF_BYTE;
-typedef signed short    TTF_SHORT;
-typedef unsigned short  TTF_USHORT;
-typedef signed long     TTF_LONG;
-typedef unsigned long   TTF_ULONG;
-typedef unsigned long   TTF_FIXED;
-typedef unsigned short  TTF_FUNIT;
-typedef signed short    TTF_FWORD;
-typedef unsigned short  TTF_UFWORD;
-typedef unsigned short  TTF_F2DOT14;
+typedef signed char TTF_CHAR;
+typedef unsigned char TTF_BYTE;
+typedef signed short TTF_SHORT;
+typedef unsigned short TTF_USHORT;
+typedef signed long TTF_LONG;
+typedef unsigned long TTF_ULONG;
+typedef unsigned long TTF_FIXED;
+typedef unsigned short TTF_FUNIT;
+typedef signed short TTF_FWORD;
+typedef unsigned short TTF_UFWORD;
+typedef unsigned short TTF_F2DOT14;
 
 #define TTF_CHAR_SIZE    1
 #define TTF_BYTE_SIZE    1
@@ -106,8 +106,6 @@ typedef unsigned short  TTF_F2DOT14;
 #define GLYPH_PREFIX_INDEX    "index"
 #define GLYPH_PREFIX_UNICODE  "uni"
 
-#define NOGLYPH_ASSIGNED_YET 0xFFFF /* indicating that no glyph is assigned to
-                                       an unicode */
 typedef struct {
     char tag[4];
     TTF_ULONG checksum;
@@ -118,7 +116,7 @@ typedef struct {
 typedef struct {
     TTF_USHORT platform_id;
     TTF_USHORT encoding_id;
-    TTF_ULONG  offset;
+    TTF_ULONG offset;
     TTF_USHORT format;
 } cmap_entry;
 

@@ -67,6 +67,7 @@ pdflib_sources = $(srcdir)/pdftexdir/*.c $(srcdir)/pdftexdir/*.cc \
 pdftexdir/libpdf.a: $(pdflib_sources) pdftexdir/pdftexextra.h
 	cd pdftexdir && $(MAKE) $(common_makeargs) libpdf.a
 
+
 # lua
 
 LIBLUADIR=../../libs/lua51
@@ -76,9 +77,11 @@ $(LIBLUADEP):
 	mkdir -p $(LIBLUADIR) && cd $(LIBLUADIR) && cp -f $(LIBLUASRCDIR)/* . && $(MAKE) $(common_makeargs)
 
 
+
 # Convenience variables.
 
 pdftexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LIBLUADEP) 
 pdftexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBLUADEP) 
 
 ## end of pdftexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
+
