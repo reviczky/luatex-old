@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with pdfTeX; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/pdftex.h#4 $
+$Id $
 */
 
 /* Additions to texmfmp.h for pdfTeX */
@@ -62,4 +62,4 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/pdftex.h#4 $
 #define vfbopenin(f) \
     open_input (&(f), kpse_vf_format, FOPEN_RBIN_MODE)
 
-#include <pdftexdir/ptexlib.h>
+#include <luatexdir/ptexlib.h>

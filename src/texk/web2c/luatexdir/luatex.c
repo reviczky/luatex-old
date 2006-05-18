@@ -1,6 +1,6 @@
 /* $Id */
 
-#include "luatex.h"
+#include "luatex-api.h"
 #include <ptexlib.h>
 
 char *buf;

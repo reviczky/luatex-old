@@ -1,6 +1,6 @@
 /* $Id: luastuff.c,v 1.16 2005/08/10 22:21:53 hahe Exp hahe $ */
 
-#include "luatex.h"
+#include "luatex-api.h"
 
 
 static const struct luaL_reg texlib [] = {
