@@ -1,7 +1,7 @@
 /*
 Copyright (c) 1996-2006 Han The Thanh, <thanh@pdftex.org>
 
-This file is part of pdfTeX.
+This file is part of luatex.
 
 pdfTeX is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,19 +17,19 @@ You should have received a copy of the GNU General Public License
 along with pdfTeX; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/ptexlib.h#26 $
+$Id $
 */
 
-#ifndef PDFTEXLIB
-#  define PDFTEXLIB
+#ifndef LUATEXLIB
+#  define LUATEXLIB
 
 /* WEB2C macros and prototypes */
-#  if !defined(PDFTEXCOERCE) && !defined(PDFETEXCOERCE)
-#    ifdef pdfTeX
-#      undef pdfTeX 		/* to avoid warning about redefining pdfTeX in pdftexd.h */
+#  if !defined(LUATEXCOERCE) && !defined(PDFETEXCOERCE)
+#    ifdef luaTeX
+#      undef luaTeX 		/* to avoid warning about redefining pdfTeX in pdftexd.h */
 #    endif                      /* pdfTeX */
 #    define EXTERN extern
-#    include "pdftexd.h"
+#    include "luatexd.h"
 #  endif
 
 /* pdftexlib macros */
@@ -259,4 +259,4 @@ extern void writezip (boolean);
 extern void avlputobj (integer, integer);
 extern integer avlfindobj (integer, integer, integer);
 
-#endif                          /* PDFTEXLIB */
+#endif                          /* LUATEXLIB */

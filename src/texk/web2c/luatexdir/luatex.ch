@@ -17,7 +17,7 @@
 % along with pdfTeX; if not, write to the Free Software
 % Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 %
-% $Id: //depot/Build/source.development/TeX/texk/web2c/pdfetexdir/pdfetex.ch2#20 $
+% $Id $
 %
 @x [0.0] l.83 - WEAVE: we want the whole file
   \def\?##1]{\hbox{Changes to \hbox to 1em{\hfil##1}.\ }}
@@ -33,33 +33,29 @@
 % This one resolves inconsistencies between tex.ch and tex.ech.
 % Public domain.
 
-@x [1] m.2 l.188 - Web2C: extensions imply we're not e-TeX
+@x 
 @d eTeX_banner=='This is e-TeX, Version 3.141592',eTeX_version_string
 @y
-@d eTeX_banner_k=='This is e-TeXk, Version 3.141592',eTeX_version_string
-@d eTeX_banner=='This is e-TeX, Version 3.141592',eTeX_version_string
 @z
 
-@x [1] m.2 l.188 - Web2C: extensions imply we're not pdfeTeX
+@x 
 @d pdfeTeX_banner=='This is pdfeTeX, Version 3.141592',pdftex_version_string,eTeX_version_string
 @y
-@d pdfeTeX_banner_k=='This is pdfeTeXk, Version 3.141592',pdftex_version_string,eTeX_version_string
-@d pdfeTeX_banner=='This is pdfeTeX, Version 3.141592',pdftex_version_string,eTeX_version_string
 @z
 
-@x [1] m.2 l.188 - Web2C: extensions imply we're not pdfTeX
+@x 
 @d pdfTeX_banner=='This is pdfTeX, Version 3.141592',pdftex_version_string
 @y
-@d pdfTeX_banner_k=='This is pdfTeXk, Version 3.141592',pdftex_version_string
-@d pdfTeX_banner=='This is pdfTeX, Version 3.141592',pdftex_version_string
+@d luatex_version_string=='-0.1-alpha-20060518' {current \luaTeX\ version}
+@d luaTeX_banner=='This is luaTeX, Version 3.141592',pdftex_version_string
 @z
 
 @x [1] m.2 l.188 - banner
 @d banner==TeX_banner
 @d banner_k==TeX_banner_k
 @y
-@d banner==pdfTeX_banner
-@d banner_k==pdfTeX_banner_k
+@d banner==luaTeX_banner
+@d banner_k==luaTeX_banner
 @z
 
 @x [17.236] l.4960 - first web2c, then e-TeX additional integer parameters

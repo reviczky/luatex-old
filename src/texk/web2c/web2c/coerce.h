@@ -47,8 +47,8 @@ extern void remembersourceinfo P2H(strnumber, int);
 
 #ifdef luaTeX
 #include <luatexdir/luatex.h>
-#endif /* luaTeX */
-
+#else /* luaTeX */
 #ifdef pdfTeX
 #include <pdftexdir/pdftex.h>
 #endif /* pdfTeX */
+#endif /* luaTeX */

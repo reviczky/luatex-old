@@ -1,11 +1,11 @@
-## pdftexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
+## luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 # Public domain.
 
 # The pdf*tex programs depend on a number of libraries.
 # Include dependencies to get the built if we don't do make
 # from the top-level directory.
 
-Makefile: pdftexdir/pdftexlib.mk
+Makefile: luatexdir/luatexlib.mk
 
 # libz
 
@@ -60,12 +60,12 @@ md5lib-clean:
 
 
 # libpdf itself
-pdflib = pdftexdir/libpdf.a
-pdflib_sources = $(srcdir)/pdftexdir/*.c $(srcdir)/pdftexdir/*.cc \
-	$(srcdir)/pdftexdir/*.h
+pdflib = luatexdir/libpdf.a
+pdflib_sources = $(srcdir)/luatexdir/*.c $(srcdir)/luatexdir/*.cc \
+	$(srcdir)/luatexdir/*.h
 
-pdftexdir/libpdf.a: $(pdflib_sources) pdftexdir/pdftexextra.h
-	cd pdftexdir && $(MAKE) $(common_makeargs) libpdf.a
+luatexdir/libpdf.a: $(pdflib_sources) luatexdir/luatexextra.h
+	cd luatexdir && $(MAKE) $(common_makeargs) libpdf.a
 
 
 # lua
@@ -80,8 +80,8 @@ $(LIBLUADEP):
 
 # Convenience variables.
 
-pdftexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LIBLUADEP) 
-pdftexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBLUADEP) 
+luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LIBLUADEP) 
+luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBLUADEP) 
 
-## end of pdftexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
+## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 

@@ -550,15 +550,13 @@ trip-clean:
 	rm -f trip.fot trip.log trip.dvi trip.typ tripos.tex 8terminal.tex
 	rm -rf tfm
 # 
-# Helper makefile fragment for pdf*tex.
-kpse_include pdftexdir/pdftexlib.mk
+# Helper makefile fragment for lua*tex.
 kpse_include luatexdir/luatexlib.mk
 # 
 # Makefile fragments:
 kpse_include etexdir/etex.mk
 kpse_include omegadir/omega.mk
 kpse_include alephdir/aleph.mk
-kpse_include pdftexdir/pdftex.mk
 kpse_include luatexdir/luatex.mk
 # 
 # Common
