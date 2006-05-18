@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # Guess values for system-dependent variables and create Makefiles.
-# Generated automatically using autoconf version 2.13 
+# Generated automatically using autoconf version 2.13 (a while back)
 # Copyright (C) 1992, 93, 94, 95, 96 Free Software Foundation, Inc.
 #
 # This configure script is free software; the Free Software Foundation
@@ -2832,7 +2832,7 @@ else
 fi
 
 # For pdfeTeX
-if test -d $srcdir/pdftexdir; \
+if test -d $srcdir/pdftexdir ; then
   test "${with_pdfetex+set}" = set || with_pdfetex=yes
 else
   if test "x$with_pdfetex" = xyes; then
