@@ -150,6 +150,18 @@ else
   with_pdftex=no
 fi
 
+# For luaTeX.
+if test -d $srcdir/luatexdir; then
+  # Create build dir, if necessary.
+  test -d luatexdir || mkdir luatexdir
+  test "${with_luatex+set}" = set || with_luatex=yes
+else
+  if test "x$with_luatex" = xyes; then
+    AC_MSG_WARN(The luaTeX sources are not available.)
+  fi
+  with_luatex=no
+fi
+
 # For pdfeTeX
 if test -d $srcdir/pdftexdir; \
   test "${with_pdfetex+set}" = set || with_pdfetex=yes
@@ -162,6 +174,7 @@ fi
 
 # Check whether C++ compiler works.  Prevent exit if it doesn't.
 if test "x$with_pdftex"  = xyes ||
+   test "x$with_luatex"  = xyes ||
    test "x$with_pdfetex" = xyes
 then
   # First test whether the compiler works in a subshell, and if so,
@@ -175,8 +188,11 @@ then
     && AC_MSG_WARN(No C++ compiler: pdfTeX will not be compiled.)
   test "x$with_pdfetex" = xyes \
     && AC_MSG_WARN(No C++ compiler: pdfeTeX will not be compiled.)
+  test "x$with_luatex" = xyes \
+    && AC_MSG_WARN(No C++ compiler: luaTeX will not be compiled.)
   with_pdftex=no
   with_pdfetex=no
+  with_luatex=no
   true
 }
 fi
@@ -193,6 +209,7 @@ CXXHACKLINK='$(kpathsea_cxx_link)'
 CXXHACKLDLIBS='$(LOADLIBES)'
 if test "x$with_cxx_runtime_hack" = xyes &&
    { test "x$with_pdftex"  = xyes ||
+     test "x$with_luatex"  = xyes ||
      test "x$with_pdfetex" = xyes; }
 then
   AC_MSG_CHECKING(for statically linking C++ runtime library)
@@ -256,6 +273,13 @@ else
   PETEX='#! '
 fi
 AC_SUBST(PETEX)
+
+if test "x$with_luatex" = xyes; then
+  LTEX=
+else
+  LTEX='#! '
+fi
+AC_SUBST(LTEX)
 
 # For e-TeX, three choices: no, yes, and tex.  In the latter case, we
 # have to comment out the normal TeX build (TEX), as well as enable the
@@ -325,6 +349,11 @@ if test "$with_pdftex" = yes || \
    test "$with_pdfetex" = yes
 then
   KPSE_CONFIG_FILES([pdftexdir/Makefile])
+fi
+
+# Don't bother with pdflib unless luaTeX is requested.
+if test "$with_luatex" = yes; then
+  KPSE_CONFIG_FILES([luatexdir/Makefile])
 fi
 
 # Don't bother with pdfelib unless pdfeTeX is requested.

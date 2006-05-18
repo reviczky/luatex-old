@@ -31,6 +31,9 @@
 #if defined (pdfTeX)
 #define TEXMFPOOLNAME "pdftex.pool"
 #define TEXMFENGINENAME "pdftex"
+#elif defined (luaTeX)
+#define TEXMFPOOLNAME "luatex.pool"
+#define TEXMFENGINENAME "luatex"
 #elif defined (eTeX)
 #define TEXMFPOOLNAME "etex.pool"
 #define TEXMFENGINENAME "etex"

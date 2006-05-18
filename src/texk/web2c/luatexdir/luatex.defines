@@ -17,12 +17,12 @@ You should have received a copy of the GNU General Public License
 along with pdfTeX; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/pdftex.defines#15 $
+$Id $
 }
 
-{ pdftex.defines: additions for pdfTeX }
+{ luatex.defines: additions for luaTeX }
 
-{ macros from pdftex.h }
+{ macros from luatex.h }
 @define function pdfcharmarked();
 @define function getlpcode();
 @define function getrpcode();
@@ -110,4 +110,4 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/pdftex.defines#15
 @define procedure avlputobj();
 @define function avlfindobj();
 
-{ end of pdftex.defines }
+{ end of luatex.defines }

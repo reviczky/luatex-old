@@ -552,12 +552,14 @@ trip-clean:
 # 
 # Helper makefile fragment for pdf*tex.
 kpse_include pdftexdir/pdftexlib.mk
+kpse_include luatexdir/luatexlib.mk
 # 
 # Makefile fragments:
 kpse_include etexdir/etex.mk
 kpse_include omegadir/omega.mk
 kpse_include alephdir/aleph.mk
 kpse_include pdftexdir/pdftex.mk
+kpse_include luatexdir/luatex.mk
 # 
 # Common
 programs = bibtex ctangle ctie cweave dvicopy dvitomp dvitype gftodvi gftopk \
@@ -565,7 +567,7 @@ programs = bibtex ctangle ctie cweave dvicopy dvitomp dvitype gftodvi gftopk \
  pooltype tangle tftopl tie $(ttf2afm) vftovp vptovf weave
 engines = $(tex) $(etex) $(mf) $(mfn) $(mpost) \
           $(omega) $(aleph) \
-          $(pdftex) $(pdfetex)
+          $(pdftex) $(pdfetex) $(luatex)
 
 programs: $(programs) $(engines) $(mpware_programs) \
           $(omegafonts_programs) $(otps_programs) $(pdftosrc)
@@ -1113,7 +1115,7 @@ installcheck:
 
 # 
 # Cleaning.
-all_subdirs = doc lib man $(mpware) web2c window $(omegafonts) $(otps) $(pdftexdir)
+all_subdirs = doc lib man $(mpware) web2c window $(omegafonts) $(otps) $(pdftexdir) $(luatexdir)
 
 # Having a multiple-target rule with the subdir loop fails because of
 # the dependencies introduced by clean.mk.  Yet, we want the
