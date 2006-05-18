@@ -53,4 +53,4 @@ echo "ignore warnings and errors about the main texmf tree"
 # go back
 cd ..
 # show the results
-ls -l build/texk/web2c/{lua*}
+ls -l build/texk/web2c/luatex{.pool,}
