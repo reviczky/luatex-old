@@ -45,6 +45,10 @@ extern poolpointer makesrcspecial P2H(strnumber, int);
 extern void remembersourceinfo P2H(strnumber, int);
 #endif
 
+#ifdef luaTeX
+#include <luatexdir/luatex.h>
+#endif /* luaTeX */
+
 #ifdef pdfTeX
 #include <pdftexdir/pdftex.h>
 #endif /* pdfTeX */
