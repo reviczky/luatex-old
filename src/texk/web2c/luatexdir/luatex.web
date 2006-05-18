@@ -289,6 +289,8 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060213' {current \pdfTeX\ version}
 @#
+@d luatex_version_string=='-0.1-alpha-20060518' {current \luaTeX\ version}
+@#
 @d pdfeTeX_banner=='This is pdfeTeX, Version 3.141592',pdftex_version_string,eTeX_version_string
    {printed when \pdfeTeX\ starts}
 @#

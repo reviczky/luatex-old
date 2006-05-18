@@ -46,8 +46,7 @@
 @x 
 @d pdfTeX_banner=='This is pdfTeX, Version 3.141592',pdftex_version_string
 @y
-@d luatex_version_string=='-0.1-alpha-20060518' {current \luaTeX\ version}
-@d luaTeX_banner=='This is luaTeX, Version 3.141592',pdftex_version_string
+@d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
 @z
 
 @x [1] m.2 l.188 - banner
