@@ -21,7 +21,7 @@ $(luatexdir)/luatex.version: $(srcdir)/$(luatexdir)/luatex.web
           
 # The C sources.
 luatex_c = luatexini.c luatex0.c luatex1.c luatex2.c luatex3.c 
-luatex_o = luatexini.o luatex0.o luatex1.o luatex2.o luatex3.o luatexextra.o
+luatex_o = luatexini.o luatex0.o luatex1.o luatex2.o luatex3.o luatexextra.o loadpool.o
 
 # Making luatex
 luatex: luatexd.h $(luatex_o) $(luatexextra_o) $(luatexlibsdep)
@@ -38,6 +38,9 @@ $(luatexdir)/luatexextra.h: $(luatexdir)/luatexextra.in $(luatexdir)/luatex.vers
 	sed -e s/LUATEX-VERSION/`cat $(luatexdir)/luatex.version`/ \
 	    -e s/ETEX-VERSION/`cat etexdir/etex.version`/ \
 	  $(srcdir)/$(luatexdir)/luatexextra.in >$@
+loadpool.c: luatex.pool $(srcdir)/$(luatexdir)/makecpool
+	perl $(srcdir)/$(luatexdir)/makecpool luatex.pool > loadpool.c
+
 
 # Tangling
 luatex.p luatex.pool: tangle $(srcdir)/$(luatexdir)/luatex.web luatex.ch
@@ -78,7 +81,7 @@ luatex-clean:
 	$(LIBTOOL) --mode=clean $(RM) luatex
 	rm -f $(luatex_o) $(luatex_c) luatexextra.c luatexcoerce.h
 	rm -f $(luatexdir)/luatexextra.h
-	rm -f luatexd.h luatex.p luatex.pool luatex.ch
+	rm -f luatexd.h luatex.p luatex.pool luatex.ch strpool.c
 	rm -f luatex.fmt luatex.log
 
 # Dumps

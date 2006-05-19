@@ -38,6 +38,7 @@ $Id $
 @define procedure writepdf();
 
 @define procedure luacall();
+@define function loadpoolstrings();
 
 { functions from mapfile.c }
 @define function hasfmentry();

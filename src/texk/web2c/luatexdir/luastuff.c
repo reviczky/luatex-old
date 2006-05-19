@@ -93,14 +93,6 @@ void luacall(int s)
 
     if (L == NULL) {
         L = luaL_newstate();
-		/*
-		  luaopen_base(L);
-		  luaopen_string(L);
-		  luaopen_table(L);
-		  luaopen_math(L);
-		  luaopen_io(L);
-		  luaopen_debug(L);
-		*/
 	    luaL_openlibs(L);
         luaopen_pdf(L);
         luaopen_tex(L);
