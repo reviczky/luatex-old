@@ -1,14 +1,138 @@
 %$Id: lua.ch,v 1.3 2005/08/09 20:17:58 hahe Exp hahe $
 %
-% This implements primitives \lua and \latelua.
+% This implements primitives \luaescapestring, \lua and \latelua.
 %
+
+%********************************* kill off the pool file
+
+@x
+@ When the \.{WEB} system program called \.{TANGLE} processes the \.{TEX.WEB}
+description that you are now reading, it outputs the \PASCAL\ program
+\.{TEX.PAS} and also a string pool file called \.{TEX.POOL}. The \.{INITEX}
+@.WEB@>@.INITEX@>
+program reads the latter file, where each string appears as a two-digit decimal
+length followed by the string itself, and the information is recorded in
+\TeX's string memory.
+
+@<Glob...@>=
+@!init @!pool_file:alpha_file; {the string-pool file output by \.{TANGLE}}
+tini
+
+@ @d bad_pool(#)==begin wake_up_terminal; write_ln(term_out,#);
+  a_close(pool_file); get_strings_started:=false; return;
+  end
+@<Read the other strings...@>=
+name_length := strlen (pool_name);
+name_of_file := xmalloc_array (ASCII_code, name_length + 1);
+strcpy (stringcast(name_of_file+1), pool_name); {copy the string}
+if a_open_in (pool_file, kpse_texpool_format) then
+  begin c:=false;
+  repeat @<Read one string, but return |false| if the
+    string memory space is getting too tight for comfort@>;
+  until c;
+  a_close(pool_file); get_strings_started:=true;
+  end
+else  bad_pool('! I can''t read ', pool_name, '; bad path?')
+@.I can't read TEX.POOL@>
+
+@ @<Read one string...@>=
+begin if eof(pool_file) then bad_pool('! ', pool_name, ' has no check sum.');
+@.TEX.POOL has no check sum@>
+read(pool_file,m); read(pool_file,n); {read two digits of string length}
+if m='*' then @<Check the pool check sum@>
+else  begin if (xord[m]<"0")or(xord[m]>"9")or@|
+      (xord[n]<"0")or(xord[n]>"9") then
+    bad_pool('! ', pool_name, ' line doesn''t begin with two digits.');
+@.TEX.POOL line doesn't...@>
+  l:=xord[m]*10+xord[n]-"0"*11; {compute the length}
+  if pool_ptr+l+string_vacancies>pool_size then
+    bad_pool('! You have to increase POOLSIZE.');
+@.You have to increase POOLSIZE@>
+  for k:=1 to l do
+    begin if eoln(pool_file) then m:=' '@+else read(pool_file,m);
+    append_char(xord[m]);
+    end;
+  read_ln(pool_file); g:=make_string;
+  end;
+end
+
+@ The \.{WEB} operation \.{@@\$} denotes the value that should be at the
+end of this \.{TEX.POOL} file; any other value means that the wrong pool
+file has been loaded.
+@^check sum@>
+
+@<Check the pool check sum@>=
+begin a:=0; k:=1;
+loop@+  begin if (xord[n]<"0")or(xord[n]>"9") then
+  bad_pool('! ', pool_name, ' check sum doesn''t have nine digits.');
+@.TEX.POOL check sum...@>
+  a:=10*a+xord[n]-"0";
+  if k=9 then goto done;
+  incr(k); read(pool_file,n);
+  end;
+done: if a<>@$ then
+  bad_pool('! ', pool_name, ' doesn''t match; tangle me again (or fix the path).');
+@.TEX.POOL doesn't match@>
+c:=true;
+end
+@y
+
+@ @<Read the other strings...@>=
+  g := loadpoolstrings((pool_size-string_vacancies));
+  if c=0 then begin 
+     wake_up_terminal; write_ln(term_out,'! You have to increase POOLSIZE.');
+     get_strings_started:=false; 
+     return;
+  end;
+  get_strings_started:=true;
+@z
+
+
+%***********************************************************************
+
+@x
+
+@p @t\4@>@<Declare \eTeX\ procedures for token lists@>@;@/
+function str_toks(@!b:pool_pointer):pointer;
+@y
+|lua_str_toks| is almost identical, but it also escapes the three
+symbols that |lua| considers special while scanning a literal string
+
+@p @t\4@>@<Declare \eTeX\ procedures for token lists@>@;@/
+function lua_str_toks(@!b:pool_pointer):pointer;
+  {changes the string |str_pool[b..pool_ptr]| to a token list}
+var p:pointer; {tail of the token list}
+@!q:pointer; {new node being added to the token list via |store_new_token|}
+@!t:halfword; {token being appended}
+@!k:pool_pointer; {index into |str_pool|}
+begin str_room(1);
+p:=temp_head; link(p):=null; k:=b;
+while k<pool_ptr do
+  begin t:=so(str_pool[k]);
+  if t=" " then t:=space_token
+  else 
+    begin 
+    if (t="\") or (t="""") or (t="'") then 
+	  fast_store_new_token(other_token+"\");
+    t:=other_token+t;  
+    end;
+  fast_store_new_token(t);
+  incr(k);
+  end;
+pool_ptr:=b; lua_str_toks:=p;
+end;
+
+function str_toks(@!b:pool_pointer):pointer;
+@z
+
 %***********************************************************************
 
 @x 10721
 @d pdftex_convert_codes     = pdftex_first_expand_code + 25 {end of \pdfTeX's command codes}
 @y
 @d lua_code                 = pdftex_first_expand_code + 25 {command code for \.{\\lua}}
-@d pdftex_convert_codes     = pdftex_first_expand_code + 26 {end of \pdfTeX's command codes}
+@d lua_escape_string_code   = pdftex_first_expand_code + 26 {command code for \.{\\luaescapestring}}
+@d pdftex_convert_codes     = pdftex_first_expand_code + 27 {end of \pdfTeX's command codes}
 @z
 
 %***********************************************************************
@@ -21,6 +145,8 @@ primitive("pdfnormaldeviate",convert,normal_deviate_code);@/
 @!@:normal_deviate_}{\.{\\pdfnormaldeviate} primitive@>
 primitive("lua",convert,lua_code);@/
 @!@:lua_}{\.{\\lua} primitive@>
+primitive("luaescapestring",convert,lua_escape_string_code);@/
+@!@:lua_}{\.{\\luaescapestring} primitive@>
 @z
 
 %***********************************************************************
@@ -28,16 +154,34 @@ primitive("lua",convert,lua_code);@/
 @x 10818
   pdf_ximage_bbox_code: print_esc("pdfximagebbox");
 @y
-  pdf_ximage_bbox_code: print_esc("pdfximagebbox");
-  lua_code:             print_esc("lua");
+  pdf_ximage_bbox_code:    print_esc("pdfximagebbox");
+  lua_code:                print_esc("lua");
+  lua_escape_string_code:  print_esc("luaescapestring");
 @z
 
 %***********************************************************************
+
 
 @x 11121
 normal_deviate_code:      do_nothing;
 @y
 normal_deviate_code:      do_nothing;
+lua_escape_string_code: 
+  begin
+    save_scanner_status := scanner_status;
+    save_def_ref := def_ref;
+    save_warning_index := warning_index;
+    scan_pdf_ext_toks;
+    s := tokens_to_string(def_ref);
+    delete_token_ref(def_ref);
+    def_ref := save_def_ref;
+    warning_index := save_warning_index;
+    scanner_status := save_scanner_status;
+    link(garbage) := lua_str_toks(str_start[s]);
+	ins_list(link(temp_head));
+    flush_str(s);
+    return;
+  end;
 lua_code:
   begin
     save_scanner_status := scanner_status;
