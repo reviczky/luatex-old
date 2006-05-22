@@ -49,19 +49,13 @@ luatex.p luatex.pool: tangle $(srcdir)/$(luatexdir)/luatex.web luatex.ch
 #   Sources for luatex.ch:
 luatex_ch_srcs = $(srcdir)/$(luatexdir)/luatex.web \
   $(srcdir)/$(luatexdir)/tex.ch0 \
-  $(srcdir)/tex.ch \
+  $(srcdir)/$(luatexdir)/web2c.ch \
   $(srcdir)/$(luatexdir)/luatex.ch \
   $(srcdir)/$(luatexdir)/lua.ch
 
 #   Rules:
 luatex.ch: $(TIE) $(luatex_ch_srcs)
 	$(TIE) -c luatex.ch $(luatex_ch_srcs)
-
-# pdfetex: (it's just a copy of luatex)
-pdfetex: luatex
-	cp -a luatex pdfetex
-pdfetex.pool: luatex.pool
-	cp -a luatex.pool pdfetex.pool
 
 # for developing only
 luatex-org.web: $(TIE) $(luatex_ch_srcs_org)
@@ -85,18 +79,18 @@ luatex-clean:
 	rm -f luatex.fmt luatex.log
 
 # Dumps
-all_pdfefmts = @FMU@ pdfetex.fmt $(pdfefmts)
+all_luafmts = @FMU@ luatex.fmt $(luafmts)
 
-dumps: @PETEX@ pdfefmts
-pdfefmts: $(all_pdfefmts)
+dumps: @LTEX@ luafmts
+luafmts: $(all_luafmts)
 
-pdfefmtdir = $(web2cdir)/pdfetex
-$(pdfefmtdir)::
-	$(SHELL) $(top_srcdir)/../mkinstalldirs $(pdfefmtdir)
+luafmtdir = $(web2cdir)/luatex
+$(luafmtdir)::
+	$(SHELL) $(top_srcdir)/../mkinstalldirs $(luafmtdir)
 
-pdfetex.fmt: pdfetex
-	$(dumpenv) $(MAKE) progname=pdfetex files="etex.src plain.tex cmr10.tfm" prereq-check
-	$(dumpenv) ./pdfetex --progname=pdfetex --jobname=pdfetex --ini \*\\pdfoutput=1\\input etex.src \\dump </dev/null
+luatex.fmt: luatex
+	$(dumpenv) $(MAKE) progname=luatex files="etex.src plain.tex cmr10.tfm" prereq-check
+	$(dumpenv) ./luatex --progname=luatex --jobname=luatex --ini \*\\pdfoutput=1\\input etex.src \\dump </dev/null
 
 pdflatex.fmt: luatex
 	$(dumpenv) $(MAKE) progname=pdflatex files="latex.ltx" prereq-check
@@ -116,15 +110,15 @@ install-luatex-programs: $(luatex) $(bindir)
 
 install-links: @PETEX@ install-luatex-links
 install-luatex-links: install-luatex-programs
-	#cd $(bindir) && (rm -f pdfeinitex pdfevirtex; \
-	#  $(LN) luatex pdfeinitex; $(LN) luatex pdfevirtex)
+	#cd $(bindir) && (rm -f luainitex luavirtex; \
+	#  $(LN) luatex luainitex; $(LN) luatex luavirtex)
 
 install-fmts: @PETEX@ install-luatex-fmts
-install-luatex-fmts: pdfefmts $(pdfefmtdir)
-	pdfefmts="$(all_pdfefmts)"; \
-	  for f in $$pdfefmts; do $(INSTALL_DATA) $$f $(pdfefmtdir)/$$f; done
-	pdfefmts="$(pdfefmts)"; \
-	  for f in $$pdfefmts; do base=`basename $$f .fmt`; \
+install-luatex-fmts: luafmts $(luafmtdir)
+	luafmts="$(all_luafmts)"; \
+	  for f in $$luafmts; do $(INSTALL_DATA) $$f $(luafmtdir)/$$f; done
+	luafmts="$(luafmts)"; \
+	  for f in $$luafmts; do base=`basename $$f .fmt`; \
 	    (cd $(bindir) && (rm -f $$base; $(LN) luatex $$base)); done
 
 # Auxiliary files.
@@ -132,38 +126,6 @@ install-data:: @PETEX@ install-luatex-data
 install-luatex-pool: luatex.pool $(texpooldir)
 	$(INSTALL_DATA) luatex.pool $(texpooldir)/luatex.pool
 
-# 
-# ttf2afm
-ttf2afm = ttf2afm
-
-ttf2afm: ttf2afm.o
-	$(kpathsea_link) ttf2afm.o $(kpathsea)
-ttf2afm.o: ttf2afm.c macnames.c
-	$(compile) -c $< -o $@
-ttf2afm.c: $(srcdir)/$(luatexdir)/ttf2afm.c
-	cp $(srcdir)/$(luatexdir)/ttf2afm.c .
-macnames.c: $(srcdir)/$(luatexdir)/macnames.c
-	cp $(srcdir)/$(luatexdir)/macnames.c .
-check: ttf2afm-check
-ttf2afm-check: ttf2afm
-clean:: ttf2afm-clean
-ttf2afm-clean:
-	$(LIBTOOL) --mode=clean $(RM) ttf2afm
-	rm -f ttf2afm.o macnames.o
-	rm -f ttf2afm.c macnames.c
-# 
-# pdftosrc
-pdftosrc = pdftosrc
-
-pdftosrc: $(luatexdir)/pdftosrc.o $(LIBXPDFDEP)
-	@CXXHACKLINK@ $(luatexdir)/pdftosrc.o $(LDLIBXPDF) -lm @CXXLDEXTRA@
-$(luatexdir)/pdftosrc.o:$(srcdir)/$(luatexdir)/pdftosrc.cc
-	cd $(luatexdir) && $(MAKE) pdftosrc.o
-check: pdftosrc-check
-pdftosrc-check: pdftosrc
-clean:: pdftosrc-clean
-pdftosrc-clean:
-	$(LIBTOOL) --mode=clean $(RM) pdftosrc
 # 
 # luatex binaries archive
 luatexbin:

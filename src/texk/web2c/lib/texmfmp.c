@@ -241,7 +241,7 @@ maininit P2C(int, ac, string *, av)
       iniversion = true;
     } else if (FILESTRCASEEQ (kpse_program_name, "virtex")) {
       virversion = true;
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(luaTeX)
     } else if (FILESTRCASEEQ (kpse_program_name, "mltex")) {
       mltexp = true;
 #endif /* !Omega && !eOmega && !Aleph */
@@ -258,7 +258,7 @@ maininit P2C(int, ac, string *, av)
 #ifdef TeX
   /* Sanity check: -mltex, -enc, -etex only work in combination with -ini. */
   if (!iniversion) {
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(luaTeX)
     if (mltexp) {
       fprintf(stderr, "-mltex only works with -ini\n");
     }
@@ -772,7 +772,7 @@ static struct option long_options[]
       { "ipc",                       0, &ipcon, 1 },
       { "ipc-start",                 0, &ipcon, 2 },
 #endif /* IPC */
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(luaTeX)
       { "mltex",                     0, &mltexp, 1 },
       { "enc",                       0, &enctexp, 1 },
 #endif /* !Omega && !eOmega && !Aleph */
