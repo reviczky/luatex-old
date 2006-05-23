@@ -6634,6 +6634,8 @@ primitive("insert",insert,0);@/
 @!@:insert_}{\.{\\insert} primitive@>
 primitive("mark",mark,0);@/
 @!@:mark_}{\.{\\mark} primitive@>
+primitive("clearmarks",mark,1);@/
+@!@:clearmarks_}{\.{\\clearmarks} primitive@>
 primitive("mathaccent",math_accent,0);@/
 @!@:math_accent_}{\.{\\mathaccent} primitive@>
 primitive("mathchar",math_char_num,0);@/
@@ -6709,8 +6711,10 @@ hrule: print_esc("hrule");
 ignore_spaces: if chr_code=0 then print_esc("ignorespaces") else print_esc("primitive");
 insert: print_esc("insert");
 ital_corr: print_esc("/");
-mark: begin print_esc("mark");
-  if chr_code>0 then print_char("s");
+mark: begin 
+  if chr_code=0 then print_esc("mark")
+  else if chr_code=1 then print_esc("clearmarks")
+  else print_esc("marks");
   end;
 math_accent: print_esc("mathaccent");
 math_char_num: print_esc("mathchar");
@@ -28672,14 +28676,29 @@ output_group: @<Resume the page builder...@>;
 procedure make_mark;
 var p:pointer; {new node}
 @!c:halfword; {the mark class}
-begin if cur_chr=0 then c:=0
-else  begin scan_mark_num; c:=cur_val;
+begin if cur_chr=1 then begin 
+    scan_mark_num; c:=cur_val;
+    if top_mark(c)<>null         then delete_token_ref(top_mark(c));
+    if first_mark(c)<>null       then delete_token_ref(first_mark(c));
+    if bot_mark(c)<>null         then delete_token_ref(bot_mark(c));
+    if split_first_mark(c)<>null then delete_token_ref(split_first_mark(c));
+    if split_bot_mark(c)<>null   then delete_token_ref(split_bot_mark(c));
+    top_mark(c):=null;  
+    first_mark(c):=null;
+    bot_mark(c):=null;
+    split_first_mark(c):=null;
+    split_bot_mark(c):=null;
+  end
+else begin
+if cur_chr=0 then c:=0 
+else begin scan_mark_num; c:=cur_val;
   if c > biggest_used_mark then biggest_used_mark := c;
   end;
 p:=scan_toks(false,true); p:=get_node(small_node_size);
 mark_class(p):=c;
 type(p):=mark_node; subtype(p):=0; {the |subtype| is not used}
 mark_ptr(p):=def_ref; link(tail):=p; tail:=p;
+end;
 end;
 
 @ Penalty nodes get into a list via the |break_penalty| command.
