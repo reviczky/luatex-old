@@ -20,7 +20,7 @@ $(luatexdir)/luatex.version: $(srcdir)/$(luatexdir)/luatex.web
 	  >$(luatexdir)/luatex.version
           
 # The C sources.
-luatex_c = luatexini.c luatex0.c luatex1.c luatex2.c luatex3.c 
+luatex_c = luatexini.c luatex0.c luatex1.c luatex2.c luatex3.c
 luatex_o = luatexini.o luatex0.o luatex1.o luatex2.o luatex3.o luatexextra.o loadpool.o
 
 # Making luatex

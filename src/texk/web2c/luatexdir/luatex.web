@@ -563,6 +563,10 @@ emphasize this distinction.
 @d hash_prime=1777 {a prime number equal to about 85\pct! of |hash_size|}
 @d hyph_size=307 {another prime; the number of \.{\\hyphenation} exceptions}
 @^system dependencies@>
+@d biggest_reg=65535 {the largest allowed register number; must be |<=max_halfword|}
+@d number_regs=65536 {|biggest_reg+1|}
+@d biggest_mark=65535 {the largest allowed marks class; must be |<=max_halfword|}
+@d number_marks=65536 {|biggest_mark+1|}
 
 @ In case somebody has inadvertently made bad settings of the ``constants,''
 \TeX\ checks them using a global variable called |bad|.
@@ -3472,8 +3476,7 @@ material.
 @d append_list(#) == begin link(tail) := link(#); append_list_end
 @d append_list_end(#) == tail := #; end
 
-@d adjust_ptr(#)==mem[#+1].int
-  {vertical list to be moved out of horizontal list}
+@d adjust_ptr(#)==mem[#+1].int {vertical list to be moved out of horizontal list}
 
 @ A |ligature_node|, which occurs only in horizontal lists, specifies
 a character that was fabricated from the interaction of two or more
@@ -5147,7 +5150,7 @@ if eq_type(n)>=call then
   end;
 end
 
-@ Region 3 of |eqtb| contains the 256 \.{\\skip} registers, as well as the
+@ Region 3 of |eqtb| contains the |number_regs| \.{\\skip} registers, as well as the
 glue parameters defined here. It is important that the ``muskip''
 parameters have larger numbers than the others.
 
@@ -5172,9 +5175,9 @@ parameters have larger numbers than the others.
 @d med_mu_skip_code=16 {medium space in math formula}
 @d thick_mu_skip_code=17 {thick space in math formula}
 @d glue_pars=18 {total number of glue parameters}
-@d skip_base=glue_base+glue_pars {table of 256 ``skip'' registers}
-@d mu_skip_base=skip_base+256 {table of 256 ``muskip'' registers}
-@d local_base=mu_skip_base+256 {beginning of region 4}
+@d skip_base=glue_base+glue_pars {table of |number_regs| ``skip'' registers}
+@d mu_skip_base=skip_base+number_regs {table of |number_regs| ``muskip'' registers}
+@d local_base=mu_skip_base+number_regs {beginning of region 4}
 @#
 @d skip(#)==equiv(skip_base+#) {|mem| location of glue specification}
 @d mu_skip(#)==equiv(mu_skip_base+#) {|mem| location of math glue spec}
@@ -5334,17 +5337,17 @@ registers.
 @d every_eof_loc=etex_toks_base {points to token list for \.{\\everyeof}}
 @d etex_toks=etex_toks_base+1 {end of \eTeX's token list parameters}
 @#
-@d toks_base=etex_toks {table of 256 token list registers}
+@d toks_base=etex_toks {table of |number_regs| token list registers}
 @#
-@d etex_pen_base=toks_base+256 {start of table of \eTeX's penalties}
+@d etex_pen_base=toks_base+number_regs {start of table of \eTeX's penalties}
 @d inter_line_penalties_loc=etex_pen_base {additional penalties between lines}
 @d club_penalties_loc=etex_pen_base+1 {penalties for creating club lines}
 @d widow_penalties_loc=etex_pen_base+2 {penalties for creating widow lines}
 @d display_widow_penalties_loc=etex_pen_base+3 {ditto, just before a display}
 @d etex_pens=etex_pen_base+4 {end of table of \eTeX's penalties}
 @#
-@d box_base=etex_pens {table of 256 box registers}
-@d cur_font_loc=box_base+256 {internal font number outside math mode}
+@d box_base=etex_pens {table of |number_regs| box registers}
+@d cur_font_loc=box_base+number_regs {internal font number outside math mode}
 @d math_font_base=cur_font_loc+1 {table of 48 math font numbers}
 @d cat_code_base=math_font_base+48
   {table of 256 command codes (the ``catcodes'')}
@@ -5643,8 +5646,8 @@ that will be defined later.
 @d etex_int_pars=eTeX_state_code+eTeX_states {total number of \eTeX's integer parameters}
 @#
 @d int_pars=etex_int_pars {total number of integer parameters}
-@d count_base=int_base+int_pars {256 user \.{\\count} registers}
-@d del_code_base=count_base+256 {256 delimiter code mappings}
+@d count_base=int_base+int_pars {|number_regs| user \.{\\count} registers}
+@d del_code_base=count_base+number_regs {256 delimiter code mappings}
 @d dimen_base=del_code_base+256 {beginning of region 6}
 @#
 @d del_code(#)==eqtb[del_code_base+#].int
@@ -6077,7 +6080,7 @@ routines are going to work.
 @!old_setting:0..max_selector;
 
 @ The final region of |eqtb| contains the dimension parameters defined
-here, and the 256 \.{\\dimen} registers.
+here, and the |number_regs| \.{\\dimen} registers.
 
 @d par_indent_code=0 {indentation of paragraphs}
 @d math_surround_code=1 {space around math in text}
@@ -6115,8 +6118,8 @@ here, and the 256 \.{\\dimen} registers.
 @d pdftex_last_dimen_code  = pdftex_first_dimen_code + 10 {last number defined in this section}
 @d dimen_pars = pdftex_last_dimen_code + 1 {total number of dimension parameters}
 @d scaled_base=dimen_base+dimen_pars
-  {table of 256 user-defined \.{\\dimen} registers}
-@d eqtb_size=scaled_base+255 {largest subscript of |eqtb|}
+  {table of |number_regs| user-defined \.{\\dimen} registers}
+@d eqtb_size=scaled_base+biggest_reg {largest subscript of |eqtb|}
 @#
 @d dimen(#)==eqtb[scaled_base+#].sc
 @d dimen_par(#)==eqtb[dimen_base+#].sc {a scaled quantity}
@@ -6666,7 +6669,7 @@ primitive("setbox",set_box,0);@/
 @!@:set_box_}{\.{\\setbox} primitive@>
 primitive("the",the,0);@/
 @!@:the_}{\.{\\the} primitive@>
-primitive("toks",toks_register,mem_bot);@/
+primitive("toks",toks_register,0);@/
 @!@:toks_}{\.{\\toks} primitive@>
 primitive("vadjust",vadjust,0);@/
 @!@:vadjust_}{\.{\\vadjust} primitive@>
@@ -6730,7 +6733,7 @@ set_shape: case chr_code of
   end; {there are no other cases}
 the: if chr_code=0 then print_esc("the")
   @<Cases of |the| for |print_cmd_chr|@>;
-toks_register: @<Cases of |toks_register| for |print_cmd_chr|@>;
+toks_register: print_esc("toks");
 vadjust: print_esc("vadjust");
 valign: if chr_code=0 then print_esc("valign")@/
   @<Cases of |valign| for |print_cmd_chr|@>;
@@ -6786,7 +6789,7 @@ destroyed.
 Entries on the |save_stack| are of type |memory_word|. The top item on
 this stack is |save_stack[p]|, where |p=save_ptr-1|; it contains three
 fields called |save_type|, |save_level|, and |save_index|, and it is
-interpreted in one of five ways:
+interpreted in one of four ways:
 
 \yskip\hangg 1) If |save_type(p)=restore_old_value|, then
 |save_index(p)| is a location in |eqtb| whose current value should
@@ -6810,11 +6813,6 @@ the entries for that group.
 Furthermore, in extended \eTeX\ mode, |save_stack[p-1]| contains the
 source line number at which the current level of grouping was entered.
 
-\yskip\hang 5) If |save_type(p)=restore_sa|, then |sa_chain| points to a
-chain of sparse array entries to be restored at the end of the current
-group. Furthermore |save_index(p)| and |save_level(p)| should replace
-the values of |sa_chain| and |sa_level| respectively.
-
 @d save_type(#)==save_stack[#].hh.b0 {classifies a |save_stack| entry}
 @d save_level(#)==save_stack[#].hh.b1
   {saved level for regions 5 and 6, or group code}
@@ -6824,7 +6822,6 @@ the values of |sa_chain| and |sa_level| respectively.
 @d restore_zero=1 {|save_type| when an undefined entry should be restored}
 @d insert_token=2 {|save_type| when a token is being saved for later use}
 @d level_boundary=3 {|save_type| corresponding to beginning of group}
-@d restore_sa=4 {|save_type| when sparse array entries should be restored}
 
 @p@t\4@>@<Declare \eTeX\ procedures for tracing and input@>
 
@@ -6942,7 +6939,6 @@ shape_ref: begin q:=equiv_field(w); {we need to free a \.{\\parshape} block}
   if q<>null then free_node(q,info(q)+info(q)+1);
   end; {such a block is |2n+1| words long, where |n=info(q)|}
 box_ref: flush_node_list(equiv_field(w));
-@/@<Cases for |eq_destroy|@>@/
 othercases do_nothing
 endcases;
 end;
@@ -7060,9 +7056,6 @@ loop@+begin decr(save_ptr);
   p:=save_index(save_ptr);
   if save_type(save_ptr)=insert_token then
     @<Insert token |p| into \TeX's input@>
-  else if save_type(save_ptr)=restore_sa then
-    begin sa_restore; sa_chain:=p; sa_level:=save_level(save_ptr);
-    end
   else  begin if save_type(save_ptr)=restore_old_value then
       begin l:=save_level(save_ptr); decr(save_ptr);
       end
@@ -7336,10 +7329,7 @@ begin print_cmd_chr(cur_cmd,cur_chr);
 if cur_cmd>=call then
   begin print_char(":"); print_ln; token_show(cur_chr);
   end
-else if (cur_cmd=top_bot_mark)and(cur_chr<marks_code) then
-  begin print_char(":"); print_ln;
-  token_show(cur_mark[cur_chr]);
-  end;
+else  @<Show the meaning of a mark node@>;
 end;
 
 @* \[21] Introduction to the syntactic routines.
@@ -8744,6 +8734,7 @@ procedure expand;
 label reswitch;
 var t:halfword; {token that is being ``expanded after''}
 @!p,@!q,@!r:pointer; {for list manipulation}
+@!cur_ptr:pointer; { for a local token list pointer }
 @!j:0..buf_size; {index into |buffer|}
 @!cv_backup:integer; {to save the global quantity |cur_val|}
 @!cvl_backup,@!radix_backup,@!co_backup:small_number;
@@ -8950,31 +8941,41 @@ end;
 
 Before we get into the details of |macro_call|, however, let's consider the
 treatment of primitives like \.{\\topmark}, since they are essentially
-macros without parameters. The token lists for such marks are kept in a
-global array of five pointers; we refer to the individual entries of this
+macros without parameters. The token lists for such marks are kept in five
+global arrays of pointers; we refer to the individual entries of this
 array by symbolic names |top_mark|, etc. The value of |top_mark| is either
 |null| or a pointer to the reference count of a token list.
 
-@d marks_code==5 {add this for \.{\\topmarks} etc.}
-@#
 @d top_mark_code=0 {the mark in effect at the previous page break}
 @d first_mark_code=1 {the first mark between |top_mark| and |bot_mark|}
 @d bot_mark_code=2 {the mark in effect at the current page break}
 @d split_first_mark_code=3 {the first mark found by \.{\\vsplit}}
 @d split_bot_mark_code=4 {the last mark found by \.{\\vsplit}}
-@d top_mark==cur_mark[top_mark_code]
-@d first_mark==cur_mark[first_mark_code]
-@d bot_mark==cur_mark[bot_mark_code]
-@d split_first_mark==cur_mark[split_first_mark_code]
-@d split_bot_mark==cur_mark[split_bot_mark_code]
+@#
+@d top_mark(#)==top_marks_array[#]
+@d first_mark(#)==first_marks_array[#]
+@d bot_mark(#)==bot_marks_array[#]
+@d split_first_mark(#)==split_first_marks_array[#]
+@d split_bot_mark(#)==split_bot_marks_array[#]
+@#
+@d marks_code=5
+@#
 
 @<Glob...@>=
-@!cur_mark:array[top_mark_code..split_bot_mark_code] of pointer;
-  {token lists for marks}
+@!top_marks_array:array[0..biggest_mark] of pointer;
+@!first_marks_array:array[0..biggest_mark] of pointer;
+@!bot_marks_array:array[0..biggest_mark] of pointer;
+@!split_first_marks_array:array[0..biggest_mark] of pointer;
+@!split_bot_marks_array:array[0..biggest_mark] of pointer;
+biggest_used_mark:halfword;
 
 @ @<Set init...@>=
-top_mark:=null; first_mark:=null; bot_mark:=null;
-split_first_mark:=null; split_bot_mark:=null;
+biggest_used_mark:=0;
+for i:=0 to biggest_mark do top_mark(i):=null;
+for i:=0 to biggest_mark do first_mark(i):=null;
+for i:=0 to biggest_mark do bot_mark(i):=null;
+for i:=0 to biggest_mark do split_first_mark(i):=null;
+for i:=0 to biggest_mark do split_bot_mark(i):=null;
 
 @ @<Put each...@>=
 primitive("topmark",top_bot_mark,top_mark_code);
@@ -8987,6 +8988,18 @@ primitive("splitfirstmark",top_bot_mark,split_first_mark_code);
 @!@:split_first_mark_}{\.{\\splitfirstmark} primitive@>
 primitive("splitbotmark",top_bot_mark,split_bot_mark_code);
 @!@:split_bot_mark_}{\.{\\splitbotmark} primitive@>
+primitive("marks",mark,marks_code);
+@!@:marks_}{\.{\\marks} primitive@>
+primitive("topmarks",top_bot_mark,top_mark_code+marks_code);
+@!@:top_marks_}{\.{\\topmarks} primitive@>
+primitive("firstmarks",top_bot_mark,first_mark_code+marks_code);
+@!@:first_marks_}{\.{\\firstmarks} primitive@>
+primitive("botmarks",top_bot_mark,bot_mark_code+marks_code);
+@!@:bot_marks_}{\.{\\botmarks} primitive@>
+primitive("splitfirstmarks",top_bot_mark,split_first_mark_code+marks_code);
+@!@:split_first_marks_}{\.{\\splitfirstmarks} primitive@>
+primitive("splitbotmarks",top_bot_mark,split_bot_mark_code+marks_code);
+@!@:split_bot_marks_}{\.{\\splitbotmarks} primitive@>
 
 @ @<Cases of |print_cmd_chr|...@>=
 top_bot_mark: begin case (chr_code mod marks_code) of
@@ -9004,9 +9017,14 @@ when |cur_chr| is a code like |top_mark_code|.
 
 @<Insert the \(a)appropriate mark text into the scanner@>=
 begin t:=cur_chr mod marks_code;
-if cur_chr>=marks_code then scan_register_num@+else cur_val:=0;
-if cur_val=0 then cur_ptr:=cur_mark[t]
-else @<Compute the mark pointer for mark type |t| and class |cur_val|@>;
+if cur_chr>=marks_code then scan_mark_num@+else cur_val:=0;
+case t of
+  first_mark_code:       cur_ptr:=first_mark(cur_val);
+  bot_mark_code:         cur_ptr:=bot_mark(cur_val);
+  split_first_mark_code: cur_ptr:=split_first_mark(cur_val);
+  split_bot_mark_code:   cur_ptr:=split_bot_mark(cur_val);
+  othercases             cur_ptr:=top_mark(cur_val)
+endcases;
 if cur_ptr<>null then begin_token_list(cur_ptr,mark_text);
 end
 
@@ -9426,21 +9444,22 @@ Otherwise |cur_val| will contain the integer or scaled value in question.
 @ The hash table is initialized with `\.{\\count}', `\.{\\dimen}', `\.{\\skip}',
 and `\.{\\muskip}' all having |register| as their command code; they are
 distinguished by the |chr_code|, which is either |int_val|, |dimen_val|,
-|glue_val|, or |mu_val| more than |mem_bot| (dynamic variable-size nodes
-cannot have these values)
+|glue_val|, or |mu_val|.
 
 @<Put each...@>=
-primitive("count",register,mem_bot+int_val);
+primitive("count",register,int_val);
 @!@:count_}{\.{\\count} primitive@>
-primitive("dimen",register,mem_bot+dimen_val);
+primitive("dimen",register,dimen_val);
 @!@:dimen_}{\.{\\dimen} primitive@>
-primitive("skip",register,mem_bot+glue_val);
+primitive("skip",register,glue_val);
 @!@:skip_}{\.{\\skip} primitive@>
-primitive("muskip",register,mem_bot+mu_val);
-@!@:mu_skip_}{\.{\\muskip} primitive@>
+primitive("muskip",register,mu_val);
 
 @ @<Cases of |print_cmd_chr|...@>=
-register: @<Cases of |register| for |print_cmd_chr|@>;
+register: if chr_code=int_val then print_esc("count")
+  else if chr_code=dimen_val then print_esc("dimen")
+  else if chr_code=glue_val then print_esc("skip")
+  else print_esc("muskip");
 
 @ OK, we're ready for |scan_something_internal| itself. A second parameter,
 |negative|, is set |true| if the value that is found should be negated.
@@ -9504,17 +9523,9 @@ if level<>tok_val then
   end
 else if cur_cmd<=assign_toks then
   begin if cur_cmd<assign_toks then {|cur_cmd=toks_register|}
-    if m=mem_bot then
-      begin scan_register_num;
-      if cur_val<256 then cur_val:=equiv(toks_base+cur_val)
-      else  begin find_sa_element(tok_val,cur_val,false);
-        if cur_ptr=null then cur_val:=null
-        else cur_val:=sa_ptr(cur_ptr);
-        end;
-      end
-    else cur_val:=sa_ptr(m)
-  else cur_val:=equiv(m);
-  cur_val_level:=tok_val;
+    begin scan_register_num; m:=toks_base+cur_val;
+    end;
+  scanned_result(equiv(m))(tok_val);
   end
 else  begin back_input; scan_font_ident;
   scanned_result(font_id_base+cur_val)(ident_val);
@@ -9672,8 +9683,8 @@ cur_val_level:=int_val;
 end
 
 @ @<Fetch a box dimension@>=
-begin scan_register_num; fetch_box(q);
-if q=null then cur_val:=0 @+else cur_val:=mem[q+m].sc;
+begin scan_register_num;
+if box(cur_val)=null then cur_val:=0 @+else cur_val:=mem[box(cur_val)+m].sc;
 cur_val_level:=dimen_val;
 end
 
@@ -9805,28 +9816,14 @@ end;
 end
 
 @ @<Fetch a register@>=
-begin if (m<mem_bot)or(m>lo_mem_stat_max) then
-  begin cur_val_level:=sa_type(m);
-  if cur_val_level<glue_val then cur_val:=sa_int(m)
-  else cur_val:=sa_ptr(m);
-  end
-else  begin scan_register_num; cur_val_level:=m-mem_bot;
-  if cur_val>255 then
-    begin find_sa_element(cur_val_level,cur_val,false);
-    if cur_ptr=null then
-      if cur_val_level<glue_val then cur_val:=0
-      else cur_val:=zero_glue
-    else if cur_val_level<glue_val then cur_val:=sa_int(cur_ptr)
-    else cur_val:=sa_ptr(cur_ptr);
-    end
-  else
-  case cur_val_level of
+begin scan_register_num;
+case m of
 int_val:cur_val:=count(cur_val);
 dimen_val:cur_val:=dimen(cur_val);
 glue_val: cur_val:=skip(cur_val);
 mu_val: cur_val:=mu_skip(cur_val);
 end; {there are no other cases}
-  end;
+cur_val_level:=m;
 end
 
 @ @<Complain that \.{\\the} can't do this; give zero result@>=
@@ -9877,12 +9874,21 @@ applications of |scan_int| that have already been made inside of
 |scan_something_internal|.
 
 @ @<Declare procedures that scan restricted classes of integers@>=
-procedure scan_eight_bit_int;
+procedure scan_register_num;
 begin scan_int;
-if (cur_val<0)or(cur_val>255) then
+if (cur_val<0)or(cur_val>biggest_reg) then
   begin print_err("Bad register code");
 @.Bad register code@>
-  help2("A register number must be between 0 and 255.")@/
+  help2("A register number must be between 0 and 65535.")@/
+    ("I changed this one to zero."); int_error(cur_val); cur_val:=0;
+  end;
+end;
+procedure scan_mark_num;
+begin scan_int;
+if (cur_val<0)or(cur_val>biggest_mark) then
+  begin print_err("Bad marks code");
+@.Bad marks code@>
+  help2("A marks class must be between 0 and 65535.")@/
     ("I changed this one to zero."); int_error(cur_val); cur_val:=0;
   end;
 end;
@@ -11585,7 +11591,7 @@ begin scan_int; b:=odd(cur_val);
 end
 
 @ @<Test box register status@>=
-begin scan_register_num; fetch_box(p);
+begin scan_register_num; p:=box(cur_val);
 if this_if=if_void_code then b:=(p=null)
 else if p=null then b:=false
 else if this_if=if_hbox_code then b:=(type(p)=hlist_node)
@@ -26394,29 +26400,29 @@ The original box becomes ``void'' if and only if it has been entirely
 extracted.  The extracted box is ``void'' if and only if the original
 box was void (or if it was, erroneously, an hlist box).
 
-@p @t\4@>@<Declare the function called |do_marks|@>@;
-function vsplit(@!n:halfword; @!h:scaled):pointer;
+@p function vsplit(@!n:halfword; @!h:scaled):pointer;
   {extracts a page of height |h| from box |n|}
 label exit,done;
 var v:pointer; {the box to be split}
 p:pointer; {runs through the vlist}
 q:pointer; {points to where the break occurs}
-begin cur_val:=n; fetch_box(v);
+i:halfword; {for traversing marks lists}
+begin v:=box(n);
 flush_node_list(split_disc); split_disc:=null;
-if sa_mark<>null then
-  if do_marks(vsplit_init,0,sa_mark) then sa_mark:=null;
-if split_first_mark<>null then
-  begin delete_token_ref(split_first_mark); split_first_mark:=null;
-  delete_token_ref(split_bot_mark); split_bot_mark:=null;
+for i:=0 to biggest_used_mark do begin
+  if split_first_mark(i)<>null then
+    begin delete_token_ref(split_first_mark(i)); split_first_mark(i):=null;
+    delete_token_ref(split_bot_mark(i)); split_bot_mark(i):=null;
   end;
+end;
 @<Dispense with trivial cases of void or bad boxes@>;
 q:=vert_break(list_ptr(v),h,split_max_depth);
 @<Look at all the marks in nodes before the break, and set the final
   link to |null| at the break@>;
 q:=prune_page_top(q,saving_vdiscards>0);
 p:=list_ptr(v); free_node(v,box_node_size);
-if q<>null then q:=vpack(q,natural);
-change_box(q); {the |eq_level| of the box stays the same}
+if q=null then box(n):=null {the |eq_level| of the box stays the same}
+else box(n):=vpack(q,natural);
 vsplit:=vpackage(p,h,exactly,split_max_depth);
 exit: end;
 
@@ -26440,16 +26446,15 @@ if type(v)<>vlist_node then
 p:=list_ptr(v);
 if p=q then list_ptr(v):=null
 else loop@+begin if type(p)=mark_node then
-    if mark_class(p)<>0 then @<Update the current marks for |vsplit|@>
-    else if split_first_mark=null then
-      begin split_first_mark:=mark_ptr(p);
-      split_bot_mark:=split_first_mark;
-      token_ref_count(split_first_mark):=@|
-        token_ref_count(split_first_mark)+2;
+    if split_first_mark(mark_class(p))=null then
+      begin split_first_mark(mark_class(p)):=mark_ptr(p);
+      split_bot_mark(mark_class(p)):=split_first_mark(p);
+      token_ref_count(split_first_mark(mark_class(p))):=@|
+        token_ref_count(split_first_mark(mark_class(p)))+2;
       end
-    else  begin delete_token_ref(split_bot_mark);
-      split_bot_mark:=mark_ptr(p);
-      add_token_ref(split_bot_mark);
+    else  begin delete_token_ref(split_bot_mark(mark_class(p)));
+      split_bot_mark(mark_class(p)):=mark_ptr(p);
+      add_token_ref(split_bot_mark(mark_class(p)));
       end;
   if link(p)=q then
     begin link(p):=null; goto done;
@@ -27084,21 +27089,22 @@ var p,@!q,@!r,@!s:pointer; {nodes being examined and/or changed}
 @!save_vbadness:integer; {saved value of |vbadness|}
 @!save_vfuzz: scaled; {saved value of |vfuzz|}
 @!save_split_top_skip: pointer; {saved value of |split_top_skip|}
+@!i: halfword; { for looping through the marks}
 begin @<Set the value of |output_penalty|@>;
-if sa_mark<>null then
-  if do_marks(fire_up_init,0,sa_mark) then sa_mark:=null;
-if bot_mark<>null then
-  begin if top_mark<>null then delete_token_ref(top_mark);
-  top_mark:=bot_mark; add_token_ref(top_mark);
-  delete_token_ref(first_mark); first_mark:=null;
+for i:=0 to biggest_used_mark do begin
+  if bot_mark(i)<>null then
+    begin if top_mark(i)<>null then delete_token_ref(top_mark(i));
+    top_mark(i):=bot_mark(i); add_token_ref(top_mark(i));
+    delete_token_ref(first_mark(i)); first_mark(i):=null;
+    end;
   end;
 @<Put the \(o)optimal current page into box 255, update |first_mark| and
   |bot_mark|, append insertions to their boxes, and put the
   remaining nodes back on the contribution list@>;
-if sa_mark<>null then
-  if do_marks(fire_up_done,0,sa_mark) then sa_mark:=null;
-if (top_mark<>null)and(first_mark=null) then
-  begin first_mark:=top_mark; add_token_ref(top_mark);
+for i:=0 to biggest_used_mark do begin
+  if (top_mark(i)<>null)and(first_mark(i)=null) then
+    begin first_mark(i):=top_mark(i); add_token_ref(top_mark(i));
+    end;
   end;
 if output_routine<>null then
   if dead_cycles>=max_dead_cycles then
@@ -27134,9 +27140,7 @@ while p<>best_page_break do
          appropriate box, or hold it for the next page;
          also delete node |p| from the current page@>;
     end
-  else if type(p)=mark_node then
-    if mark_class(p)<>0 then @<Update the current marks for |fire_up|@>
-    else @<Update the values of
+  else if type(p)=mark_node then @<Update the values of
     |first_mark| and |bot_mark|@>;
   prev_p:=p; p:=link(prev_p);
   end;
@@ -27155,13 +27159,13 @@ if box(255)<>null then
   end
 
 @ @<Update the values of |first_mark| and |bot_mark|@>=
-begin if first_mark=null then
-  begin first_mark:=mark_ptr(p);
-  add_token_ref(first_mark);
+begin if first_mark(mark_class(p))=null then
+  begin first_mark(mark_class(p)):=mark_ptr(p);
+  add_token_ref(first_mark(mark_class(p)));
   end;
-if bot_mark<>null then delete_token_ref(bot_mark);
-bot_mark:=mark_ptr(p); add_token_ref(bot_mark);
-end
+if bot_mark(mark_class(p))<>null then delete_token_ref(bot_mark(mark_class(p)));
+bot_mark(mark_class(p)):=mark_ptr(p); add_token_ref(bot_mark(mark_class(p)));
+end;
 
 @ When the following code is executed, the current page runs from node
 |link(page_head)| to node |prev_p|, and the nodes from |p| to |page_tail|
@@ -28181,11 +28185,12 @@ The first problem is solved by putting a ``context code'' on the |save_stack|,
 just below the two entries that give the dimensions produced by |scan_spec|.
 The context code is either a (signed) shift amount, or it is a large
 integer |>=box_flag|, where |box_flag=@t$2^{30}$@>|. Codes |box_flag| through
-|global_box_flag-1| represent `\.{\\setbox0}' through `\.{\\setbox32767}';
-codes |global_box_flag| through |ship_out_flag-1| represent
-`\.{\\global\\setbox0}' through `\.{\\global\\setbox32767}';
-code |ship_out_flag| represents `\.{\\shipout}'; and codes |leader_flag|
-through |leader_flag+2| represent `\.{\\leaders}', `\.{\\cleaders}',
+|box_flag+biggest_reg| represent `\.{\\setbox0}' through
+`\.{\\setbox}|biggest_reg|'; codes |box_flag+biggest_reg+1| through
+|box_flag+2*biggest_reg| represent `\.{\\global\\setbox0}'
+through `\.{\\global\\setbox}|biggest_reg|'; code |box_flag+2*number_regs|
+represents `\.{\\shipout}'; and codes |box_flag+2*number_regs+1|
+through |box_flag+2*number_regs+3| represent `\.{\\leaders}', `\.{\\cleaders}',
 and `\.{\\xleaders}'.
 
 The second problem is solved by giving the command code |make_box| to all
@@ -28195,9 +28200,10 @@ values to distinguish between them: |box_code|, |copy_code|, |last_box_code|,
 where the latter two are used denote \.{\\vbox} and \.{\\hbox}, respectively.
 
 @d box_flag==@'10000000000 {context code for `\.{\\setbox0}'}
-@d global_box_flag==@'10000100000 {context code for `\.{\\global\\setbox0}'}
-@d ship_out_flag==@'10000200000  {context code for `\.{\\shipout}'}
-@d leader_flag==@'10000200001  {context code for `\.{\\leaders}'}
+@d global_box_flag==(box_flag+number_regs) {context code for `\.{\\global\\setbox0}'}
+@d max_global_box_flag==(global_box_flag+number_regs)
+@d ship_out_flag==(max_global_box_flag+1) {context code for `\.{\\shipout}'}
+@d leader_flag==ship_out_flag+1 {context code for `\.{\\leaders}'}
 @d box_code=0 {|chr_code| for `\.{\\box}'}
 @d copy_code=1 {|chr_code| for `\.{\\copy}'}
 @d last_box_code=2 {|chr_code| for `\.{\\lastbox}'}
@@ -28280,7 +28286,6 @@ case can occur only with leaders.
 @<Declare act...@>=
 procedure box_end(@!box_context:integer);
 var p:pointer; {|ord_noad| for new box in math mode}
-@!a:small_number; {global prefix}
 begin if box_context<box_flag then @<Append box |cur_box| to the current list,
     shifted by |box_context|@>
 else if box_context<ship_out_flag then @<Store \(c)|cur_box| in a box register@>
@@ -28323,14 +28328,9 @@ begin if cur_box<>null then
 end
 
 @ @<Store \(c)|cur_box| in a box register@>=
-begin if box_context<global_box_flag then
-  begin cur_val:=box_context-box_flag; a:=0;
-  end
-else  begin cur_val:=box_context-global_box_flag; a:=4;
-  end;
-if cur_val<256 then define(box_base+cur_val,box_ref,cur_box)
-else sa_def_box;
-end
+if box_context<global_box_flag then
+  eq_define(box_base+box_context-box_flag,box_ref,cur_box)
+else geq_define(box_base+box_context-global_box_flag,box_ref,cur_box)
 
 @ @<Append a new leader node ...@>=
 begin @<Get the next non-blank non-relax...@>;
@@ -28360,12 +28360,12 @@ label exit, done;
 var @!p,@!q:pointer; {run through the current list}
 @!m:quarterword; {the length of a replacement list}
 @!k:halfword; {0 or |vmode| or |hmode|}
-@!n:halfword; {a box number}
+@!n:eight_bits; {a box number}
 begin case cur_chr of
-box_code: begin scan_register_num; fetch_box(cur_box);
-  change_box(null); {the box becomes void, at the same level}
+box_code: begin scan_register_num; cur_box:=box(cur_val);
+  box(cur_val):=null; {the box becomes void, at the same level}
   end;
-copy_code: begin scan_register_num; fetch_box(q); cur_box:=copy_node_list(q);
+copy_code: begin scan_register_num; cur_box:=copy_node_list(box(cur_val));
   end;
 last_box_code: @<If the current list ends with a box node, delete it from
   the list and make |cur_box| point to it; otherwise set |cur_box:=null|@>;
@@ -28629,7 +28629,7 @@ vmode+vadjust,
 @ @<Declare act...@>=
 procedure begin_insert_or_adjust;
 begin if cur_cmd=vadjust then cur_val:=255
-else  begin scan_eight_bit_int;
+else  begin scan_register_num;
   if cur_val=255 then
     begin print_err("You can't "); print_esc("insert"); print_int(255);
 @.You can't \\insert255@>
@@ -28673,7 +28673,8 @@ procedure make_mark;
 var p:pointer; {new node}
 @!c:halfword; {the mark class}
 begin if cur_chr=0 then c:=0
-else  begin scan_register_num; c:=cur_val;
+else  begin scan_mark_num; c:=cur_val;
+  if c > biggest_used_mark then biggest_used_mark := c;
   end;
 p:=scan_toks(false,true); p:=get_node(small_node_size);
 mark_class(p):=c;
@@ -28773,7 +28774,7 @@ un_vbox: if chr_code=copy_code then print_esc("unvcopy")
   @<Cases of |un_vbox| for |print_cmd_chr|@>@/
   else print_esc("unvbox");
 
-@ The |un_hbox| and |un_vbox| commands unwrap one of the 256 current boxes.
+@ The |un_hbox| and |un_vbox| commands unwrap one of the |number_regs| current boxes.
 
 @<Cases of |main_control| that build...@>=
 vmode+un_vbox,hmode+un_hbox,mmode+un_hbox: unpackage;
@@ -28785,7 +28786,7 @@ var p:pointer; {the box}
     r: pointer; {to remove marginal kern nodes}
 @!c:box_code..copy_code; {should we copy?}
 begin if cur_chr>copy_code then @<Handle saved items and |goto done|@>;
-c:=cur_chr; scan_register_num; fetch_box(p);
+c:=cur_chr; scan_register_num; p:=box(cur_val);
 if p=null then return;
 if (abs(mode)=mmode)or((abs(mode)=vmode)and(type(p)<>vlist_node))or@|
    ((abs(mode)=hmode)and(type(p)<>hlist_node)) then
@@ -28797,7 +28798,7 @@ if (abs(mode)=mmode)or((abs(mode)=vmode)and(type(p)<>vlist_node))or@|
   error; return;
   end;
 if c=copy_code then link(tail):=copy_node_list(list_ptr(p))
-else  begin link(tail):=list_ptr(p); change_box(null);
+else  begin link(tail):=list_ptr(p); box(cur_val):=null;
   free_node(p,box_node_size);
   end;
 done:
@@ -30357,10 +30358,7 @@ let:  begin n:=cur_chr;
   else  begin get_token; q:=cur_tok; get_token; back_input;
     cur_tok:=q; back_input; {look ahead, then back up}
     end; {note that |back_input| doesn't affect |cur_cmd|, |cur_chr|}
-  if cur_cmd>=call then add_token_ref(cur_chr)
-  else if (cur_cmd=register)or(cur_cmd=toks_register) then
-    if (cur_chr<mem_bot)or(cur_chr>lo_mem_stat_max) then
-      add_sa_ref(cur_chr);
+  if cur_cmd>=call then add_token_ref(cur_chr);
   define(p,cur_cmd,cur_chr);
   end;
 
@@ -30424,14 +30422,6 @@ shorthand_def: begin n:=cur_chr; get_r_token; p:=cur_cs; define(p,relax,256);
   math_char_def_code: begin scan_fifteen_bit_int; define(p,math_given,cur_val);
     end;
   othercases begin scan_register_num;
-    if cur_val>255 then
-      begin j:=n-count_def_code; {|int_val..box_val|}
-      if j>mu_val then j:=tok_val; {|int_val..mu_val| or |tok_val|}
-      find_sa_element(j,cur_val,true); add_sa_ref(cur_ptr);
-      if j=tok_val then j:=toks_register@+else j:=register;
-      define(p,j,cur_ptr);
-      end
-    else
     case n of
     count_def_code: define(p,assign_int,count_base+cur_val);
     dimen_def_code: define(p,assign_dimen,scaled_base+cur_val);
@@ -30461,54 +30451,40 @@ enclosing pair of braces around an \.{\\output} list.)
 
 @<Assignments@>=
 toks_register,assign_toks: begin q:=cur_cs;
-  e:=false; {just in case, will be set |true| for sparse array elements}
   if cur_cmd=toks_register then
-    if cur_chr=mem_bot then
-      begin scan_register_num;
-      if cur_val>255 then
-        begin find_sa_element(tok_val,cur_val,true);
-        cur_chr:=cur_ptr; e:=true;
-        end
-      else cur_chr:=toks_base+cur_val;
-      end
-    else e:=true;
-  p:=cur_chr; {|p=every_par_loc| or |output_routine_loc| or \dots}
+    begin scan_register_num; p:=toks_base+cur_val;
+    end
+  else p:=cur_chr; {|p=every_par_loc| or |output_routine_loc| or \dots}
   scan_optional_equals;
   @<Get the next non-blank non-relax non-call token@>;
   if cur_cmd<>left_brace then @<If the right-hand side is a token parameter
       or token register, finish the assignment and |goto done|@>;
   back_input; cur_cs:=q; q:=scan_toks(false,false);
   if link(def_ref)=null then {empty list: revert to the default}
-    begin sa_define(p,null)(p,undefined_cs,null); free_avail(def_ref);
+    begin define(p,undefined_cs,null); free_avail(def_ref);
     end
-  else  begin if (p=output_routine_loc)and not e then {enclose in curlies}
+  else  begin if p=output_routine_loc then {enclose in curlies}
       begin link(q):=get_avail; q:=link(q);
       info(q):=right_brace_token+"}";
       q:=get_avail; info(q):=left_brace_token+"{";
       link(q):=link(def_ref); link(def_ref):=q;
       end;
-    sa_define(p,def_ref)(p,call,def_ref);
+    define(p,call,def_ref);
     end;
   end;
 
 @ @<If the right-hand side is a token parameter...@>=
-if (cur_cmd=toks_register)or(cur_cmd=assign_toks) then
-  begin if cur_cmd=toks_register then
-    if cur_chr=mem_bot then
-      begin scan_register_num;
-      if cur_val<256 then q:=equiv(toks_base+cur_val)
-      else  begin find_sa_element(tok_val,cur_val,false);
-        if cur_ptr=null then q:=null
-        else q:=sa_ptr(cur_ptr);
-        end;
-      end
-    else q:=sa_ptr(cur_chr)
-  else q:=equiv(cur_chr);
-  if q=null then sa_define(p,null)(p,undefined_cs,null)
-  else  begin add_token_ref(q); sa_define(p,q)(p,call,q);
+begin if cur_cmd=toks_register then
+  begin scan_register_num; cur_cmd:=assign_toks; cur_chr:=toks_base+cur_val;
+  end;
+if cur_cmd=assign_toks then
+  begin q:=equiv(cur_chr);
+  if q=null then define(p,undefined_cs,null)
+  else  begin add_token_ref(q); define(p,call,q);
     end;
   goto done;
-  end
+  end;
+end
 
 @ Similar routines are used to assign values to the numeric parameters.
 
@@ -30614,10 +30590,7 @@ procedure do_register_command(@!a:small_number);
 label found,exit;
 var l,@!q,@!r,@!s:pointer; {for list manipulation}
 @!p:int_val..mu_val; {type of register involved}
-@!e:boolean; {does |l| refer to a sparse array element?}
-@!w:integer; {integer or dimen value of |l|}
 begin q:=cur_cmd;
-e:=false; {just in case, will be set |true| for sparse array elements}
 @<Compute the register location |l| and its type |p|; but |return| if invalid@>;
 if q=register then scan_optional_equals
 else if scan_keyword("by") then do_nothing; {optional `\.{by}'}
@@ -30632,8 +30605,8 @@ if arith_error then
     ("since the result is out of range.");
   error; return;
   end;
-if p<glue_val then sa_word_define(l,cur_val)
-else  begin trap_zero_glue; sa_define(l,cur_val)(l,glue_ref,cur_val);
+if p<glue_val then word_define(l,cur_val)
+else  begin trap_zero_glue; define(l,glue_ref,cur_val);
   end;
 exit: end;
 
@@ -30654,36 +30627,27 @@ begin if q<>register then
     error; return;
     end;
   end;
-if (cur_chr<mem_bot)or(cur_chr>lo_mem_stat_max) then
-  begin l:=cur_chr; p:=sa_type(l); e:=true;
-  end
-else  begin p:=cur_chr-mem_bot; scan_register_num;
-  if cur_val>255 then
-    begin find_sa_element(p,cur_val,true); l:=cur_ptr; e:=true;
-    end
-  else
+p:=cur_chr; scan_register_num;
 case p of
 int_val: l:=cur_val+count_base;
 dimen_val: l:=cur_val+scaled_base;
 glue_val: l:=cur_val+skip_base;
 mu_val: l:=cur_val+mu_skip_base;
 end; {there are no other cases}
-  end;
 end;
-found: if p<glue_val then@+if e then w:=sa_int(l)@+else w:=eqtb[l].int
-else if e then s:=sa_ptr(l)@+else s:=equiv(l)
+found:
 
 @ @<Compute result of |register| or |advance|...@>=
 if p<glue_val then
   begin if p=int_val then scan_int@+else scan_normal_dimen;
-  if q=advance then cur_val:=cur_val+w;
+  if q=advance then cur_val:=cur_val+eqtb[l].int;
   end
 else  begin scan_glue(p);
   if q=advance then @<Compute the sum of two glue specs@>;
   end
 
 @ @<Compute the sum of two glue specs@>=
-begin q:=new_spec(cur_val); r:=s;
+begin q:=new_spec(cur_val); r:=equiv(l);
 delete_glue_ref(cur_val);
 width(q):=width(q)+width(r);
 if stretch(q)=0 then stretch_order(q):=normal;
@@ -30703,10 +30667,10 @@ end
 begin scan_int;
 if p<glue_val then
   if q=multiply then
-    if p=int_val then cur_val:=mult_integers(w,cur_val)
-    else cur_val:=nx_plus_y(w,cur_val,0)
-  else cur_val:=x_over_n(w,cur_val)
-else  begin r:=new_spec(s);
+    if p=int_val then cur_val:=mult_integers(eqtb[l].int,cur_val)
+    else cur_val:=nx_plus_y(eqtb[l].int,cur_val,0)
+  else cur_val:=x_over_n(eqtb[l].int,cur_val)
+else  begin s:=equiv(l); r:=new_spec(s);
   if q=multiply then
     begin width(r):=nx_plus_y(width(s),cur_val,0);
     stretch(r):=nx_plus_y(stretch(s),cur_val,0);
@@ -30807,10 +30771,10 @@ end;
 @ @<Declare subprocedures for |prefixed_command|@>=
 procedure alter_box_dimen;
 var c:small_number; {|width_offset| or |height_offset| or |depth_offset|}
-@!b:pointer; {box register}
-begin c:=cur_chr; scan_register_num; fetch_box(b); scan_optional_equals;
+@!b:eight_bits; {box number}
+begin c:=cur_chr; scan_register_num; b:=cur_val; scan_optional_equals;
 scan_normal_dimen;
-if b<>null then mem[b+c].sc:=cur_val;
+if box(b)<>null then mem[box(b)+c].sc:=cur_val;
 end;
 
 @ Paragraph shapes are set up in the obvious way.
@@ -31322,9 +31286,10 @@ call,long_call,outer_call,long_outer_call: begin n:=cmd-call;
 end_template: print_esc("outer endtemplate");
 
 @ @<Show the current contents of a box@>=
-begin scan_register_num; fetch_box(p); begin_diagnostic;
+begin scan_register_num; begin_diagnostic;
 print_nl("> \box"); print_int(cur_val); print_char("=");
-if p=null then print("void")@+else show_box(p);
+if box(cur_val)=null then print("void")
+else show_box(box(cur_val));
 end
 
 @ @<Show the current value of some parameter...@>=
@@ -31535,7 +31500,6 @@ information even when it has not been gathering statistics.
 @<Dump the dynamic memory@>=
 sort_avail; var_used:=0;
 dump_int(lo_mem_max); dump_int(rover);
-if eTeX_ex then for k:=int_val to tok_val do dump_int(sa_root[k]);
 p:=mem_bot; q:=rover; x:=0;
 repeat for k:=p to q+1 do dump_wd(mem[k]);
 x:=x+q+2-p; var_used:=var_used+q-p;
@@ -31559,8 +31523,6 @@ print_int(var_used); print_char("&"); print_int(dyn_used)
 @ @<Undump the dynamic memory@>=
 undump(lo_mem_stat_max+1000)(hi_mem_stat_min-1)(lo_mem_max);
 undump(lo_mem_stat_max+1)(lo_mem_max)(rover);
-if eTeX_ex then for k:=int_val to tok_val do
-  undump(null)(lo_mem_max)(sa_root[k]);
 p:=mem_bot; q:=rover;
 repeat for k:=p to q+1 do undump_wd(mem[k]);
 p:=q+node_size(q);
@@ -32027,6 +31989,7 @@ been scanned and |its_all_over|\kern-2pt.
 procedure final_cleanup;
 label exit;
 var c:small_number; {0 for \.{\\end}, 1 for \.{\\dump}}
+i:halfword; { for looping marks }
 begin c:=cur_chr;
 if job_name=0 then open_log_file;
 while input_ptr>0 do
@@ -32061,10 +32024,13 @@ if history<>spotless then
   selector:=term_and_log;
   end;
 if c=1 then
-  begin @!init for c:=top_mark_code to split_bot_mark_code do
-    if cur_mark[c]<>null then delete_token_ref(cur_mark[c]);
-  if sa_mark<>null then
-    if do_marks(destroy_marks,0,sa_mark) then sa_mark:=null;
+  begin @!init for i:=0 to biggest_used_mark do begin
+    if top_mark(i)<>null         then delete_token_ref(top_mark(i));
+    if first_mark(i)<>null       then delete_token_ref(first_mark(i));
+    if bot_mark(i)<>null         then delete_token_ref(bot_mark(i));
+    if split_first_mark(i)<>null then delete_token_ref(split_first_mark(i));
+    if split_bot_mark(i)<>null   then delete_token_ref(split_bot_mark(i));
+    end;
   for c:=last_box_code to vsplit_code do flush_node_list(disc_ptr[c]);
   store_fmt_file; return;@+tini@/
   print_nl("(\dump is performed only by INITEX)"); return;
@@ -32750,14 +32716,14 @@ begin
     else
         obj_xform_resources(k) := null;
     scan_int;
-    fetch_box(p);
+	p:=box(cur_val);
     if p = null then
         pdf_error("ext1", "\pdfxform cannot be used with a void box");
     obj_xform_width(k) := width(p);
     obj_xform_height(k) := height(p);
     obj_xform_depth(k) := depth(p);
     obj_xform_box(k) := p; {save pointer to the box}
-    change_box(null);
+	box(cur_val):=null;
     pdf_last_xform := k;
 end
 
@@ -35130,7 +35096,6 @@ is a run-time switch.
   begin no_new_control_sequence:=false;
   @<Generate all \eTeX\ primitives@>@;
   incr(loc); eTeX_mode:=1; {enter extended mode}
-  @<Initialize variables for \eTeX\ extended mode@>@;
   end;
 tini@;@/
 if not no_new_control_sequence then {just entered extended mode ?}
@@ -35172,7 +35137,6 @@ eTeX_version_code: cur_val:=eTeX_version;
 
 @ @<Initialize table entries...@>=
 eTeX_mode:=0; {initially we are in compatibility mode}
-@<Initialize variables for \eTeX\ compatibility mode@>@;
 
 @ @<Dump the \eTeX\ state@>=
 dump_int(eTeX_mode);
@@ -35180,11 +35144,6 @@ for j:=0 to eTeX_states-1 do eTeX_state(j):=0; {disable all enhancements}
 
 @ @<Undump the \eTeX\ state@>=
 undump(0)(1)(eTeX_mode);
-if eTeX_ex then
-  begin @<Initialize variables for \eTeX\ extended mode@>@;
-  end
-else  begin @<Initialize variables for \eTeX\ compatibility mode@>@;
-  end;
 
 @ The |eTeX_enabled| function simply returns its first argument as
 result.  This argument is |true| if an optional \eTeX\ feature is
@@ -37343,668 +37302,6 @@ mu_to_glue_code: scan_mu_glue;
 @ @<Cases for fetching a mu value@>=
 glue_to_mu_code: scan_normal_glue;
 
-@ \eTeX\ (in extended mode) supports 32768 (i.e., $2^{15}$) count,
-dimen, skip, muskip, box, and token registers.  As in \TeX\ the first
-256 registers of each kind are realized as arrays in the table of
-equivalents; the additional registers are realized as tree structures
-built from variable-size nodes with individual registers existing only
-when needed.  Default values are used for nonexistent registers:  zero
-for count and dimen values, |zero_glue| for glue (skip and muskip)
-values, void for boxes, and |null| for token lists (and current marks
-discussed below).
-
-Similarly there are 32768 mark classes; the command \.{\\marks}|n|
-creates a mark node for a given mark class |0<=n<=32767| (where
-\.{\\marks0} is synonymous to \.{\\mark}).  The page builder (actually
-the |fire_up| routine) and the |vsplit| routine maintain the current
-values of |top_mark|, |first_mark|, |bot_mark|, |split_first_mark|, and
-|split_bot_mark| for each mark class.  They are accessed as
-\.{\\topmarks}|n| etc., and \.{\\topmarks0} is again synonymous to
-\.{\\topmark}.  As in \TeX\ the five current marks for mark class zero
-are realized as |cur_mark| array.  The additional current marks are
-again realized as tree structure with individual mark classes existing
-only when needed.
-
-@<Generate all \eTeX...@>=
-primitive("marks",mark,marks_code);
-@!@:marks_}{\.{\\marks} primitive@>
-primitive("topmarks",top_bot_mark,top_mark_code+marks_code);
-@!@:top_marks_}{\.{\\topmarks} primitive@>
-primitive("firstmarks",top_bot_mark,first_mark_code+marks_code);
-@!@:first_marks_}{\.{\\firstmarks} primitive@>
-primitive("botmarks",top_bot_mark,bot_mark_code+marks_code);
-@!@:bot_marks_}{\.{\\botmarks} primitive@>
-primitive("splitfirstmarks",top_bot_mark,split_first_mark_code+marks_code);
-@!@:split_first_marks_}{\.{\\splitfirstmarks} primitive@>
-primitive("splitbotmarks",top_bot_mark,split_bot_mark_code+marks_code);
-@!@:split_bot_marks_}{\.{\\splitbotmarks} primitive@>
-
-@ The |scan_register_num| procedure scans a register number that must
-not exceed 255 in compatibility mode resp.\ 32767 in extended mode.
-
-@<Declare \eTeX\ procedures for ex...@>=
-procedure@?scan_register_num; forward;@t\2@>
-
-@ @<Declare procedures that scan restricted classes of integers@>=
-procedure scan_register_num;
-begin scan_int;
-if (cur_val<0)or(cur_val>max_reg_num) then
-  begin print_err("Bad register code");
-@.Bad register code@>
-  help2(max_reg_help_line)("I changed this one to zero.");
-  int_error(cur_val); cur_val:=0;
-  end;
-end;
-
-@ @<Initialize variables for \eTeX\ comp...@>=
-max_reg_num:=255;
-max_reg_help_line:="A register number must be between 0 and 255.";
-
-@ @<Initialize variables for \eTeX\ ext...@>=
-max_reg_num:=32767;
-max_reg_help_line:="A register number must be between 0 and 32767.";
-
-@ @<Glob...@>=
-@!max_reg_num: halfword; {largest allowed register number}
-@!max_reg_help_line: str_number; {first line of help message}
-
-@ There are seven almost identical doubly linked trees, one for the
-sparse array of the up to 32512 additional registers of each kind and
-one for the sparse array of the up to 32767 additional mark classes.
-The root of each such tree, if it exists, is an index node containing 16
-pointers to subtrees for 4096 consecutive array elements.  Similar index
-nodes are the starting points for all nonempty subtrees for 4096, 256,
-and 16 consecutive array elements.  These four levels of index nodes are
-followed by a fifth level with nodes for the individual array elements.
-
-Each index node is nine words long.  The pointers to the 16 possible
-subtrees or are kept in the |info| and |link| fields of the last eight
-words.  (It would be both elegant and efficient to declare them as
-array, unfortunately \PASCAL\ doesn't allow this.)
-
-The fields in the first word of each index node and in the nodes for the
-array elements are closely related.  The |link| field points to the next
-lower index node and the |sa_index| field contains four bits (one
-hexadecimal digit) of the register number or mark class.  For the lowest
-index node the |link| field is |null| and the |sa_index| field indicates
-the type of quantity (|int_val|, |dimen_val|, |glue_val|, |mu_val|,
-|box_val|, |tok_val|, or |mark_val|).  The |sa_used| field in the index
-nodes counts how many of the 16 pointers are non-null.
-
-The |sa_index| field in the nodes for array elements contains the four
-bits plus 16 times the type.  Therefore such a node represents a count
-or dimen register if and only if |sa_index<dimen_val_limit|; it
-represents a skip or muskip register if and only if
-|dimen_val_limit<=sa_index<mu_val_limit|; it represents a box register
-if and only if |mu_val_limit<=sa_index<box_val_limit|; it represents a
-token list register if and only if
-|box_val_limit<=sa_index<tok_val_limit|; finally it represents a mark
-class if and only if |tok_val_limit<=sa_index|.
-
-The |new_index| procedure creates an index node (returned in |cur_ptr|)
-having given contents of the |sa_index| and |link| fields.
-
-@d box_val==4 {the additional box registers}
-@d mark_val=6 {the additional mark classes}
-@#
-@d dimen_val_limit=@"20 {$2^4\cdot(|dimen_val|+1)$}
-@d mu_val_limit=@"40 {$2^4\cdot(|mu_val|+1)$}
-@d box_val_limit=@"50 {$2^4\cdot(|box_val|+1)$}
-@d tok_val_limit=@"60 {$2^4\cdot(|tok_val|+1)$}
-@#
-@d index_node_size=9 {size of an index node}
-@d sa_index==type {a four-bit address or a type or both}
-@d sa_used==subtype {count of non-null pointers}
-
-@<Declare \eTeX\ procedures for ex...@>=
-procedure new_index(@!i:quarterword; @!q:pointer);
-var k:small_number; {loop index}
-begin cur_ptr:=get_node(index_node_size); sa_index(cur_ptr):=i;
-sa_used(cur_ptr):=0; link(cur_ptr):=q;
-for k:=1 to index_node_size-1 do {clear all 16 pointers}
-  mem[cur_ptr+k]:=sa_null;
-end;
-
-@ The roots of the seven trees for the additional registers and mark
-classes are kept in the |sa_root| array.  The first six locations must
-be dumped and undumped; the last one is also known as |sa_mark|.
-
-@d sa_mark==sa_root[mark_val] {root for mark classes}
-
-@<Glob...@>=
-@!sa_root:array[int_val..mark_val] of pointer; {roots of sparse arrays}
-@!cur_ptr:pointer; {value returned by |new_index| and |find_sa_element|}
-@!sa_null:memory_word; {two |null| pointers}
-
-@ @<Set init...@>=
-sa_mark:=null; sa_null.hh.lh:=null; sa_null.hh.rh:=null;
-
-@ @<Initialize table...@>=
-for i:=int_val to tok_val do sa_root[i]:=null;
-
-@ Given a type |t| and a sixteen-bit number |n|, the |find_sa_element|
-procedure returns (in |cur_ptr|) a pointer to the node for the
-corresponding array element, or |null| when no such element exists.  The
-third parameter |w| is set |true| if the element must exist, e.g.,
-because it is about to be modified.  The procedure has two main
-branches:  one follows the existing tree structure, the other (only used
-when |w| is |true|) creates the missing nodes.
-
-We use macros to extract the four-bit pieces from a sixteen-bit register
-number or mark class and to fetch or store one of the 16 pointers from
-an index node.
-
-@d if_cur_ptr_is_null_then_return_or_goto(#)== {some tree element is missing}
-  begin if cur_ptr=null then
-    if w then goto #@+else return;
-  end
-@#
-@d hex_dig1(#)==# div 4096 {the fourth lowest hexadecimal digit}
-@d hex_dig2(#)==(# div 256) mod 16 {the third lowest hexadecimal digit}
-@d hex_dig3(#)==(# div 16) mod 16 {the second lowest hexadecimal digit}
-@d hex_dig4(#)==# mod 16 {the lowest hexadecimal digit}
-@#
-@d get_sa_ptr==if odd(i) then cur_ptr:=link(q+(i div 2)+1)
-  else cur_ptr:=info(q+(i div 2)+1)
-    {set |cur_ptr| to the pointer indexed by |i| from index node |q|}
-@d put_sa_ptr(#)==if odd(i) then link(q+(i div 2)+1):=#
-  else info(q+(i div 2)+1):=#
-    {store the pointer indexed by |i| in index node |q|}
-@d add_sa_ptr==begin put_sa_ptr(cur_ptr); incr(sa_used(q));
-  end {add |cur_ptr| as the pointer indexed by |i| in index node |q|}
-@d delete_sa_ptr==begin put_sa_ptr(null); decr(sa_used(q));
-  end {delete the pointer indexed by |i| in index node |q|}
-
-@<Declare \eTeX\ procedures for ex...@>=
-procedure find_sa_element(@!t:small_number;@!n:halfword;@!w:boolean);
-  {sets |cur_val| to sparse array element location or |null|}
-label not_found,not_found1,not_found2,not_found3,not_found4,exit;
-var q:pointer; {for list manipulations}
-@!i:small_number; {a four bit index}
-begin cur_ptr:=sa_root[t];
-if_cur_ptr_is_null_then_return_or_goto(not_found);@/
-q:=cur_ptr; i:=hex_dig1(n); get_sa_ptr;
-if_cur_ptr_is_null_then_return_or_goto(not_found1);@/
-q:=cur_ptr; i:=hex_dig2(n); get_sa_ptr;
-if_cur_ptr_is_null_then_return_or_goto(not_found2);@/
-q:=cur_ptr; i:=hex_dig3(n); get_sa_ptr;
-if_cur_ptr_is_null_then_return_or_goto(not_found3);@/
-q:=cur_ptr; i:=hex_dig4(n); get_sa_ptr;
-if (cur_ptr=null)and w then goto not_found4;
-return;
-not_found: new_index(t,null); {create first level index node}
-sa_root[t]:=cur_ptr; q:=cur_ptr; i:=hex_dig1(n);
-not_found1: new_index(i,q); {create second level index node}
-add_sa_ptr; q:=cur_ptr; i:=hex_dig2(n);
-not_found2: new_index(i,q); {create third level index node}
-add_sa_ptr; q:=cur_ptr; i:=hex_dig3(n);
-not_found3: new_index(i,q); {create fourth level index node}
-add_sa_ptr; q:=cur_ptr; i:=hex_dig4(n);
-not_found4: @<Create a new array element of type |t| with index |i|@>;
-link(cur_ptr):=q; add_sa_ptr;
-exit:end;
-
-@ The array elements for registers are subject to grouping and have an
-|sa_lev| field (quite analogous to |eq_level|) instead of |sa_used|.
-Since saved values as well as shorthand definitions (created by e.g.,
-\.{\\countdef}) refer to the location of the respective array element,
-we need a reference count that is kept in the |sa_ref| field.  An array
-element can be deleted (together with all references to it) when its
-|sa_ref| value is |null| and its value is the default value.
-@^reference counts@>
-
-Skip, muskip, box, and token registers use two word nodes, their values
-are stored in the |sa_ptr| field.
-Count and dimen registers use three word nodes, their
-values are stored in the |sa_int| resp.\ |sa_dim| field in the third
-word; the |sa_ptr| field is used under the name |sa_num| to store
-the register number.  Mark classes use four word nodes.  The last three
-words contain the five types of current marks
-
-@d sa_lev==sa_used {grouping level for the current value}
-@d pointer_node_size=2 {size of an element with a pointer value}
-@d sa_type(#)==(sa_index(#) div 16) {type part of combined type/index}
-@d sa_ref(#)==info(#+1) {reference count of a sparse array element}
-@d sa_ptr(#)==link(#+1) {a pointer value}
-@#
-@d word_node_size=3 {size of an element with a word value}
-@d sa_num==sa_ptr {the register number}
-@d sa_int(#)==mem[#+2].int {an integer}
-@d sa_dim(#)==mem[#+2].sc {a dimension (a somewhat esotheric distinction)}
-@#
-@d mark_class_node_size=4 {size of an element for a mark class}
-@#
-@d fetch_box(#)== {fetch |box(cur_val)|}
-  if cur_val<256 then #:=box(cur_val)
-  else  begin find_sa_element(box_val,cur_val,false);
-    if cur_ptr=null then #:=null@+else #:=sa_ptr(cur_ptr);
-    end
-
-@<Create a new array element...@>=
-if t=mark_val then {a mark class}
-  begin cur_ptr:=get_node(mark_class_node_size);
-  mem[cur_ptr+1]:=sa_null; mem[cur_ptr+2]:=sa_null; mem[cur_ptr+3]:=sa_null;
-  end
-else  begin if t<=dimen_val then {a count or dimen register}
-    begin cur_ptr:=get_node(word_node_size); sa_int(cur_ptr):=0;
-    sa_num(cur_ptr):=n;
-    end
-  else  begin cur_ptr:=get_node(pointer_node_size);
-    if t<=mu_val then {a skip or muskip register}
-      begin sa_ptr(cur_ptr):=zero_glue; add_glue_ref(zero_glue);
-      end
-    else sa_ptr(cur_ptr):=null; {a box or token list register}
-    end;
-  sa_ref(cur_ptr):=null; {all registers have a reference count}
-  end;
-sa_index(cur_ptr):=16*t+i; sa_lev(cur_ptr):=level_one
-
-@ The |delete_sa_ref| procedure is called when a pointer to an array
-element representing a register is being removed; this means that the
-reference count should be decreased by one.  If the reduced reference
-count is |null| and the register has been (globally) assigned its
-default value the array element should disappear, possibly together with
-some index nodes.  This procedure will never be used for mark class
-nodes.
-@^reference counts@>
-
-@d add_sa_ref(#)==incr(sa_ref(#)) {increase reference count}
-@#
-@d change_box(#)== {change |box(cur_val)|, the |eq_level| stays the same}
-  if cur_val<256 then box(cur_val):=#@+else set_sa_box(#)
-@#
-@d set_sa_box(#)==begin find_sa_element(box_val,cur_val,false);
-  if cur_ptr<>null then
-    begin sa_ptr(cur_ptr):=#; add_sa_ref(cur_ptr); delete_sa_ref(cur_ptr);
-    end;
-  end
-
-@<Declare \eTeX\ procedures for tr...@>=
-procedure delete_sa_ref(@!q:pointer); {reduce reference count}
-label exit;
-var p:pointer; {for list manipulations}
-@!i:small_number; {a four bit index}
-@!s:small_number; {size of a node}
-begin decr(sa_ref(q));
-if sa_ref(q)<>null then return;
-if sa_index(q)<dimen_val_limit then
- if sa_int(q)=0 then s:=word_node_size
- else return
-else  begin if sa_index(q)<mu_val_limit then
-    if sa_ptr(q)=zero_glue then delete_glue_ref(zero_glue)
-    else return
-  else if sa_ptr(q)<>null then return;
-  s:=pointer_node_size;
-  end;
-repeat i:=hex_dig4(sa_index(q)); p:=q; q:=link(p); free_node(p,s);
-if q=null then {the whole tree has been freed}
-  begin sa_root[i]:=null; return;
-  end;
-delete_sa_ptr; s:=index_node_size; {node |q| is an index node}
-until sa_used(q)>0;
-exit:end;
-
-@ The |print_sa_num| procedure prints the register number corresponding
-to an array element.
-
-@<Basic print...@>=
-procedure print_sa_num(@!q:pointer); {print register number}
-var @!n:halfword; {the register number}
-begin if sa_index(q)<dimen_val_limit then n:=sa_num(q) {the easy case}
-else  begin n:=hex_dig4(sa_index(q)); q:=link(q); n:=n+16*sa_index(q);
-  q:=link(q); n:=n+256*(sa_index(q)+16*sa_index(link(q)));
-  end;
-print_int(n);
-end;
-
-@ Here is a procedure that displays the contents of an array element
-symbolically.  It is used under similar circumstances as is
-|restore_trace| (together with |show_eqtb|) for the quantities kept in
-the |eqtb| array.
-
-@<Declare \eTeX\ procedures for tr...@>=
-@!stat procedure show_sa(@!p:pointer;@!s:str_number);
-var t:small_number; {the type of element}
-begin begin_diagnostic; print_char("{"); print(s); print_char(" ");
-if p=null then print_char("?") {this can't happen}
-else  begin t:=sa_type(p);
-  if t<box_val then print_cmd_chr(register,p)
-  else if t=box_val then
-    begin print_esc("box"); print_sa_num(p);
-    end
-  else if t=tok_val then print_cmd_chr(toks_register,p)
-  else print_char("?"); {this can't happen either}
-  print_char("=");
-  if t=int_val then print_int(sa_int(p))
-  else if t=dimen_val then
-    begin print_scaled(sa_dim(p)); print("pt");
-    end
-  else  begin p:=sa_ptr(p);
-    if t=glue_val then print_spec(p,"pt")
-    else if t=mu_val then print_spec(p,"mu")
-    else if t=box_val then
-      if p=null then print("void")
-      else  begin depth_threshold:=0; breadth_max:=1; show_node_list(p);
-        end
-    else if t=tok_val then
-      begin if p<>null then show_token_list(link(p),null,32);
-      end
-    else print_char("?"); {this can't happen either}
-    end;
-  end;
-print_char("}"); end_diagnostic(false);
-end;
-tats
-
-@ Here we compute the pointer to the current mark of type |t| and mark
-class |cur_val|.
-
-@<Compute the mark pointer...@>=
-begin find_sa_element(mark_val,cur_val,false);
-if cur_ptr<>null then
-  if odd(t) then cur_ptr:=link(cur_ptr+(t div 2)+1)
-  else cur_ptr:=info(cur_ptr+(t div 2)+1);
-end
-
-@ The current marks for all mark classes are maintained by the |vsplit|
-and |fire_up| routines and are finally destroyed (for \.{INITEX} only)
-@.INITEX@>
-by the |final_cleanup| routine.  Apart from updating the current marks
-when mark nodes are encountered, these routines perform certain actions
-on all existing mark classes.  The recursive |do_marks| procedure walks
-through the whole tree or a subtree of existing mark class nodes and
-preforms certain actions indicted by its first parameter |a|, the action
-code.  The second parameter |l| indicates the level of recursion (at
-most four); the third parameter points to a nonempty tree or subtree.
-The result is |true| if the complete tree or subtree has been deleted.
-
-@d vsplit_init==0 {action code for |vsplit| initialization}
-@d fire_up_init==1 {action code for |fire_up| initialization}
-@d fire_up_done==2 {action code for |fire_up| completion}
-@d destroy_marks==3 {action code for |final_cleanup|}
-@#
-@d sa_top_mark(#)==info(#+1) {\.{\\topmarks}|n|}
-@d sa_first_mark(#)==link(#+1) {\.{\\firstmarks}|n|}
-@d sa_bot_mark(#)==info(#+2) {\.{\\botmarks}|n|}
-@d sa_split_first_mark(#)==link(#+2) {\.{\\splitfirstmarks}|n|}
-@d sa_split_bot_mark(#)==info(#+3) {\.{\\splitbotmarks}|n|}
-
-@<Declare the function called |do_marks|@>=
-function do_marks(@!a,@!l:small_number;@!q:pointer):boolean;
-var i:small_number; {a four bit index}
-begin if l<4 then {|q| is an index node}
-  begin for i:=0 to 15 do
-    begin get_sa_ptr;
-    if cur_ptr<>null then if do_marks(a,l+1,cur_ptr) then delete_sa_ptr;
-    end;
-  if sa_used(q)=0 then
-    begin free_node(q,index_node_size); q:=null;
-    end;
-  end
-else {|q| is the node for a mark class}
-  begin case a of
-  @<Cases for |do_marks|@>@;
-  end; {there are no other cases}
-  if sa_bot_mark(q)=null then if sa_split_bot_mark(q)=null then
-    begin free_node(q,mark_class_node_size); q:=null;
-    end;
-  end;
-do_marks:=(q=null);
-end;
-
-@ At the start of the |vsplit| routine the existing |split_fist_mark|
-and |split_bot_mark| are discarded.
-
-@<Cases for |do_marks|@>=
-vsplit_init: if sa_split_first_mark(q)<>null then
-  begin delete_token_ref(sa_split_first_mark(q)); sa_split_first_mark(q):=null;
-  delete_token_ref(sa_split_bot_mark(q)); sa_split_bot_mark(q):=null;
-  end;
-
-@ We use again the fact that |split_first_mark=null| if and only if
-|split_bot_mark=null|.
-
-@<Update the current marks for |vsplit|@>=
-begin find_sa_element(mark_val,mark_class(p),true);
-if sa_split_first_mark(cur_ptr)=null then
-  begin sa_split_first_mark(cur_ptr):=mark_ptr(p);
-  add_token_ref(mark_ptr(p));
-  end
-else delete_token_ref(sa_split_bot_mark(cur_ptr));
-sa_split_bot_mark(cur_ptr):=mark_ptr(p);
-add_token_ref(mark_ptr(p));
-end
-
-@ At the start of the |fire_up| routine the old |top_mark| and
-|first_mark| are discarded, whereas the old |bot_mark| becomes the new
-|top_mark|.  An empty new |top_mark| token list is, however, discarded
-as well in order that mark class nodes can eventually be released.  We
-use again the fact that |bot_mark<>null| implies |first_mark<>null|; it
-also knows that |bot_mark=null| implies |top_mark=first_mark=null|.
-
-@<Cases for |do_marks|@>=
-fire_up_init: if sa_bot_mark(q)<>null then
-  begin if sa_top_mark(q)<>null then delete_token_ref(sa_top_mark(q));
-  delete_token_ref(sa_first_mark(q)); sa_first_mark(q):=null;
-  if link(sa_bot_mark(q))=null then {an empty token list}
-    begin delete_token_ref(sa_bot_mark(q)); sa_bot_mark(q):=null;
-    end
-  else add_token_ref(sa_bot_mark(q));
-  sa_top_mark(q):=sa_bot_mark(q);
-  end;
-
-@ @<Cases for |do_marks|@>=
-fire_up_done: if (sa_top_mark(q)<>null)and(sa_first_mark(q)=null) then
-  begin sa_first_mark(q):=sa_top_mark(q); add_token_ref(sa_top_mark(q));
-  end;
-
-@ @<Update the current marks for |fire_up|@>=
-begin find_sa_element(mark_val,mark_class(p),true);
-if sa_first_mark(cur_ptr)=null then
-  begin sa_first_mark(cur_ptr):=mark_ptr(p);
-  add_token_ref(mark_ptr(p));
-  end;
-if sa_bot_mark(cur_ptr)<>null then delete_token_ref(sa_bot_mark(cur_ptr));
-sa_bot_mark(cur_ptr):=mark_ptr(p); add_token_ref(mark_ptr(p));
-end
-
-@ Here we use the fact that the five current mark pointers in a mark
-class node occupy the same locations as the the first five pointers of
-an index node.  For systems using a run-time switch to distinguish
-between \.{VIRTEX} and \.{INITEX}, the codewords `$|init|\ldots|tini|$'
-surrounding the following piece of code should be removed.
-@.INITEX@>
-@^system dependencies@>
-
-@<Cases for |do_marks|@>=
-@!init destroy_marks: for i:=top_mark_code to split_bot_mark_code do
-  begin get_sa_ptr;
-  if cur_ptr<>null then
-    begin delete_token_ref(cur_ptr); put_sa_ptr(null);
-    end;
-  end;
-tini
-
-@ The command code |register| is used for `\.{\\count}', `\.{\\dimen}',
-etc., as well as for references to sparse array elements defined by
-`\.{\\countdef}', etc.
-
-@<Cases of |register| for |print_cmd_chr|@>=
-begin if (chr_code<mem_bot)or(chr_code>lo_mem_stat_max) then
-  cmd:=sa_type(chr_code)
-else  begin cmd:=chr_code-mem_bot; chr_code:=null;
-  end;
-if cmd=int_val then print_esc("count")
-else if cmd=dimen_val then print_esc("dimen")
-else if cmd=glue_val then print_esc("skip")
-else print_esc("muskip");
-if chr_code<>null then print_sa_num(chr_code);
-end
-
-@ Similarly the command code |toks_register| is used for `\.{\\toks}' as
-well as for references to sparse array elements defined by
-`\.{\\toksdef}'.
-
-@<Cases of |toks_register| for |print_cmd_chr|@>=
-begin print_esc("toks");
-if chr_code<>mem_bot then print_sa_num(chr_code);
-end
-
-@ When a shorthand definition for an element of one of the sparse arrays
-is destroyed, we must reduce the reference count.
-
-@<Cases for |eq_destroy|@>=
-toks_register,register:
-  if (equiv_field(w)<mem_bot)or(equiv_field(w)>lo_mem_stat_max) then
-    delete_sa_ref(equiv_field(w));
-
-@ The task to maintain (change, save, and restore) register values is
-essentially the same when the register is realized as sparse array
-element or entry in |eqtb|.  The global variable |sa_chain| is the head
-of a linked list of entries saved at the topmost level |sa_level|; the
-lists for lowel levels are kept in special save stack entries.
-
-@<Glob...@>=
-@!sa_chain: pointer; {chain of saved sparse array entries}
-@!sa_level: quarterword; {group level for |sa_chain|}
-
-@ @<Set init...@>=
-sa_chain:=null; sa_level:=level_zero;
-
-@ The individual saved items are kept in pointer or word nodes similar
-to those used for the array elements: a word node with value zero is,
-however, saved as pointer node with the otherwise impossible |sa_index|
-value |tok_val_limit|.
-
-@d sa_loc==sa_ref {location of saved item}
-
-@<Declare \eTeX\ procedures for tr...@>=
-procedure sa_save(@!p:pointer); {saves value of |p|}
-var q:pointer; {the new save node}
-@!i:quarterword; {index field of node}
-begin if cur_level<>sa_level then
-  begin check_full_save_stack; save_type(save_ptr):=restore_sa;
-  save_level(save_ptr):=sa_level; save_index(save_ptr):=sa_chain;
-  incr(save_ptr); sa_chain:=null; sa_level:=cur_level;
-  end;
-i:=sa_index(p);
-if i<dimen_val_limit then
-  begin if sa_int(p)=0 then
-    begin q:=get_node(pointer_node_size); i:=tok_val_limit;
-    end
-  else  begin q:=get_node(word_node_size); sa_int(q):=sa_int(p);
-    end;
-  sa_ptr(q):=null;
-  end
-else  begin q:=get_node(pointer_node_size); sa_ptr(q):=sa_ptr(p);
-  end;
-sa_loc(q):=p; sa_index(q):=i; sa_lev(q):=sa_lev(p);
-link(q):=sa_chain; sa_chain:=q; add_sa_ref(p);
-end;
-
-@ @<Declare \eTeX\ procedures for tr...@>=
-procedure sa_destroy(@!p:pointer); {destroy value of |p|}
-begin if sa_index(p)<mu_val_limit then delete_glue_ref(sa_ptr(p))
-else if sa_ptr(p)<>null then
-  if sa_index(p)<box_val_limit then flush_node_list(sa_ptr(p))
-  else delete_token_ref(sa_ptr(p));
-end;
-
-@ The procedure |sa_def| assigns a new value to sparse array elements,
-and saves the former value if appropriate.  This procedure is used only
-for skip, muskip, box, and token list registers.  The counterpart of
-|sa_def| for count and dimen registers is called |sa_w_def|.
-
-@d sa_define(#)==if e then
-    if global then gsa_def(#)@+else sa_def(#)
-  else define
-@#
-@d sa_def_box== {assign |cur_box| to |box(cur_val)|}
-  begin find_sa_element(box_val,cur_val,true);
-  if global then gsa_def(cur_ptr,cur_box)@+else sa_def(cur_ptr,cur_box);
-  end
-@#
-@d sa_word_define(#)==if e then
-    if global then gsa_w_def(#)@+else sa_w_def(#)
-  else word_define(#)
-
-@<Declare \eTeX\ procedures for tr...@>=
-procedure sa_def(@!p:pointer;@!e:halfword);
-  {new data for sparse array elements}
-begin add_sa_ref(p);
-if sa_ptr(p)=e then
-  begin @!stat if tracing_assigns>0 then show_sa(p,"reassigning");@+tats@;@/
-  sa_destroy(p);
-  end
-else  begin @!stat if tracing_assigns>0 then show_sa(p,"changing");@+tats@;@/
-  if sa_lev(p)=cur_level then sa_destroy(p)@+else sa_save(p);
-  sa_lev(p):=cur_level; sa_ptr(p):=e;
-  @!stat if tracing_assigns>0 then show_sa(p,"into");@+tats@;@/
-  end;
-delete_sa_ref(p);
-end;
-@#
-procedure sa_w_def(@!p:pointer;@!w:integer);
-begin add_sa_ref(p);
-if sa_int(p)=w then
-  begin @!stat if tracing_assigns>0 then show_sa(p,"reassigning");@+tats@;@/
-  end
-else  begin @!stat if tracing_assigns>0 then show_sa(p,"changing");@+tats@;@/
-  if sa_lev(p)<>cur_level then sa_save(p);
-  sa_lev(p):=cur_level; sa_int(p):=w;
-  @!stat if tracing_assigns>0 then show_sa(p,"into");@+tats@;@/
-  end;
-delete_sa_ref(p);
-end;
-
-@ The |sa_def| and |sa_w_def| routines take care of local definitions.
-@^global definitions@>
-Global definitions are done in almost the same way, but there is no need
-to save old values, and the new value is associated with |level_one|.
-
-@<Declare \eTeX\ procedures for tr...@>=
-procedure gsa_def(@!p:pointer;@!e:halfword); {global |sa_def|}
-begin add_sa_ref(p);
-@!stat if tracing_assigns>0 then show_sa(p,"globally changing");@+tats@;@/
-sa_destroy(p); sa_lev(p):=level_one; sa_ptr(p):=e;
-@!stat if tracing_assigns>0 then show_sa(p,"into");@+tats@;@/
-delete_sa_ref(p);
-end;
-@#
-procedure gsa_w_def(@!p:pointer;@!w:integer); {global |sa_w_def|}
-begin add_sa_ref(p);
-@!stat if tracing_assigns>0 then show_sa(p,"globally changing");@+tats@;@/
-sa_lev(p):=level_one; sa_int(p):=w;
-@!stat if tracing_assigns>0 then show_sa(p,"into");@+tats@;@/
-delete_sa_ref(p);
-end;
-
-@ The |sa_restore| procedure restores the sparse array entries pointed
-at by |sa_chain|
-
-@<Declare \eTeX\ procedures for tr...@>=
-procedure sa_restore;
-var p:pointer; {sparse array element}
-begin repeat p:=sa_loc(sa_chain);
-if sa_lev(p)=level_one then
-  begin if sa_index(p)>=dimen_val_limit then sa_destroy(sa_chain);
-  @!stat if tracing_restores>0 then show_sa(p,"retaining");@+tats@;@/
-  end
-else  begin if sa_index(p)<dimen_val_limit then
-    if sa_index(sa_chain)<dimen_val_limit then sa_int(p):=sa_int(sa_chain)
-    else sa_int(p):=0
-  else  begin sa_destroy(p); sa_ptr(p):=sa_ptr(sa_chain);
-    end;
-  sa_lev(p):=sa_lev(sa_chain);
-  @!stat if tracing_restores>0 then show_sa(p,"restoring");@+tats@;@/
-  end;
-delete_sa_ref(p);
-p:=sa_chain; sa_chain:=link(p);
-if sa_index(p)<dimen_val_limit then free_node(p,word_node_size)
-else free_node(p,pointer_node_size);
-until sa_chain=null;
-end;
-
 @ When the value of |last_line_fit| is positive, the last line of a
 (partial) paragraph is treated in a special way and we need additional
 fields in the active nodes.
@@ -38283,6 +37580,20 @@ if (equiv(m)=null)or(cur_val<0) then cur_val:=0
 else  begin if cur_val>penalty(equiv(m)) then cur_val:=penalty(equiv(m));
   cur_val:=penalty(equiv(m)+cur_val);
   end;
+end
+
+@ This is needed to get the relative order of the marks code correct
+
+@<Show the meaning of a mark node@>=
+if (cur_cmd=top_bot_mark)and(cur_chr<marks_code) then
+  begin print_char(":"); print_ln;
+  case cur_chr of
+    first_mark_code:       token_show(first_mark(0));
+    bot_mark_code:         token_show(bot_mark(0));
+    split_first_mark_code: token_show(split_first_mark(0));
+    split_bot_mark_code:   token_show(split_bot_mark(0));
+    othercases             token_show(top_mark(0));
+  endcases;
 end
 
 @* \[54] System-dependent changes.

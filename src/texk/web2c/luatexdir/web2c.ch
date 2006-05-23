@@ -3681,9 +3681,9 @@ if (edit_name_start<>0) and (interaction>batch_mode) then
 @z
 
 @x [51.1335] l.24335 - Only do dump if ini.
-  begin @!init for c:=top_mark_code to split_bot_mark_code do
+  begin @!init for i:=0 to biggest_used_mark do begin
 @y
-  begin @!Init for c:=top_mark_code to split_bot_mark_code do
+  begin @!Init for i:=0 to biggest_used_mark do begin
 @z
 
 @x [51.1335] l.24337 - Only do dump if ini.
