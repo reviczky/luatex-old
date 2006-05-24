@@ -5,6 +5,7 @@
 
 static lua_State *Luas[65356];
 
+
 void
 make_table (lua_State *L, char *tab, char *getfunc, char*setfunc) {
   /* make the table */
@@ -42,55 +43,59 @@ const char *getS(lua_State * L, void *ud, size_t * size) {
 
 void 
 luacall(int n, int s) {
-    LoadS ls;
-    int i, j, k ;
-    char err[] = "LuaTeX Error";
-    if (Luas[n] == NULL) {
-        Luas[n] = luaL_newstate();
-	    luaL_openlibs(Luas[n]);
-        luaopen_pdf(Luas[n]);
-        luaopen_tex(Luas[n]);
-    }
-	luatex_init(s,&ls);
-    i = lua_load(Luas[n], getS, &ls, "luacall");
-    if (i != 0) {
-	  luatex_error(err);
-	  fprintf(stderr, "%s", lua_tostring(Luas[n], -1));
-	  lua_close(Luas[n]);
-	  Luas[n] = NULL;
-	  return;
-    }
-
-    i = lua_pcall(Luas[n], 0, 0, 0);
-    if (i != 0) {
-	  luatex_error(err);
-	  fprintf(stderr, "%s", lua_tostring(Luas[n], -1));
-	  lua_close(Luas[n]);
-	  Luas[n] = NULL;
-    } else {
-      luatex_return () ; /* does nothing */
-    }	  
-	return;
+  LoadS ls;
+  int i, j, k ;
+  char *lua_id;
+  lua_id = (char *)xmalloc(12);
+  if (Luas[n] == NULL) {
+	Luas[n] = luaL_newstate();
+	luaL_openlibs(Luas[n]);
+	luaopen_pdf(Luas[n]);
+	luaopen_tex(Luas[n]);
+  }
+  luatex_load_init(s,&ls);
+  snprintf(lua_id,12,"luas[%d]",n);
+  i = lua_load(Luas[n], getS, &ls, lua_id);
+  if (i != 0) {
+	Luas[n] = luatex_error(Luas[n],(i == LUA_ERRSYNTAX ? 0 : 1));
+  } else {
+	i = lua_pcall(Luas[n], 0, 0, 0);
+	if (i != 0) {
+	  Luas[n] = luatex_error(Luas[n],(i == LUA_ERRRUN ? 0 : 1));
+	}	 
+  }
 }
 
 void 
-luatex_init (int s, LoadS *ls) {
-  ls->s = &(strpool[strstart[s]]);
+luatex_load_init (int s, LoadS *ls) {
+  ls->s = (const char *)&(strpool[strstart[s]]);
   ls->size = strstart[s + 1] - strstart[s];
 }
 
-void 
-luatex_return (void) {
-  return;
-}
-
-void 
-luatex_error (char *err) {
+lua_State *
+luatex_error (lua_State * L, int is_fatal) {
   int i,j;
-  if (poolptr+strlen(err) < poolsize) {
-	for (i = poolptr, j = 0; j < strlen(err); i++, j++)
-	  strpool[i] = err[j];
-	poolptr += strlen(err);
+  size_t len;
+  char *err;
+  poolpointer b;
+  const char *luaerr = lua_tostring(L, -1);
+  err = (char *)xmalloc(128);
+  len = snprintf(err,128,"%s",luaerr);
+  if (is_fatal>0) {
+	luafatalerror(maketexstring(err));
+	/* never reached */
+	xfree (err);
+	lua_close(L);
+	return (lua_State *)NULL;
+  } else {
+	/* running maketexstring() at this point is a bit tricky
+      because we also perform our I/O though the pool: we have
+      to do a rollback immediately after the error */
+	b = poolptr;
+	luanormerror(maketexstring(err));
+	strptr--; poolptr=b;
+	xfree (err);
+	return L;
   }
 }
 

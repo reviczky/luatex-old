@@ -89,6 +89,27 @@ end
 
 
 %***********************************************************************
+@x
+procedure overflow(@!s:str_number;@!n:integer); {stop due to finiteness}
+@y
+procedure lua_norm_error(@!s:str_number); {lua found a problem}
+begin
+print_err("LuaTeX error "); print(s);
+help2("The lua interpreter ran into a problem, so the")@/
+  ("remainder of this lua chunk will be ignored.");
+error;
+end;
+
+procedure lua_fatal_error(@!s:str_number); {lua found a problem}
+begin normalize_selector;
+print_err("LuaTeX fatal error "); print(s);
+succumb;
+end;
+
+procedure overflow(@!s:str_number;@!n:integer); {stop due to finiteness}
+@z
+
+%***********************************************************************
 
 @x
 
@@ -196,8 +217,10 @@ lua_code:
     scanner_status := save_scanner_status;
     b := pool_ptr;
     luacall(cur_val,s);
-    link(garbage) := str_toks(b);
-	ins_list(link(temp_head));
+	if pool_ptr>b then begin	
+      link(garbage) := str_toks(b);
+	  ins_list(link(temp_head));	
+    end;
     flush_str(s);
     return;
   end;

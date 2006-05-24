@@ -31,8 +31,6 @@ int makecurh (lua_State *L) {
 }
 
 
-
-
 static const struct luaL_reg pdflib [] = {
   {"getv", findcurv},
   {"geth", findcurh},
