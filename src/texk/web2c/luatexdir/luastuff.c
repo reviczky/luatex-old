@@ -1,27 +1,12 @@
 /* $Id: luastuff.c,v 1.16 2005/08/10 22:21:53 hahe Exp hahe $ */
 
 #include "luatex-api.h"
+#include <ptexlib.h>
 
+static lua_State *Luas[65356];
 
-static const struct luaL_reg texlib [] = {
-  {"print", poolprint},
-  {"setdimen", setdimen},
-  {"getdimen", getdimen},
-  {"setcount", setcount},
-  {"getcount", getcount},
-  {"settoks",  settoks},
-  {"gettoks",  gettoks},
-  {"setboxwd", setboxwd},
-  {"getboxwd", getboxwd},
-  {"setboxht", setboxht},
-  {"getboxht", getboxht},
-  {"setboxdp", setboxdp},
-  {"getboxdp", getboxdp},
-  {NULL, NULL}  /* sentinel */
-};
-
-void make_table (lua_State *L, char *tab, char *getfunc, char*setfunc)
-{
+void
+make_table (lua_State *L, char *tab, char *getfunc, char*setfunc) {
   /* make the table */
   lua_pushstring(L,tab);
   lua_newtable(L);
@@ -44,36 +29,8 @@ void make_table (lua_State *L, char *tab, char *getfunc, char*setfunc)
   lua_pop(L,1);  /* clean the stack */
 }
 
-int luaopen_tex (lua_State *L) 
-{
-  luaL_openlib(L, "tex", texlib, 0);
-  make_table(L,"dimen","getdimen","setdimen");
-  make_table(L,"count","getcount","setcount");
-  make_table(L,"toks","gettoks","settoks");
-  make_table(L,"wd","getboxwd","setboxwd");
-  make_table(L,"ht","getboxht","setboxht");
-  make_table(L,"dp","getboxdp","setboxdp");
-  return 1;
-}
-
-static const struct luaL_reg pdflib [] = {
-  {"getv", findcurv},
-  {"geth", findcurh},
-  {"setv", makecurv},
-  {"seth", makecurh},
-  {NULL, NULL}  /* sentinel */
-};
-
-int luaopen_pdf (lua_State *L) 
-{
-  luaL_openlib(L, "pdf", pdflib, 0);
-  make_table(L,"v","getv","setv");
-  make_table(L,"h","geth","seth");
-  return 1;
-}
-
-static const char *getS(lua_State * L, void *ud, size_t * size)
-{
+static 
+const char *getS(lua_State * L, void *ud, size_t * size) {
     LoadS *ls = (LoadS *) ud;
     (void) L;
     if (ls->size == 0)
@@ -83,10 +40,8 @@ static const char *getS(lua_State * L, void *ud, size_t * size)
     return ls->s;
 }
 
-static lua_State *Luas[65356];
-
-void luacall(int n, int s)
-{
+void 
+luacall(int n, int s) {
     LoadS ls;
     int i, j, k ;
     char err[] = "LuaTeX Error";
@@ -95,10 +50,6 @@ void luacall(int n, int s)
 	    luaL_openlibs(Luas[n]);
         luaopen_pdf(Luas[n]);
         luaopen_tex(Luas[n]);
-		buf = malloc(BUFSIZE);
-		if (buf == NULL) {
-		  exit (1);
-		}
     }
 	luatex_init(s,&ls);
     i = lua_load(Luas[n], getS, &ls, "luacall");
@@ -107,20 +58,39 @@ void luacall(int n, int s)
 	  fprintf(stderr, "%s", lua_tostring(Luas[n], -1));
 	  lua_close(Luas[n]);
 	  Luas[n] = NULL;
-	  free(buf);
 	  return;
     }
 
-    bufloc = 0;
     i = lua_pcall(Luas[n], 0, 0, 0);
     if (i != 0) {
 	  luatex_error(err);
 	  fprintf(stderr, "%s", lua_tostring(Luas[n], -1));
 	  lua_close(Luas[n]);
 	  Luas[n] = NULL;
-	  free(buf);
     } else {
-	  luatex_return();
-	}	  
+      luatex_return () ; /* does nothing */
+    }	  
 	return;
 }
+
+void 
+luatex_init (int s, LoadS *ls) {
+  ls->s = &(strpool[strstart[s]]);
+  ls->size = strstart[s + 1] - strstart[s];
+}
+
+void 
+luatex_return (void) {
+  return;
+}
+
+void 
+luatex_error (char *err) {
+  int i,j;
+  if (poolptr+strlen(err) < poolsize) {
+	for (i = poolptr, j = 0; j < strlen(err); i++, j++)
+	  strpool[i] = err[j];
+	poolptr += strlen(err);
+  }
+}
+

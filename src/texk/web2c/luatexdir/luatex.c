@@ -3,16 +3,8 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-char *buf;
-
-int bufloc;
-
-integer getcurv AA((void));
-integer getcurh AA((void));
-
-
-int poolprint(lua_State * L)
-{
+int 
+poolprint(lua_State * L) {
     int i, j, k, n, len;
     const char *st;
     n = lua_gettop(L);
@@ -24,14 +16,24 @@ int poolprint(lua_State * L)
       st = lua_tostring(L, i);
       len = lua_strlen(L, i);
       if (len) {
-        for (j = 0, k = bufloc; j < len; j++, k++) {
-          if (k < BUFSIZE)
-		    buf[k] = st[j];
-        }
-        bufloc = k;
+		if (poolptr + len >= poolsize) {
+		  lua_pushstring(L, "LuaTeX Error: pool full");
+		  lua_error(L);
+		} else {
+		  for (j = 0, k = poolptr; j < len; j++, k++)
+			strpool[k] = st[j];
+		  poolptr += len;
+		}
       }
     }
     return 0;
+}
+
+/* temporary */
+
+int 
+tokenprint(lua_State * L) {
+  return poolprint(L);
 }
 
 /* local (static) versions */
@@ -238,53 +240,33 @@ int setboxdp (lua_State *L) {
   return setboxdim(L,depth_offset);
 }
 
+static const struct luaL_reg texlib [] = {
+  {"print", poolprint},
+  {"tokens", tokenprint},
+  {"setdimen", setdimen},
+  {"getdimen", getdimen},
+  {"setcount", setcount},
+  {"getcount", getcount},
+  {"settoks",  settoks},
+  {"gettoks",  gettoks},
+  {"setboxwd", setboxwd},
+  {"getboxwd", getboxwd},
+  {"setboxht", setboxht},
+  {"getboxht", getboxht},
+  {"setboxdp", setboxdp},
+  {"getboxdp", getboxdp},
+  {NULL, NULL}  /* sentinel */
+};
 
-
-int findcurv (lua_State *L) {
-  int j;
-  j = getcurv();
-  lua_pushnumber(L, j);
+int luaopen_tex (lua_State *L) 
+{
+  luaL_openlib(L, "tex", texlib, 0);
+  make_table(L,"dimen","getdimen","setdimen");
+  make_table(L,"count","getcount","setcount");
+  make_table(L,"toks","gettoks","settoks");
+  make_table(L,"wd","getboxwd","setboxwd");
+  make_table(L,"ht","getboxht","setboxht");
+  make_table(L,"dp","getboxdp","setboxdp");
   return 1;
 }
 
-int findcurh (lua_State *L) {
-  int j;
-  j = getcurh();
-  lua_pushnumber(L, j);
-  return 1;
-}
-
-int makecurv (lua_State *L) {
-  lua_pop(L,1); /* table at -1 */
-  return 0;
-}
-
-int makecurh (lua_State *L) {
-  lua_pop(L,1); /* table at -1 */
-  return 0;
-}
-
-void luatex_init (int s, LoadS *ls)
-{
-  ls->s = &(strpool[strstart[s]]);
-  ls->size = strstart[s + 1] - strstart[s];
-}
-
-void luatex_return (void)
-{
-  int j,k;
-  if (poolptr + bufloc >= poolsize)
-	poolptr = poolsize;
-  buf[bufloc] = 0;
-  for (j = 0, k = poolptr; j < bufloc; j++, k++)
-	strpool[k] = buf[j];
-  poolptr += bufloc;
-}
-
-void luatex_error (char *err)
-{
-  int i,j;
-  for (i = poolptr, j = 0; j < strlen(err); i++, j++)
-	strpool[i] = err[j];
-  poolptr += strlen(err);
-}
