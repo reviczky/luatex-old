@@ -5,35 +5,28 @@
 
 int 
 poolprint(lua_State * L) {
-    int i, j, k, n, len;
-    const char *st;
-    n = lua_gettop(L);
-    for (i = 1; i <= n; i++) {
-      if (!lua_isstring(L, i)) {
-        lua_pushstring(L, "LuaTeX Error: no string to print");
-        lua_error(L);
-      }
-      st = lua_tostring(L, i);
-      len = lua_strlen(L, i);
-      if (len) {
-		if (poolptr + len >= poolsize) {
-		  lua_pushstring(L, "LuaTeX Error: pool full");
-		  lua_error(L);
-		} else {
-		  for (j = 0, k = poolptr; j < len; j++, k++)
-			strpool[k] = st[j];
-		  poolptr += len;
-		}
-      }
-    }
-    return 0;
-}
-
-/* temporary */
-
-int 
-tokenprint(lua_State * L) {
-  return poolprint(L);
+  int i, j, k, n, len;
+  const char *st;
+  n = lua_gettop(L);
+  for (i = 1; i <= n; i++) {
+	if (!lua_isstring(L, i)) {
+	  lua_pushstring(L, "no string to print");
+	  lua_error(L);
+	}
+	st = lua_tostring(L, i);
+	len = lua_strlen(L, i);
+	if (len) {
+	  if (poolptr + len >= poolsize) {
+		lua_pushstring(L, "TeX pool full");
+		lua_error(L);
+	  } else {
+		for (j = 0, k = poolptr; j < len; j++, k++)
+		  strpool[k] = st[j];
+		poolptr += len;
+	  }
+	}
+  }
+  return 0;
 }
 
 /* local (static) versions */
@@ -43,8 +36,8 @@ tokenprint(lua_State * L) {
 #define height_offset 3
 
 #define check_index_range(j)                            \
-   if (j<0 || j > 255) {                                \
-	lua_pushstring(L, "LuaTeX Error: incorrect index value\n");	\
+   if (j<0 || j > 65535) {                                \
+	lua_pushstring(L, "incorrect index value");	\
 	lua_error(L);  }
 
 
@@ -65,7 +58,7 @@ static int dimen_to_number (lua_State *L,char *s){
   else if (strcmp (d,"pt") == 0) { j = (int)v                *65536; }
   else if (strcmp (d,"sp") == 0) { j = (int)v; }
   else {
-	lua_pushstring(L, "LuaTeX Error: unknown dimension specifier\n");
+	lua_pushstring(L, "unknown dimension specifier");
 	lua_error(L);
 	j = 0;
   }
@@ -83,7 +76,7 @@ int setdimen (lua_State *L) {
   lua_settop(L,(i-3)); /* table at -2 */
   check_index_range(k);
   if(settexdimenregister(k,j)) {
-	lua_pushstring(L, "LuaTeX Error: incorrect value\n");
+	lua_pushstring(L, "incorrect value");
 	lua_error(L);
   }
   return 0;
@@ -104,7 +97,7 @@ int setcount (lua_State *L) {
   int i,j,k;
   i = lua_gettop(L);
   if (!lua_isnumber(L,i)) {
-    lua_pushstring(L, "LuaTeX Error: unsupported value type\n");
+    lua_pushstring(L, "unsupported value type");
     lua_error(L);
   }
   j = (int)lua_tonumber(L,i);
@@ -112,7 +105,7 @@ int setcount (lua_State *L) {
   lua_settop(L,(i-3)); /* table at -2 */
   check_index_range(k);
   if (settexcountregister(k,j)) {
-	lua_pushstring(L, "LuaTeX Error: incorrect value\n");
+	lua_pushstring(L, "incorrect value");
 	lua_error(L);
   }
   return 0;
@@ -134,7 +127,7 @@ int settoks (lua_State *L) {
   i = lua_gettop(L);
   char *st;
   if (!lua_isstring(L,i)) {
-    lua_pushstring(L, "LuaTeX Error: unsupported value type\n");
+    lua_pushstring(L, "unsupported value type");
     lua_error(L);
   }
   st = (char *)lua_tostring(L,i);
@@ -143,7 +136,7 @@ int settoks (lua_State *L) {
   lua_settop(L,(i-3)); /* table at -2 */
   check_index_range(k);
   if(settextoksregister(k,maketexstring(st))) {
-	lua_pushstring(L, "LuaTeX Error: incorrect value\n");
+	lua_pushstring(L, "incorrect value");
 	lua_error(L);
   }
   return 0;
@@ -167,8 +160,8 @@ static int getboxdim (lua_State *L, int whichdim) {
   i = lua_gettop(L);
   j = (int)lua_tonumber(L,(i));
   lua_settop(L,(i-2)); /* table at -1 */
-  if (j<0 || j > 255) {
-	lua_pushstring(L, "LuaTeX Error: incorrect index\n");
+  if (j<0 || j > 65535) {
+	lua_pushstring(L, "incorrect index");
 	lua_error(L);
   }
   switch (whichdim) {
@@ -206,8 +199,8 @@ static int setboxdim (lua_State *L, int whichdim) {
   }
   k = (int)lua_tonumber(L,(i-1));
   lua_settop(L,(i-3)); /* table at -2 */
-  if (k<0 || k > 255) {
-	lua_pushstring(L, "LuaTeX Error: incorrect index\n");
+  if (k<0 || k > 65535) {
+	lua_pushstring(L, "incorrect index");
 	lua_error(L);
   }
   err = 0;
@@ -222,7 +215,7 @@ static int setboxdim (lua_State *L, int whichdim) {
 	err = settexboxdepth(k,j);
   }
   if (err) {
-	lua_pushstring(L, "LuaTeX Error: not a box\n");
+	lua_pushstring(L, "not a box");
 	lua_error(L);
   }
   return 0;
@@ -242,7 +235,6 @@ int setboxdp (lua_State *L) {
 
 static const struct luaL_reg texlib [] = {
   {"print", poolprint},
-  {"tokens", tokenprint},
   {"setdimen", setdimen},
   {"getdimen", getdimen},
   {"setcount", setcount},
