@@ -83,42 +83,41 @@ static const char *getS(lua_State * L, void *ud, size_t * size)
     return ls->s;
 }
 
-static lua_State *L = NULL;
+static lua_State *Luas[65356];
 
-void luacall(int s)
+void luacall(int n, int s)
 {
     LoadS ls;
     int i, j, k ;
     char err[] = "LuaTeX Error";
-
-    if (L == NULL) {
-        L = luaL_newstate();
-	    luaL_openlibs(L);
-        luaopen_pdf(L);
-        luaopen_tex(L);
+    if (Luas[n] == NULL) {
+        Luas[n] = luaL_newstate();
+	    luaL_openlibs(Luas[n]);
+        luaopen_pdf(Luas[n]);
+        luaopen_tex(Luas[n]);
 		buf = malloc(BUFSIZE);
 		if (buf == NULL) {
 		  exit (1);
 		}
     }
 	luatex_init(s,&ls);
-    i = lua_load(L, getS, &ls, "luacall");
+    i = lua_load(Luas[n], getS, &ls, "luacall");
     if (i != 0) {
 	  luatex_error(err);
-	  fprintf(stderr, "%s", lua_tostring(L, -1));
-	  lua_close(L);
-	  L = NULL;
+	  fprintf(stderr, "%s", lua_tostring(Luas[n], -1));
+	  lua_close(Luas[n]);
+	  Luas[n] = NULL;
 	  free(buf);
 	  return;
     }
 
     bufloc = 0;
-    i = lua_pcall(L, 0, 0, 0);
+    i = lua_pcall(Luas[n], 0, 0, 0);
     if (i != 0) {
 	  luatex_error(err);
-	  fprintf(stderr, "%s", lua_tostring(L, -1));
-	  lua_close(L);
-	  L = NULL;
+	  fprintf(stderr, "%s", lua_tostring(Luas[n], -1));
+	  lua_close(Luas[n]);
+	  Luas[n] = NULL;
 	  free(buf);
     } else {
 	  luatex_return();

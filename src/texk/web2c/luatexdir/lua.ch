@@ -187,6 +187,7 @@ lua_code:
     save_scanner_status := scanner_status;
     save_def_ref := def_ref;
     save_warning_index := warning_index;
+	scan_register_num;	
     scan_pdf_ext_toks;
     s := tokens_to_string(def_ref);
     delete_token_ref(def_ref);
@@ -194,7 +195,7 @@ lua_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    luacall(s);
+    luacall(cur_val,s);
     link(garbage) := str_toks(b);
 	ins_list(link(temp_head));
     flush_str(s);
@@ -219,7 +220,7 @@ end;
     pdf_print_nl;
 end;
 
-procedure latelua(s: str_number; lua_mode: integer; warn: boolean);
+procedure latelua(lua_id: quarterword; s: str_number; lua_mode: integer; warn: boolean);
 var b, j: pool_pointer; {current character code position}
 begin
     j:=str_start[s];
@@ -235,7 +236,7 @@ begin
     othercases confusion("latelua1")
     endcases;
     b := pool_ptr;
-    luacall(s);
+    luacall(lua_id,s);
     while b<pool_ptr do begin
        pdf_out(str_pool[b]);
        incr(b);
@@ -253,8 +254,10 @@ end;
 
 @# {data structure for \.{\\latelua}}
 @d late_lua_data(#)        == link(#+1) {data}
-@d late_lua_mode(#)        == info(#+1) {mode of resetting the text matrix
+@# {a bit sneaky, since these are quarterwords that are assumed to hold 16bits}
+@d late_lua_mode(#)        == type(#+1) {mode of resetting the text matrix
                               while writing data to the page stream}
+@d late_lua_reg(#)         == subtype(#+1) {register id}
 @z
 
 %***********************************************************************
@@ -292,7 +295,7 @@ begin
     show_token_list(link(write_tokens(p)),null,pool_size-pool_ptr);
     selector:=old_setting;
     s := make_string;
-    latelua(s, late_lua_mode(p), false);
+    latelua(late_lua_reg(p), s, late_lua_mode(p), false);
     flush_str(s);
 end;
 @z
@@ -355,6 +358,8 @@ begin
         late_lua_mode(tail) := direct_page
     else
         late_lua_mode(tail) := set_origin;
+	scan_register_num;
+	late_lua_reg(tail) := cur_val;
     scan_pdf_ext_toks;
     late_lua_data(tail) := def_ref;
 end
@@ -379,6 +384,7 @@ late_lua_node: begin
         print(" direct");
     othercases confusion("latelua2")
     endcases;
+	print_int(late_lua_reg(p));
     print_mark(late_lua_data(p));
 end;
 @z
