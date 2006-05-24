@@ -563,9 +563,9 @@ emphasize this distinction.
 @d hash_prime=1777 {a prime number equal to about 85\pct! of |hash_size|}
 @d hyph_size=307 {another prime; the number of \.{\\hyphenation} exceptions}
 @^system dependencies@>
-@d biggest_reg=65535 {the largest allowed register number; must be |<=max_halfword|}
+@d biggest_reg=65535 {the largest allowed register number; must be |<=max_quarterword|}
 @d number_regs=65536 {|biggest_reg+1|}
-@d biggest_mark=65535 {the largest allowed marks class; must be |<=max_halfword|}
+@d biggest_mark=65535 {the largest allowed marks class; must be |<=max_quarterword|}
 @d number_marks=65536 {|biggest_mark+1|}
 
 @ In case somebody has inadvertently made bad settings of the ``constants,''
@@ -6634,8 +6634,6 @@ primitive("insert",insert,0);@/
 @!@:insert_}{\.{\\insert} primitive@>
 primitive("mark",mark,0);@/
 @!@:mark_}{\.{\\mark} primitive@>
-primitive("clearmarks",mark,1);@/
-@!@:clearmarks_}{\.{\\clearmarks} primitive@>
 primitive("mathaccent",math_accent,0);@/
 @!@:math_accent_}{\.{\\mathaccent} primitive@>
 primitive("mathchar",math_char_num,0);@/
@@ -8946,9 +8944,15 @@ end;
 Before we get into the details of |macro_call|, however, let's consider the
 treatment of primitives like \.{\\topmark}, since they are essentially
 macros without parameters. The token lists for such marks are kept in five
-global arrays of pointers; we refer to the individual entries of this
-array by symbolic names |top_mark|, etc. The value of |top_mark| is either
-|null| or a pointer to the reference count of a token list.
+global arrays of pointers; we refer to the individual entries of these
+arrays by symbolic macros |top_mark|, etc. The value of |top_mark(x)|, etc.
+is either |null| or a pointer to the reference count of a token list.
+
+The variable |biggest_used_mark| is an aid to try and keep the code
+somehwat efficient without too much extra work: it registers the
+highest mark class ever instantiated by the user, so the loops 
+in |fire_up| and |vsplit| do not have to traverse the full range 
+|0..biggest_mark|.
 
 @d top_mark_code=0 {the mark in effect at the previous page break}
 @d first_mark_code=1 {the first mark between |top_mark| and |bot_mark|}
@@ -8961,7 +8965,19 @@ array by symbolic names |top_mark|, etc. The value of |top_mark| is either
 @d bot_mark(#)==bot_marks_array[#]
 @d split_first_mark(#)==split_first_marks_array[#]
 @d split_bot_mark(#)==split_bot_marks_array[#]
+@x
+@d delete_top_mark(#)==begin if top_mark(#)<>null then 
+      delete_token_ref(top_mark(#)); top_mark(#):=null; end
+@d delete_bot_mark(#)==begin if bot_mark(#)<>null then 
+      delete_token_ref(bot_mark(#)); bot_mark(#):=null; end
+@d delete_first_mark(#)==begin if first_mark(#)<>null then 
+      delete_token_ref(first_mark(#)); first_mark(#):=null; end
+@d delete_split_first_mark(#)==begin if split_first_mark(#)<>null then 
+      delete_token_ref(split_first_mark(#)); split_first_mark(#):=null; end
+@d delete_split_bot_mark(#)==begin if split_bot_mark(#)<>null then 
+      delete_token_ref(split_bot_mark(#)); split_bot_mark(#):=null; end
 @#
+@d clear_marks_code=1
 @d marks_code=5
 @#
 
@@ -8975,11 +8991,13 @@ biggest_used_mark:halfword;
 
 @ @<Set init...@>=
 biggest_used_mark:=0;
-for i:=0 to biggest_mark do top_mark(i):=null;
-for i:=0 to biggest_mark do first_mark(i):=null;
-for i:=0 to biggest_mark do bot_mark(i):=null;
-for i:=0 to biggest_mark do split_first_mark(i):=null;
-for i:=0 to biggest_mark do split_bot_mark(i):=null;
+for i:=0 to biggest_mark do begin 
+  top_mark(i):=null;
+  first_mark(i):=null;
+  bot_mark(i):=null;
+  split_first_mark(i):=null;
+  split_bot_mark(i):=null;
+end;
 
 @ @<Put each...@>=
 primitive("topmark",top_bot_mark,top_mark_code);
@@ -8992,6 +9010,8 @@ primitive("splitfirstmark",top_bot_mark,split_first_mark_code);
 @!@:split_first_mark_}{\.{\\splitfirstmark} primitive@>
 primitive("splitbotmark",top_bot_mark,split_bot_mark_code);
 @!@:split_bot_mark_}{\.{\\splitbotmark} primitive@>
+primitive("clearmarks",mark,clear_marks_code);@/
+@!@:clearmarks_}{\.{\\clearmarks} primitive@>
 primitive("marks",mark,marks_code);
 @!@:marks_}{\.{\\marks} primitive@>
 primitive("topmarks",top_bot_mark,top_mark_code+marks_code);
@@ -9877,7 +9897,11 @@ end
 applications of |scan_int| that have already been made inside of
 |scan_something_internal|.
 
-@ @<Declare procedures that scan restricted classes of integers@>=
+@ It is nice to have routines that say what they do, so the original
+|scan_eight_bit_int| is superceded by |scan_register_num| and
+|scan_mark_num|. It may become split up even further in the future.
+
+@<Declare procedures that scan restricted classes of integers@>=
 procedure scan_register_num;
 begin scan_int;
 if (cur_val<0)or(cur_val>biggest_reg) then
@@ -26398,7 +26422,7 @@ returns a box for a page of height~|h|. The remainder of the vlist, if
 any, replaces the original box, after removing glue and penalties and
 adjusting for |split_top_skip|. Mark nodes in the split-off box are used to
 set the values of |split_first_mark| and |split_bot_mark|; we use the
-fact that |split_first_mark=null| if and only if |split_bot_mark=null|.
+fact that |split_first_mark(x)=null| if and only if |split_bot_mark(x)=null|.
 
 The original box becomes ``void'' if and only if it has been entirely
 extracted.  The extracted box is ``void'' if and only if the original
@@ -26414,10 +26438,8 @@ i:halfword; {for traversing marks lists}
 begin v:=box(n);
 flush_node_list(split_disc); split_disc:=null;
 for i:=0 to biggest_used_mark do begin
-  if split_first_mark(i)<>null then
-    begin delete_token_ref(split_first_mark(i)); split_first_mark(i):=null;
-    delete_token_ref(split_bot_mark(i)); split_bot_mark(i):=null;
-  end;
+  delete_split_first_mark(i);
+  delete_split_bot_mark(i);
 end;
 @<Dispense with trivial cases of void or bad boxes@>;
 q:=vert_break(list_ptr(v),h,split_max_depth);
@@ -27074,8 +27096,8 @@ badness will be used to put a completed ``page'' into box 255, with insertions
 appended to their other boxes.
 
 We also set the values of |top_mark|, |first_mark|, and |bot_mark|. The
-program uses the fact that |bot_mark<>null| implies |first_mark<>null|;
-it also knows that |bot_mark=null| implies |top_mark=first_mark=null|.
+program uses the fact that |bot_mark(x)<>null| implies |first_mark(x)<>null|;
+it also knows that |bot_mark(x)=null| implies |top_mark(x)=first_mark(x)=null|.
 
 The |fire_up| subroutine prepares to output the current page at the best
 place; then it fires up the user's output routine, if there is one,
@@ -27099,7 +27121,7 @@ for i:=0 to biggest_used_mark do begin
   if bot_mark(i)<>null then
     begin if top_mark(i)<>null then delete_token_ref(top_mark(i));
     top_mark(i):=bot_mark(i); add_token_ref(top_mark(i));
-    delete_token_ref(first_mark(i)); first_mark(i):=null;
+    delete_first_mark(i);
     end;
   end;
 @<Put the \(o)optimal current page into box 255, update |first_mark| and
@@ -28625,7 +28647,7 @@ pieces of the program.
 
 @<Cases of |main_control| that build...@>=
 any_mode(insert),hmode+vadjust,mmode+vadjust: begin_insert_or_adjust;
-any_mode(mark): make_mark;
+any_mode(mark): handle_mark;
 
 @ @<Forbidden...@>=
 vmode+vadjust,
@@ -28672,22 +28694,19 @@ insert_group: begin end_graf; q:=split_top_skip; add_glue_ref(q);
   end;
 output_group: @<Resume the page builder...@>;
 
-@ @<Declare act...@>=
-procedure make_mark;
+@ I've renamed the |make_mark| procedure to this, because if the
+current chr code is 1, then the actual command was \.{\\clearmarks},
+which does not generate a mark node but instead destroys the current
+mark tokenlists.
+
+@<Declare act...@>=
+procedure handle_mark;
 var p:pointer; {new node}
 @!c:halfword; {the mark class}
-begin if cur_chr=1 then begin 
+begin if cur_chr=clear_marks_code then begin 
     scan_mark_num; c:=cur_val;
-    if top_mark(c)<>null         then delete_token_ref(top_mark(c));
-    if first_mark(c)<>null       then delete_token_ref(first_mark(c));
-    if bot_mark(c)<>null         then delete_token_ref(bot_mark(c));
-    if split_first_mark(c)<>null then delete_token_ref(split_first_mark(c));
-    if split_bot_mark(c)<>null   then delete_token_ref(split_bot_mark(c));
-    top_mark(c):=null;  
-    first_mark(c):=null;
-    bot_mark(c):=null;
-    split_first_mark(c):=null;
-    split_bot_mark(c):=null;
+    delete_top_mark(c); delete_bot_mark(c); delete_first_mark(c);
+    delete_split_first_mark(c); delete_split_bot_mark(c);
   end
 else begin
 if cur_chr=0 then c:=0 
@@ -32044,11 +32063,8 @@ if history<>spotless then
   end;
 if c=1 then
   begin @!init for i:=0 to biggest_used_mark do begin
-    if top_mark(i)<>null         then delete_token_ref(top_mark(i));
-    if first_mark(i)<>null       then delete_token_ref(first_mark(i));
-    if bot_mark(i)<>null         then delete_token_ref(bot_mark(i));
-    if split_first_mark(i)<>null then delete_token_ref(split_first_mark(i));
-    if split_bot_mark(i)<>null   then delete_token_ref(split_bot_mark(i));
+    delete_top_mark(i); delete_first_mark(i); delete_bot_mark(i);
+    delete_split_first_mark(i); delete_split_bot_mark(i);
     end;
   for c:=last_box_code to vsplit_code do flush_node_list(disc_ptr[c]);
   store_fmt_file; return;@+tini@/
