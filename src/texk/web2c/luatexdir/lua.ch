@@ -1,6 +1,6 @@
 %$Id: lua.ch,v 1.3 2005/08/09 20:17:58 hahe Exp hahe $
 %
-% This implements primitives \luaescapestring, \lua and \latelua.
+% This implements primitives \luaescapestring, \directlua and \latelua.
 %
 
 %********************************* kill off the pool file
@@ -130,7 +130,7 @@ function str_toks(@!b:pool_pointer):pointer;
 @x 10721
 @d pdftex_convert_codes     = pdftex_first_expand_code + 25 {end of \pdfTeX's command codes}
 @y
-@d lua_code                 = pdftex_first_expand_code + 25 {command code for \.{\\lua}}
+@d lua_code                 = pdftex_first_expand_code + 25 {command code for \.{\\directlua}}
 @d lua_escape_string_code   = pdftex_first_expand_code + 26 {command code for \.{\\luaescapestring}}
 @d pdftex_convert_codes     = pdftex_first_expand_code + 27 {end of \pdfTeX's command codes}
 @z
@@ -143,8 +143,8 @@ primitive("pdfnormaldeviate",convert,normal_deviate_code);@/
 @y
 primitive("pdfnormaldeviate",convert,normal_deviate_code);@/
 @!@:normal_deviate_}{\.{\\pdfnormaldeviate} primitive@>
-primitive("lua",convert,lua_code);@/
-@!@:lua_}{\.{\\lua} primitive@>
+primitive("directlua",convert,lua_code);@/
+@!@:lua_}{\.{\\directlua} primitive@>
 primitive("luaescapestring",convert,lua_escape_string_code);@/
 @!@:lua_}{\.{\\luaescapestring} primitive@>
 @z
@@ -155,7 +155,7 @@ primitive("luaescapestring",convert,lua_escape_string_code);@/
   pdf_ximage_bbox_code: print_esc("pdfximagebbox");
 @y
   pdf_ximage_bbox_code:    print_esc("pdfximagebbox");
-  lua_code:                print_esc("lua");
+  lua_code:                print_esc("directlua");
   lua_escape_string_code:  print_esc("luaescapestring");
 @z
 
