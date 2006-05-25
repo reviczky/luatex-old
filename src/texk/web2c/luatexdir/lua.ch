@@ -79,7 +79,7 @@ end
 
 @ @<Read the other strings...@>=
   g := loadpoolstrings((pool_size-string_vacancies));
-  if c=0 then begin 
+  if g=0 then begin 
      wake_up_terminal; write_ln(term_out,'! You have to increase POOLSIZE.');
      get_strings_started:=false; 
      return;
