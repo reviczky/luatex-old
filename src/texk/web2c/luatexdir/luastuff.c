@@ -67,6 +67,16 @@ luacall(int n, int s) {
 }
 
 void 
+closelua(int n) {
+  if (Luas[n] != NULL) {
+    lua_close(Luas[n]);
+	fprintf(stderr,"closing lua %d\n",n);
+    Luas[n] = NULL;
+  }
+}
+
+
+void 
 luatex_load_init (int s, LoadS *ls) {
   ls->s = (const char *)&(strpool[strstart[s]]);
   ls->size = strstart[s + 1] - strstart[s];

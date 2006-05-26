@@ -1,6 +1,6 @@
 %$Id: lua.ch,v 1.3 2005/08/09 20:17:58 hahe Exp hahe $
 %
-% This implements primitives \luaescapestring, \directlua and \latelua.
+% This implements primitives \luaescapestring, \directlua, \latelua and \closelua.
 %
 
 %********************************* kill off the pool file
@@ -328,8 +328,9 @@ end;
 @x 32911
 @d pdftex_last_extension_code  == pdftex_first_extension_code + 29
 @y
-@d late_lua_node               == pdftex_first_extension_code + 30
-@d pdftex_last_extension_code  == pdftex_first_extension_code + 30
+@d late_lua_code               == pdftex_first_extension_code + 30
+@d close_lua_code              == pdftex_first_extension_code + 31
+@d pdftex_last_extension_code  == pdftex_first_extension_code + 31
 @z
 
 %***********************************************************************
@@ -340,8 +341,10 @@ primitive("pdfsetrandomseed",extension,set_random_seed_code);@/
 @y
 primitive("pdfsetrandomseed",extension,set_random_seed_code);@/
 @!@:set_random_seed_code}{\.{\\pdfsetrandomseed} primitive@>
-primitive("latelua",extension,late_lua_node);@/
-@!@:late_lua_node_}{\.{\\latelua} primitive@>
+primitive("latelua",extension,late_lua_code);@/
+@!@:late_lua_code_}{\.{\\latelua} primitive@>
+primitive("closelua",extension,close_lua_code);@/
+@!@:close_lua_code_}{\.{\\closelua} primitive@>
 @z
 
 %***********************************************************************
@@ -349,18 +352,22 @@ primitive("latelua",extension,late_lua_node);@/
 @x 33023
   othercases print("[unknown extension!]")
 @y
-  late_lua_node: print_esc("latelua");
+  late_lua_code: print_esc("latelua");
+  close_lua_code: print_esc("closelua");
   othercases print("[unknown extension!]")
 @z
+
 
 %***********************************************************************
 
 @x 33071
 othercases confusion("ext1")
 @y
-late_lua_node: @<Implement \.{\\latelua}@>;
+late_lua_code: @<Implement \.{\\latelua}@>;
+close_lua_code: @<Implement \.{\\closelua}@>;
 othercases confusion("ext1")
 @z
+
 
 %***********************************************************************
 
@@ -374,7 +381,7 @@ end
 @ @<Implement \.{\\latelua}@>=
 begin
     check_pdfoutput("\latelua", true);
-    new_whatsit(late_lua_node, write_node_size);
+    new_whatsit(late_lua_code, write_node_size);
     if scan_keyword("direct") then
         late_lua_mode(tail) := direct_always
     else if scan_keyword("page") then
@@ -386,7 +393,16 @@ begin
     scan_pdf_ext_toks;
     late_lua_data(tail) := def_ref;
 end
+
+@ @<Implement \.{\\closelua}@>=
+begin
+    check_pdfoutput("\closelua", true);
+    new_whatsit(close_lua_code, write_node_size);
+	scan_register_num;
+	late_lua_reg(tail) := cur_val;
+end
 @z
+
 
 %***********************************************************************
 
@@ -396,7 +412,7 @@ end;
 @y
     print_mark(pdf_literal_data(p));
 end;
-late_lua_node: begin
+late_lua_code: begin
     print_esc("latelua");
     case late_lua_mode(p) of
     set_origin:
@@ -410,7 +426,12 @@ late_lua_node: begin
 	print_int(late_lua_reg(p));
     print_mark(late_lua_data(p));
 end;
+close_lua_code: begin
+    print_esc("closelua");
+	print_int(late_lua_reg(p));
+end;
 @z
+
 
 %***********************************************************************
 
@@ -426,12 +447,18 @@ pdf_literal_node: begin
     add_token_ref(pdf_literal_data(p));
     words := write_node_size;
 end;
-late_lua_node: begin
+late_lua_code: begin
     r := get_node(write_node_size);
     add_token_ref(late_lua_data(p));
     words := write_node_size;
 end;
+close_lua_code: begin
+    r := get_node(write_node_size);
+    words := write_node_size;
+end;
 @z
+
+
 
 %***********************************************************************
 
@@ -445,11 +472,43 @@ pdf_literal_node: begin
     delete_token_ref(pdf_literal_data(p));
     free_node(p, write_node_size);
 end;
-late_lua_node: begin
+late_lua_code: begin
     delete_token_ref(late_lua_data(p));
     free_node(p, write_node_size);
 end;
+close_lua_code: begin
+    free_node(p, write_node_size);
+end;
 @z
+
+%***********************************************************************
+
+@x
+@<Implement \.{\\immediate}@>=
+begin get_x_token;
+if cur_cmd=extension then begin
+    if cur_chr<=close_node then
+      begin p:=tail; do_extension; {append a whatsit node}
+      out_what(tail); {do the action immediately}
+      flush_node_list(tail); tail:=p; link(p):=null;
+      end
+    else case cur_chr of
+@y
+@<Implement \.{\\immediate}@>=
+begin get_x_token;
+if cur_cmd=extension then begin
+    if cur_chr<=close_node then
+      begin p:=tail; do_extension; {append a whatsit node}
+      out_what(tail); {do the action immediately}
+      flush_node_list(tail); tail:=p; link(p):=null;
+      end
+    else case cur_chr of
+      close_lua_code: begin
+        scan_register_num;
+	    closelua(cur_val);
+      end;
+@z
+
 
 %***********************************************************************
 
@@ -459,8 +518,10 @@ pdf_literal_node:
 @y
 pdf_literal_node:
     pdf_out_literal(p);
-late_lua_node:
+late_lua_code:
     do_late_lua(p);
+close_lua_code:
+    closelua(late_lua_reg(p));
 @z
 
 %***********************************************************************
@@ -471,8 +532,10 @@ pdf_literal_node:
 @y
 pdf_literal_node:
     pdf_out_literal(p);
-late_lua_node:
+late_lua_code:
     do_late_lua(p);
+close_lua_code:
+	closelua(late_lua_reg(p));
 @z
 
 %***********************************************************************
