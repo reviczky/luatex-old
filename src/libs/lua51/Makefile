@@ -42,7 +42,8 @@ ALL_A= $(LUA_A)
 
 default: $(PLAT)
 
-all:	$(ALL_T)
+# this was $(ALL_T)
+all: $(ALL_T)
 
 o:	$(ALL_O)
 
