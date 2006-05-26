@@ -74,14 +74,22 @@ LIBLUADIR=../../libs/lua51
 LIBLUASRCDIR=$(srcdir)/$(LIBLUADIR)
 LIBLUADEP=$(LIBLUADIR)/liblua.a
 $(LIBLUADEP):
-	mkdir -p $(LIBLUADIR) && cd $(LIBLUADIR) && cp -f $(LIBLUASRCDIR)/* . && $(MAKE) $(common_makeargs)
+	mkdir -p $(LIBLUADIR) && cd $(LIBLUADIR) && cp -f $(LIBLUASRCDIR)/* . && $(MAKE) linux
+
+
+# slnunicode
+SLNUNICODEDIR=../../libs/slnunicode-0.9.1
+SLNUNICODESRCDIR=$(srcdir)/$(SLNUNICODEDIR)
+SLNUNICODEDEP=$(SLNUNICODEDIR)/slnunico.o
+$(SLNUNICODEDEP): $(SLNUNICODEDIR)/slnunico.c $(SLNUNICODEDIR)/slnudata.c
+	mkdir -p $(SLNUNICODEDIR) && cd $(SLNUNICODEDIR) && cp -f $(SLNUNICODESRCDIR)/* . && $(CC) -I$(LIBLUADIR) -o slnunico.o -c slnunico.c
 
 
 
 # Convenience variables.
 
-luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LIBLUADEP) 
-luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBLUADEP) 
+luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(SLNUNICODEDEP) $(LIBLUADEP)
+luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(SLNUNICODEDEP) $(LIBLUADEP) 
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 

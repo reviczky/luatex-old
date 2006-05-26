@@ -52,6 +52,7 @@ luacall(int n, int s) {
 	luaL_openlibs(Luas[n]);
 	luaopen_pdf(Luas[n]);
 	luaopen_tex(Luas[n]);
+	luaopen_unicode(Luas[n]);
   }
   luatex_load_init(s,&ls);
   snprintf(lua_id,12,"luas[%d]",n);
