@@ -70,7 +70,6 @@ void
 closelua(int n) {
   if (Luas[n] != NULL) {
     lua_close(Luas[n]);
-	fprintf(stderr,"closing lua %d\n",n);
     Luas[n] = NULL;
   }
 }
