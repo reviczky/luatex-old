@@ -88,8 +88,8 @@ $(SLNUNICODEDEP): $(SLNUNICODEDIR)/slnunico.c $(SLNUNICODEDIR)/slnudata.c
 
 # Convenience variables.
 
-luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(SLNUNICODEDEP) $(LIBLUADEP)
-luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(SLNUNICODEDEP) $(LIBLUADEP) 
+luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LIBLUADEP) $(SLNUNICODEDEP)
+luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBLUADEP) $(SLNUNICODEDEP)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 
