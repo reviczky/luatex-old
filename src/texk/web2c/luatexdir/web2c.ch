@@ -308,8 +308,6 @@ for i:=@'177 to @'377 do xchr[i]:=' ';
 @y
 for i:=0 to @'37 do xchr[i]:=' ';
 for i:=@'177 to @'377 do xchr[i]:=' ';
-for i:=0 to 255 do xprn[i]:=0;
-for i:=32 to 126 do xprn[i]:=1;
 @z
 
 @x [2.24] l.733 - Don't reinitialize xord.
@@ -710,6 +708,25 @@ done: if a<>@$ then
 @!trick_buf:array[0..error_line] of ASCII_code; {circular buffer for
 @y
 @!trick_buf:array[0..ssup_error_line] of ASCII_code; {circular buffer for
+@z
+
+@x [5.59] l.1508FIXME -- enc\TeX\ modifications of |print|.
+  else begin if selector>pseudo then
+      begin print_char(s); return; {internal strings are not expanded}
+      end;
+    if (@<Character |s| is the current new-line character@>) then
+      if selector<pseudo then
+        begin print_ln; return;
+        end;
+@y
+  else begin if selector>pseudo then
+      begin print_char(s); return; {internal strings are not expanded}
+      end;
+    if (@<Character |s| is the current new-line character@>) then
+      if selector<pseudo then
+        begin print_ln; return;
+        end;
+    if xprn[s] then print_char(s); return;
 @z
 
 @x l.1536 --  If the ``src-specials'' feature is active, change the banner.
@@ -2881,6 +2898,22 @@ else kpse_make_tex_discard_errors := 0;
   if open_in_name_ok(stringcast(name_of_file+1))
      and a_open_in(read_file[n], kpse_tex_format) then
     read_open[n]:=just_open;
+@z
+
+% encTeX: |slow_print| is too eager to expand printed strings.  To
+% selectively suppress or enable expansion (needed to \noconvert)
+% |print| will look at |message_printing|.  So we bypass |slow_print|
+% and go directly to |print| instead.
+@x [49.1279] - encTeX: to handle \noconvert in messages go directly to |print|
+slow_print(s); update_terminal;
+@y
+print(s); update_terminal;
+@z
+
+@x [49.1279] - encTeX: to handle \noconvert in messages go directly to |print|
+begin print_err(""); slow_print(s);
+@y
+begin print_err(""); print(s);
 @z
 
 @x [50.1301] l.23679 - INI = VIR, so runtime test.
