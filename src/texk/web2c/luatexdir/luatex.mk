@@ -33,39 +33,36 @@ $(luatex_c) luatexcoerce.h luatexd.h: luatex.p $(web2c_texmf) $(srcdir)/$(luatex
 luatexextra.c: $(luatexdir)/luatexextra.h lib/texmfmp.c
 	test -d $(luatexdir) || mkdir $(luatexdir)
 	sed s/TEX-OR-MF-OR-MP/luatex/ $(srcdir)/lib/texmfmp.c >$@
-$(luatexdir)/luatexextra.h: $(luatexdir)/luatexextra.in $(luatexdir)/luatex.version etexdir/etex.version
+$(luatexdir)/luatexextra.h: $(luatexdir)/luatexextra.in $(luatexdir)/luatex.version
 	test -d $(luatexdir) || mkdir $(luatexdir)
 	sed -e s/LUATEX-VERSION/`cat $(luatexdir)/luatex.version`/ \
-	    -e s/ETEX-VERSION/`cat etexdir/etex.version`/ \
 	  $(srcdir)/$(luatexdir)/luatexextra.in >$@
 loadpool.c: luatex.pool $(srcdir)/$(luatexdir)/makecpool
 	perl $(srcdir)/$(luatexdir)/makecpool luatex.pool > loadpool.c
 
 
 # Tangling
-luatex.p luatex.pool: tangle $(srcdir)/$(luatexdir)/luatex.web luatex.ch
-	$(TANGLE) $(srcdir)/$(luatexdir)/luatex.web luatex.ch
+luatex.p luatex.pool: tangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
+	$(TANGLE) $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
 
 #   Sources for luatex.ch:
-luatex_ch_srcs = $(srcdir)/$(luatexdir)/luatex.web \
-  $(srcdir)/$(luatexdir)/tex.ch0 \
-  $(srcdir)/$(luatexdir)/web2c.ch \
-  $(srcdir)/$(luatexdir)/luatex.ch \
-  $(srcdir)/$(luatexdir)/lua.ch
+#luatex_ch_srcs = $(srcdir)/$(luatexdir)/luatex.web \
+#  $(srcdir)/$(luatexdir)/lua.ch \
+#  $(srcdir)/$(luatexdir)/lua.ch0
 
 #   Rules:
-luatex.ch: $(TIE) $(luatex_ch_srcs)
-	$(TIE) -c luatex.ch $(luatex_ch_srcs)
+#luatex.ch: $(TIE) $(luatex_ch_srcs)
+#	$(TIE) -c luatex.ch $(luatex_ch_srcs)
 
 # for developing only
-luatex-org.web: $(TIE) $(luatex_ch_srcs_org)
-	$(TIE) -m $@ $(luatex_ch_srcs_org)
-luatex-all.web: $(TIE) $(srcdir)/$(luatexdir)/luatex.web luatex.ch
-	$(TIE) -m $@ $(srcdir)/$(luatexdir)/luatex.web luatex.ch
-luatex-all.tex: luatex-all.web
-	$(WEAVE) luatex-all.web
-luatex-all.pdf: luatex-all.tex
-	$(luatex) luatex-all.tex
+#luatex-org.web: $(TIE) $(luatex_ch_srcs_org)
+#	$(TIE) -m $@ $(luatex_ch_srcs_org)
+#luatex-all.web: $(TIE) $(srcdir)/$(luatexdir)/luatex.web luatex.ch
+#	$(TIE) -m $@ $(srcdir)/$(luatexdir)/luatex.web luatex.ch
+#luatex-all.tex: luatex-all.web
+#	$(WEAVE) luatex-all.web
+#luatex-all.pdf: luatex-all.tex
+#	$(luatex) luatex-all.tex
 
 check: @PETEX@ luatex-check
 luatex-check: luatex luatex.fmt
@@ -92,16 +89,10 @@ luatex.fmt: luatex
 	$(dumpenv) $(MAKE) progname=luatex files="etex.src plain.tex cmr10.tfm" prereq-check
 	$(dumpenv) ./luatex --progname=luatex --jobname=luatex --ini \*\\pdfoutput=1\\input etex.src \\dump </dev/null
 
-pdflatex.fmt: luatex
-	$(dumpenv) $(MAKE) progname=pdflatex files="latex.ltx" prereq-check
-	$(dumpenv) ./luatex --progname=pdflatex --jobname=pdflatex --ini \*\\pdfoutput=1\\input latex.ltx </dev/null
-
 # 
 # Installation.
-install-luatex: install-luatex-exec install-luatex-data
+install-luatex: install-luatex-exec
 install-luatex-exec: install-luatex-links
-install-luatex-data: install-luatex-pool @FMU@ install-luatex-dumps
-install-luatex-dumps: install-luatex-fmts
 
 # The actual binary executables and pool files.
 install-programs: @PETEX@ install-luatex-programs
@@ -120,11 +111,6 @@ install-luatex-fmts: luafmts $(luafmtdir)
 	luafmts="$(luafmts)"; \
 	  for f in $$luafmts; do base=`basename $$f .fmt`; \
 	    (cd $(bindir) && (rm -f $$base; $(LN) luatex $$base)); done
-
-# Auxiliary files.
-install-data:: @PETEX@ install-luatex-data
-install-luatex-pool: luatex.pool $(texpooldir)
-	$(INSTALL_DATA) luatex.pool $(texpooldir)/luatex.pool
 
 # 
 # luatex binaries archive
