@@ -8,31 +8,12 @@
 @z
 
 @x
-@d eTeX_banner=='This is e-TeX, Version 3.141592',eTeX_version_string
+@d banner==luaTeX_banner
 @y
-@z
-
-@x
-@d pdfeTeX_banner=='This is pdfeTeX, Version 3.141592',pdftex_version_string,eTeX_version_string
-@y
-@z
-
-@x
-@d pdfTeX_banner=='This is pdfTeX, Version 3.141592',pdftex_version_string
-@y
-@d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
-@z
-
-@x
-@d TeX_banner=='This is TeX, Version 3.141592' {printed when \TeX\ starts}
-@#
-@d banner==pdfeTeX_banner
-@y
-@d TeX_banner_k=='This is TeXk, Version 3.141592' {printed when \TeX\ starts}
-@d TeX_banner=='This is TeX, Version 3.141592' {printed when \TeX\ starts}
+@d luaTeXk_banner=='This is luaTeXk, Version 3.141592',luatex_version_string
 @#
 @d banner==luaTeX_banner
-@d banner_k==luaTeX_banner
+@d banner_k==luaTeXk_banner
 @z
 
 @x
