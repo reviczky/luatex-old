@@ -1237,7 +1237,7 @@ char *stripzeros (char *a)
 {
     enum { NONUM, DOTNONUM, INT, DOT, LEADDOT, FRAC } s = NONUM, t = NONUM;
     char *p, *q, *r;
-    for (p = q = r = a; *q != '\0';) {
+    for (p = q = r = a; *p != '\0';) {
         switch (s) {
         case NONUM:
             if (*p >= '0' && *p <= '9')
@@ -1296,5 +1296,6 @@ char *stripzeros (char *a)
         *q++ = *p++;
         t = s;
     }
+    *q = '\0';
     return a;
 }
