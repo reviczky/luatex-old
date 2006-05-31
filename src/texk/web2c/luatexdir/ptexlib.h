@@ -237,6 +237,9 @@ extern void updateimageprocset (integer);
 extern void writeimage (integer);
 extern integer imagecolordepth (integer img);
 
+/* writejbig2.c */
+extern void flushjbig2page0bjects(void);
+
 /* writet1.c */
 extern boolean t1_subset (char *, char *, unsigned char *);
 extern void load_enc (char *, char **);

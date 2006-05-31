@@ -18808,6 +18808,7 @@ else begin
     if total_pages mod pages_tree_kids_max <> 0 then
         obj_info(pdf_last_pages) := total_pages mod pages_tree_kids_max;
     {last pages object may have less than |pages_tree_kids_max| children}
+    flush_jbig2_page0_objects; {flush page 0 objects from JBIG2 images, if any}
     @<Check for non-existing pages@>;
     @<Reverse the linked list of Page and Pages objects@>;
     @<Check for non-existing destinations@>;
