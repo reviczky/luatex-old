@@ -37,6 +37,9 @@ http://partners.adobe.com/public/developer/en/pdf/PDFReference16.pdf
 News
 ====
 
+31 May 2006: no need to wait for endoffileflag in sequential access
+organization.
+
 10 May 2006: ygetc() for some catching of broken JBIG2 files; modify to
 accept Example 3.4 from PDFRef 5th ed. with short end-of-file segment.
 
@@ -72,7 +75,7 @@ object exists, reference it. Else create fresh one.
 
 09 Dec. 2002: JBIG2 seg. page numbers > 0 are now set to 1, see PDF Ref.
 
-$Id: writejbig2.c,v 1.346 2006/05/10 21:23:06 hahe Exp hahe $
+$Id: writejbig2.c,v 1.347 2006/05/31 19:18:32 hahe Exp hahe $
 ***********************************************************************/
 
 #include "writejbig2.h"
@@ -120,6 +123,7 @@ FILEINFO *new_fileinfo ()
     fip = xtalloc (1, FILEINFO);
     fip->file = NULL;
     fip->filename = NULL;
+    fip->filesize = 0;
     initlinkedlist (&(fip->pages));
     initlinkedlist (&(fip->page0));
     fip->filehdrflags = 0;
@@ -286,6 +290,11 @@ void readfilehdr (FILEINFO * fip)
     /* Annex D.4.2 File header flags */
     fip->filehdrflags = ygetc (fip->file);
     fip->sequentialaccess = (fip->filehdrflags & 0x01) ? true : false;
+    if (fip->sequentialaccess) {        /* Annex D.1 vs. Annex D.2 */
+        xfseek (fip->file, 0, SEEK_END, fip->filename);
+        fip->filesize = xftell (fip->file, fip->filename);
+        xfseek (fip->file, 9, SEEK_SET, fip->filename);
+    }
     /* Annex D.4.3 Number of pages */
     if (!(fip->filehdrflags >> 1) & 0x01)       /* known number of pages */
         fip->numofpages = read4bytes (fip->file);
@@ -293,12 +302,14 @@ void readfilehdr (FILEINFO * fip)
 }
 
 /**********************************************************************/
-/* for first time reading of file */
+/* for first reading of file; return value tells if header been read */
 
-void readseghdr (FILEINFO * fip, SEGINFO * sip)
+boolean readseghdr (FILEINFO * fip, SEGINFO * sip)
 {
     unsigned int i;
     sip->hdrstart = xftell (fip->file, fip->filename);
+    if (fip->sequentialaccess && sip->hdrstart == fip->filesize)
+        return false;           /* no endoffileflag is ok for sequentialaccess */
 #ifdef DEBUG
     printf ("\nhdrstart %d\n", sip->hdrstart);
 #endif
@@ -314,7 +325,7 @@ void readseghdr (FILEINFO * fip, SEGINFO * sip)
 #endif
     checkseghdrflags (sip);
     if (fip->sequentialaccess && sip->endoffileflag)    /* accept shorter segment, */
-        return;                 /* makes it compliant with Example 3.4 of PDFRef. 5th ed. */
+        return true;            /* makes it compliant with Example 3.4 of PDFRef. 5th ed. */
     sip->pageassocsizeflag = ((sip->seghdrflags >> 6) & 0x01) ? true : false;
     /* 7.2.4 Referred-to segment count and retention flags */
     sip->reftosegcount = (unsigned int) ygetc (fip->file);
@@ -354,6 +365,7 @@ void readseghdr (FILEINFO * fip, SEGINFO * sip)
     sip->segdatalen = read4bytes (fip->file);
     sip->hdrend = xftell (fip->file, fip->filename);
     /* ---- at end of segment header ---- */
+    return true;
 }
 
 /**********************************************************************/
@@ -515,7 +527,7 @@ unsigned long findstreamstart (FILEINFO * fip)
     SEGINFO tmp;
     assert (!fip->sequentialaccess);    /* D.2 Random-access organisation */
     do                          /* find random-access stream start */
-        readseghdr (fip, &tmp);
+        (void) readseghdr (fip, &tmp);
     while (!tmp.endoffileflag);
     fip->streamstart = tmp.hdrend;
     readfilehdr (fip);
@@ -543,8 +555,7 @@ void rd_jbig2_info (FILEINFO * fip)
             sipavail = true;
         }
         init_seginfo (sip);
-        readseghdr (fip, sip);
-        if (sip->endoffileflag)
+        if (!readseghdr (fip, sip) || sip->endoffileflag)
             break;
         if (sip->segpage > 0) {
             if (sip->segpage > currentpage) {

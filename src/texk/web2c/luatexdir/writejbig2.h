@@ -20,7 +20,7 @@ Temple Place, Suite 330, Boston, MA 02111-1307 USA
 This is experimental JBIG2 image support to pdfTeX. JBIG2 image decoding
 is part of Adobe PDF-1.4, and requires Acroread 5.0 or later.
 
-$Id: writejbig2.h,v 1.39 2006/05/10 18:28:45 hahe Exp hahe $
+$Id: writejbig2.h,v 1.40 2006/05/31 19:18:51 hahe Exp hahe $
 ***********************************************************************/
 
 #include <stdlib.h>
@@ -106,6 +106,7 @@ typedef struct _PAGEINFO {
 typedef struct _FILEINFO {
     FILE *file;
     char *filename;
+    long filesize;
     LIST pages;                 /* not including page0 */
     LIST page0;
     unsigned int filehdrflags;  /* set by readfilehdr() */
@@ -135,7 +136,7 @@ unsigned int read2bytes (FILE *);
 unsigned long read4bytes (FILE *);
 unsigned long getstreamlen (LITEM *, boolean);
 void readfilehdr (FILEINFO *);
-void readseghdr (FILEINFO *, SEGINFO *);
+boolean readseghdr (FILEINFO *, SEGINFO *);
 void writeseghdr (FILEINFO *, SEGINFO *);
 void checkseghdr (FILEINFO *, SEGINFO *);
 void checkseghdrflags (SEGINFO * sip);
