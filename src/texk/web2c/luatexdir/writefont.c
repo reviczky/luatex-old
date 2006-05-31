@@ -210,6 +210,7 @@ static void write_fontdescriptor (void)
 {
     int i;
     pdfbegindict (fm_cur->fd_objnum, 1);        /* font descriptor */
+    pdf_puts ("/Type /FontDescriptor\n");
     print_key (ASCENT_CODE, getcharheight (tex_font, 'h'));
     print_key (CAPHEIGHT_CODE, getcharheight (tex_font, 'H'));
     print_key (DESCENT_CODE, -getchardepth (tex_font, 'y'));
