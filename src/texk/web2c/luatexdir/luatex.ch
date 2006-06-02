@@ -139,7 +139,7 @@ versions of the program.
 @d ssup_max_strings == 262143
 {Larger values than 65536 cause the arrays consume much more memory.}
 @d ssup_trie_opcode == 65535
-@d ssup_trie_size == @"3FFFFF
+@d ssup_trie_size == @"3FFFFFFF
 
 @d ssup_hyph_size == 65535 {Changing this requires changing (un)dumping!}
 @d iinf_hyphen_size == 610 {Must be not less than |hyph_prime|!}
@@ -253,46 +253,10 @@ versions of the program.
 @z
 
 @x
-@!xchr: array [ASCII_code] of text_char;
-  {specifies conversion of output characters}
-@y
-xchr: array [ASCII_code] of text_char;
-   { specifies conversion of output characters }
-xprn: array [ASCII_code] of ASCII_code;
-   { non zero iff character is printable }
-@z
-
-@x
-for i:=0 to @'37 do xchr[i]:=' ';
-for i:=@'177 to @'377 do xchr[i]:=' ';
-@y
-for i:=0 to @'37 do xchr[i]:=' ';
-for i:=@'177 to @'377 do xchr[i]:=' ';
-@z
-
-@x
-for i:=0 to @'176 do xord[xchr[i]]:=i;
-@y
-for i:=0 to @'176 do xord[xchr[i]]:=i;
-{Set |xprn| for printable ASCII, unless |eight_bit_p| is set.}
-for i:=0 to 255 do xprn[i]:=(eight_bit_p or ((i>=" ")and(i<="~")));
-
-{The idea for this dynamic translation comes from the patch by
- Libor Skarvada \.{<libor@@informatics.muni.cz>}
- and Petr Sojka \.{<sojka@@informatics.muni.cz>}. I didn't use any of the
- actual code, though, preferring a more general approach.}
-
-{This updates the |xchr|, |xord|, and |xprn| arrays from the provided
- |translate_filename|.  See the function definition in \.{texmfmp.c} for
- more comments.}
-if translate_filename then read_tcx_file;
-@z
-
-@x
 @!name_of_file:packed array[1..file_name_size] of char;@;@/
   {on some systems this may be a \&{record} variable}
 @y
-@!name_of_file:^text_char;
+@!name_of_file:^packed_ASCII_code;
 @z
 
 @x
@@ -382,9 +346,9 @@ end;
 @z
 
 @x
-@!buffer:array[0..buf_size] of ASCII_code; {lines of characters being read}
+@!buffer:array[0..buf_size] of packed_ASCII_code; {lines of characters being read}
 @y
-@!buffer:^ASCII_code; {lines of characters being read}
+@!buffer:^packed_ASCII_code; {lines of characters being read}
 @z
 
 @x
@@ -484,7 +448,6 @@ tini@/
 @!dvi_buf_size:integer; {size of the output buffer; must be a multiple of 8}
 @!parse_first_line_p:c_int_type; {parse the first line for options}
 @!file_line_error_style_p:c_int_type; {format messages as file:line:error}
-@!eight_bit_p:c_int_type; {make all characters printable by default}
 @!halt_on_error_p:c_int_type; {stop at first error}
 @!quoted_filename:boolean; {current filename is quoted}
 {Variables for source specials}
@@ -579,14 +542,6 @@ if last > first then
 @z
 
 @x
-@!pool_pointer = 0..pool_size; {for variables that point into |str_pool|}
-@!str_number = 0..max_strings; {for variables that point into |str_start|}
-@y
-@!pool_pointer = integer; {for variables that point into |str_pool|}
-@!str_number = 0..ssup_max_strings; {for variables that point into |str_start|}
-@z
-
-@x
 @!str_pool:packed array[pool_pointer] of packed_ASCII_code; {the characters}
 @!str_start : array[str_number] of pool_pointer; {the starting pointers}
 @y
@@ -610,28 +565,9 @@ instead of the
 @z
 
 @x
-@!trick_buf:array[0..error_line] of ASCII_code; {circular buffer for
+@!trick_buf:array[0..error_line] of packed_ASCII_code; {circular buffer for
 @y
-@!trick_buf:array[0..ssup_error_line] of ASCII_code; {circular buffer for
-@z
-
-@x
-  else begin if selector>pseudo then
-      begin print_char(s); return; {internal strings are not expanded}
-      end;
-    if (@<Character |s| is the current new-line character@>) then
-      if selector<pseudo then
-        begin print_ln; return;
-        end;
-@y
-  else begin if selector>pseudo then
-      begin print_char(s); return; {internal strings are not expanded}
-      end;
-    if (@<Character |s| is the current new-line character@>) then
-      if selector<pseudo then
-        begin print_ln; return;
-        end;
-    if xprn[s] then print_char(s); return;
+@!trick_buf:array[0..ssup_error_line] of packed_ASCII_code; {circular buffer for
 @z
 
 @x
@@ -662,11 +598,6 @@ if file_line_error_style_p then begin
 end;
 if parse_first_line_p then begin
   wterm_ln(' %&-line parsing enabled.')
-end;
-if translate_filename then begin
-  wterm(' (');
-  fputs(translate_filename, stdout);
-  wterm_ln(')');
 end;
 @z
 
@@ -767,9 +698,9 @@ been commented~out.
   interaction:=scroll_mode; jump_out;
 @y
 "E": if base_ptr>0 then
-    begin edit_name_start:=str_start[edit_file.name_field];
-    edit_name_length:=str_start[edit_file.name_field+1] -
-                      str_start[edit_file.name_field];
+    begin edit_name_start:=str_start_macro(edit_file.name_field);
+    edit_name_length:=str_start_macro(edit_file.name_field+1) -
+                      str_start_macro(edit_file.name_field);
     edit_line:=line;
     jump_out;
 @z
@@ -789,18 +720,6 @@ been commented~out.
 @x
 @!glue_ratio=real; {one-word representation of a glue expansion factor}
 @y
-@z
-
-@x
-@d min_quarterword=0 {smallest allowable value in a |quarterword|}
-@d max_quarterword=255 {largest allowable value in a |quarterword|}
-@d min_halfword==0 {smallest allowable value in a |halfword|}
-@d max_halfword==65535 {largest allowable value in a |halfword|}
-@y
-@d min_quarterword=0 {smallest allowable value in a |quarterword|}
-@d max_quarterword=255 {largest allowable value in a |quarterword|}
-@d min_halfword==-@"FFFFFFF {smallest allowable value in a |halfword|}
-@d max_halfword==@"FFFFFFF {largest allowable value in a |halfword|}
 @z
 
 @x
@@ -1362,8 +1281,8 @@ str_room(6); {Room for quotes, if needed.}
 if area_delimiter<>0 then begin
   {maybe quote |cur_area|}
   must_quote:=false;
-  s:=str_start[str_ptr];
-  t:=str_start[str_ptr]+area_delimiter;
+  s:=str_start_macro(str_ptr);
+  t:=str_start_macro(str_ptr)+area_delimiter;
   j:=s;
   while (not must_quote) and (j<>t) do begin
     must_quote:=str_pool[j]=" "; incr(j);
@@ -1379,8 +1298,8 @@ if area_delimiter<>0 then begin
     end;
   end;
 {maybe quote |cur_name|}
-s:=str_start[str_ptr]+area_delimiter;
-if ext_delimiter=0 then t:=pool_ptr else t:=str_start[str_ptr]+ext_delimiter-1;
+s:=str_start_macro(str_ptr)+area_delimiter;
+if ext_delimiter=0 then t:=pool_ptr else t:=str_start_macro(str_ptr)+ext_delimiter-1;
 must_quote:=false;
 j:=s;
 while (not must_quote) and (j<>t) do begin
@@ -1396,7 +1315,7 @@ if must_quote then begin
   end;
 if ext_delimiter<>0 then begin
   {maybe quote |cur_ext|}
-  s:=str_start[str_ptr]+ext_delimiter-1;
+  s:=str_start_macro(str_ptr)+ext_delimiter-1;
   t:=pool_ptr;
   must_quote:=false;
   j:=s;
@@ -1413,17 +1332,17 @@ if ext_delimiter<>0 then begin
 @z
 
 @x
-  str_start[str_ptr+1]:=str_start[str_ptr]+area_delimiter; incr(str_ptr);
+  str_start_macro(str_ptr+1):=str_start_macro(str_ptr)+area_delimiter; incr(str_ptr);
   end;
 if ext_delimiter=0 then
   begin cur_ext:=""; cur_name:=make_string;
 @y
-  str_start[str_ptr+1]:=str_start[str_ptr]+area_delimiter; incr(str_ptr);
+  str_start_macro(str_ptr+1):=str_start_macro(str_ptr)+area_delimiter; incr(str_ptr);
   temp_str:=search_string(cur_area);
   if temp_str>0 then
     begin cur_area:=temp_str;
     decr(str_ptr);  {no |flush_string|, |pool_ptr| will be wrong!}
-    for j:=str_start[str_ptr+1] to pool_ptr-1 do
+    for j:=str_start_macro(str_ptr+1) to pool_ptr-1 do
       begin str_pool[j-area_delimiter]:=str_pool[j];
       end;
     pool_ptr:=pool_ptr-area_delimiter; {update |pool_ptr|}
@@ -1435,18 +1354,18 @@ if ext_delimiter=0 then
 
 @x
 else  begin cur_name:=str_ptr;
-  str_start[str_ptr+1]:=str_start[str_ptr]+ext_delimiter-area_delimiter-1;
+  str_start_macro(str_ptr+1):=str_start_macro(str_ptr)+ext_delimiter-area_delimiter-1;
   incr(str_ptr); cur_ext:=make_string;
 @y
 else  begin cur_name:=str_ptr;
-  str_start[str_ptr+1]:=str_start[str_ptr]+ext_delimiter-area_delimiter-1;
+  str_start_macro(str_ptr+1):=str_start_macro(str_ptr)+ext_delimiter-area_delimiter-1;
   incr(str_ptr); cur_ext:=make_string;
   decr(str_ptr); {undo extension string to look at name part}
   temp_str:=search_string(cur_name);
   if temp_str>0 then
     begin cur_name:=temp_str;
     decr(str_ptr);  {no |flush_string|, |pool_ptr| will be wrong!}
-    for j:=str_start[str_ptr+1] to pool_ptr-1 do
+    for j:=str_start_macro(str_ptr+1) to pool_ptr-1 do
       begin str_pool[j-ext_delimiter+area_delimiter+1]:=str_pool[j];
       end;
     pool_ptr:=pool_ptr-ext_delimiter+area_delimiter+1;  {update |pool_ptr|}
@@ -1462,20 +1381,20 @@ var must_quote: boolean; {whether to quote the filename}
 begin
 must_quote:=false;
 if a<>0 then begin
-  j:=str_start[a];
-  while (not must_quote) and (j<>str_start[a+1]) do begin
+  j:=str_start_macro(a);
+  while (not must_quote) and (j<>str_start_macro(a+1)) do begin
     must_quote:=str_pool[j]=" "; incr(j);
   end;
 end;
 if n<>0 then begin
-  j:=str_start[n];
-  while (not must_quote) and (j<>str_start[n+1]) do begin
+  j:=str_start_macro(n);
+  while (not must_quote) and (j<>str_start_macro(n+1)) do begin
     must_quote:=str_pool[j]=" "; incr(j);
   end;
 end;
 if e<>0 then begin
-  j:=str_start[e];
-  while (not must_quote) and (j<>str_start[e+1]) do begin
+  j:=str_start_macro(e);
+  while (not must_quote) and (j<>str_start_macro(e+1)) do begin
     must_quote:=str_pool[j]=" "; incr(j);
   end;
 end;
@@ -1487,15 +1406,15 @@ end;
               ((|e|<>0)and(|str_pool|[|str_start|[|e|]]=""""));}
 if must_quote then print_char("""");
 if a<>0 then
-  for j:=str_start[a] to str_start[a+1]-1 do
+  for j:=str_start_macro(a) to str_start_macro(a+1)-1 do
     if so(str_pool[j])<>"""" then
       print(so(str_pool[j]));
 if n<>0 then
-  for j:=str_start[n] to str_start[n+1]-1 do
+  for j:=str_start_macro(n) to str_start_macro(n+1)-1 do
     if so(str_pool[j])<>"""" then
       print(so(str_pool[j]));
 if e<>0 then
-  for j:=str_start[e] to str_start[e+1]-1 do
+  for j:=str_start_macro(e) to str_start_macro(e+1)-1 do
     if so(str_pool[j])<>"""" then
       print(so(str_pool[j]));
 if must_quote then print_char("""");
@@ -1512,11 +1431,11 @@ if must_quote then print_char("""");
 @z
 
 @x
-for j:=str_start[a] to str_start[a+1]-1 do append_to_name(so(str_pool[j]));
+for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(so(str_pool[j]));
 @y
 if name_of_file then libc_free (name_of_file);
-name_of_file:= xmalloc_array (ASCII_code, length(a)+length(n)+length(e)+1);
-for j:=str_start[a] to str_start[a+1]-1 do append_to_name(so(str_pool[j]));
+name_of_file:= xmalloc_array (packed_ASCII_code, length(a)+length(n)+length(e)+1);
+for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(so(str_pool[j]));
 @z
 
 @x
@@ -1556,7 +1475,7 @@ program.
 for j:=1 to n do append_to_name(xord[TEX_format_default[j]]);
 @y
 if name_of_file then libc_free (name_of_file);
-name_of_file := xmalloc_array (ASCII_code, n+(b-a+1)+format_ext_length+1);
+name_of_file := xmalloc_array (packed_ASCII_code, n+(b-a+1)+format_ext_length+1);
 for j:=1 to n do append_to_name(xord[TEX_format_default[j]]);
 @z
 
@@ -1715,12 +1634,6 @@ if parse_first_line_p then begin
   wlog_cr;
   wlog(' %&-line parsing enabled.');
   end;
-if translate_filename then begin
-  wlog_cr;
-  wlog(' (');
-  fputs(translate_filename, log_file);
-  wlog(')');
-  end;
 end
 @z
 
@@ -1833,7 +1746,7 @@ if name=str_ptr-1 then {we can conserve string pool space now}
 @!font_false_bchar:array[internal_font_number] of min_quarterword..non_char;
   {|font_bchar| if it doesn't exist in the font, otherwise |non_char|}
 @y
-@!font_info: ^fmemory_word;
+@!font_info: ^memory_word;
   {the big collection of font data}
 @!fmem_ptr:font_index; {first unused word of |font_info|}
 @!font_ptr:internal_font_number; {largest internal font number in use}
@@ -2008,9 +1921,9 @@ else begin {the default code is unchanged}
 @z
 
 @x
-  pool_ptr:=str_start[str_ptr]; {flush the current string}
+  pool_ptr:=str_start_macro(str_ptr); {flush the current string}
 @y
-  pool_ptr:=str_start[str_ptr]; {flush the current string}
+  pool_ptr:=str_start_macro(str_ptr); {flush the current string}
 end;
 @z
 
@@ -2120,10 +2033,10 @@ and |v:=hyf_next[v]|; repeat, if necessary, until |v=min_trie_op|.
 @z
 
 @x
-@!trie_pointer=0..trie_size; {an index into |trie|}
+@!trie_pointer=integer; {an index into |trie|}
 @y
-@!trie_pointer=0..ssup_trie_size; {an index into |trie|}
-@!trie_opcode=0..ssup_trie_opcode;  {a trie opcode}
+@!trie_pointer=integer; {an index into |trie|}
+@!trie_opcode=integer;  {a trie opcode}
 @z
 
 @x
@@ -2241,7 +2154,7 @@ not_found: decr(hn)
 k:=hyph_word[h]; if k=0 then goto not_found;
 if length(k)<hn then goto not_found;
 if length(k)=hn then
-  begin j:=1; u:=str_start[k];
+  begin j:=1; u:=str_start_macro(k);
   repeat if so(str_pool[u])<hc[j] then goto not_found;
   if so(str_pool[u])>hc[j] then goto done;
   incr(j); incr(u);
@@ -2256,7 +2169,7 @@ done:
 the module title is no longer descriptive.}
 k:=hyph_word[h]; if k=0 then goto not_found;
 if length(k)=hn then
-  begin j:=1; u:=str_start[k];
+  begin j:=1; u:=str_start_macro(k);
   repeat
   if so(str_pool[u])<>hc[j] then goto done;
   incr(j); incr(u);
@@ -2318,11 +2231,11 @@ found: hyph_word[h]:=s; hyph_list[h]:=p
 k:=hyph_word[h];
 if length(k)<length(s) then goto found;
 if length(k)>length(s) then goto not_found;
-u:=str_start[k]; v:=str_start[s];
+u:=str_start_macro(k); v:=str_start_macro(s);
 repeat if str_pool[u]<str_pool[v] then goto found;
 if str_pool[u]>str_pool[v] then goto not_found;
 incr(u); incr(v);
-until u=str_start[k+1];
+until u=str_start_macro(k+1);
 found:q:=hyph_list[h]; hyph_list[h]:=p; p:=q;@/
 t:=hyph_word[h]; hyph_word[h]:=s; s:=t;
 not_found:
@@ -2332,10 +2245,10 @@ not_found:
 the module title is no longer descriptive.}
 k:=hyph_word[h];
 if length(k)<>length(s) then goto not_found;
-u:=str_start[k]; v:=str_start[s];
+u:=str_start_macro(k); v:=str_start_macro(s);
 repeat if str_pool[u]<>str_pool[v] then goto not_found;
 incr(u); incr(v);
-until u=str_start[k+1];
+until u=str_start_macro(k+1);
 {repeat hyphenation exception; flushing old data}
 flush_string; s:=hyph_word[h]; {avoid |slow_make_string|!}
 decr(hyph_count);
@@ -2364,9 +2277,9 @@ $$\hbox{|@t$v^\prime$@>:=new_trie_op(0,1,min_trie_op)|,\qquad
 @z
 
 @x
-@!trie_used:array[ASCII_code] of quarterword;
+@!trie_used:array[BMP_code] of quarterword;
 @y
-@!trie_used:array[ASCII_code] of trie_opcode;
+@!trie_used:array[BMP_code] of trie_opcode;
 @z
 
 @x
@@ -2443,7 +2356,7 @@ trie_op_ptr:=0;
 @z
 
 @x
-@!init @!trie_c:packed array[trie_pointer] of packed_ASCII_code;
+@!init @!trie_c:packed array[trie_pointer] of BMP_code;
   {characters to match}
 @t\hskip10pt@>@!trie_o:packed array[trie_pointer] of quarterword;
   {operations to perform}
@@ -2456,7 +2369,7 @@ trie_op_ptr:=0;
   {used to identify equivalent subtries}
 tini
 @y
-@!init @!trie_c:^packed_ASCII_code;
+@!init @!trie_c:^BMP_code;
   {characters to match}
 @t\hskip10pt@>@!trie_o:^trie_opcode;
   {operations to perform}
@@ -2487,7 +2400,7 @@ begin h:=abs(intcast(trie_c[p])+1009*intcast(trie_o[p])+@|
 @x
 @!init@!trie_taken:packed array[1..trie_size] of boolean;
   {does a family start here?}
-@t\hskip10pt@>@!trie_min:array[ASCII_code] of trie_pointer;
+@t\hskip10pt@>@!trie_min:array[BMP_code] of trie_pointer;
   {the first possible slot for each character}
 @t\hskip10pt@>@!trie_max:trie_pointer; {largest location used in |trie|}
 @t\hskip10pt@>@!trie_not_ready:boolean; {is the trie still in linked form?}
@@ -2495,7 +2408,7 @@ tini
 @y
 @!init@!trie_taken: ^boolean;
   {does a family start here?}
-@t\hskip10pt@>@!trie_min:array[ASCII_code] of trie_pointer;
+@t\hskip10pt@>@!trie_min:array[BMP_code] of trie_pointer;
   {the first possible slot for each character}
 @t\hskip10pt@>@!trie_max:trie_pointer; {largest location used in |trie|}
 @t\hskip10pt@>@!trie_not_ready:boolean; {is the trie still in linked form?}
@@ -2523,9 +2436,9 @@ h.rh:=0; h.b0:=min_quarterword; h.b1:=min_quarterword; {|trie_link:=0|,
 @z
 
 @x
-  begin for r:=0 to 256 do trie[r]:=h;
+  begin for r:=0 to 65536 do trie[r]:=h;
 @y
-  begin for r:=0 to 256 do clear_trie;
+  begin for r:=0 to 65536 do clear_trie;
 @z
 
 @x
@@ -2717,9 +2630,6 @@ if ini_version then format_ident:=" (INITEX)";
 @!w: four_quarters; {four ASCII codes}
 @y
 @!format_engine: ^text_char;
-@!dummy_xord: ASCII_code;
-@!dummy_xchr: text_char;
-@!dummy_xprn: ASCII_code;
 @z
 
 @x
@@ -2765,7 +2675,6 @@ x:=x+4-(x mod 4);
 dump_int(x);dump_things(format_engine[0], x);
 libc_free(format_engine);@/
 dump_int(@$);@/
-@<Dump |xord|, |xchr|, and |xprn|@>;
 dump_int(max_halfword);@/
 dump_int(hash_high);
 @z
@@ -2807,7 +2716,6 @@ if x<>@$ then begin {check that strings are the same}
   wterm_ln('---! ', stringcast(name_of_file+1), ' was written by an older version');
   goto bad_fmt;
 end;
-@<Undump |xord|, |xchr|, and |xprn|@>;
 undump_int(x);
 if x<>max_halfword then goto bad_fmt; {check |max_halfword|}
 undump_int(hash_high);
@@ -2860,21 +2768,23 @@ if x<>hyph_prime then goto bad_fmt
 @z
 
 @x
-for k:=0 to str_ptr do dump_int(str_start[k]);
+dump_int(str_ptr);
+for k:=number_chars to str_ptr do dump_int(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin dump_four_ASCII; k:=k+4;
   end;
 k:=pool_ptr-4; dump_four_ASCII;
 @y
-dump_things(str_start[0], str_ptr+1);
+dump_int((str_ptr-number_chars));
+dump_things(str_start[0], (str_ptr-number_chars)+1);
 dump_things(str_pool[0], pool_ptr);
 @z
 
 @x
 undump_size(0)(pool_size)('string pool size')(pool_ptr);
 undump_size(0)(max_strings)('max strings')(str_ptr);
-for k:=0 to str_ptr do undump(0)(pool_ptr)(str_start[k]);
+for k:=number_chars to str_ptr do undump(0)(pool_ptr)(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin undump_four_ASCII; k:=k+4;
@@ -2888,7 +2798,8 @@ undump_size(0)(sup_max_strings-strings_free)('sup strings')(str_ptr);@/
 if max_strings<str_ptr+strings_free then
   max_strings:=str_ptr+strings_free;
 str_start:=xmalloc_array(pool_pointer, max_strings);
-undump_checked_things(0, pool_ptr, str_start[0], str_ptr+1);@/
+str_ptr:=str_ptr + number_chars;
+undump_checked_things(0, pool_ptr, str_start[0], (str_ptr-number_chars)+1);@/
 str_pool:=xmalloc_array(packed_ASCII_code, pool_size);
 undump_things(str_pool[0], pool_ptr);
 @z
@@ -3036,7 +2947,7 @@ for k:=null_font to font_ptr do
 @y
 undump_size(7)(sup_font_mem_size)('font mem size')(fmem_ptr);
 if fmem_ptr>font_mem_size then font_mem_size:=fmem_ptr;
-font_info:=xmalloc_array(fmemory_word, font_mem_size);
+font_info:=xmalloc_array(memory_word, font_mem_size);
 undump_things(font_info[0], fmem_ptr);@/
 undump_size(font_base)(font_base+max_font_max)('font max')(font_ptr);
 {This undumps all of the font info, despite the name.}
@@ -3463,7 +3374,7 @@ begin @!{|start_here|}
   if error_line > ssup_error_line then error_line := ssup_error_line;
 
   {array memory allocation}
-  buffer:=xmalloc_array (ASCII_code, buf_size);
+  buffer:=xmalloc_array (packed_ASCII_code, buf_size);
   nest:=xmalloc_array (list_state_record, nest_size);
   save_stack:=xmalloc_array (memory_word, save_size);
   input_stack:=xmalloc_array (in_state_record, stack_size);
@@ -3501,7 +3412,7 @@ begin @!{|start_here|}
 
   str_start:=xmalloc_array (pool_pointer, max_strings);
   str_pool:=xmalloc_array (packed_ASCII_code, pool_size);
-  font_info:=xmalloc_array (fmemory_word, font_mem_size);
+  font_info:=xmalloc_array (memory_word, font_mem_size);
 @+Tini
 @z
 
@@ -3584,7 +3495,7 @@ if trie_not_ready then begin {initex without format loaded}
   trie_tro:=xmalloc_array (trie_pointer, trie_size);
   trie_trc:=xmalloc_array (quarterword, trie_size);
 
-  trie_c:=xmalloc_array (packed_ASCII_code, trie_size);
+  trie_c:=xmalloc_array (BMP_code, trie_size);
   trie_o:=xmalloc_array (trie_opcode, trie_size);
   trie_l:=xmalloc_array (trie_pointer, trie_size);
   trie_r:=xmalloc_array (trie_pointer, trie_size);
@@ -3754,29 +3665,29 @@ if j=18 then
   print_nl("system(");
   for d:=0 to cur_length-1 do
     begin {|print| gives up if passed |str_ptr|, so do it by hand.}
-    print(so(str_pool[str_start[str_ptr]+d])); {N.B.: not |print_char|}
+    print(so(str_pool[str_start_macro(str_ptr)+d])); {N.B.: not |print_char|}
     end;
   print(")...");
   if shell_enabled_p then
     begin str_room(1); append_char(0); {Append a null byte to the expansion.}
     clobbered:=false;
     for d:=0 to cur_length-1 do {Convert to external character set.}
-      begin str_pool[str_start[str_ptr]+d]:=xchr[str_pool[str_start[str_ptr]+d]];
-      if (str_pool[str_start[str_ptr]+d]=null_code)
+      begin str_pool[str_start_macro(str_ptr)+d]:=xchr[str_pool[str_start_macro(str_ptr)+d]];
+      if (str_pool[str_start_macro(str_ptr)+d]=null_code)
          and (d<cur_length-1) then clobbered:=true;
         {minimal checking: NUL not allowed in argument string of |system|()}
       end;
     if clobbered then print("clobbered")
     else begin {We have the string; run system(3). We don't have anything
             reasonable to do with the return status, unfortunately discard it.}
-      system(stringcast(address_of(str_pool[str_start[str_ptr]])));
+      system(stringcast(address_of(str_pool[str_start_macro(str_ptr)])));
       print("executed");
       end;
     end
   else begin print("disabled");
   end;
   print_char("."); print_nl(""); print_ln;
-  pool_ptr:=str_start[str_ptr];  {erase the string}
+  pool_ptr:=str_start_macro(str_ptr);  {erase the string}
 end;
 selector:=old_setting;
 @z
@@ -3897,7 +3808,7 @@ begin
   write_ln(stderr, 'fmtdebug:csnames from ', hstart, ' to ', hfinish, ':');
   for h := hstart to hfinish do begin
     if text(h) > 0 then begin {if have anything at this position}
-      for c := str_start[text(h)] to str_start[text(h) + 1] - 1
+      for c := str_start_macro(text(h)) to str_start_macro(text(h) + 1) - 1
       do begin
         put_byte(str_pool[c], stderr); {print the characters}
       end;
@@ -3948,38 +3859,6 @@ if (cur_val<0)or((cur_val>15)and(cur_val<>18)) then
     ("I changed this one to zero."); int_error(cur_val); cur_val:=0;
   end;
 end;
-
-@ Dumping the |xord|, |xchr|, and |xprn| arrays.  We dump these always
-in the format, so a TCX file loaded during format creation can set a
-default for users of the format.
-
-@<Dump |xord|, |xchr|, and |xprn|@>=
-dump_things(xord[0], 256);
-dump_things(xchr[0], 256);
-dump_things(xprn[0], 256);
-
-@ Undumping the |xord|, |xchr|, and |xprn| arrays.  This code is more
-complicated, because we want to ensure that a TCX file specified on
-the command line will override whatever is in the format.  Since the
-tcx file has already been loaded, that implies throwing away the data
-in the format.  Also, if no |translate_filename| is given, but
-|eight_bit_p| is set we have to make all characters printable.
-
-@<Undump |xord|, |xchr|, and |xprn|@>=
-if translate_filename then begin
-  for k:=0 to 255 do undump_things(dummy_xord, 1);
-  for k:=0 to 255 do undump_things(dummy_xchr, 1);
-  for k:=0 to 255 do undump_things(dummy_xprn, 1);
-  end
-else begin
-  undump_things(xord[0], 256);
-  undump_things(xchr[0], 256);
-  undump_things(xprn[0], 256);
-  if eight_bit_p then
-    for k:=0 to 255 do
-      xprn[k]:=1;
-end;
-
 
 @* \[54/web2c-string] The string recycling routines.  \TeX{} uses 2
 upto 4 {\it new\/} strings when scanning a filename in an \.{\\input},

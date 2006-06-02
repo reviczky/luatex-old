@@ -283,26 +283,37 @@ char *makecstring (integer s)
     static char *cstrbuf = NULL;
     char *p;
     static int allocsize;
-    int allocgrow, i, l = strstart[s + 1] - strstart[s];
-    check_buf (l + 1, MAX_CSTRING_LEN);
-    if (cstrbuf == NULL) {
+    int allocgrow, i, l;
+	if (s >=2097152) {
+	  s -= 2097152;
+	  l = strstart[s + 1] - strstart[s];
+	  check_buf (l + 1, MAX_CSTRING_LEN);
+	  if (cstrbuf == NULL) {
         allocsize = l + 1;
         cstrbuf = xmallocarray (char, allocsize);
-    } else if (l + 1 > allocsize) {
+	  } else if (l + 1 > allocsize) {
         allocgrow = allocsize * 0.2;
         if (l + 1 - allocgrow > allocsize)
-            allocsize = l + 1;
+		  allocsize = l + 1;
         else if (allocsize < MAX_CSTRING_LEN - allocgrow)
-            allocsize += allocgrow;
+		  allocsize += allocgrow;
         else
-            allocsize = MAX_CSTRING_LEN;
+		  allocsize = MAX_CSTRING_LEN;
         cstrbuf = xreallocarray (cstrbuf, char, allocsize);
-    }
-    p = cstrbuf;
-    for (i = 0; i < l; i++)
+	  }
+	  p = cstrbuf;
+	  for (i = 0; i < l; i++)
         *p++ = strpool[i + strstart[s]];
-    *p = 0;
-    return cstrbuf;
+	  *p = 0;
+	} else {
+	  if (cstrbuf == NULL) {
+        allocsize = 5;
+        cstrbuf = xmallocarray (char, allocsize);
+	  }
+	  *cstrbuf=0;
+	  pdftex_fail("makecstring for character: NI");
+	}
+	return cstrbuf;
 }
 
 void setjobid (int year, int month, int day, int time)
@@ -1044,11 +1055,16 @@ void getmd5sum (strnumber s, boolean file)
         xfree (file_name);
     } else {
         /* s contains the data */
-        md5_init (&state);
-        md5_append (&state,
-                    (const md5_byte_t *) &strpool[strstart[s]],
-                    strstart[s + 1] - strstart[s]);
-        md5_finish (&state, digest);
+	    if (s >=2097152) {
+		  s -= 2097152;
+		  md5_init (&state);
+		  md5_append (&state,
+					  (const md5_byte_t *) &strpool[strstart[s]],
+					  strstart[s + 1] - strstart[s]);
+		  md5_finish (&state, digest);
+		} else {
+		  pdftex_fail("utils.c: getmd5sum() for single_characters: NI");
+		}
     }
 
     if (poolptr + len >= poolsize) {

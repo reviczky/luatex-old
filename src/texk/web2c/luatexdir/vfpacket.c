@@ -58,11 +58,16 @@ integer newvfpacket (internalfontnumber f)
 
 void storepacket (integer f, integer c, integer s)
 {
+  if(s>=2097152) {
+	s-=2097152;
     int l = strstart[s + 1] - strstart[s];
     vf_array[vfpacketbase[f]].len[c - fontbc[f]] = l;
     vf_array[vfpacketbase[f]].data[c - fontbc[f]] = xtalloc (l, char);
     memcpy ((void *) vf_array[vfpacketbase[f]].data[c - fontbc[f]],
             (void *) (strpool + strstart[s]), (unsigned) l);
+  } else {
+	pdftex_fail("vfpacket.c: storepacket() for single characters: NI ");
+  }
 }
 
 void pushpacketstate ()

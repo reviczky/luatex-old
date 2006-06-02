@@ -1,29 +1,22 @@
-% Copyright (c) 1996-2006 Han Th\^e\llap{\raise 0.5ex\hbox{\'{}}} Th\`anh, <thanh@@pdftex.org>
+% Copyright (c) 2006 Hartmut Henkel, Taco Hoekwater
 
-% This file is part of pdfTeX.
+% This file is part of luaTeX.
 
-% pdfTeX is free software; you can redistribute it and/or modify it under the
+% luaTeX is free software; you can redistribute it and/or modify it under the
 % terms of the GNU General Public License as published by the Free Software
 % Foundation; either version 2 of the License, or (at your option) any later
 % version.
 
-% pdfTeX is distributed in the hope that it will be useful, but WITHOUT ANY
+% luaTeX is distributed in the hope that it will be useful, but WITHOUT ANY
 % WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 % A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 % You should have received a copy of the GNU General Public License along with
-% pdfTeX; if not, write to the Free Software Foundation, Inc., 59 Temple Place,
+% luaTeX; if not, write to the Free Software Foundation, Inc., 59 Temple Place,
 % Suite 330, Boston, MA  02111-1307  USA
 
-% e-TeX is copyright (C) 1994,98 by Peter Breitenlohner; all rights are
-% reserved.  Copying of this file is authorized only if (1) you are Peter
-% Breitenlohner, or if (2) you make absolutely no changes to your copy.
-% (Programs such as PATCHWEB, TIE, or WEBMERGE allow the application of
-% several change files to tex.web; the master files tex.web and etex.ch
-% should stay intact.)
-
-% See etex_gen.tex for hints on how to install this program.
-% And see etripman.tex for details about how to validate it.
+% pdfTeX is copyright (C) 1996-2006 Han The Thanh, <thanh@@pdftex.org>.
+% e-TeX is copyright (C) 1994,98 by Peter Breitenlohner.
 
 % This program is directly derived from Donald E. Knuth's TeX;
 % the change history which follows and the reward offered for finders of
@@ -70,43 +63,13 @@
 % Version 3.14159 allowed fontmemsize to change; bulletproofing (March 1995).
 % Version 3.141592 fixed \xleaders, glueset, weird alignments (December 2002).
 
-% A preliminary version of TeX--XeT was released in April 1992.
-% TeX--XeT version 1.0 was released in June 1992,
-%   version 1.1 prevented arith overflow in glue computation (Oct 1992).
-% A preliminary e-TeX version 0.95 was operational in March 1994.
-% Version 1.0beta was released in May 1995.
-% Version 1.01beta fixed bugs in just_copy and every_eof (December 1995).
-% Version 1.02beta allowed 256 mark classes (March 1996).
-% Version 1.1 changed \group{type,level} -> \currentgroup{type,level},
-%             first public release (October 1996).
-% Version 2.0 development was started in March 1997;
-%             fixed a ligature-\beginR bug in January 1998;
-%             was released in March 1998.
-% Version 2.1 fixed a \marks bug (when min_halfword<>0) (January 1999).
-% Version 2.2 development was started in Feb 2003; released in Oct 2004.
-%             fixed a bug in sparse array handling (0=>null), Jun 2002;
-%             fixed a bug in \lastnodetype (cur_val=>cur_val_level)
-%                 reported by Hartmut Henkel <hartmut_henkel@@gmx.de>,
-%                 fix by Fabrice Popineau <Fabrice.Popineau@@supelec.fr>,
-%                 Jan 2004;
-%             another bug in sparse array handling (cur_ptr=>cur_chr)
-%                 reported by Taco Hoekwater <taco@@elvenkind.com>, Jul 2004;
-%             fixed a sparse array reference count bug (\let,\futurelet),
-%                 fix by Bernd Raichle <berd@@dante.de>, Aug 2004;
-%             reorganized handling of banner, additional token list and
-%                 integer parameters, and similar in order to reduce the
-%                 interference between eTeX, pdfTeX, and web2c change files.
-%             adapted to tex.web 3.141592, revised glue rounding for mixed
-%                 direction typesetting;
-%             fixed a bug in the revised glue rounding code, detected by
-%                 Tigran Aivazian <tigran@@aivazian.fsnet.co.uk>, Oct 2004.
 
-% Although considerable effort has been expended to make the e-TeX program
-% correct and reliable, no warranty is implied; the author disclaims any
+% Although considerable effort has been expended to make the luaTeX program
+% correct and reliable, no warranty is implied; the authors disclaim any
 % obligation or liability for damages, including but not limited to
 % special, indirect, or consequential damages arising out of or in
 % connection with the use or performance of this software. This work has
-% been a ``labor of love'' and the author hopes that users enjoy it.
+% been a ``labor of love'' and the authors hope that users enjoy it.
 
 % Here is TeX material that gets inserted after \input webmac
 \def\hang{\hangindent 3em\noindent\ignorespaces}
@@ -561,6 +524,8 @@ emphasize this distinction.
 @d number_regs=65536 {|biggest_reg+1|}
 @d biggest_mark=65535 {the largest allowed marks class; must be |<=max_quarterword|}
 @d number_marks=65536 {|biggest_mark+1|}
+@d biggest_char=2097151 {the largest allowed character number; must be |<=max_halfword|}
+@d number_chars=2097152 {|biggest_char+1|}
 
 @ In case somebody has inadvertently made bad settings of the ``constants,''
 \TeX\ checks them using a global variable called |bad|.
@@ -637,12 +602,12 @@ because some fussy \PASCAL\ compilers will complain about redundant labels.
 
 @* \[2] The character set.
 In order to make \TeX\ readily portable to a wide variety of
-computers, all of its input text is converted to an internal eight-bit
-code that includes standard ASCII, the ``American Standard Code for
-Information Interchange.''  This conversion is done immediately when each
-character is read in. Conversely, characters are converted from ASCII to
-the user's external representation just before they are output to a
-text file.
+computers, all of its input text is converted to an internal
+twenty-one-bit code that covers all of unicode, including ASCII, the
+``American Standard Code for Information Interchange.''  This
+conversion is done immediately when each character is read
+in. Conversely, characters are converted from ASCII to the user's
+external representation just before they are output to a text file.
 
 Such an internal code is relevant to users of \TeX\ primarily because it
 governs the positions of characters in the fonts. For example, the
@@ -663,7 +628,8 @@ tables.
 are said to be of type |ASCII_code|, which is a subrange of the integers.
 
 @<Types...@>=
-@!ASCII_code=0..255; {eight-bit numbers}
+@!ASCII_code=0..biggest_char; {eight-bit numbers}
+@!BMP_code=0..65535; {sixteen-bit numbers}
 
 @ The original \PASCAL\ compiler was designed in the late 60s, when six-bit
 character sets were common, so it did not make provision for lowercase
@@ -849,8 +815,7 @@ right of these assignment statements to |chr(i)|.
 @^system dependencies@>
 
 @<Set init...@>=
-for i:=0 to @'37 do xchr[i]:=' ';
-for i:=@'177 to @'377 do xchr[i]:=' ';
+for i:=0 to biggest_char do xchr[i]:=i;
 
 @ The following system-independent code makes the |xord| array contain a
 suitable inverse to the information in |xchr|. Note that if |xchr[i]=xchr[j]|
@@ -859,9 +824,7 @@ where |i<j<@'177|, the value of |xord[xchr[i]]| will turn out to be
 codes below @'40 in case there is a coincidence.
 
 @<Set init...@>=
-for i:=first_text_char to last_text_char do xord[chr(i)]:=invalid_code;
-for i:=@'200 to @'377 do xord[xchr[i]]:=i;
-for i:=0 to @'176 do xord[xchr[i]]:=i;
+for i:= first_text_char to last_text_char do xord[chr(i)]:=i;
 
 @* \[3] Input and output.
 The bane of portability is the fact that different operating systems treat
@@ -1014,7 +977,7 @@ values, and that |first| and |last| are indices into this array
 representing the beginning and ending of a line of text.
 
 @<Glob...@>=
-@!buffer:array[0..buf_size] of ASCII_code; {lines of characters being read}
+@!buffer:array[0..buf_size] of packed_ASCII_code; {lines of characters being read}
 @!first:0..buf_size; {the first unused position in |buffer|}
 @!last:0..buf_size; {end of the line just input to |buffer|}
 @!max_buf_stack:0..buf_size; {largest index used in |buffer|}
@@ -1219,30 +1182,21 @@ The array |str_pool| contains all of the (eight-bit) ASCII codes in all
 of the strings, and the array |str_start| contains indices of the starting
 points of each string. Strings are referred to by integer numbers, so that
 string number |s| comprises the characters |str_pool[j]| for
-|str_start[s]<=j<str_start[s+1]|. Additional integer variables
+|str_start_macro(s)<=j<str_start_macro(s+1)|. Additional integer variables
 |pool_ptr| and |str_ptr| indicate the number of entries used so far
 in |str_pool| and |str_start|, respectively; locations
-|str_pool[pool_ptr]| and |str_start[str_ptr]| are
+|str_pool[pool_ptr]| and |str_start_macro(str_ptr)| are
 ready for the next string to be allocated.
 
-String numbers 0 to 255 are reserved for strings that correspond to single
-ASCII characters. This is in accordance with the conventions of \.{WEB},
+String numbers 0 to |biggest_char| are reserved for strings that correspond to single
+UNICODE characters. This is in accordance with the conventions of \.{WEB},
 @.WEB@>
 which converts single-character strings into the ASCII code number of the
 single character involved, while it converts other strings into integers
 and builds a string pool file. Thus, when the string constant \.{"."} appears
 in the program below, \.{WEB} converts it into the integer 46, which is the
 ASCII code for a period, while \.{WEB} will convert a string like \.{"hello"}
-into some integer greater than~255. String number 46 will presumably be the
-single character `\..'; but some ASCII codes have no standard visible
-representation, and \TeX\ sometimes needs to be able to print an arbitrary
-ASCII character, so the first 256 strings are used to specify exactly what
-should be printed for each of the 256 possibilities.
-
-Elements of the |str_pool| array must be ASCII codes that can actually
-be printed; i.e., they must have an |xchr| equivalent in the local
-character set. (This restriction applies only to preloaded strings,
-not to those generated dynamically by the user.)
+into some integer greater than~|biggest_char|. 
 
 Some \PASCAL\ compilers won't pack integers into a single byte unless the
 integers lie in the range |-128..127|. To accommodate such systems
@@ -1250,10 +1204,11 @@ we access the string pool only via macros that can easily be redefined.
 
 @d si(#) == # {convert from |ASCII_code| to |packed_ASCII_code|}
 @d so(#) == # {convert from |packed_ASCII_code| to |ASCII_code|}
+@d str_start_macro(#) == str_start[(#) - number_chars]
 
 @<Types...@>=
-@!pool_pointer = 0..pool_size; {for variables that point into |str_pool|}
-@!str_number = 0..max_strings; {for variables that point into |str_start|}
+@!pool_pointer = integer; {for variables that point into |str_pool|}
+@!str_number = integer; {for variables that point into |str_start|}
 @!packed_ASCII_code = 0..255; {elements of |str_pool| array}
 
 @ @<Glob...@>=
@@ -1271,12 +1226,12 @@ overhead of procedure calls. For example, here is
 a simple macro that computes the length of a string.
 @.WEB@>
 
-@d length(#)==(str_start[#+1]-str_start[#]) {the number of characters
+@d length(#)==(str_start_macro(#+1)-str_start_macro(#)) {the number of characters
   in string number \#}
 
 @ The length of the current string is called |cur_length|:
 
-@d cur_length == (pool_ptr - str_start[str_ptr])
+@d cur_length == (pool_ptr - str_start_macro(str_ptr))
 
 @ Strings are created by appending character codes to |str_pool|.
 The |append_char| macro, defined here, does not check to see if the
@@ -1304,17 +1259,71 @@ This function returns the identification number of the new string as its
 value.
 
 @p function make_string : str_number; {current string enters the pool}
-begin if str_ptr=max_strings then
+begin if str_ptr=(max_strings+number_chars) then
   overflow("number of strings",max_strings-init_str_ptr);
 @:TeX capacity exceeded number of strings}{\quad number of strings@>
-incr(str_ptr); str_start[str_ptr]:=pool_ptr;
+incr(str_ptr); str_start_macro(str_ptr):=pool_ptr;
 make_string:=str_ptr-1;
 end;
 
 @ To destroy the most recently made string, we say |flush_string|.
 
-@d flush_string==begin decr(str_ptr); pool_ptr:=str_start[str_ptr];
+The helper routines reads one utf sequence from the pool resp. the
+buffer, and returns its character value.
+
+@d flush_string==begin decr(str_ptr); pool_ptr:=str_start_macro(str_ptr);
   end
+@d test_sequence_byte(#)==if #<@"80 then begin
+  print_err("Text line contains an invalid utf-8 sequence");
+@.Text line contains...@>
+  help2("A funny symbol that I can't read has just been input.")@/
+    ("Continue, and I'll forget that it ever happened.");@/
+  deletions_allowed:=false; error; deletions_allowed:=true;
+  return; end
+
+@p function buffer_to_unichar(@!k:integer):ASCII_code;
+label exit;
+var a:@!ASCII_code; {a utf char}
+b:@!quarterword; { a utf nibble}
+begin
+    b := buffer[k];
+    if b<@"80 then
+      a := b
+    else if b>=@"F0 then begin
+	  a := (b-@"F0) * 64;
+	  b := buffer[k+1];
+	  test_sequence_byte(b);
+	  a := (a + (b-128)) * 64;
+	  b := buffer[k+2];
+	  test_sequence_byte(b);
+	  a := (a + (b-128)) * 64;
+	  b := buffer[k+3];
+	  test_sequence_byte(b);
+	  a := a + (b-128);
+      end 
+    else if b>=@"E0 then begin
+	  a := (b-@"E0) * 64;
+	  b := buffer[k+1];
+	  test_sequence_byte(b);
+	  a := (a + (b-128)) * 64;
+	  b := buffer[k+2];
+	  test_sequence_byte(b);
+	  a := a + (b-128);
+      end 
+    else if b>=@"C0 then begin
+	  a := (b-@"C0) * 64;
+	  b := buffer[k+1];
+	  test_sequence_byte(b);
+	  a := a + (b-128);
+      end
+    else begin { NI: this is an encoding error }
+      a := b;
+      end;
+exit: 
+  buffer_to_unichar := a;
+end ;
+
+
 
 @ The following subroutine compares string |s| with another string of the
 same length that appears in |buffer| starting at position |k|;
@@ -1326,14 +1335,22 @@ it tends to return |true| about 80 percent of the time.
   {test equality of strings}
 label not_found; {loop exit}
 var j: pool_pointer; {running index}
+a: ASCII_code; {a unicode character }
 @!result: boolean; {result of comparison}
-begin j:=str_start[s];
-while j<str_start[s+1] do
+begin result:=false; 
+if s<number_chars then begin
+  a := buffer_to_unichar(k); 
+  if a<>s then goto not_found;
+  end
+else begin
+j:=str_start_macro(s);
+while j<str_start_macro(s+1) do
   begin if so(str_pool[j])<>buffer[k] then
-    begin result:=false; goto not_found;
+    begin goto not_found;
     end;
   incr(j); incr(k);
   end;
+end;
 result:=true;
 not_found: str_eq_buf:=result;
 end;
@@ -1343,17 +1360,41 @@ and it does not assume that they have the same length.
 
 @p function str_eq_str(@!s,@!t:str_number):boolean;
   {test equality of strings}
-label not_found; {loop exit}
+label found,not_found; {loop exit}
 var j,@!k: pool_pointer; {running indices}
+a: ASCII_code; {a utf char}
 @!result: boolean; {result of comparison}
 begin result:=false;
-if length(s)<>length(t) then goto not_found;
-j:=str_start[s]; k:=str_start[t];
-while j<str_start[s+1] do
-  begin if str_pool[j]<>str_pool[k] then goto not_found;
-  incr(j); incr(k);
+a:= 0;
+if s<number_chars then begin
+  if t>=number_chars then begin
+    if s<=@"7F then
+     if length(t)=1 then
+       if str_pool[str_start_macro(t)]=s then
+          goto found;
+	a := pool_to_unichar(str_start_macro(t));
+    if a<>s then goto not_found;
+    end 
+  else
+    if t<>s then goto not_found;
+  end
+else if t<number_chars then begin
+ if t<=@"7F then
+   if length(s)=1 then
+     if str_pool[str_start_macro(s)]=t then
+       goto found;
+  a := pool_to_unichar(str_start_macro(s));
+  if a<>t then goto not_found;
+  end 
+else begin 
+  if length(s)<>length(t) then goto not_found;
+  j:=str_start_macro(s); k:=str_start_macro(t);
+  while j<str_start_macro(s+1) do
+    begin if str_pool[j]<>str_pool[k] then goto not_found;
+    incr(j); incr(k);
+    end;
   end;
-result:=true;
+found: result:=true;
 not_found: str_eq_str:=result;
 end;
 
@@ -1363,6 +1404,11 @@ on the information that \.{WEB} has output while processing \TeX.
 @.INITEX@>
 @^string pool@>
 
+The first |number_chars| strings are single-characters strings matching
+Unicode. There is no point in generating all of these. But |str_ptr| has
+initialized properly, otherwise |print_char| cannot see the difference
+between characters and strings.
+
 @p @!init function get_strings_started:boolean; {initializes the string pool,
   but returns |false| if something goes wrong}
 label done,exit;
@@ -1371,8 +1417,7 @@ var k,@!l:0..255; {small indices or counters}
 @!g:str_number; {garbage}
 @!a:integer; {accumulator for check sum}
 @!c:boolean; {check sum has been checked}
-begin pool_ptr:=0; str_ptr:=0; str_start[0]:=0;
-@<Make the first 256 strings@>;
+begin pool_ptr:=0; str_ptr:=number_chars; str_start[0]:=0;
 @<Read the other strings from the \.{TEX.POOL} file and return |true|,
   or give an error message and return |false|@>;
 exit:end;
@@ -1380,19 +1425,6 @@ tini
 
 @ @d app_lc_hex(#)==l:=#;
   if l<10 then append_char(l+"0")@+else append_char(l-10+"a")
-
-@<Make the first 256...@>=
-for k:=0 to 255 do
-  begin if (@<Character |k| cannot be printed@>) then
-    begin append_char("^"); append_char("^");
-    if k<@'100 then append_char(k+@'100)
-    else if k<@'200 then append_char(k-@'100)
-    else begin app_lc_hex(k div 16); app_lc_hex(k mod 16);
-      end;
-    end
-  else append_char(k);
-  g:=make_string;
-  end
 
 @ The first 128 strings will contain 95 standard ASCII characters, and the
 other 33 characters will be printed in three-symbol form like `\.{\^\^A}'
@@ -1491,7 +1523,7 @@ terminal or to the transcript file, respectively.
   {the number of characters on the current terminal line}
 @!file_offset : 0..max_print_line;
   {the number of characters on the current file line}
-@!trick_buf:array[0..error_line] of ASCII_code; {circular buffer for
+@!trick_buf:array[0..error_line] of packed_ASCII_code; {circular buffer for
   pseudoprinting}
 @!trick_count: integer; {threshold for pseudoprinting, explained later}
 @!first_count: integer; {another variable for pseudoprinting}
@@ -1574,13 +1606,49 @@ assumes that it is always safe to print a visible ASCII character.)
 @^system dependencies@>
 
 @<Basic print...@>=
+function pool_to_unichar(@!t:pool_pointer):ASCII_code;
+label not_found;
+var a,result:@!ASCII_code; {a utf char}
+b:@!quarterword; { a utf nibble}
+begin
+    b := str_pool[t];
+    if b<=@"7F then
+      a := b
+    else if b>=@"F0 then begin
+	  a := (b-@"F0) * 64;
+	  b := str_pool[t+1];
+	  a := (a + (b-128)) * 64;
+	  b := str_pool[t+2];
+	  a := (a + (b-128)) * 64;
+	  b := str_pool[t+3];
+	  a := a + (b-128);
+      end
+    else if b>=@"E0 then begin
+	  a := (b-@"E0) * 64;
+	  b := str_pool[t+1];
+	  a := (a + (b-128)) * 64;
+	  b := str_pool[t+2];
+	  a := a + (b-128);
+      end 
+    else if b>=@"C0 then begin
+	  a := (b-@"C0) * 64;
+	  b := str_pool[t+1];
+	  a := a + (b-128);
+      end
+    else begin  { NI: this is an encoding error }
+      a := b;
+      end;
+result := a;
+not_found: pool_to_unichar := result;
+end ;
+
 procedure print(@!s:integer); {prints string |s|}
 label exit;
 var j:pool_pointer; {current character code position}
 @!nl:integer; {new-line character to restore}
 begin if s>=str_ptr then s:="???" {this can't happen}
 @.???@>
-else if s<256 then
+else if s<number_chars then
   if s<0 then s:="???" {can't happen}
   else begin if selector>pseudo then
       begin print_char(s); return; {internal strings are not expanded}
@@ -1589,17 +1657,27 @@ else if s<256 then
       if selector<pseudo then
         begin print_ln; return;
         end;
-    nl:=new_line_char; new_line_char:=-1;
-      {temporarily disable new-line character}
-    j:=str_start[s];
-    while j<str_start[s+1] do
-      begin print_char(so(str_pool[j])); incr(j);
+    if s <= @"80 then
+      print_char(s)
+    else if s<@"800 then begin
+      print_char(@"C0 + s div @"40);
+      print_char(@"80 + s mod @"40);
+      end
+    else if s<@"FFFF then begin
+      print_char(@"E0 + s div @"1000);
+      print_char(@"80 + (s mod @"1000) div @"40);
+      print_char(@"80 + (s mod @"1000) mod @"40);
+    end else begin
+      print_char(@"F0 + s div @"40000);
+      print_char(@"80 + (s mod @"40000) div @"1000);
+      print_char(@"80 + ((s mod @"40000) mod @"1000) div @"40);
+      print_char(@"80 + ((s mod @"40000) mod @"1000) mod @"40);
       end;
-    new_line_char:=nl; return;
+    return;
     end;
-j:=str_start[s];
-while j<str_start[s+1] do
-  begin print_char(so(str_pool[j])); incr(j);
+j:=str_start_macro(s);
+while j<str_start_macro(s+1) do
+  begin print_char(str_pool[j]); incr(j);
   end;
 exit:end;
 
@@ -1607,12 +1685,14 @@ exit:end;
 \.{\\string} might contain |ASCII_code| values that can't
 be printed using |print_char|. Therefore we use |slow_print| for them:
 
+@d slow_print==print
+
 @<Basic print...@>=
-procedure slow_print(@!s:integer); {prints string |s|}
+procedure old_slow_print(@!s:integer); {prints string |s|}
 var j:pool_pointer; {current character code position}
-begin if (s>=str_ptr) or (s<256) then print(s)
-else begin j:=str_start[s];
-  while j<str_start[s+1] do
+begin if (s>=str_ptr) or (s<number_chars) then print(s)
+else begin j:=str_start_macro(s);
+  while j<str_start_macro(s+1) do
     begin print(so(str_pool[j])); incr(j);
     end;
   end;
@@ -1648,7 +1728,7 @@ the user's escape character (which is usually a backslash).
 procedure print_esc(@!s:str_number); {prints escape character, then |s|}
 var c:integer; {the escape character code}
 begin  @<Set variable |c| to the current escape character@>;
-if c>=0 then if c<256 then print(c);
+if c>=0 then if c<number_chars then print(c);
 slow_print(s);
 end;
 
@@ -1723,7 +1803,7 @@ works; therefore no explanation will be given. Notice that 1990 yields
 label exit;
 var j,@!k: pool_pointer; {mysterious indices into |str_pool|}
 @!u,@!v: nonnegative_integer; {mysterious numbers}
-begin j:=str_start["m2d5c2l5x2v5i"]; v:=1000;
+begin j:=str_start_macro("m2d5c2l5x2v5i"); v:=1000;
 loop@+  begin while n>=v do
     begin print_char(so(str_pool[j])); n:=n-v;
     end;
@@ -1745,7 +1825,7 @@ created. The following procedure will.
 
 @p procedure print_current_string; {prints a yet-unmade string}
 var j:pool_pointer; {points to current character code}
-begin j:=str_start[str_ptr];
+begin j:=str_start_macro(str_ptr);
 while j<pool_ptr do
   begin print_char(so(str_pool[j])); incr(j);
   end;
@@ -2848,10 +2928,16 @@ It is usually most efficient to have |min_quarterword=min_halfword=0|,
 so one should try to achieve this unless it causes a severe problem.
 The values defined here are recommended for most 32-bit computers.
 
+We cannot use the full range of 32 bits in a halfword, because we have
+to allow negative values for potential backend tricks like web2c's
+dynamic allocation, and parshapes pointers have to be able to store at
+least twice the value |max_halfword| (see below). Therefore,
+|max_halfword| is $2^{30}-1$
+
 @d min_quarterword=0 {smallest allowable value in a |quarterword|}
-@d max_quarterword=255 {largest allowable value in a |quarterword|}
-@d min_halfword==0 {smallest allowable value in a |halfword|}
-@d max_halfword==65535 {largest allowable value in a |halfword|}
+@d max_quarterword=65535 {largest allowable value in a |quarterword|}
+@d min_halfword==-@"3FFFFFFF {smallest allowable value in a |halfword|}
+@d max_halfword==@"3FFFFFFF {largest allowable value in a |halfword|}
 
 @ Here are the inequalities that the quarterword and halfword values
 must satisfy (or rather, the inequalities that they mustn't satisfy):
@@ -5050,8 +5136,8 @@ things.
 paragraphs is to define these names, and to set up the initial values of the
 equivalents.
 
-In the first region we have 256 equivalents for ``active characters'' that
-act as control sequences, followed by 256 equivalents for single-character
+In the first region we have |number_chars| equivalents for ``active characters'' that
+act as control sequences, followed by |number_chars| equivalents for single-character
 control sequences.
 
 Then comes region~2, which corresponds to the hash table that we will
@@ -5061,8 +5147,8 @@ locations for control sequences that are perpetually defined
 (since they are used in error recovery).
 
 @d active_base=1 {beginning of region 1, for active character equivalents}
-@d single_base=active_base+256 {equivalents of one-character control sequences}
-@d null_cs=single_base+256 {equivalent of \.{\\csname\\endcsname}}
+@d single_base=active_base+number_chars {equivalents of one-character control sequences}
+@d null_cs=single_base+number_chars {equivalent of \.{\\csname\\endcsname}}
 @d hash_base=null_cs+1 {beginning of region 2, for the hash table}
 @d frozen_control_sequence=hash_base+hash_size {for error recovery}
 @d frozen_protection=frozen_control_sequence {inaccessible but definable}
@@ -5300,13 +5386,12 @@ registers.
 @d box_base=etex_pens {table of |number_regs| box registers}
 @d cur_font_loc=box_base+number_regs {internal font number outside math mode}
 @d math_font_base=cur_font_loc+1 {table of 48 math font numbers}
-@d cat_code_base=math_font_base+48
-  {table of 256 command codes (the ``catcodes'')}
-@d lc_code_base=cat_code_base+256 {table of 256 lowercase mappings}
-@d uc_code_base=lc_code_base+256 {table of 256 uppercase mappings}
-@d sf_code_base=uc_code_base+256 {table of 256 spacefactor mappings}
-@d math_code_base=sf_code_base+256 {table of 256 math mode mappings}
-@d int_base=math_code_base+256 {beginning of region 5}
+@d cat_code_base=math_font_base+48 {table of |number_chars| command codes (the ``catcodes'')}
+@d lc_code_base=cat_code_base+number_chars {table of |number_chars| lowercase mappings}
+@d uc_code_base=lc_code_base+number_chars {table of |number_chars| uppercase mappings}
+@d sf_code_base=uc_code_base+number_chars {table of |number_chars| spacefactor mappings}
+@d math_code_base=sf_code_base+number_chars {table of |number_chars| math mode mappings}
+@d int_base=math_code_base+number_chars {beginning of region 5}
 @#
 @d par_shape_ptr==equiv(par_shape_loc)
 @d output_routine==equiv(output_routine_loc)
@@ -5400,18 +5485,21 @@ par_shape_ptr:=null; eq_type(par_shape_loc):=shape_ref;
 eq_level(par_shape_loc):=level_one;@/
 for k:=etex_pen_base to etex_pens-1 do
   eqtb[k]:=eqtb[par_shape_loc];
-for k:=output_routine_loc to toks_base+255 do
+for k:=output_routine_loc to toks_base+biggest_reg do
   eqtb[k]:=eqtb[undefined_control_sequence];
 box(0):=null; eq_type(box_base):=box_ref; eq_level(box_base):=level_one;
-for k:=box_base+1 to box_base+255 do eqtb[k]:=eqtb[box_base];
+for k:=box_base+1 to box_base+biggest_reg do eqtb[k]:=eqtb[box_base];
 cur_font:=null_font; eq_type(cur_font_loc):=data;
 eq_level(cur_font_loc):=level_one;@/
 for k:=math_font_base to math_font_base+47 do eqtb[k]:=eqtb[cur_font_loc];
 equiv(cat_code_base):=0; eq_type(cat_code_base):=data;
 eq_level(cat_code_base):=level_one;@/
 for k:=cat_code_base+1 to int_base-1 do eqtb[k]:=eqtb[cat_code_base];
-for k:=0 to 255 do
-  begin cat_code(k):=other_char; math_code(k):=hi(k); sf_code(k):=1000;
+{do not set all math_codes!}
+for k:=0 to 255 do 
+  math_code(k):=hi(k); 
+for k:=0 to biggest_char do
+  begin cat_code(k):=other_char; sf_code(k):=1000;
   end;
 cat_code(carriage_return):=car_ret; cat_code(" "):=spacer;
 cat_code("\"):=escape; cat_code("%"):=comment;
@@ -5420,11 +5508,42 @@ for k:="0" to "9" do math_code(k):=hi(k+var_code);
 for k:="A" to "Z" do
   begin cat_code(k):=letter; cat_code(k+"a"-"A"):=letter;@/
   math_code(k):=hi(k+var_code+@"100);
-  math_code(k+"a"-"A"):=hi(k+"a"-"A"+var_code+@"100);@/
-  lc_code(k):=k+"a"-"A"; lc_code(k+"a"-"A"):=k+"a"-"A";@/
-  uc_code(k):=k; uc_code(k+"a"-"A"):=k;@/
+  math_code(k+32):=hi(k+32+var_code+@"100);@/
+  lc_code(k):=k+32; lc_code(k+32):=k+32;@/
+  uc_code(k):=k; uc_code(k+32):=k;@/
   sf_code(k):=999;
   end;
+for k:=@"C0 to @"D6 do begin 
+  cat_code(k):=letter; cat_code(k+32):=letter;@/
+  lc_code(k):=k+32; lc_code(k+32):=k+32;@/
+  uc_code(k):=k; uc_code(k+32):=k;@/
+  sf_code(k):=999;
+  end;
+for k:=@"D8 to @"DE do begin
+  cat_code(k):=letter; cat_code(k+32):=letter;@/
+  lc_code(k):=k+32; lc_code(k+32):=k+32;@/
+  uc_code(k):=k; uc_code(k+32):=k;@/
+  sf_code(k):=999;
+  end;
+for k:=0 to @"36 do begin 
+  cat_code((k*2)+@"100):=letter;
+  cat_code((k*2)+@"100+1):=letter;@/
+  lc_code((k*2)+@"100):=(k*2)+@"100+1; 
+  lc_code((k*2)+@"100+1):=(k*2)+@"100+1;@/
+  uc_code((k*2)+@"100):=(k*2)+@"100;@/
+  uc_code((k*2)+@"100+1):=(k*2)+@"100;@/
+  sf_code(k):=999;
+  end;
+for k:=@"38 to @"40 do begin 
+  cat_code((k*2)+@"100-1):=letter;
+  cat_code((k*2)+@"100):=letter;@/
+  lc_code((k*2)+@"100-1):=(k*2)+@"100; 
+  lc_code((k*2)+@"100):=(k*2)+@"100;@/
+  uc_code((k*2)+@"100-1):=(k*2)+@"100-1;@/
+  uc_code((k*2)+@"100):=(k*2)+@"100-1;@/
+  sf_code(k):=999;
+  end;
+
 
 @ @<Show equivalent |n|, in region 4@>=
 if (n=par_shape_loc) or ((n>=etex_pen_base) and (n<etex_pens)) then
@@ -5598,8 +5717,8 @@ that will be defined later.
 @#
 @d int_pars=etex_int_pars {total number of integer parameters}
 @d count_base=int_base+int_pars {|number_regs| user \.{\\count} registers}
-@d del_code_base=count_base+number_regs {256 delimiter code mappings}
-@d dimen_base=del_code_base+256 {beginning of region 6}
+@d del_code_base=count_base+number_regs {|number_chars| delimiter code mappings}
+@d dimen_base=del_code_base+number_chars {beginning of region 6}
 @#
 @d del_code(#)==eqtb[del_code_base+#].int
 @d count(#)==eqtb[count_base+#].int
@@ -5974,7 +6093,7 @@ for k:=int_base to del_code_base-1 do eqtb[k].int:=0;
 pdf_px_dimen := unity;
 mag:=1000; tolerance:=10000; hang_after:=1; max_dead_cycles:=25;
 escape_char:="\"; end_line_char:=carriage_return;
-for k:=0 to 255 do del_code(k):=-1;
+for k:=0 to biggest_char do del_code(k):=-1;
 del_code("."):=0; {this null delimiter is used in error recovery}
 
 @ The following procedure, which is called just before \TeX\ initializes its
@@ -6261,7 +6380,7 @@ given value, it is interested only in regions 1 to~3 of~|eqtb|, and in the
 first part of region~4.
 
 @<Search |eqtb| for equivalents equal to |p|@>=
-for q:=active_base to box_base+255 do
+for q:=active_base to box_base+biggest_reg do
   begin if equiv(q)=p then
     begin print_nl("EQUIV("); print_int(q); print_char(")");
     end;
@@ -6383,7 +6502,7 @@ begin if text(p)>0 then
   next(p):=hash_used; p:=hash_used;
   end;
 str_room(l); d:=cur_length;
-while pool_ptr>str_start[str_ptr] do
+while pool_ptr>str_start_macro(str_ptr) do
   begin decr(pool_ptr); str_pool[pool_ptr+l]:=str_pool[pool_ptr];
   end; {move current string up to make room for another}
 for k:=j to j+l-1 do append_char(buffer[k]);
@@ -6413,13 +6532,13 @@ var h:integer; {hash code}
 @!k:pointer; {index in string pool}
 @!j,@!l:integer;
 begin
-if s<256 then begin
+if s<number_chars then begin
   p := s;
   if (p<0) or (prim_eq_level(p)<>level_one) then
     p := undefined_primitive;
 end
 else begin
-  j:=str_start[s];
+  j:=str_start_macro(s);
   if s = str_ptr then l := cur_length else l := length(s);
   @<Compute the primitive code |h|@>;
   p:=h+prim_base; {we start searching here; note that |0<=h<hash_prime|}
@@ -6514,11 +6633,11 @@ var k:pool_pointer; {index into |str_pool|}
 @!j:0..buf_size; {index into |buffer|}
 @!l:small_number; {length of the string}
 @!prim_val:integer; {needed to fill |prim_eqtb|}
-begin if s<256 then begin
+begin if s<number_chars then begin
   cur_val:=s+single_base;
   prim_val:=s;
 end
-else  begin k:=str_start[s]; l:=str_start[s+1]-k;
+else  begin k:=str_start_macro(s); l:=str_start_macro(s+1)-k;
     {we will move |s| into the (possibly non-empty) |buffer|}
   if first+l>buf_size+1 then
       overflow("buffer size",buf_size);
@@ -6613,7 +6732,7 @@ primitive("radical",radical,0);@/
 @!@:radical_}{\.{\\radical} primitive@>
 primitive("read",read_to_cs,0);@/
 @!@:read_}{\.{\\read} primitive@>
-primitive("relax",relax,256); {cf.\ |scan_file_name|}
+primitive("relax",relax,number_chars); {cf.\ |scan_file_name|}
 @!@:relax_}{\.{\\relax} primitive@>
 text(frozen_relax):="relax"; eqtb[frozen_relax]:=eqtb[cur_val];@/
 primitive("setbox",set_box,0);@/
@@ -7109,10 +7228,10 @@ A \TeX\ token is either a character or a control sequence, and it is
 @^token@>
 represented internally in one of two ways: (1)~A character whose ASCII
 code number is |c| and whose command code is |m| is represented as the
-number $2^8m+c$; the command code is in the range |1<=m<=14|. (2)~A control
+number $2^{21}m+c$; the command code is in the range |1<=m<=14|. (2)~A control
 sequence whose |eqtb| address is |p| is represented as the number
-|cs_token_flag+p|. Here |cs_token_flag=@t$2^{12}-1$@>| is larger than
-$2^8m+c$, yet it is small enough that |cs_token_flag+p< max_halfword|;
+|cs_token_flag+p|. Here |cs_token_flag=@t$2^{25}-1$@>| is larger than
+$2^{21}m+c$, yet it is small enough that |cs_token_flag+p< max_halfword|;
 thus, a token fits comfortably in a halfword.
 
 A token |t| represents a |left_brace| command if and only if
@@ -7122,21 +7241,21 @@ we have |left_brace_limit<=t<right_brace_limit|; and it represents a |match| or
 The following definitions take care of these token-oriented constants
 and a few others.
 
-@d cs_token_flag==@'7777 {amount added to the |eqtb| location in a
-  token that stands for a control sequence; is a multiple of~256, less~1}
-@d left_brace_token=@'0400 {$2^8\cdot|left_brace|$}
-@d left_brace_limit=@'1000 {$2^8\cdot(|left_brace|+1)$}
-@d right_brace_token=@'1000 {$2^8\cdot|right_brace|$}
-@d right_brace_limit=@'1400 {$2^8\cdot(|right_brace|+1)$}
-@d math_shift_token=@'1400 {$2^8\cdot|math_shift|$}
-@d tab_token=@'2000 {$2^8\cdot|tab_mark|$}
-@d out_param_token=@'2400 {$2^8\cdot|out_param|$}
-@d space_token=@'5040 {$2^8\cdot|spacer|+|" "|$}
-@d letter_token=@'5400 {$2^8\cdot|letter|$}
-@d other_token=@'6000 {$2^8\cdot|other_char|$}
-@d match_token=@'6400 {$2^8\cdot|match|$}
-@d end_match_token=@'7000 {$2^8\cdot|end_match|$}
-@d protected_token=@'7001 {$2^8\cdot|end_match|+1$}
+@d cs_token_flag==@"1FFFFFFF {amount added to the |eqtb| location in a
+  token that stands for a control sequence; is a multiple of~2^{21}, less~1}
+@d left_brace_token=@"200000   {$2^{21}\cdot|left_brace|$}
+@d left_brace_limit=@"400000   {$2^{21}\cdot(|left_brace|+1)$}
+@d right_brace_token=@"400000  {$2^{21}\cdot|right_brace|$}
+@d right_brace_limit=@"600000  {$2^{21}\cdot(|right_brace|+1)$}
+@d math_shift_token= @"600000  {$2^{21}\cdot|math_shift|$}
+@d tab_token=@"800000          {$2^{21}\cdot|tab_mark|$}
+@d out_param_token=@"A00000    {$2^{21}\cdot|out_param|$}
+@d space_token=@"1400020       {$2^{21}\cdot|spacer|+|" "|$}
+@d letter_token=@"1600000      {$2^{21}\cdot|letter|$}
+@d other_token=@"1800000       {$2^{21}\cdot|other_char|$}
+@d match_token=@"1A00000       {$2^{21}\cdot|match|$}
+@d end_match_token=@"1C00000   {$2^{21}\cdot|end_match|$}
+@d protected_token=@"1C00001   {$2^{21}\cdot|end_match|+1$}
 
 @ @<Check the ``constant''...@>=
 if cs_token_flag+undefined_control_sequence>max_halfword then bad:=21;
@@ -7237,7 +7356,7 @@ if (p<hi_mem_min) or (p>mem_end) then
 @.CLOBBERED@>
   end;
 if info(p)>=cs_token_flag then print_cs(info(p)-cs_token_flag)
-else  begin m:=info(p) div @'400; c:=info(p) mod @'400;
+else  begin m:=info(p) div number_chars; c:=info(p) mod number_chars;
   if info(p)<0 then print_esc("BAD.")
 @.BAD@>
   else @<Display the token $(|m|,|c|)$@>;
@@ -8135,7 +8254,7 @@ when detecting a blank line.
 @!par_token:halfword; {token representing `\.{\\par}'}
 
 @ @<Put each...@>=
-primitive("par",par_end,256); {cf. |scan_file_name|}
+primitive("par",par_end,number_chars); {cf. |scan_file_name|}
 @!@:par_}{\.{\\par} primitive@>
 par_loc:=cur_val; par_token:=cs_token_flag+par_loc;
 
@@ -8264,10 +8383,15 @@ returned to the value it had after the \<u_j> template for that entry.
 if cur_cmd<=car_ret then if cur_cmd>=tab_mark then if align_state=0 then
   @<Insert the \(v)\<v_j> template and |goto restart|@>
 
-@ @<Input from external file, |goto restart| if no input found@>=
+@ 
+@d unicode_loc(#)==if buffer[#]>@"F0 then #:=#+4 else if buffer[#]>@"E0 
+     then #:=#+3 else if buffer[#]>@"C0 then #:=#+2 else incr(#)
+
+@<Input from external file, |goto restart| if no input found@>=
 @^inner loop@>
 begin switch: if loc<=limit then {current line not yet finished}
-  begin cur_chr:=buffer[loc]; incr(loc);
+  begin 
+  cur_chr:=buffer_to_unichar(loc); unicode_loc(loc);
   reswitch: cur_cmd:=cat_code(cur_chr);
   @<Change state if necessary, and |goto switch| if the
     current character should be ignored,
@@ -8487,7 +8611,7 @@ if loc<>null then {list not exhausted}
         @<Get the next token, suppressing expansion@>
       else check_outer_validity;
     end
-  else  begin cur_cmd:=t div @'400; cur_chr:=t mod @'400;
+  else  begin cur_cmd:=t div number_chars; cur_chr:=t mod number_chars;
     case cur_cmd of
     left_brace: incr(align_state);
     right_brace: decr(align_state);
@@ -8522,7 +8646,7 @@ end
 @ All of the easy branches of |get_next| have now been taken care of.
 There is one more branch.
 
-@d end_line_char_inactive == (end_line_char<0)or(end_line_char>255)
+@d end_line_char_inactive == (end_line_char<0)or(end_line_char>biggest_char)
 
 @<Move to next line of file, or |goto restart|...@>=
 if name>17 then @<Read next line of file into |buffer|, or
@@ -8651,7 +8775,7 @@ and except when the arguments to \.{\\ifx} are being scanned.
 @p procedure get_token; {sets |cur_cmd|, |cur_chr|, |cur_tok|}
 begin no_new_control_sequence:=false; get_next; no_new_control_sequence:=true;
 @^inner loop@>
-if cur_cs=0 then cur_tok:=(cur_cmd*@'400)+cur_chr
+if cur_cs=0 then cur_tok:=(cur_cmd*number_chars)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
 
@@ -8786,7 +8910,7 @@ is_in_csname := false;
 @<Look up the characters of list |r| in the hash table, and set |cur_cs|@>;
 flush_list(r);
 if eq_type(cur_cs)=undefined_cs then
-  begin eq_define(cur_cs,relax,256); {N.B.: The |save_stack| might change}
+  begin eq_define(cur_cs,relax,number_chars); {N.B.: The |save_stack| might change}
   end; {the control sequence will now match `\.{\\relax}'}
 cur_tok:=cur_cs+cs_token_flag; back_input;
 end
@@ -8808,7 +8932,7 @@ while p<>null do
       overflow("buffer size",buf_size);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
     end;
-  buffer[j]:=info(p) mod @'400; incr(j); p:=link(p);
+  buffer[j]:=info(p) mod @'400; incr(j); p:=link(p); {FIX}
   end;
 if j>first+1 then
   begin no_new_control_sequence:=false; cur_cs:=id_lookup(first,j-first);
@@ -8873,7 +8997,7 @@ if cur_cmd>=call then
     end
 else expand;
 goto restart;
-done: if cur_cs=0 then cur_tok:=(cur_cmd*@'400)+cur_chr
+done: if cur_cs=0 then cur_tok:=(cur_cmd*number_chars)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
 
@@ -8885,7 +9009,7 @@ begin while cur_cmd>max_command do
   begin expand;
   get_next;
   end;
-if cur_cs=0 then cur_tok:=(cur_cmd*@'400)+cur_chr
+if cur_cs=0 then cur_tok:=(cur_cmd*number_chars)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
 
@@ -9104,7 +9228,7 @@ begin scanner_status:=matching; unbalance:=0;
 long_state:=eq_type(cur_cs);
 if long_state>=outer_call then long_state:=long_state-2;
 repeat link(temp_head):=null;
-if (info(r)>match_token+255)or(info(r)<match_token) then s:=null
+if (info(r)>match_token+biggest_char)or(info(r)<match_token) then s:=null
 else  begin match_chr:=info(r)-match_token; s:=link(r); r:=s;
   p:=temp_head; m:=0;
   end;
@@ -9335,21 +9459,29 @@ label exit;
 var p:pointer; {tail of the backup list}
 @!q:pointer; {new node being added to the token list via |store_new_token|}
 @!k:pool_pointer; {index into |str_pool|}
-begin p:=backup_head; link(p):=null; k:=str_start[s];
-while k<str_start[s+1] do
-  begin get_x_token; {recursion is possible here}
+begin 
+if s<number_chars then begin 
+  confusion("scankeyword"); 
+  scan_keyword:=false;
+  end 
+else begin
+  p:=backup_head; link(p):=null; 
+  k:=str_start_macro(s);
+  while k<str_start_macro(s+1) do
+    begin get_x_token; {recursion is possible here}
 @^recursion@>
-  if (cur_cs=0)and@|
-   ((cur_chr=so(str_pool[k]))or(cur_chr=so(str_pool[k])-"a"+"A")) then
-    begin store_new_token(cur_tok); incr(k);
-    end
-  else if (cur_cmd<>spacer)or(p<>backup_head) then
-    begin back_input;
-    if p<>backup_head then back_list(link(backup_head));
-    scan_keyword:=false; return;
+    if (cur_cs=0)and@|
+     ((cur_chr=so(str_pool[k]))or(cur_chr=so(str_pool[k])-"a"+"A")) then
+      begin store_new_token(cur_tok); incr(k);
+      end
+    else if (cur_cmd<>spacer)or(p<>backup_head) then
+      begin back_input;
+      if p<>backup_head then back_list(link(backup_head));
+      scan_keyword:=false; return;
+      end;
     end;
-  end;
-flush_list(link(backup_head)); scan_keyword:=true;
+  flush_list(link(backup_head)); scan_keyword:=true;
+end;
 exit:end;
 
 @ Here is a procedure that sounds an alarm when mu and non-mu units
@@ -9875,10 +10007,10 @@ end;
 @ @<Declare procedures that scan restricted classes of integers@>=
 procedure scan_char_num;
 begin scan_int;
-if (cur_val<0)or(cur_val>255) then
+if (cur_val<0)or(cur_val>biggest_char) then
   begin print_err("Bad character code");
 @.Bad character code@>
-  help2("A character number must be between 0 and 255.")@/
+  help2("A character number must be between 0 and biggest_char.")@/
     ("I changed this one to zero."); int_error(cur_val); cur_val:=0;
   end;
 end;
@@ -9989,7 +10121,7 @@ if cur_tok<cs_token_flag then
 else if cur_tok<cs_token_flag+single_base then
   cur_val:=cur_tok-cs_token_flag-active_base
 else cur_val:=cur_tok-cs_token_flag-single_base;
-if cur_val>255 then
+if cur_val>biggest_char then
   begin print_err("Improper alphabetic constant");
 @.Improper alphabetic constant@>
   help2("A one-character control sequence belongs after a ` mark.")@/
@@ -10190,24 +10322,17 @@ attach_fraction: if cur_val>=@'40000 then arith_error:=true
 else cur_val:=cur_val*unity+f;
 done:
 
-@ A specification like `\.{filllll}' or `\.{fill L L L}' will lead to two
-error messages (one for each additional keyword \.{"l"}).
+@ In traditional TeX, a specification like `\.{filllll}' or `\.{fill L L
+L}' will lead to two error messages (one for each additional keyword
+\.{"l"}). 
+
+But not for luatex, because it is more convenient for us to have
+|scan_keyword| called only with multi-character strings as arguments.
 
 @<Scan for \(f)\.{fil} units...@>=
-if scan_keyword("fil") then
-@.fil@>
-  begin cur_order:=fil;
-  while scan_keyword("l") do
-    begin if cur_order=filll then
-      begin print_err("Illegal unit of measure (");
-@.Illegal unit of measure@>
-      print("replaced by filll)");
-      help1("I dddon't go any higher than filll."); error;
-      end
-    else incr(cur_order);
-    end;
-  goto attach_fraction;
-  end
+if scan_keyword("filll") then begin cur_order:=filll; goto attach_fraction; end
+else if scan_keyword("fill") then begin cur_order:=fill; goto attach_fraction; end
+else if scan_keyword("fil") then begin cur_order:=fil; goto attach_fraction; end
 
 @ @<Scan for \(u)units that are internal dimensions...@>=
 save_cur_val:=cur_val;
@@ -10413,6 +10538,9 @@ at the value |p| that is returned. (If |p=temp_head|, the list is empty.)
 |lua_str_toks| is almost identical, but it also escapes the three
 symbols that |lua| considers special while scanning a literal string
 
+@d unicode_incr(#)==if str_pool[#]>@"F0 then #:=#+4 else if str_pool[#]>@"E0 
+     then #:=#+3 else if str_pool[#]>@"C0 then #:=#+2 else incr(#)
+
 @p @t\4@>@<Declare \eTeX\ procedures for token lists@>@;@/
 function lua_str_toks(@!b:pool_pointer):pointer;
   {changes the string |str_pool[b..pool_ptr]| to a token list}
@@ -10423,7 +10551,7 @@ var p:pointer; {tail of the token list}
 begin str_room(1);
 p:=temp_head; link(p):=null; k:=b;
 while k<pool_ptr do
-  begin t:=so(str_pool[k]);
+  begin t:=pool_to_unichar(k);
   if t=" " then t:=space_token
   else
     begin
@@ -10432,7 +10560,7 @@ while k<pool_ptr do
     t:=other_token+t;
     end;
   fast_store_new_token(t);
-  incr(k);
+  unicode_incr(k);
   end;
 pool_ptr:=b; lua_str_toks:=p;
 end;
@@ -10446,11 +10574,11 @@ var p:pointer; {tail of the token list}
 begin str_room(1);
 p:=temp_head; link(p):=null; k:=b;
 while k<pool_ptr do
-  begin t:=so(str_pool[k]);
+  begin t:=pool_to_unichar(k);
   if t=" " then t:=space_token
   else t:=other_token+t;
   fast_store_new_token(t);
-  incr(k);
+  unicode_incr(k);
   end;
 pool_ptr:=b; str_toks:=p;
 end;
@@ -10729,7 +10857,7 @@ pdf_escape_string_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    escapestring(str_start[s]);
+    escapestring(str_start_macro(s));
     link(garbage) := str_toks(b);
     flush_str(s);
     ins_list(link(temp_head));
@@ -10747,7 +10875,7 @@ pdf_escape_name_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    escapename(str_start[s]);
+    escapename(str_start_macro(s));
     link(garbage) := str_toks(b);
     flush_str(s);
     ins_list(link(temp_head));
@@ -10765,7 +10893,7 @@ pdf_escape_hex_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    escapehex(str_start[s]);
+    escapehex(str_start_macro(s));
     link(garbage) := str_toks(b);
     flush_str(s);
     ins_list(link(temp_head));
@@ -10783,7 +10911,7 @@ pdf_unescape_hex_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    unescapehex(str_start[s]);
+    unescapehex(str_start_macro(s));
     link(garbage) := str_toks(b);
     flush_str(s);
     ins_list(link(temp_head));
@@ -10970,7 +11098,7 @@ lua_escape_string_code:
     def_ref := save_def_ref;
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
-    link(garbage) := lua_str_toks(str_start[s]);
+    link(garbage) := lua_str_toks(str_start_macro(s));
 	ins_list(link(temp_head));
     flush_str(s);
     return;
@@ -10988,7 +11116,7 @@ lua_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    luacall(cur_val,s);
+    luacall(cur_val,(s-number_chars));
 	if pool_ptr>b then begin
       link(garbage) := str_toks(b);
 	  ins_list(link(temp_head));
@@ -11662,14 +11790,14 @@ active characters have the smallest tokens, among all control sequences.
 
 @<Test if two characters match@>=
 begin get_x_token_or_active_char;
-if (cur_cmd>active_char)or(cur_chr>255) then {not a character}
-  begin m:=relax; n:=256;
+if (cur_cmd>active_char)or(cur_chr>biggest_char) then {not a character}
+  begin m:=relax; n:=biggest_char+1;
   end
 else  begin m:=cur_cmd; n:=cur_chr;
   end;
 get_x_token_or_active_char;
-if (cur_cmd>active_char)or(cur_chr>255) then
-  begin cur_cmd:=relax; cur_chr:=256;
+if (cur_cmd>active_char)or(cur_chr>biggest_char) then
+  begin cur_cmd:=relax; cur_chr:=biggest_char+1;
   end;
 if this_if=if_char_code then b:=(n=cur_chr)@+else b:=(m=cur_cmd);
 end
@@ -11874,18 +12002,18 @@ end;
 @^system dependencies@>
 
 @p procedure end_name;
-begin if str_ptr+3>max_strings then
+begin if str_ptr+3>(max_strings+number_chars) then
   overflow("number of strings",max_strings-init_str_ptr);
 @:TeX capacity exceeded number of strings}{\quad number of strings@>
 if area_delimiter=0 then cur_area:=""
 else  begin cur_area:=str_ptr;
-  str_start[str_ptr+1]:=str_start[str_ptr]+area_delimiter; incr(str_ptr);
+  str_start_macro(str_ptr+1):=str_start_macro(str_ptr)+area_delimiter; incr(str_ptr);
   end;
 if ext_delimiter=0 then
   begin cur_ext:=""; cur_name:=make_string;
   end
 else  begin cur_name:=str_ptr;
-  str_start[str_ptr+1]:=str_start[str_ptr]+ext_delimiter-area_delimiter-1;
+  str_start_macro(str_ptr+1):=str_start_macro(str_ptr)+ext_delimiter-area_delimiter-1;
   incr(str_ptr); cur_ext:=make_string;
   end;
 end;
@@ -11915,9 +12043,9 @@ var k:integer; {number of positions filled in |name_of_file|}
 @!c: ASCII_code; {character being packed}
 @!j:pool_pointer; {index into |str_pool|}
 begin k:=0;
-for j:=str_start[a] to str_start[a+1]-1 do append_to_name(so(str_pool[j]));
-for j:=str_start[n] to str_start[n+1]-1 do append_to_name(so(str_pool[j]));
-for j:=str_start[e] to str_start[e+1]-1 do append_to_name(so(str_pool[j]));
+for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(so(str_pool[j]));
+for j:=str_start_macro(n) to str_start_macro(n+1)-1 do append_to_name(so(str_pool[j]));
+for j:=str_start_macro(e) to str_start_macro(e+1)-1 do append_to_name(so(str_pool[j]));
 if k<=file_name_size then name_length:=k@+else name_length:=file_name_size;
 for k:=name_length+1 to file_name_size do name_of_file[k]:=' ';
 end;
@@ -12046,7 +12174,7 @@ file name in the input by calling |get_x_token| for the information.
 label done;
 begin name_in_progress:=true; begin_name;
 @<Get the next non-blank non-call...@>;
-loop@+begin if (cur_cmd>other_char)or(cur_chr>255) then {not a character}
+loop@+begin if (cur_cmd>other_char)or(cur_chr>biggest_char) then {not a character}
     begin back_input; goto done;
     end;
   if not more_name(cur_chr) then goto done;
@@ -13865,9 +13993,9 @@ dvi_out(length(font_name[f]));
 end;
 
 @ @<Output the font name whose internal number is |f|@>=
-for k:=str_start[font_area[f]] to str_start[font_area[f]+1]-1 do
+for k:=str_start_macro(font_area[f]) to str_start_macro(font_area[f]+1)-1 do
   dvi_out(so(str_pool[k]));
-for k:=str_start[font_name[f]] to str_start[font_name[f]+1]-1 do
+for k:=str_start_macro(font_name[f]) to str_start_macro(font_name[f]+1)-1 do
   dvi_out(so(str_pool[k]))
 
 @ Versions of \TeX\ intended for small computers might well choose to omit
@@ -14213,8 +14341,8 @@ if total_pages=0 then
   print_char(":"); print_two(time div 60);
   print_two(time mod 60);
   selector:=old_setting; dvi_out(cur_length);
-  for s:=str_start[str_ptr] to pool_ptr-1 do dvi_out(so(str_pool[s]));
-  pool_ptr:=str_start[str_ptr]; {flush the current string}
+  for s:=str_start_macro(str_ptr) to pool_ptr-1 do dvi_out(so(str_pool[s]));
+  pool_ptr:=str_start_macro(str_ptr); {flush the current string}
   end
 
 @ When |hlist_out| is called, its duty is to output the box represented
@@ -15277,11 +15405,16 @@ procedure pdf_print(s: str_number); {print out a string to PDF buffer}
 var j: pool_pointer; {current character code position}
     c: integer;
 begin
-    j := str_start[s];
-    while j < str_start[s + 1] do begin
-       c := str_pool[j];
-       pdf_out(c);
-       incr(j);
+    if s<number_chars then begin
+      pdf_out(s);
+      end
+    else begin
+      j := str_start_macro(s);
+      while j < str_start_macro(s + 1) do begin
+        c := str_pool[j];
+        pdf_out(c);
+        incr(j);
+      end;
     end;
 end;
 
@@ -15293,9 +15426,9 @@ begin
     str_in_str := false;
     if length(s) < i + length(r) then
         return;
-    j := i + str_start[s];
-    k := str_start[r];
-    while (j < str_start[s + 1]) and (k < str_start[r + 1]) do begin
+    j := i + str_start_macro(s);
+    k := str_start_macro(r);
+    while (j < str_start_macro(s + 1)) and (k < str_start_macro(r + 1)) do begin
         if str_pool[j] <> str_pool[k] then
             return;
         incr(j);
@@ -15733,7 +15866,7 @@ end;
 procedure literal(s: str_number; literal_mode: integer; warn: boolean);
 var j: pool_pointer; {current character code position}
 begin
-    j:=str_start[s];
+    j:=str_start_macro(s);
     if literal_mode = scan_special then begin
         if not (str_in_str(s, "PDF:", 0) or str_in_str(s, "pdf:", 0)) then begin
             if warn and not (str_in_str(s, "SRC:", 0)
@@ -15763,7 +15896,7 @@ begin
         pdf_end_string_nl;
     othercases confusion("literal1")
     endcases;
-    while j<str_start[s+1] do begin
+    while j<str_start_macro(s+1) do begin
        pdf_out(str_pool[j]);
        incr(j);
     end;
@@ -15773,7 +15906,7 @@ end;
 procedure latelua(lua_id: quarterword; s: str_number; lua_mode: integer; warn: boolean);
 var b, j: pool_pointer; {current character code position}
 begin
-    j:=str_start[s];
+    j:=str_start_macro(s);
     case lua_mode of
     set_origin: begin
         pdf_end_text;
@@ -15786,7 +15919,7 @@ begin
     othercases confusion("latelua1")
     endcases;
     b := pool_ptr;
-    luacall(lua_id,s);
+    luacall(lua_id,(s-number_chars));
     while b<pool_ptr do begin
        pdf_out(str_pool[b]);
        incr(b);
@@ -16424,7 +16557,7 @@ label done;
 var i, j: pool_pointer;
     is_hex_string: boolean;
 begin
-    i := str_start[s];
+    i := str_start_macro(s);
     j := i + length(s) - 1;
     if i > j then begin
         pdf_print("()"); {null string}
@@ -18753,8 +18886,8 @@ The following procedures sort the table of destination names
 var j1, j2: pool_pointer;
     l, i: integer;
 begin
-    j1 := str_start[s1];
-    j2 := str_start[s2];
+    j1 := str_start_macro(s1);
+    j2 := str_start_macro(s2);
     if length(s1) < length(s2) then
         l := length(s1)
     else
@@ -19126,11 +19259,11 @@ defined which value is choosen by an application.  Therefore the keys
 label continue,exit;
 var j, k, kk: pool_pointer; {running indices}
 begin
-    k:=str_start[t];
-    while (k < str_start[t+1] - length(s)) do begin
-        j:=str_start[s];
+    k:=str_start_macro(t);
+    while (k < str_start_macro(t+1) - length(s)) do begin
+        j:=str_start_macro(s);
         kk:=k;
-        while (j < str_start[s+1]) do begin
+        while (j < str_start_macro(s+1)) do begin
             if str_pool[j] <> str_pool[kk] then
                 goto continue;
             incr(j);
@@ -21984,7 +22117,7 @@ the program would not have been so strange.
 @!magic_offset:integer; {used to find inter-element spacing}
 
 @ @<Compute the magic offset@>=
-magic_offset:=str_start[math_spacing]-9*ord_noad
+magic_offset:=str_start_macro(math_spacing)-9*ord_noad
 
 @ @<Append inter-element spacing based on |r_type| and |t|@>=
 if r_type>0 then {not the first noad}
@@ -22321,8 +22454,8 @@ is |>outer_call|, so it will not easily disappear in the presence of errors.
 The |get_x_token| routine converts the first into the second, which has |endv|
 as its command code.
 
-@d span_code=256 {distinct from any character}
-@d cr_code=257 {distinct from |span_code| and from any character}
+@d span_code=biggest_char+1 {distinct from any character}
+@d cr_code=biggest_char+2 {distinct from |span_code| and from any character}
 @d cr_cr_code=cr_code+1 {this distinguishes \.{\\crcr} from \.{\\cr}}
 @d end_template_token==cs_token_flag+frozen_end_template
 
@@ -24930,11 +25063,11 @@ nodes $p_{a-1}$ and~$p_b$ in the description above are placed into variables
 |ha| and |hb|; and the font number is placed into |hf|.
 
 @<Glob...@>=
-@!hc:array[0..65] of 0..256; {word to be hyphenated}
+@!hc:array[0..65] of 0..65536; {word to be hyphenated}
 @!hn:small_number; {the number of positions occupied in |hc|}
 @!ha,@!hb:pointer; {nodes |ha..hb| should be replaced by the hyphenated result}
 @!hf:internal_font_number; {font number of the letters in |hc|}
-@!hu:array[0..63] of 0..256; {like |hc|, before conversion to lowercase}
+@!hu:array[0..63] of 0..65536; {like |hc|, before conversion to lowercase}
 @!hyf_char:integer; {hyphen character of the relevant font}
 @!cur_lang,@!init_cur_lang:ASCII_code; {current hyphenation table of interest}
 @!l_hyf,@!r_hyf,@!init_l_hyf,@!init_r_hyf:integer; {limits on fragment sizes}
@@ -24944,7 +25077,7 @@ nodes $p_{a-1}$ and~$p_b$ in the description above are placed into variables
 
 @<Local variables for line...@>=
 @!j:small_number; {an index into |hc| or |hu|}
-@!c:0..255; {character being considered for hyphenation}
+@!c:0..65535; {character being considered for hyphenation}
 
 @ When the following code is activated, the |line_break| procedure is in its
 second pass, and |cur_p| points to a glue node.
@@ -25112,7 +25245,7 @@ else if type(ha)=ligature_node then
   else begin init_list:=lig_ptr(ha); init_lig:=true; init_lft:=(subtype(ha)>1);
     hu[0]:=qo(character(lig_char(ha)));
     if init_list=null then if init_lft then
-      begin hu[0]:=256; init_lig:=false;
+      begin hu[0]:=65536; init_lig:=false;
       end; {in this case a ligature will be reconstructed from scratch}
     free_node(ha,small_node_size);
     end
@@ -25124,7 +25257,7 @@ else begin {no punctuation found; look for left boundary}
 s:=cur_p; {we have |cur_p<>ha| because |type(cur_p)=glue_node|}
 while link(s)<>ha do s:=link(s);
 j:=0; goto common_ending;
-found2: s:=ha; j:=0; hu[0]:=256; init_lig:=false; init_list:=null;
+found2: s:=ha; j:=0; hu[0]:=65536; init_lig:=false; init_list:=null;
 common_ending: flush_node_list(r);
 @<Reconstitute nodes for the hyphenated word, inserting discretionary hyphens@>;
 flush_list(init_list)
@@ -25445,7 +25578,7 @@ if hyf_node<>null then
 @<Put the \(c)characters |hu[i+1..@,]| into |post_break(r)|...@>=
 minor_tail:=null; post_break(r):=null; c_loc:=0;
 if bchar_label[hf]<>non_address then {put left boundary at beginning of new line}
-  begin decr(l); c:=hu[l]; c_loc:=l; hu[l]:=256;
+  begin decr(l); c:=hu[l]; c_loc:=l; hu[l]:=65536;
   end;
 while l<j do
   begin repeat l:=reconstitute(l,hn,bchar,non_char)+1;
@@ -25532,7 +25665,7 @@ for this pattern by carrying out the following little program: Set
 and |v:=hyf_next[v]|; repeat, if necessary, until |v=min_quarterword|.
 
 @<Types...@>=
-@!trie_pointer=0..trie_size; {an index into |trie|}
+@!trie_pointer=integer; {an index into |trie|}
 
 @ @d trie_link(#)==trie[#].rh {``downward'' link in a trie}
 @d trie_char(#)==trie[#].b1 {character matched at this trie location}
@@ -25543,7 +25676,7 @@ and |v:=hyf_next[v]|; repeat, if necessary, until |v=min_quarterword|.
 @!hyf_distance:array[1..trie_op_size] of small_number; {position |k-j| of $n_j$}
 @!hyf_num:array[1..trie_op_size] of small_number; {value of $n_j$}
 @!hyf_next:array[1..trie_op_size] of quarterword; {continuation code}
-@!op_start:array[ASCII_code] of 0..trie_op_size; {offset for current language}
+@!op_start:array[packed_ASCII_code] of 0..trie_op_size; {offset for current language}
 
 @ @<Local variables for hyph...@>=
 @!z:trie_pointer; {an index into |trie|}
@@ -25551,7 +25684,7 @@ and |v:=hyf_next[v]|; repeat, if necessary, until |v=min_quarterword|.
 
 @ Assuming that these auxiliary tables have been set up properly, the
 hyphenation algorithm is quite short. In the following code we set |hc[hn+2]|
-to the impossible value 256, in order to guarantee that |hc[hn+3]| will
+to the impossible value 65536, in order to guarantee that |hc[hn+3]| will
 never be fetched.
 
 @<Find hyphen locations for the word in |hc|...@>=
@@ -25559,7 +25692,7 @@ for j:=0 to hn do hyf[j]:=0;
 @<Look for the word |hc[1..hn]| in the exception table, and |goto found| (with
   |hyf| containing the hyphens) if an entry is found@>;
 if trie_char(cur_lang+1)<>qi(cur_lang) then return; {no patterns for |cur_lang|}
-hc[0]:=0; hc[hn+1]:=0; hc[hn+2]:=256; {insert delimiters}
+hc[0]:=0; hc[hn+1]:=0; hc[hn+2]:=65536; {insert delimiters}
 for j:=0 to hn-r_hyf+1 do
   begin z:=trie_link(cur_lang+1)+hc[j]; l:=j;
   while hc[l]=qo(trie_char(z)) do
@@ -25640,7 +25773,7 @@ not_found: decr(hn)
 k:=hyph_word[h]; if k=0 then goto not_found;
 if length(k)<hn then goto not_found;
 if length(k)=hn then
-  begin j:=1; u:=str_start[k];
+  begin j:=1; u:=str_start_macro(k);
   repeat if so(str_pool[u])<hc[j] then goto not_found;
   if so(str_pool[u])>hc[j] then goto done;
   incr(j); incr(u);
@@ -25700,7 +25833,10 @@ exit:end;
 n:=0; p:=null;
 loop@+  begin get_x_token;
   reswitch: case cur_cmd of
-  letter,other_char,char_given:@<Append a new letter or hyphen@>;
+  letter,other_char,char_given: if cur_chr>65535 then
+             @<Give improper \.{\\hyphenation} error@>
+           else
+             @<Append a new letter or hyphen@>;
   char_num: begin scan_char_num; cur_chr:=cur_val; cur_cmd:=char_given;
     goto reswitch;
     end;
@@ -25716,15 +25852,16 @@ loop@+  begin get_x_token;
 begin print_err("Improper "); print_esc("hyphenation");
 @.Improper \\hyphenation...@>
   print(" will be flushed");
-help2("Hyphenation exceptions must contain only letters")@/
-  ("and hyphens. But continue; I'll forgive and forget.");
+help2("Hyphenation exceptions must contain only letters below")@/
+  ("65536 and hyphens. But continue; I'll forgive and forget.");
 error;
 end
 
 @ @<Append a new letter or hyphen@>=
 if cur_chr="-" then @<Append the value |n| to list |p|@>
-else  begin set_lc_code(cur_chr);
-  if hc[0]=0 then
+else begin 
+  set_lc_code(cur_chr);
+  if hc[0]=0 then 
     begin print_err("Not a letter");
 @.Not a letter@>
     help2("Letters in \hyphenation words must have \lccode>0.")@/
@@ -25734,7 +25871,7 @@ else  begin set_lc_code(cur_chr);
   else if n<63 then
     begin incr(n); hc[n]:=hc[0];
     end;
-  end
+end
 
 @ @<Append the value |n| to list |p|@>=
 begin if n<63 then
@@ -25767,11 +25904,11 @@ hyph_word[h]:=s; hyph_list[h]:=p
 k:=hyph_word[h];
 if length(k)<length(s) then goto found;
 if length(k)>length(s) then goto not_found;
-u:=str_start[k]; v:=str_start[s];
+u:=str_start_macro(k); v:=str_start_macro(s);
 repeat if str_pool[u]<str_pool[v] then goto found;
 if str_pool[u]>str_pool[v] then goto not_found;
 incr(u); incr(v);
-until u=str_start[k+1];
+until u=str_start_macro(k+1);
 found:q:=hyph_list[h]; hyph_list[h]:=p; p:=q;@/
 t:=hyph_word[h]; hyph_word[h]:=s; s:=t;
 not_found:
@@ -25819,9 +25956,9 @@ is |trie_op_ptr|.
 @<Glob...@>=
 @!init@! trie_op_hash:array[-trie_op_size..trie_op_size] of 0..trie_op_size;
   {trie op codes for quadruples}
-@!trie_used:array[ASCII_code] of quarterword;
+@!trie_used:array[BMP_code] of quarterword;
   {largest opcode used so far for this language}
-@!trie_op_lang:array[1..trie_op_size] of ASCII_code;
+@!trie_op_lang:array[1..trie_op_size] of packed_ASCII_code;
   {language part of a hashed quadruple}
 @!trie_op_val:array[1..trie_op_size] of quarterword;
   {opcode corresponding to a hashed quadruple}
@@ -25909,7 +26046,7 @@ ordered by their |c| fields.
 @d trie_root==trie_l[0] {root of the linked trie}
 
 @<Glob...@>=
-@!init @!trie_c:packed array[trie_pointer] of packed_ASCII_code;
+@!init @!trie_c:packed array[trie_pointer] of BMP_code;
   {characters to match}
 @t\hskip10pt@>@!trie_o:packed array[trie_pointer] of quarterword;
   {operations to perform}
@@ -25997,7 +26134,7 @@ entries.
 @<Glob...@>=
 @!init@!trie_taken:packed array[1..trie_size] of boolean;
   {does a family start here?}
-@t\hskip10pt@>@!trie_min:array[ASCII_code] of trie_pointer;
+@t\hskip10pt@>@!trie_min:array[BMP_code] of trie_pointer;
   {the first possible slot for each character}
 @t\hskip10pt@>@!trie_max:trie_pointer; {largest location used in |trie|}
 @t\hskip10pt@>@!trie_not_ready:boolean; {is the trie still in linked form?}
@@ -26023,7 +26160,7 @@ for p:=0 to trie_size do trie_hash[p]:=0;
 hyph_root:=compress_trie(hyph_root);
 trie_root:=compress_trie(trie_root); {identify equivalent subtries}
 for p:=0 to trie_ptr do trie_ref[p]:=0;
-for p:=0 to 255 do trie_min[p]:=p+1;
+for p:=0 to 65536 do trie_min[p]:=p+1;
 trie_link(0):=1; trie_max:=0
 
 @ The |first_fit| procedure finds the smallest hole |z| in |trie| such that
@@ -26041,11 +26178,11 @@ var h:trie_pointer; {candidate for |trie_ref[p]|}
 @!q:trie_pointer; {runs through the family starting at |p|}
 @!c:ASCII_code; {smallest character in the family}
 @!l,@!r:trie_pointer; {left and right neighbors}
-@!ll:1..256; {upper limit of |trie_min| updating}
+@!ll:1..65536; {upper limit of |trie_min| updating}
 begin c:=so(trie_c[p]);
 z:=trie_min[c]; {get the first conceivably good hole}
 loop@+  begin h:=z-c;@/
-  @<Ensure that |trie_max>=h+256|@>;
+  @<Ensure that |trie_max>=h+65536|@>;
   if trie_taken[h] then goto not_found;
   @<If all characters of the family fit relative to |h|, then
     |goto found|,\30\ otherwise |goto not_found|@>;
@@ -26054,17 +26191,18 @@ loop@+  begin h:=z-c;@/
 found: @<Pack the family into |trie| relative to |h|@>;
 end;
 
-@ By making sure that |trie_max| is at least |h+256|, we can be sure that
+@ By making sure that |trie_max| is at least |h+65536|, we can be sure that
 |trie_max>z|, since |h=z-c|. It follows that location |trie_max| will
 never be occupied in |trie|, and we will have |trie_max>=trie_link(z)|.
 
-@<Ensure that |trie_max>=h+256|@>=
-if trie_max<h+256 then
-  begin if trie_size<=h+256 then overflow("pattern memory",trie_size);
+@<Ensure that |trie_max>=h+65536|@>=
+if trie_max<h+65536 then
+  begin 
+  if trie_size<=h+65536 then overflow("pattern memory",trie_size);
 @:TeX capacity exceeded pattern memory}{\quad pattern memory@>
   repeat incr(trie_max); trie_taken[trie_max]:=false;
   trie_link(trie_max):=trie_max+1; trie_back(trie_max):=trie_max-1;
-  until trie_max=h+256;
+  until trie_max=h+65536;
   end
 
 @ @<If all characters of the family fit relative to |h|...@>=
@@ -26079,8 +26217,8 @@ goto found
 trie_taken[h]:=true; trie_ref[p]:=h; q:=p;
 repeat z:=h+so(trie_c[q]); l:=trie_back(z); r:=trie_link(z);
 trie_back(r):=l; trie_link(l):=r; trie_link(z):=0;
-if l<256 then
-  begin if z<256 then ll:=z @+else ll:=256;
+if l<65536 then
+  begin if z<65536 then ll:=z @+else ll:=65536;
   repeat trie_min[l]:=r; incr(l);
   until l=ll;
   end;
@@ -26110,8 +26248,8 @@ value~0, which properly implements an ``empty'' family.
 h.rh:=0; h.b0:=min_quarterword; h.b1:=min_quarterword; {|trie_link:=0|,
   |trie_op:=min_quarterword|, |trie_char:=qi(0)|}
 if trie_max=0 then {no patterns were given}
-  begin for r:=0 to 256 do trie[r]:=h;
-  trie_max:=256;
+  begin for r:=0 to 65536 do trie[r]:=h;
+  trie_max:=65536;
   end
 else begin if hyph_root>0 then trie_fix(hyph_root);
   if trie_root>0 then trie_fix(trie_root); {this fixes the non-holes in |trie|}
@@ -26192,11 +26330,19 @@ done:
 @ @<Append a new letter or a hyphen level@>=
 if digit_sensed or(cur_chr<"0")or(cur_chr>"9") then
   begin if cur_chr="." then cur_chr:=0 {edge-of-word delimiter}
-  else  begin cur_chr:=lc_code(cur_chr);
-    if cur_chr=0 then
-      begin print_err("Nonletter");
+  else  begin  
+	if cur_chr>65535 then
+      begin print_err("Character out of range");
+      help1("This version of luaTeX can only hyphenate 16-bit characters.)"); error;
+      cur_chr:=0;
+      end 
+    else begin
+      cur_chr:=lc_code(cur_chr);
+      if cur_chr=0 then
+        begin print_err("Nonletter");
 @.Nonletter@>
-      help1("(See Appendix H.)"); error;
+        help1("(See Appendix H.)"); error;
+        end;
       end;
     end;
   if k<63 then
@@ -28967,7 +29113,7 @@ var c:integer; {hyphen character}
 begin tail_append(new_disc);
 if cur_chr=1 then
   begin c:=hyphen_char[cur_font];
-  if c>=0 then if c<256 then pre_break(tail):=new_character(cur_font,c);
+  if c>=0 then if c<65536 then pre_break(tail):=new_character(cur_font,c);
   end
 else  begin incr(save_ptr); saved(-1):=0; new_save_level(disc_group);
   scan_left_brace; push_nest; mode:=-hmode; space_factor:=1000;
@@ -30672,6 +30818,8 @@ def_code: begin @<Let |n| be the largest legal code value, based on |cur_chr|@>;
 
 @ @<Let |n| be the largest...@>=
 if cur_chr=cat_code_base then n:=max_char_code
+else if cur_chr=lc_code_base then n:=biggest_char
+else if cur_chr=uc_code_base then n:=biggest_char
 else if cur_chr=math_code_base then n:=@'100000
 else if cur_chr=sf_code_base then n:=@'77777
 else if cur_chr=del_code_base then n:=@'77777777
@@ -31290,13 +31438,13 @@ end;
 
 @ When the case of a |chr_code| changes, we don't change the |cmd|.
 We also change active characters, using the fact that
-|cs_token_flag+active_base| is a multiple of~256.
+|cs_token_flag+active_base| is a multiple of~|number_chars|.
 @^data structure assumptions@>
 
 @<Change the case of the token in |p|, if a change is appropriate@>=
 t:=info(p);
 if t<cs_token_flag+single_base then
-  begin c:=t mod 256;
+  begin c:=t mod number_chars;
   if equiv(b+c)<>0 then info(p):=t-c+equiv(b+c);
   end
 
@@ -31569,13 +31717,13 @@ if x<>hyph_size then goto bad_fmt
 @<Dump the string pool@>=
 dump_int(pool_ptr);
 dump_int(str_ptr);
-for k:=0 to str_ptr do dump_int(str_start[k]);
+for k:=number_chars to str_ptr do dump_int(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin dump_four_ASCII; k:=k+4;
   end;
 k:=pool_ptr-4; dump_four_ASCII;
-print_ln; print_int(str_ptr); print(" strings of total length ");
+print_ln; print_int(str_ptr-number_chars); print(" strings of total length ");
 print_int(pool_ptr)
 
 @ @d undump_four_ASCII==
@@ -31586,7 +31734,7 @@ print_int(pool_ptr)
 @<Undump the string pool@>=
 undump_size(0)(pool_size)('string pool size')(pool_ptr);
 undump_size(0)(max_strings)('max strings')(str_ptr);
-for k:=0 to str_ptr do undump(0)(pool_ptr)(str_start[k]);
+for k:=number_chars to str_ptr do undump(0)(pool_ptr)(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin undump_four_ASCII; k:=k+4;
@@ -31679,7 +31827,8 @@ while j<int_base-1 do
     (eq_level(j)<>eq_level(j+1)) then goto done1;
   incr(j);
   end;
-done1:dump_int(l-k);
+done1:
+dump_int(l-k);
 while k<l do
   begin dump_wd(eqtb[k]); incr(k);
   end;
@@ -31862,8 +32011,8 @@ for k:=1 to j do
   undump(0)(63)(hyf_num[k]);
   undump(min_quarterword)(max_quarterword)(hyf_next[k]);
   end;
-init for k:=0 to 255 do trie_used[k]:=min_quarterword;@+tini@;@/
-k:=256;
+init for k:=0 to 65535 do trie_used[k]:=min_quarterword;@+tini@;@/
+k:=65536;
 while j>0 do
   begin undump(0)(k-1)(k); undump(1)(j)(x);@+init trie_used[k]:=qi(x);@+tini@;@/
   j:=j-x; op_start[k]:=qo(j);
@@ -32663,10 +32812,10 @@ begin
     call_func(scan_toks(false, true));
     s2 := tokens_to_string(def_ref);
     delete_token_ref(def_ref);
-    i1 := str_start[s1];
-    j1 := str_start[s1 + 1];
-    i2 := str_start[s2];
-    j2 := str_start[s2 + 1];
+    i1 := str_start_macro(s1);
+    j1 := str_start_macro(s1 + 1);
+    i2 := str_start_macro(s2);
+    j2 := str_start_macro(s2 + 1);
     while (i1 < j1) and (i2 < j2) do begin
         if str_pool[i1] < str_pool[i2] then begin
             cur_val := -1;
@@ -33700,8 +33849,8 @@ begin
     scan_pdf_ext_toks;
     s := tokens_to_string(def_ref);
     delete_token_ref(def_ref);
-    k := str_start[s];
-    while k < str_start[s + 1] do begin
+    k := str_start_macro(s);
+    while k < str_start_macro(s + 1) do begin
        pdf_mark_char(f, str_pool[k]);
        incr(k);
     end;
@@ -34285,8 +34434,8 @@ if cur_length<256 then
   end
 else  begin dvi_out(xxx4); dvi_four(cur_length);
   end;
-for k:=str_start[str_ptr] to pool_ptr-1 do dvi_out(so(str_pool[k]));
-pool_ptr:=str_start[str_ptr]; {erase the string}
+for k:=str_start_macro(str_ptr) to pool_ptr-1 do dvi_out(so(str_pool[k]));
+pool_ptr:=str_start_macro(str_ptr); {erase the string}
 end;
 
 @ To write a token list, we must run it through \TeX's scanner, expanding
@@ -34448,7 +34597,7 @@ a non-|clang| language is being appended to the current paragraph.
 
 @<Declare action...@>=
 procedure fix_language;
-var @!l:ASCII_code; {the new current language}
+var @!l:packed_ASCII_code; {the new current language}
 begin if language<=0 then l:=0
 else if language>255 then l:=0
 else l:=language;
@@ -34557,8 +34706,8 @@ begin
     if pdf_action_file(p) <> null then begin
         pdf_print("/F ");
         s := tokens_to_string(pdf_action_file(p));
-        if (str_pool[str_start[s]] = 40) and
-           (str_pool[str_start[s] + length(s) - 1] = 41) then
+        if (str_pool[str_start_macro(s)] = 40) and
+           (str_pool[str_start_macro(s) + length(s) - 1] = 41) then
             pdf_print(s)
         else begin
             pdf_print_str(s);
@@ -36635,7 +36784,7 @@ flush_string;
 end;
 
 @ @<Convert string |s| into a new pseudo file@>=
-str_pool[pool_ptr]:=si(" "); l:=str_start[s];
+str_pool[pool_ptr]:=si(" "); l:=str_start_macro(s);
 nl:=si(new_line_char);
 p:=get_avail; q:=p;
 while l<pool_ptr do
@@ -37821,9 +37970,9 @@ var save_pool_ptr:pool_pointer;
 begin
   set_tex_toks_register := 0;
   save_pool_ptr := pool_ptr;
-  pool_ptr := str_start[s+1];
+  pool_ptr := str_start_macro(s+1);
   ref := get_avail;
-  link(garbage) := str_toks(str_start[s]);
+  link(garbage) := str_toks(str_start_macro(s));
   pool_ptr := save_pool_ptr;
   token_ref_count(ref) := 0;
   link(ref) := link(temp_head);

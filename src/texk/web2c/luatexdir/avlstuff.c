@@ -68,6 +68,9 @@ int compare_info (const void *pa, const void *pb, void *param)
     a = ((const oentry *) pa)->int0;
     b = ((const oentry *) pb)->int0;
     if (a < 0 && b < 0) {       /* string comparison */
+	  if (a <= 2097152 && b <= 2097152) {
+		a+=2097152;
+		b+=2097152;
         as = strstart[-a];
         ae = strstart[-a + 1];  /* start of next string in pool */
         bs = strstart[-b];
@@ -84,6 +87,9 @@ int compare_info (const void *pa, const void *pb, void *param)
             if (strpool[as] > strpool[bs])
                 return 1;
         }
+	  } else {
+		pdftex_fail("avlstuff.c: compare_items() for single characters: NI");
+	  }
     } else {                    /* integer comparison */
         if (a < b)
             return -1;
