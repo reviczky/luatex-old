@@ -263,6 +263,21 @@ const_string OTANGLEHELP[] = {
 };
 #endif /* OTANGLE */
 
+
+#if defined (LUATANGLE) || defined (LUATANGLEBOOT)
+const_string LUATANGLEHELP[] = {
+    "Usage: luatangle [OPTION]... WEBFILE[.web] [CHANGEFILE[.ch]]",
+    "  Tangle WEBFILE with CHANGEFILE into a Pascal program.",
+    "  Default CHANGEFILE is /dev/null;",
+    "  Pascal output goes to the basename of WEBFILE extended with `.p',",
+    "  and a string pool file, if necessary, to the same extended with `.pool'.",
+    "",
+    "-help       display this help and exit",
+    "-version    output version information and exit",
+    NULL
+};
+#endif /* LUATANGLE */
+
 #ifdef OVF2OVP
 const_string OVF2OVPHELP[] = {
     "Usage: ovf2ovp [OPTION]... OVFNAME[.ovf] [OFMNAME[.ofm] [OVPFILE[.ovp]]]",
