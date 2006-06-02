@@ -8539,8 +8539,8 @@ buffer and the process is repeated, slowly but surely.
 
 @<Scan a control...@>=
 begin if loc>limit then cur_cs:=null_cs {|state| is irrelevant in this case}
-else  begin start_cs: k:=loc; cur_chr:=buffer[k]; cat:=cat_code(cur_chr);
-  incr(k);
+else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); cat:=cat_code(cur_chr);
+  unicode_loc(k);
   if cat=letter then state:=skip_blanks
   else if cat=spacer then state:=skip_blanks
   else state:=mid_line;
@@ -8586,7 +8586,7 @@ begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
 end
 
 @ @<Scan ahead in the buffer...@>=
-begin repeat cur_chr:=buffer[k]; cat:=cat_code(cur_chr); incr(k);
+begin repeat cur_chr:=buffer_to_unichar(k); cat:=cat_code(cur_chr); unicode_loc(k);
 until (cat<>letter)or(k>limit);
 @<If an expanded...@>;
 if cat<>letter then decr(k);
