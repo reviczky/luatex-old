@@ -63,7 +63,7 @@
 */
 
 /* Omega is sufficiently different to separate the definition. */
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(luaTeX)
 
 typedef union
 {
@@ -171,7 +171,7 @@ typedef union
 #define qqqq v.QQQQ
 #endif
 
-#else /* Omega || eOmega || Aleph */
+#else /* Omega || eOmega || Aleph || luaTex */ 
 
 typedef union
 {
@@ -247,4 +247,4 @@ typedef union
 
 #define gr gg.GLUE
 
-#endif /* Omega || eOmega || Aleph */
+#endif /* Omega || eOmega || Aleph || luaTeX */
