@@ -585,7 +585,7 @@ ipcpage P1C(int, is_eof)
 
 #if defined (TeX) || defined (MF) || defined (MP)
   /* TCX and Omega get along like sparks and gunpowder. */
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)  && !defined(luaTeX)
 
 /* Return the next number following START, setting POST to the following
    character, as in strtol.  Issue a warning and return -1 if no number
@@ -800,7 +800,11 @@ static struct option long_options[]
       { "no-parse-first-line",       0, &parsefirstlinep, -1 },
       { "translate-file",            1, 0, 0 },
       { "default-translate-file",    1, 0, 0 },
+#if !defined(luaTeX)
       { "8bit",                      0, &eightbitp, 1 },
+#else
+      { "8bit",                      0, 0, 0 },
+#endif
 #endif /* TeX || MF || MP */
 #if defined (TeX) || defined (MF)
       { "mktex",                     1, 0, 0 },
