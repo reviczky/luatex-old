@@ -40,10 +40,20 @@ $(luatexdir)/luatexextra.h: $(luatexdir)/luatexextra.in $(luatexdir)/luatex.vers
 loadpool.c: luatex.pool $(srcdir)/$(luatexdir)/makecpool
 	perl $(srcdir)/$(luatexdir)/makecpool luatex.pool > loadpool.c
 
+# luatangle we need a private version of tangle
+
+luatangle: luatangle.o
+	$(kpathsea_link) luatangle.o $(LOADLIBES)
+
+luatangle.c luatangle.h: luatangle.p
+	$(web2c) luatangle
+
+luatangle.p: tangle $(srcdir)/$(luatexdir)/luatangle.web $(srcdir)/$(luatexdir)/luatangle.ch
+	$(TANGLE) $(srcdir)/$(luatexdir)/luatangle.web $(srcdir)/$(luatexdir)/luatangle.ch
 
 # Tangling
-luatex.p luatex.pool: tangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
-	$(TANGLE) $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
+luatex.p luatex.pool: luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
+	./luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
 
 #   Sources for luatex.ch:
 #luatex_ch_srcs = $(srcdir)/$(luatexdir)/luatex.web \
@@ -122,7 +132,7 @@ luatex-cross:
 	$(MAKE) luatexbin
 
 web2c-cross: $(web2c_programs)
-	@if test ! -x $(linux_build_dir)/tangle; then echo Error: linux_build_dir not ready; exit -1; fi
+	@if test ! -x $(linux_build_dir)/luatangle; then echo Error: linux_build_dir not ready; exit -1; fi
 	rm -f web2c/fixwrites web2c/splitup web2c/web2c
 	cp -f $(linux_build_dir)/web2c/fixwrites web2c
 	cp -f $(linux_build_dir)/web2c/splitup web2c
@@ -136,8 +146,8 @@ web2c-cross: $(web2c_programs)
 	cp -f $(linux_build_dir)/ctangle .  && touch ctangle
 	$(MAKE) tie && rm -f tie && \
 	cp -f $(linux_build_dir)/tie .  && touch tie
-	$(MAKE) tangle && rm -f tangle && \
-	cp -f $(linux_build_dir)/tangle .  && touch tangle
+	$(MAKE) luatangle && rm -f luatangle && \
+	cp -f $(linux_build_dir)/luatangle .  && touch luatangle
 
 # vim: set noexpandtab
 # end of luatex.mk
