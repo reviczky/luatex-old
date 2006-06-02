@@ -8813,6 +8813,7 @@ var t:halfword; {token that is being ``expanded after''}
 @!p,@!q,@!r:pointer; {for list manipulation}
 @!cur_ptr:pointer; { for a local token list pointer }
 @!j:0..buf_size; {index into |buffer|}
+@!s:ASCII_code; { a character }
 @!cv_backup:integer; {to save the global quantity |cur_val|}
 @!cvl_backup,@!radix_backup,@!co_backup:small_number;
   {to save |cur_val_level|, etc.}
@@ -8927,12 +8928,31 @@ end
 j:=first; p:=link(r);
 while p<>null do
   begin if j>=max_buf_stack then
-    begin max_buf_stack:=j+1;
+    begin max_buf_stack:=j+4;
     if max_buf_stack=buf_size then
       overflow("buffer size",buf_size);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
     end;
-  buffer[j]:=info(p) mod @'400; incr(j); p:=link(p); {FIX}
+  s := info(p) mod number_chars;
+  if s <= @"80 then begin
+    buffer[j]:=s; incr(j);
+    end
+  else if s<@"800 then begin
+    buffer[j]:=@"C0 + s div @"40; incr(j);
+    buffer[j]:=@"80 + s mod @"40; incr(j);
+    end
+  else if s<@"FFFF then begin
+    buffer[j]:=@"E0 + s div @"1000; incr(j);
+    buffer[j]:=@"80 + (s mod @"1000) div @"40; incr(j);
+    buffer[j]:=@"80 + (s mod @"1000) mod @"40; incr(j);
+    end 
+  else begin
+    buffer[j]:=@"F0 + s div @"40000;  incr(j);
+    buffer[j]:=@"80 + (s mod @"40000) div @"1000;  incr(j);
+    buffer[j]:=@"80 + ((s mod @"40000) mod @"1000) div @"40;  incr(j);
+    buffer[j]:=@"80 + ((s mod @"40000) mod @"1000) mod @"40;  incr(j);
+    end;
+  p:=link(p); 
   end;
 if j>first+1 then
   begin no_new_control_sequence:=false; cur_cs:=id_lookup(first,j-first);
