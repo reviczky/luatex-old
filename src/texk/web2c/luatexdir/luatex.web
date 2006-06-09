@@ -1277,9 +1277,9 @@ buffer, and returns its character value.
   print_err("Text line contains an invalid utf-8 sequence");
 @.Text line contains...@>
   help2("A funny symbol that I can't read has just been input.")@/
-    ("Continue, and I'll forget that it ever happened.");@/
+    ("Just continue, I'll change it to 0xFFFD.");@/
   deletions_allowed:=false; error; deletions_allowed:=true;
-  return; end
+  a:=@"FFFD; return; end
 
 @p function buffer_to_unichar(@!k:integer):ASCII_code;
 label exit;
@@ -1565,7 +1565,10 @@ end; {|tally| is not affected}
 using the |xchr| array to map it into an external character compatible with
 |input_ln|. All printing comes through |print_ln| or |print_char|.
 
-@<Basic printing...@>=
+@d wterm_char(#)==begin if (#>=@"20) or (#=@"0A) or (#=@"0D) or (#=@"09) then wterm(xchr[#])
+                 else begin wterm('^'); wterm('^'); wterm(xchr[#+64]);  end; end
+
+@<Basic print...@>=
 procedure print_char(@!s:ASCII_code); {prints a single character}
 label exit;
 begin if @<Character |s| is the current new-line character@> then
@@ -1573,7 +1576,7 @@ begin if @<Character |s| is the current new-line character@> then
   begin print_ln; return;
   end;
 case selector of
-term_and_log: begin wterm(xchr[s]); wlog(xchr[s]);
+term_and_log: begin wterm_char(s); wlog(xchr[s]);
   incr(term_offset); incr(file_offset);
   if term_offset=max_print_line then
     begin wterm_cr; term_offset:=0;
@@ -1585,7 +1588,7 @@ term_and_log: begin wterm(xchr[s]); wlog(xchr[s]);
 log_only: begin wlog(xchr[s]); incr(file_offset);
   if file_offset=max_print_line then print_ln;
   end;
-term_only: begin wterm(xchr[s]); incr(term_offset);
+term_only: begin wterm_char(s); incr(term_offset);
   if term_offset=max_print_line then print_ln;
   end;
 no_print: do_nothing;
@@ -1636,7 +1639,7 @@ begin
 	  a := a + (b-128);
       end
     else begin  { NI: this is an encoding error }
-      a := b;
+      a := @"FFFD;
       end;
 result := a;
 not_found: pool_to_unichar := result;
@@ -1650,7 +1653,7 @@ begin if s>=str_ptr then s:="???" {this can't happen}
 @.???@>
 else if s<number_chars then
   if s<0 then s:="???" {can't happen}
-  else begin if selector>pseudo then
+  else begin if selector>=pseudo then
       begin print_char(s); return; {internal strings are not expanded}
       end;
     if (@<Character |s| is the current new-line character@>) then
