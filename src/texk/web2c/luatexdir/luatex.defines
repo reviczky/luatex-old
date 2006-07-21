@@ -39,6 +39,19 @@ $Id $
 
 @define procedure luacall();
 @define procedure closelua();
+
+@define function getequiv1();
+@define procedure setequiv1();
+
+@define var fonttables;
+
+@define procedure allocatefonttable ();
+@define procedure dumpfonttable ();
+@define procedure undumpfonttable ();
+@define procedure allocatefontsorttable ();
+@define procedure dumpfontsorttable ();
+@define procedure undumpfontsorttable ();
+
 @define function loadpoolstrings();
 
 { functions from mapfile.c }

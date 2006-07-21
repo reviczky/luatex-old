@@ -724,7 +724,7 @@ been commented~out.
 
 @x
 if (font_base<min_quarterword)or(font_max>max_quarterword) then bad:=15;
-if font_max>font_base+256 then bad:=16;
+if font_max>font_base+@"10000 then bad:=16;
 @y
 if (max_font_max<min_halfword)or(max_font_max>max_halfword) then bad:=15;
 if font_max>font_base+max_font_max then bad:=16;
@@ -933,7 +933,7 @@ page_depth:=0; page_max_depth:=0;
 @z
 
 @x
-@d undefined_control_sequence=frozen_null_font+257 {dummy location}
+@d undefined_control_sequence=frozen_null_font+number_fonts {dummy location}
 @y
 @d undefined_control_sequence=frozen_null_font+max_font_max+1 {dummy location}
 @z
@@ -1707,7 +1707,7 @@ if name=str_ptr-1 then {we can conserve string pool space now}
 
 @x
 @!internal_font_number=font_base..font_max; {|font| in a |char_node|}
-@!font_index=0..font_mem_size; {index into |font_info|}
+@!font_index=integer; {index into |font_info|}
 @y
 @!internal_font_number=integer; {|font| in a |char_node|}
 @!font_index=integer; {index into |font_info|}
@@ -1715,139 +1715,15 @@ if name=str_ptr-1 then {we can conserve string pool space now}
 @z
 
 @x
-@!font_info:array[font_index] of memory_word;
-  {the big collection of font data}
-@!fmem_ptr:font_index; {first unused word of |font_info|}
-@!font_ptr:internal_font_number; {largest internal font number in use}
-@!font_check:array[internal_font_number] of four_quarters; {check sum}
-@!font_size:array[internal_font_number] of scaled; {``at'' size}
-@!font_dsize:array[internal_font_number] of scaled; {``design'' size}
-@!font_params:array[internal_font_number] of font_index; {how many font
-  parameters are present}
-@!font_name:array[internal_font_number] of str_number; {name of the font}
-@!font_area:array[internal_font_number] of str_number; {area of the font}
-@!font_bc:array[internal_font_number] of eight_bits;
-  {beginning (smallest) character code}
-@!font_ec:array[internal_font_number] of eight_bits;
-  {ending (largest) character code}
-@!font_glue:array[internal_font_number] of pointer;
-  {glue specification for interword space, |null| if not allocated}
-@!font_used:array[internal_font_number] of boolean;
-  {has a character from this font actually appeared in the output?}
-@!hyphen_char:array[internal_font_number] of integer;
-  {current \.{\\hyphenchar} values}
-@!skew_char:array[internal_font_number] of integer;
-  {current \.{\\skewchar} values}
-@!bchar_label:array[internal_font_number] of font_index;
-  {start of |lig_kern| program for left boundary character,
-  |non_address| if there is none}
-@!font_bchar:array[internal_font_number] of min_quarterword..non_char;
-  {right boundary character, |non_char| if there is none}
-@!font_false_bchar:array[internal_font_number] of min_quarterword..non_char;
-  {|font_bchar| if it doesn't exist in the font, otherwise |non_char|}
-@y
-@!font_info: ^memory_word;
-  {the big collection of font data}
-@!fmem_ptr:font_index; {first unused word of |font_info|}
-@!font_ptr:internal_font_number; {largest internal font number in use}
-@!font_check: ^four_quarters; {check sum}
-@!font_size: ^scaled; {``at'' size}
-@!font_dsize: ^scaled; {``design'' size}
-@!font_params: ^font_index; {how many font
-  parameters are present}
-@!font_name: ^str_number; {name of the font}
-@!font_area: ^str_number; {area of the font}
-@!font_bc: ^eight_bits;
-  {beginning (smallest) character code}
-@!font_ec: ^eight_bits;
-  {ending (largest) character code}
-@!font_glue: ^pointer;
-  {glue specification for interword space, |null| if not allocated}
-@!font_used: ^boolean;
-  {has a character from this font actually appeared in the output?}
-@!hyphen_char: ^integer;
-  {current \.{\\hyphenchar} values}
-@!skew_char: ^integer;
-  {current \.{\\skewchar} values}
-@!bchar_label: ^font_index;
-  {start of |lig_kern| program for left boundary character,
-  |non_address| if there is none}
-@!font_bchar: ^nine_bits;
-  {right boundary character, |non_char| if there is none}
-@!font_false_bchar: ^nine_bits;
-  {|font_bchar| if it doesn't exist in the font, otherwise |non_char|}
-@z
-
-@x
-@!char_base:array[internal_font_number] of integer;
-  {base addresses for |char_info|}
-@!width_base:array[internal_font_number] of integer;
-  {base addresses for widths}
-@!height_base:array[internal_font_number] of integer;
-  {base addresses for heights}
-@!depth_base:array[internal_font_number] of integer;
-  {base addresses for depths}
-@!italic_base:array[internal_font_number] of integer;
-  {base addresses for italic corrections}
-@!lig_kern_base:array[internal_font_number] of integer;
-  {base addresses for ligature/kerning programs}
-@!kern_base:array[internal_font_number] of integer;
-  {base addresses for kerns}
-@!exten_base:array[internal_font_number] of integer;
-  {base addresses for extensible recipes}
-@!param_base:array[internal_font_number] of integer;
-  {base addresses for font parameters}
-@y
-@!char_base: ^integer;
-  {base addresses for |char_info|}
-@!width_base: ^integer;
-  {base addresses for widths}
-@!height_base: ^integer;
-  {base addresses for heights}
-@!depth_base: ^integer;
-  {base addresses for depths}
-@!italic_base: ^integer;
-  {base addresses for italic corrections}
-@!lig_kern_base: ^integer;
-  {base addresses for ligature/kerning programs}
-@!kern_base: ^integer;
-  {base addresses for kerns}
-@!exten_base: ^integer;
-  {base addresses for extensible recipes}
-@!param_base: ^integer;
-  {base addresses for font parameters}
-@z
-
-@x
-for k:=font_base to font_max do font_used[k]:=false;
-@y
-@z
-
-@x
-font_ptr:=null_font; fmem_ptr:=7;
-font_name[null_font]:="nullfont"; font_area[null_font]:="";
-hyphen_char[null_font]:="-"; skew_char[null_font]:=-1;
-bchar_label[null_font]:=non_address;
-font_bchar[null_font]:=non_char; font_false_bchar[null_font]:=non_char;
-font_bc[null_font]:=1; font_ec[null_font]:=0;
-font_size[null_font]:=0; font_dsize[null_font]:=0;
-char_base[null_font]:=0; width_base[null_font]:=0;
-height_base[null_font]:=0; depth_base[null_font]:=0;
-italic_base[null_font]:=0; lig_kern_base[null_font]:=0;
-kern_base[null_font]:=0; exten_base[null_font]:=0;
-font_glue[null_font]:=null; font_params[null_font]:=7;
-param_base[null_font]:=-1;
-for k:=0 to 6 do font_info[k].sc:=0;
-@y
-@z
-
-@x
-if aire="" then pack_file_name(nom,TEX_font_area,".tfm")
-else pack_file_name(nom,aire,".tfm");
+if aire="" then pack_file_name(nom,TEX_font_area,".ofm")
+else pack_file_name(nom,aire,".ofm");
+if not b_open_in(tfm_file) then abort;
 @y
 {|kpse_find_file| will append the |".tfm"|, and avoid searching the disk
  before the font alias files as well.}
 pack_file_name(nom,aire,"");
+if not ofm_open_in(tfm_file) then 
+  if not b_open_in(tfm_file) then abort;
 @z
 
 @x
@@ -1896,20 +1772,6 @@ bytes at a time.
 @z
 
 @x
-begin dvi_out(fnt_def1);
-dvi_out(f-font_base-1);@/
-@y
-begin if f<=256+font_base then
-  begin dvi_out(fnt_def1);
-  dvi_out(f-font_base-1);
-  end
-else begin dvi_out(fnt_def1+1);
-  dvi_out((f-font_base-1) div @'400);
-  dvi_out((f-font_base-1) mod @'400);
-  end;
-@z
-
-@x
   old_setting:=selector; selector:=new_string;
 @y
 if output_comment then
@@ -1925,19 +1787,6 @@ else begin {the default code is unchanged}
 @y
   pool_ptr:=str_start_macro(str_ptr); {flush the current string}
 end;
-@z
-
-@x
-else  begin dvi_out(fnt1); dvi_out(f-font_base-1);
-  end;
-@y
-else if f<=256+font_base then
-  begin dvi_out(fnt1); dvi_out(f-font_base-1);
-  end
-else begin dvi_out(fnt1+1);
-  dvi_out((f-font_base-1) div @'400);
-  dvi_out((f-font_base-1) mod @'400);
-  end;
 @z
 
 @x
@@ -2561,21 +2410,21 @@ flushable_string:=str_ptr-1;
 
 @x
     begin if cur_name=flushable_string then
-      begin flush_string; cur_name:=font_name[f];
+      begin flush_string; cur_name:=font_name(f);
       end;
     if s>0 then
-      begin if s=font_size[f] then goto common_ending;
+      begin if s=font_size(f) then goto common_ending;
       end
-    else if font_size[f]=xn_over_d(font_dsize[f],-s,1000) then
+    else if font_size(f)=xn_over_d(font_dsize(f),-s,1000) then
       goto common_ending;
     end
 @y
     begin
     if pdf_font_step[f] = 0 then begin
        if s>0 then
-         begin if s=font_size[f] then goto common_ending;
+         begin if s=font_size(f) then goto common_ending;
          end
-       else if font_size[f]=xn_over_d(font_dsize[f],-s,1000) then
+       else if font_size(f)=xn_over_d(font_dsize(f),-s,1000) then
          goto common_ending;
        end
     end
@@ -2690,7 +2539,7 @@ x:=fmt_file^.int;
 if x<>@$ then goto bad_fmt; {check that strings are the same}
 @y
 @+Init
-libc_free(font_info); libc_free(str_pool); libc_free(str_start);
+libc_free(str_pool); libc_free(str_start);
 libc_free(yhash); libc_free(zeqtb); libc_free(yzmem);
 @+Tini
 undump_int(x);
@@ -2919,163 +2768,16 @@ end;
 @z
 
 @x
-for k:=0 to fmem_ptr-1 do dump_wd(font_info[k]);
-dump_int(font_ptr);
-for k:=null_font to font_ptr do
-  @<Dump the array info for internal font number |k|@>;
-@y
-dump_things(font_info[0], fmem_ptr);
-dump_int(font_ptr);
-@<Dump the array info for internal font number |k|@>;
-@z
-
-@x
-print_int(font_ptr-font_base); print(" preloaded font");
-if font_ptr<>font_base+1 then print_char("s")
-@y
-print_int(font_ptr-font_base);
-if font_ptr<>font_base+1 then print(" preloaded fonts")
-else print(" preloaded font")
-@z
-
-@x
-undump_size(7)(font_mem_size)('font mem size')(fmem_ptr);
-for k:=0 to fmem_ptr-1 do undump_wd(font_info[k]);
-undump_size(font_base)(font_max)('font max')(font_ptr);
-for k:=null_font to font_ptr do
-  @<Undump the array info for internal font number |k|@>
-@y
-undump_size(7)(sup_font_mem_size)('font mem size')(fmem_ptr);
-if fmem_ptr>font_mem_size then font_mem_size:=fmem_ptr;
-font_info:=xmalloc_array(memory_word, font_mem_size);
-undump_things(font_info[0], fmem_ptr);@/
-undump_size(font_base)(font_base+max_font_max)('font max')(font_ptr);
-{This undumps all of the font info, despite the name.}
-@<Undump the array info for internal font number |k|@>;
-@z
-
-@x
-@ @<Dump the array info for internal font number |k|@>=
-begin dump_qqqq(font_check[k]);
-dump_int(font_size[k]);
-dump_int(font_dsize[k]);
-dump_int(font_params[k]);@/
-dump_int(hyphen_char[k]);
-dump_int(skew_char[k]);@/
-dump_int(font_name[k]);
-dump_int(font_area[k]);@/
-dump_int(font_bc[k]);
-dump_int(font_ec[k]);@/
-dump_int(char_base[k]);
-dump_int(width_base[k]);
-dump_int(height_base[k]);@/
-dump_int(depth_base[k]);
-dump_int(italic_base[k]);
-dump_int(lig_kern_base[k]);@/
-dump_int(kern_base[k]);
-dump_int(exten_base[k]);
-dump_int(param_base[k]);@/
-dump_int(font_glue[k]);@/
-dump_int(bchar_label[k]);
-dump_int(font_bchar[k]);
-dump_int(font_false_bchar[k]);@/
-print_nl("\font"); print_esc(font_id_text(k)); print_char("=");
-print_file_name(font_name[k],font_area[k],"");
-if font_size[k]<>font_dsize[k] then
-  begin print(" at "); print_scaled(font_size[k]); print("pt");
-  end;
-end
-@y
-@ @<Dump the array info for internal font number |k|@>=
-begin
-dump_things(font_check[null_font], font_ptr+1-null_font);
-dump_things(font_size[null_font], font_ptr+1-null_font);
-dump_things(font_dsize[null_font], font_ptr+1-null_font);
-dump_things(font_params[null_font], font_ptr+1-null_font);
-dump_things(hyphen_char[null_font], font_ptr+1-null_font);
-dump_things(skew_char[null_font], font_ptr+1-null_font);
-dump_things(font_name[null_font], font_ptr+1-null_font);
-dump_things(font_area[null_font], font_ptr+1-null_font);
-dump_things(font_bc[null_font], font_ptr+1-null_font);
-dump_things(font_ec[null_font], font_ptr+1-null_font);
-dump_things(char_base[null_font], font_ptr+1-null_font);
-dump_things(width_base[null_font], font_ptr+1-null_font);
-dump_things(height_base[null_font], font_ptr+1-null_font);
-dump_things(depth_base[null_font], font_ptr+1-null_font);
-dump_things(italic_base[null_font], font_ptr+1-null_font);
-dump_things(lig_kern_base[null_font], font_ptr+1-null_font);
-dump_things(kern_base[null_font], font_ptr+1-null_font);
-dump_things(exten_base[null_font], font_ptr+1-null_font);
-dump_things(param_base[null_font], font_ptr+1-null_font);
-dump_things(font_glue[null_font], font_ptr+1-null_font);
-dump_things(bchar_label[null_font], font_ptr+1-null_font);
-dump_things(font_bchar[null_font], font_ptr+1-null_font);
-dump_things(font_false_bchar[null_font], font_ptr+1-null_font);
-for k:=null_font to font_ptr do
-  begin print_nl("\font"); print_esc(font_id_text(k)); print_char("=");
-  print_file_name(font_name[k],font_area[k],"");
-  if font_size[k]<>font_dsize[k] then
-    begin print(" at "); print_scaled(font_size[k]); print("pt");
-    end;
-  end;
-end
-@z
-
-@x
 @ @<Undump the array info for internal font number |k|@>=
-begin undump_qqqq(font_check[k]);@/
-undump_int(font_size[k]);
-undump_int(font_dsize[k]);
-undump(min_halfword)(max_halfword)(font_params[k]);@/
-undump_int(hyphen_char[k]);
-undump_int(skew_char[k]);@/
-undump(0)(str_ptr)(font_name[k]);
-undump(0)(str_ptr)(font_area[k]);@/
-undump(0)(255)(font_bc[k]);
-undump(0)(255)(font_ec[k]);@/
-undump_int(char_base[k]);
-undump_int(width_base[k]);
-undump_int(height_base[k]);@/
-undump_int(depth_base[k]);
-undump_int(italic_base[k]);
-undump_int(lig_kern_base[k]);@/
-undump_int(kern_base[k]);
-undump_int(exten_base[k]);
-undump_int(param_base[k]);@/
-undump(min_halfword)(lo_mem_max)(font_glue[k]);@/
-undump(0)(fmem_ptr-1)(bchar_label[k]);
-undump(min_quarterword)(non_char)(font_bchar[k]);
-undump(min_quarterword)(non_char)(font_false_bchar[k]);
+begin undump_font_table(k);@/
 end
 @y
 @ This module should now be named `Undump all the font arrays'.
 
 @<Undump the array info for internal font number |k|@>=
-begin {Allocate the font arrays}
-font_check:=xmalloc_array(four_quarters, font_max);
-font_size:=xmalloc_array(scaled, font_max);
-font_dsize:=xmalloc_array(scaled, font_max);
-font_params:=xmalloc_array(font_index, font_max);
-font_name:=xmalloc_array(str_number, font_max);
-font_area:=xmalloc_array(str_number, font_max);
-font_bc:=xmalloc_array(eight_bits, font_max);
-font_ec:=xmalloc_array(eight_bits, font_max);
-font_glue:=xmalloc_array(halfword, font_max);
-hyphen_char:=xmalloc_array(integer, font_max);
-skew_char:=xmalloc_array(integer, font_max);
-bchar_label:=xmalloc_array(font_index, font_max);
-font_bchar:=xmalloc_array(nine_bits, font_max);
-font_false_bchar:=xmalloc_array(nine_bits, font_max);
-char_base:=xmalloc_array(integer, font_max);
-width_base:=xmalloc_array(integer, font_max);
-height_base:=xmalloc_array(integer, font_max);
-depth_base:=xmalloc_array(integer, font_max);
-italic_base:=xmalloc_array(integer, font_max);
-lig_kern_base:=xmalloc_array(integer, font_max);
-kern_base:=xmalloc_array(integer, font_max);
-exten_base:=xmalloc_array(integer, font_max);
-param_base:=xmalloc_array(integer, font_max);
-
+begin undump_font_table(k);@/
+end;
+{Allocate the font arrays}
 pdf_char_used:=xmalloc_array(char_used_array, font_max);
 pdf_font_size:=xmalloc_array(scaled, font_max);
 pdf_font_num:=xmalloc_array(integer, font_max);
@@ -3126,41 +2828,8 @@ for font_k := font_base to font_max do begin
     pdf_font_sh_bs_base[font_k] := 0;
     pdf_font_kn_bc_base[font_k] := 0;
     pdf_font_kn_ac_base[font_k] := 0;
-end;
-
-make_pdftex_banner;
-undump_things(font_check[null_font], font_ptr+1-null_font);
-undump_things(font_size[null_font], font_ptr+1-null_font);
-undump_things(font_dsize[null_font], font_ptr+1-null_font);
-undump_checked_things(min_halfword, max_halfword,
-                      font_params[null_font], font_ptr+1-null_font);
-undump_things(hyphen_char[null_font], font_ptr+1-null_font);
-undump_things(skew_char[null_font], font_ptr+1-null_font);
-undump_upper_check_things(str_ptr, font_name[null_font], font_ptr+1-null_font);
-undump_upper_check_things(str_ptr, font_area[null_font], font_ptr+1-null_font);
-{There's no point in checking these values against the range $[0,255]$,
- since the data type is |unsigned char|, and all values of that type are
- in that range by definition.}
-undump_things(font_bc[null_font], font_ptr+1-null_font);
-undump_things(font_ec[null_font], font_ptr+1-null_font);
-undump_things(char_base[null_font], font_ptr+1-null_font);
-undump_things(width_base[null_font], font_ptr+1-null_font);
-undump_things(height_base[null_font], font_ptr+1-null_font);
-undump_things(depth_base[null_font], font_ptr+1-null_font);
-undump_things(italic_base[null_font], font_ptr+1-null_font);
-undump_things(lig_kern_base[null_font], font_ptr+1-null_font);
-undump_things(kern_base[null_font], font_ptr+1-null_font);
-undump_things(exten_base[null_font], font_ptr+1-null_font);
-undump_things(param_base[null_font], font_ptr+1-null_font);
-undump_checked_things(min_halfword, lo_mem_max,
-                     font_glue[null_font], font_ptr+1-null_font);
-undump_checked_things(0, fmem_ptr-1,
-                     bchar_label[null_font], font_ptr+1-null_font);
-undump_checked_things(min_quarterword, non_char,
-                     font_bchar[null_font], font_ptr+1-null_font);
-undump_checked_things(min_quarterword, non_char,
-                     font_false_bchar[null_font], font_ptr+1-null_font);
-end
+    end;
+make_pdftex_banner
 @z
 
 @x
@@ -3412,7 +3081,6 @@ begin @!{|start_here|}
 
   str_start:=xmalloc_array (pool_pointer, max_strings);
   str_pool:=xmalloc_array (packed_ASCII_code, pool_size);
-  font_info:=xmalloc_array (memory_word, font_mem_size);
 @+Tini
 @z
 
@@ -3506,30 +3174,6 @@ if trie_not_ready then begin {initex without format loaded}
   hyph_root:=0; hyph_start:=0;
 
   {Allocate and initialize font arrays}
-  font_check:=xmalloc_array(four_quarters, font_max);
-  font_size:=xmalloc_array(scaled, font_max);
-  font_dsize:=xmalloc_array(scaled, font_max);
-  font_params:=xmalloc_array(font_index, font_max);
-  font_name:=xmalloc_array(str_number, font_max);
-  font_area:=xmalloc_array(str_number, font_max);
-  font_bc:=xmalloc_array(eight_bits, font_max);
-  font_ec:=xmalloc_array(eight_bits, font_max);
-  font_glue:=xmalloc_array(halfword, font_max);
-  hyphen_char:=xmalloc_array(integer, font_max);
-  skew_char:=xmalloc_array(integer, font_max);
-  bchar_label:=xmalloc_array(font_index, font_max);
-  font_bchar:=xmalloc_array(nine_bits, font_max);
-  font_false_bchar:=xmalloc_array(nine_bits, font_max);
-  char_base:=xmalloc_array(integer, font_max);
-  width_base:=xmalloc_array(integer, font_max);
-  height_base:=xmalloc_array(integer, font_max);
-  depth_base:=xmalloc_array(integer, font_max);
-  italic_base:=xmalloc_array(integer, font_max);
-  lig_kern_base:=xmalloc_array(integer, font_max);
-  kern_base:=xmalloc_array(integer, font_max);
-  exten_base:=xmalloc_array(integer, font_max);
-param_base:=xmalloc_array(integer, font_max);
-
 pdf_char_used:=xmalloc_array(char_used_array,font_max);
 pdf_font_size:=xmalloc_array(scaled,font_max);
 pdf_font_num:=xmalloc_array(integer,font_max);
@@ -3581,27 +3225,9 @@ for font_k := font_base to font_max do begin
     pdf_font_kn_bc_base[font_k] := 0;
     pdf_font_kn_ac_base[font_k] := 0;
 end;
-
-font_ptr:=null_font; fmem_ptr:=7;
 make_pdftex_banner;
-  font_name[null_font]:="nullfont"; font_area[null_font]:="";
-  hyphen_char[null_font]:="-"; skew_char[null_font]:=-1;
-  bchar_label[null_font]:=non_address;
-  font_bchar[null_font]:=non_char; font_false_bchar[null_font]:=non_char;
-  font_bc[null_font]:=1; font_ec[null_font]:=0;
-  font_size[null_font]:=0; font_dsize[null_font]:=0;
-  char_base[null_font]:=0; width_base[null_font]:=0;
-  height_base[null_font]:=0; depth_base[null_font]:=0;
-  italic_base[null_font]:=0; lig_kern_base[null_font]:=0;
-  kern_base[null_font]:=0; exten_base[null_font]:=0;
-  font_glue[null_font]:=null; font_params[null_font]:=7;
-  param_base[null_font]:=-1;
-  for font_k:=0 to 6 do font_info[font_k].sc:=0;
-  end;
-  tini@/
-
-  font_used:=xmalloc_array (boolean, font_max);
-  for font_k:=font_base to font_max do font_used[font_k]:=false;
+end;
+tini@/
 @z
 
 @x
@@ -3610,17 +3236,6 @@ make_pdftex_banner;
     end
 @y
     dump_core {do something to cause a core dump}
-@z
-
-@x
-5: print_word(font_info[n]);
-@y
-5: begin print_scaled(font_info[n].sc); print_char(" ");@/
-  print_int(font_info[n].qqqq.b0); print_char(":");@/
-  print_int(font_info[n].qqqq.b1); print_char(":");@/
-  print_int(font_info[n].qqqq.b2); print_char(":");@/
-  print_int(font_info[n].qqqq.b3);
-  end;
 @z
 
 @x
@@ -3878,7 +3493,7 @@ if len=0 then  {trivial case}
   begin result:=""; goto found;
   end
 else  begin s:=search-1;  {start search with newest string below |s|; |search>1|!}
-  while s>255 do  {first 256 strings depend on implementation!!}
+  while s>biggest_char do  {first |biggest_char| strings depend on implementation!!}
     begin if length(s)=len then
       if str_eq_str(s,search) then
         begin result:=s; goto found;

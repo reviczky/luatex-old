@@ -91,12 +91,12 @@ static void get_char_widths (void)
 {
     int i;
     for (i = 0; i < 256; i++) {
-        if (i < fontbc[tex_font] || i > fontec[tex_font])
+	  if (i < getfontbc(tex_font) || i > getfontec(tex_font))
             char_widths[i] = 0;
         else
             char_widths[i] = getcharwidth (tex_font, i);
     }
-    for (i = fontbc[tex_font]; i < 256; i++)
+    for (i = getfontbc(tex_font); i < 256; i++)
         if (pdfcharmarked (tex_font, i))
             break;
     first_char = i;
@@ -261,7 +261,7 @@ void dopdffont (integer font_objnum, internalfontnumber f)
     write_fontfile_only = false;
     if (pdffontmap[tex_font] == NULL)
         pdftex_fail ("pdffontmap not initialized for font %s",
-                     makecstring (fontname[tex_font]));
+                     makecstring (getfontname(tex_font)));
     if (hasfmentry (tex_font))
         fm_cur = (fm_entry *) pdffontmap[tex_font];
     else

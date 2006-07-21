@@ -44,7 +44,7 @@ static char *packet_data_ptr;
 
 integer newvfpacket (internalfontnumber f)
 {
-    int i, n = fontec[f] - fontbc[f] + 1;
+  int i, n = getfontec(f) - getfontbc(f) + 1;
     alloc_array (vf, 1, SMALL_ARRAY_SIZE);
     vf_ptr->len = xtalloc (n, int);
     vf_ptr->data = xtalloc (n, char *);
@@ -61,9 +61,9 @@ void storepacket (integer f, integer c, integer s)
   if(s>=2097152) {
 	s-=2097152;
     int l = strstart[s + 1] - strstart[s];
-    vf_array[vfpacketbase[f]].len[c - fontbc[f]] = l;
-    vf_array[vfpacketbase[f]].data[c - fontbc[f]] = xtalloc (l, char);
-    memcpy ((void *) vf_array[vfpacketbase[f]].data[c - fontbc[f]],
+    vf_array[vfpacketbase[f]].len[c - getfontbc(f)] = l;
+    vf_array[vfpacketbase[f]].data[c - getfontbc(f)] = xtalloc (l, char);
+    memcpy ((void *) vf_array[vfpacketbase[f]].data[c - getfontbc(f)],
             (void *) (strpool + strstart[s]), (unsigned) l);
   } else {
 	pdftex_fail("vfpacket.c: storepacket() for single characters: NI ");
@@ -91,8 +91,8 @@ void poppacketstate ()
 
 void startpacket (internalfontnumber f, integer c)
 {
-    packet_data_ptr = vf_array[vfpacketbase[f]].data[c - fontbc[f]];
-    vfpacketlength = vf_array[vfpacketbase[f]].len[c - fontbc[f]];
+  packet_data_ptr = vf_array[vfpacketbase[f]].data[c - getfontbc(f)];
+  vfpacketlength = vf_array[vfpacketbase[f]].len[c - getfontbc(f)];
 }
 
 eightbits packetbyte ()
@@ -109,7 +109,7 @@ void vf_free (void)
     if (vf_array != NULL) {
         for (v = vf_array; v < vf_ptr; v++) {
             xfree (v->len);
-            n = fontec[v->font] - fontec[v->font] + 1;
+            n = getfontec(v->font) - getfontec(v->font) + 1;
             for (p = v->data; p - v->data < n; p++)
                 xfree (*p);
             xfree (v->data);

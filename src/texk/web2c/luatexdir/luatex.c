@@ -262,3 +262,107 @@ int luaopen_tex (lua_State *L)
   return 1;
 }
 
+/* do this aleph stuff here, for now */
+
+memoryword **fonttables;
+static int font_entries = 0;
+
+void
+allocatefonttable P2C(int, font_number, int, font_size)
+{
+    int i;
+    if (font_entries==0) {
+      fonttables = (memoryword **) xmalloc(256*sizeof(memoryword**));
+      font_entries=256;
+    } else if ((font_number==256)&&(font_entries==256)) {
+      fonttables = xrealloc(fonttables, 65536);
+      font_entries=65536;
+    }
+    fonttables[font_number] =
+       (memoryword *) xmalloc((font_size+1)*sizeof(memoryword));
+    fonttables[font_number][0].cint = font_size;
+    fonttables[font_number][0].cint1 = 0;
+    for (i=1; i<=font_size; i++) {
+        fonttables[font_number][i].cint  = 0;
+        fonttables[font_number][i].cint1 = 0;
+    }
+}
+
+void
+dumpfonttable P2C(int, font_number, int, words)
+{
+    fonttables[font_number][0].cint=words;
+    dumpthings(fonttables[font_number][0], fonttables[font_number][0].cint+1);
+}
+
+void
+undumpfonttable(font_number)
+int font_number;
+{
+    memoryword sizeword;
+    if (font_entries==0) {
+      fonttables = (memoryword **) xmalloc(256*sizeof(memoryword**));
+      font_entries=256;
+    } else if ((font_number==256)&&(font_entries==256)) {
+      fonttables = xrealloc(fonttables, 65536);
+      font_entries=65536;
+    }
+
+    undumpthings(sizeword,1);
+    fonttables[font_number] =
+        (memoryword *) xmalloc((sizeword.cint+1)*sizeof(memoryword));
+    fonttables[font_number][0].cint = sizeword.cint;
+    undumpthings(fonttables[font_number][1], sizeword.cint);
+}
+
+memoryword **fontsorttables;
+static int fontsort_entries = 0;
+
+void
+allocatefontsorttable P2C(int, fontsort_number, int, fontsort_size)
+{
+    int i;
+    if (fontsort_entries==0) {
+      fontsorttables = (memoryword **) xmalloc(256*sizeof(memoryword**));
+      fontsort_entries=256;
+    } else if ((fontsort_number==256)&&(fontsort_entries==256)) {
+      fontsorttables = xrealloc(fontsorttables, 65536);
+      fontsort_entries=65536;
+    }
+    fontsorttables[fontsort_number] =
+       (memoryword *) xmalloc((fontsort_size+1)*sizeof(memoryword));
+    fontsorttables[fontsort_number][0].cint = fontsort_size;
+    fontsorttables[fontsort_number][0].cint1 = 0;
+    for (i=1; i<=fontsort_size; i++) {
+        fontsorttables[fontsort_number][i].cint  = 0;
+        fontsorttables[fontsort_number][i].cint1 = 0;
+    }
+}
+
+void
+dumpfontsorttable P2C(int, fontsort_number, int, words)
+{
+    fontsorttables[fontsort_number][0].cint=words;
+    dumpthings(fontsorttables[fontsort_number][0],
+               fontsorttables[fontsort_number][0].cint+1);
+}
+
+void
+undumpfontsorttable(fontsort_number)
+int fontsort_number;
+{
+    memoryword sizeword;
+    if (fontsort_entries==0) {
+      fontsorttables = (memoryword **) xmalloc(256*sizeof(memoryword**));
+      fontsort_entries=256;
+    } else if ((fontsort_number==256)&&(fontsort_entries==256)) {
+      fontsorttables = xrealloc(fontsorttables, 65536);
+      fontsort_entries=65536;
+    }
+
+    undumpthings(sizeword,1);
+    fontsorttables[fontsort_number] =
+        (memoryword *) xmalloc((sizeword.cint+1)*sizeof(memoryword));
+    fontsorttables[fontsort_number][0].cint = sizeword.cint;
+    undumpthings(fontsorttables[fontsort_number][1], sizeword.cint);
+}

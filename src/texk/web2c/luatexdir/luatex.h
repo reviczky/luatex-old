@@ -20,6 +20,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 $Id $
 */
 
+/* this is needed for delcodes */ 
+
+#define setequiv1(a,v)  eqtb[(a)].cint1=v
+#define getequiv1(a)    eqtb[(a)].cint1
+
+extern memoryword **fonttables;
+extern memoryword **fontsorttables;
+extern void allocatefonttable();
+extern void dumpfonttable();
+extern void undumpfonttable();
+extern void allocatefontsorttable();
+extern void dumpfontsorttable();
+extern void undumpfontsorttable();
+
+
 /* Additions to texmfmp.h for pdfTeX */
 
 /* mark a char in font */
