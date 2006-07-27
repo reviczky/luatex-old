@@ -1749,12 +1749,12 @@ if feof(tfm_file) then abort;
 @z
 
 @x
-@!dvi_buf:array[dvi_index] of eight_bits; {buffer for \.{DVI} output}
+@!dvi_buf:array[dvi_index] of real_eight_bits; {buffer for \.{DVI} output}
 @!half_buf:dvi_index; {half of |dvi_buf_size|}
 @!dvi_limit:dvi_index; {end of the current half buffer}
 @!dvi_ptr:dvi_index; {the next available buffer address}
 @y
-@!dvi_buf:^eight_bits; {buffer for \.{DVI} output}
+@!dvi_buf:^real_eight_bits; {buffer for \.{DVI} output}
 @!half_buf:integer; {half of |dvi_buf_size|}
 @!dvi_limit:integer; {end of the current half buffer}
 @!dvi_ptr:integer; {the next available buffer address}

@@ -873,9 +873,10 @@ initialization.  We shall define a word file later; but it will be possible
 for us to specify simple operations on word files before they are defined.
 
 @<Types...@>=
-@!eight_bits=0..255; {unsigned one-byte quantity}
+@!eight_bits=0..biggest_char; {unsigned one-byte quantity}
+@!real_eight_bits=0..255; {unsigned one-byte quantity}
 @!alpha_file=packed file of text_char; {files that contain textual data}
-@!byte_file=packed file of eight_bits; {files that contain binary data}
+@!byte_file=packed file of real_eight_bits; {files that contain binary data}
 
 @ Most of what we need to do with respect to input and output can be handled
 by the I/O facilities that are standard in \PASCAL, i.e., the routines
@@ -5563,7 +5564,7 @@ for k:=cat_code_base+1 to int_base-1 do eqtb[k]:=eqtb[cat_code_base];
 for k:=0 to biggest_char do
   begin cat_code(k):=other_char; sf_code(k):=1000;
   end;
-for k:=0 to 256 do
+for k:=0 to 255 do
   begin math_code(k):=hi(k); 
   end;
 cat_code(carriage_return):=car_ret; cat_code(" "):=spacer;
@@ -5653,7 +5654,11 @@ print_esc(hash[font_id_base+equiv(n)].rh);
   {that's |font_id_text(equiv(n))|}
 end
 
-@ @<Show the halfword code in |eqtb[n]|@>=
+@ 
+@d is_omath(#)==  ((((#) mod @"1000000) div @"10000)>15) or
+     (((#) mod @"10000)>255)
+
+@<Show the halfword code in |eqtb[n]|@>=
 if n<math_code_base then
   begin if n<lc_code_base then
     begin print_esc("catcode"); print_int(n-cat_code_base);
@@ -5668,7 +5673,12 @@ if n<math_code_base then
     end;
   print_char("="); print_int(equiv(n));
   end
-else  begin print_esc("mathcode"); print_int(n-math_code_base);
+else begin 
+  if is_omath(ho(equiv(n))) then
+    print_esc("omathcode")
+  else    
+    print_esc("mathcode"); 
+  print_int(n-math_code_base);
   print_char("="); print_int(ho(equiv(n)));
   end
 
@@ -6178,13 +6188,24 @@ year:=1776; {Anno Domini}
 end;
 
 @ @<Show equivalent |n|, in region 5@>=
-begin if n<count_base then print_param(n-int_base)
-else if  n<del_code_base then
-  begin print_esc("count"); print_int(n-count_base);
+begin if n<count_base then begin print_param(n-int_base);
+    print_char("="); print_int(eqtb[n].int);
   end
-else  begin print_esc("delcode"); print_int(n-del_code_base);
+else if n<del_code_base then
+  begin print_esc("count"); print_int(n-count_base);
+    print_char("="); print_int(eqtb[n].int);
+  end
+else begin 
+  if ((is_omath(eqtb[n].int)) or (is_omath(getequiv1(n)))) then begin
+    print_esc("odelcode"); print_int(n-del_code_base);
+    print_char("="); print_int(eqtb[n].int); 
+    print_char(' ');
+    print_int(getequiv1(n));
+  end else begin
+    print_esc("delcode"); print_int(n-del_code_base);
+    print_char("="); print_int(eqtb[n].int);
+    end;
   end;
-print_char("="); print_int(eqtb[n].int);
 end
 
 @ @<Set variable |c| to the current escape character@>=c:=escape_char
@@ -6848,7 +6869,7 @@ char_ghost: if cur_chr=0 then print_esc("leftghost")
   else print_esc("rightghost");
 cs_name: print_esc("csname");
 def_font: print_esc("font");
-delim_num: print_esc("delimiter");
+delim_num: if chr_code=0 then print_esc("delimiter") else print_esc("odelimiter") ;
 divide: print_esc("divide");
 end_cs_name: print_esc("endcsname");
 end_group: print_esc("endgroup");
@@ -6865,8 +6886,8 @@ mark: begin
   else if chr_code=1 then print_esc("clearmarks")
   else print_esc("marks");
   end;
-math_accent: print_esc("mathaccent");
-math_char_num: print_esc("mathchar");
+math_accent: if chr_code=0 then print_esc("mathaccent") else print_esc("omathaccent");
+math_char_num: if chr_code=0 then print_esc("mathchar") else print_esc("omathchar");
 math_choice: print_esc("mathchoice");
 multiply: print_esc("multiply");
 no_align: print_esc("noalign");
@@ -6874,7 +6895,7 @@ no_boundary:print_esc("noboundary");
 no_expand: print_esc("noexpand");
 non_script: print_esc("nonscript");
 omit: print_esc("omit");
-radical: print_esc("radical");
+radical: if chr_code=0 then print_esc("radical") else print_esc("oradical");
 read_to_cs: if chr_code=0 then print_esc("read")
   @<Cases of |read| for |print_cmd_chr|@>;
 relax: print_esc("relax");
@@ -14491,7 +14512,7 @@ array, since output of four bytes at once may be facilitated.
 @^system dependencies@>
 
 @<Glob...@>=
-@!dvi_buf:array[dvi_index] of eight_bits; {buffer for \.{DVI} output}
+@!dvi_buf:array[dvi_index] of real_eight_bits; {buffer for \.{DVI} output}
 @!half_buf:dvi_index; {half of |dvi_buf_size|}
 @!dvi_limit:dvi_index; {end of the current half buffer}
 @!dvi_ptr:dvi_index; {the next available buffer address}
@@ -21296,6 +21317,7 @@ print_ASCII(qo(character(p)));
 end;
 @#
 procedure print_delimiter(@!p:pointer); {prints a delimiter as 24-bit hex value}
+{TH: FIX to do: print 48-bit integer where needed!}
 var a:integer; {accumulator}
 begin a:=small_fam(p)*256+qo(small_char(p));
 a:=a*@"1000+large_fam(p)*256+qo(large_char(p));
@@ -21379,7 +21401,9 @@ inner_noad: print_esc("mathinner");
 over_noad: print_esc("overline");
 under_noad: print_esc("underline");
 vcenter_noad: print_esc("vcenter");
-radical_noad: begin print_esc("radical"); print_delimiter(left_delimiter(p));
+radical_noad: begin
+  {TH: TODO print oradical where needed and fix otherwise} 
+  print_esc("radical"); print_delimiter(left_delimiter(p));
   end;
 accent_noad: begin print_esc("accent"); print_fam_and_char(accent_chr(p));
   end;
@@ -30316,9 +30340,7 @@ in one of these principal fields; it looks at the subformula that
 comes next in the input, and places an encoding of that subformula
 into a given word of |mem|.
 
-{TH: the next test is a little odd. Why does 256 not work? }
-
-@d fam_in_range==((cur_fam>=0)and(cur_fam<16))
+@d fam_in_range==((cur_fam>=0)and(cur_fam<256))
 
 @<Declare act...@>=
 @t\4@>@<Declare the function called |fin_mlist|@>@t@>@;@/
@@ -30350,12 +30372,9 @@ math_given: begin
 omath_given: begin c:=cur_chr;
   end;
 delim_num: begin
-  if cur_chr=0 then begin scan_twenty_seven_bit_int;
-     c:=cur_val;  { TH: check this, it is perhaps wrong!}
-  end
-  else begin scan_fifty_one_bit_int;
-     c:=cur_val;  { TH: check this, it is perhaps wrong!}
-  end;
+  if cur_chr=0 then scan_twenty_seven_bit_int
+  else scan_fifty_one_bit_int;
+  c:=cur_val;
   end;
 othercases @<Scan a subformula enclosed in braces and |return|@>
 endcases;@/
@@ -30549,7 +30568,8 @@ type(tail):=radical_noad; subtype(tail):=normal;
 mem[nucleus(tail)].hh:=empty_field;
 mem[subscr(tail)].hh:=empty_field;
 mem[supscr(tail)].hh:=empty_field;
-scan_delimiter(left_delimiter(tail),true); scan_math(nucleus(tail));
+scan_delimiter(left_delimiter(tail),cur_chr+1);
+scan_math(nucleus(tail));
 end;
 
 @ @<Cases of |main_control| that build...@>=
@@ -31417,6 +31437,8 @@ shorthand_def: case chr_code of
 char_given: begin print_esc("char"); print_hex(chr_code);
   end;
 math_given: begin print_esc("mathchar"); print_hex(chr_code);
+  end;
+omath_given: begin print_esc("omathchar"); print_hex(chr_code);
   end;
 
 @ We temporarily define |p| to be |relax|, so that an occurrence of |p|
