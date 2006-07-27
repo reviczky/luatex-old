@@ -3439,7 +3439,7 @@ the proportionality constant for glue setting; |glue_sign(p)| is
 |stretching| or |shrinking| or |normal| depending on whether or not the
 glue should stretch or shrink or remain rigid; and |glue_order(p)|
 specifies the order of infinity to which glue setting applies (|normal|,
-|fil|, |fill|, or |filll|). The |subtype| field is not used.
+|sfi|, |fil|, |fill|, or |filll|). The |subtype| field is not used.
 
 @d hlist_node=0 {|type| of hlist nodes}
 @d box_node_size=7 {number of words to allocate for a box node}
@@ -3719,7 +3719,7 @@ by |empty_flag| in empty nodes.
 Glue specifications also contain three |scaled| fields, for the |width|,
 |stretch|, and |shrink| dimensions. Finally, there are two one-byte
 fields called |stretch_order| and |shrink_order|; these contain the
-orders of infinity (|normal|, |fil|, |fill|, or |filll|)
+orders of infinity (|normal|, |sfi|, |fil|, |fill|, or |filll|)
 corresponding to the stretch and shrink values.
 
 @d glue_spec_size=4 {number of words to allocate for a glue specification}
@@ -3728,12 +3728,13 @@ corresponding to the stretch and shrink values.
 @d shrink(#) == mem[#+3].sc {the shrinkability of this glob of glue}
 @d stretch_order == type {order of infinity for stretching}
 @d shrink_order == subtype {order of infinity for shrinking}
-@d fil=1 {first-order infinity}
-@d fill=2 {second-order infinity}
-@d filll=3 {third-order infinity}
+@d sfi=1 {first-order infinity}
+@d fil=2 {second-order infinity}
+@d fill=3 {third-order infinity}
+@d filll=3 {fourth-order infinity}
 
 @<Types...@>=
-@!glue_ord=normal..filll; {infinity to the 0, 1, 2, or 3 power}
+@!glue_ord=normal..filll; {infinity to the 0, 1, 2, 3 or 4 power}
 
 @ Here is a function that returns a pointer to a copy of a glue spec.
 The reference count in the copy is |null|, because there is assumed
@@ -3907,7 +3908,8 @@ appear in locations |hi_mem_stat_min| through |mem_top|, inclusive. It is
 harmless to let |lig_trick| and |garbage| share the same location of |mem|.
 
 @d zero_glue==mem_bot {specification for \.{0pt plus 0pt minus 0pt}}
-@d fil_glue==zero_glue+glue_spec_size {\.{0pt plus 1fil minus 0pt}}
+@d sfi_glue==zero_glue+glue_spec_size {\.{0pt plus 1fi minus 0pt}}
+@d fil_glue==sfi_glue+glue_spec_size {\.{0pt plus 1fil minus 0pt}}
 @d fill_glue==fil_glue+glue_spec_size {\.{0pt plus 1fill minus 0pt}}
 @d ss_glue==fill_glue+glue_spec_size {\.{0pt plus 1fil minus 1fil}}
 @d fil_neg_glue==ss_glue+glue_spec_size {\.{0pt plus -1fil minus 0pt}}
@@ -3949,6 +3951,7 @@ k:=mem_bot;@+while k<=lo_mem_stat_max do
   stretch_order(k):=normal; shrink_order(k):=normal;
   k:=k+glue_spec_size;
   end;
+stretch(sfi_glue):=unity; stretch_order(sfi_glue):=sfi;@/
 stretch(fil_glue):=unity; stretch_order(fil_glue):=fil;@/
 stretch(fill_glue):=unity; stretch_order(fill_glue):=fill;@/
 stretch(ss_glue):=unity; stretch_order(ss_glue):=fil;@/
@@ -4206,8 +4209,8 @@ followed by the name of finite units:
 begin print_scaled(d);
 if (order<normal)or(order>filll) then print("foul")
 else if order>normal then
-  begin print("fil");
-  while order>fil do
+  begin print("fi");
+  while order>sfi do
     begin print_char("l"); decr(order);
     end;
   end
@@ -10574,6 +10577,7 @@ But not for luatex, because it is more convenient for us to have
 if scan_keyword("filll") then begin cur_order:=filll; goto attach_fraction; end
 else if scan_keyword("fill") then begin cur_order:=fill; goto attach_fraction; end
 else if scan_keyword("fil") then begin cur_order:=fil; goto attach_fraction; end
+else if scan_keyword("fi") then begin cur_order:=sfi; goto attach_fraction; end
 
 @ @<Scan for \(u)units that are internal dimensions...@>=
 save_cur_val:=cur_val;
@@ -20531,6 +20535,7 @@ end;
 @ @<Clear dimensions to zero@>=
 d:=0; x:=0;
 total_stretch[normal]:=0; total_shrink[normal]:=0;
+total_stretch[sfi]:=0; total_shrink[sfi]:=0;
 total_stretch[fil]:=0; total_shrink[fil]:=0;
 total_stretch[fill]:=0; total_shrink[fill]:=0;
 total_stretch[filll]:=0; total_shrink[filll]:=0
@@ -20742,6 +20747,7 @@ end
 if total_stretch[filll]<>0 then o:=filll
 else if total_stretch[fill]<>0 then o:=fill
 else if total_stretch[fil]<>0 then o:=fil
+else if total_stretch[sfi]<>0 then o:=sfi
 else o:=normal
 
 @ @<Report an underfull hbox and |goto common_ending|, if...@>=
@@ -20811,6 +20817,7 @@ end
 if total_shrink[filll]<>0 then o:=filll
 else if total_shrink[fill]<>0 then o:=fill
 else if total_shrink[fil]<>0 then o:=fil
+else if total_shrink[sfi]<>0 then o:=sfi
 else o:=normal
 
 @ @<Report an overfull hbox and |goto common_ending|, if...@>=
@@ -23917,47 +23924,50 @@ start after breakpoint |p| and lines that start after breakpoint |r|. In
 other words, if we know the length of the line that starts after |p| and
 ends at our current position, then the corresponding length of the line that
 starts after |r| is obtained by adding the amounts in node~|q|. A delta node
-contains six scaled numbers, since it must record the net change in glue
+contains seven scaled numbers, since it must record the net change in glue
 stretchability with respect to all orders of infinity. The natural width
 difference appears in |mem[q+1].sc|; the stretch differences in units of
-pt, fil, fill, and filll appear in |mem[q+2..q+5].sc|; and the shrink difference
-appears in |mem[q+6].sc|. The |subtype| field of a delta node is not used.
+pt, sfi, fil, fill, and filll appear in |mem[q+2..q+6].sc|; and the shrink
+difference appears in |mem[q+7].sc|. The |subtype| field of a delta node
+is not used.
 
-@d delta_node_size=9 {number of words in a delta node}
+Actually, we have two more fields that are used by |pdftex|.
+
+@d delta_node_size=10 {number of words in a delta node}
 @d delta_node=2 {|type| field in a delta node}
 
-@ As the algorithm runs, it maintains a set of six delta-like registers
+@ As the algorithm runs, it maintains a set of seven delta-like registers
 for the length of the line following the first active breakpoint to the
 current position in the given hlist. When it makes a pass through the
-active list, it also maintains a similar set of six registers for the
+active list, it also maintains a similar set of seven registers for the
 length following the active breakpoint of current interest. A third set
 holds the length of an empty line (namely, the sum of \.{\\leftskip} and
 \.{\\rightskip}); and a fourth set is used to create new delta nodes.
 
 When we pass a delta node we want to do operations like
 $$\hbox{\ignorespaces|for
-k:=1 to 6 do cur_active_width[k]:=cur_active_width[k]+mem[q+k].sc|};$$ and we
+k:=1 to 7 do cur_active_width[k]:=cur_active_width[k]+mem[q+k].sc|};$$ and we
 want to do this without the overhead of |for| loops. The |do_all_six|
 macro makes such six-tuples convenient.
 
-@d do_all_six(#)==#(1);#(2);#(3);#(4);#(5);#(6)
+@d do_all_six(#)==#(1);#(2);#(3);#(4);#(5);#(6);#(7)
 
-@d do_seven_eight(#) == if pdf_adjust_spacing > 1 then begin #(7);#(8); end
+@d do_seven_eight(#) == if pdf_adjust_spacing > 1 then begin #(8);#(9); end
 @d do_all_eight(#) == do_all_six(#); do_seven_eight(#)
 @d do_one_seven_eight(#) == #(1); do_seven_eight(#)
 
-@d total_font_stretch == cur_active_width[7]
-@d total_font_shrink == cur_active_width[8]
+@d total_font_stretch == cur_active_width[8]
+@d total_font_shrink == cur_active_width[9]
 
 @d save_active_width(#) == prev_active_width[#] := active_width[#]
 @d restore_active_width(#) == active_width[#] := prev_active_width[#]
 
 @<Glo...@>=
-@!active_width:array[1..8] of scaled;
+@!active_width:array[1..9] of scaled;
   {distance from first active node to~|cur_p|}
-@!cur_active_width:array[1..8] of scaled; {distance from current active node}
-@!background:array[1..8] of scaled; {length of an ``empty'' line}
-@!break_width:array[1..8] of scaled; {length being computed after current break}
+@!cur_active_width:array[1..9] of scaled; {distance from current active node}
+@!background:array[1..9] of scaled; {length of an ``empty'' line}
+@!break_width:array[1..9] of scaled; {length being computed after current break}
 @#
 @!auto_breaking: boolean; {make |auto_breaking| accessible out of |line_break|}
 @!prev_p: pointer; {make |prev_p| accessible out of |line_break|}
@@ -24053,12 +24063,13 @@ no_shrink_error_yet:=true;@/
 check_shrinkage(left_skip); check_shrinkage(right_skip);@/
 q:=left_skip; r:=right_skip; background[1]:=width(q)+width(r);@/
 background[2]:=0; background[3]:=0; background[4]:=0; background[5]:=0;@/
+background[6]:=0;@/
 background[2+stretch_order(q)]:=stretch(q);@/
 background[2+stretch_order(r)]:=@|background[2+stretch_order(r)]+stretch(r);@/
-background[6]:=shrink(q)+shrink(r);
+background[7]:=shrink(q)+shrink(r);
 if pdf_adjust_spacing > 1 then begin
-    background[7] := 0;
     background[8] := 0;
+    background[9] := 0;
     max_stretch_ratio := -1;
     max_shrink_ratio := -1;
     cur_font_step := -1;
@@ -24451,7 +24462,7 @@ done: end
 @ @<Subtract glue from |break...@>=
 begin v:=glue_ptr(s); break_width[1]:=break_width[1]-width(v);
 break_width[2+stretch_order(v)]:=break_width[2+stretch_order(v)]-stretch(v);
-break_width[6]:=break_width[6]-shrink(v);
+break_width[7]:=break_width[7]-shrink(v);
 end
 
 @ When |cur_p| is a discretionary break, the length of a line ``from |cur_p| to
@@ -24531,8 +24542,8 @@ if is_char_node(v) then
   break_width[1]:=break_width[1]-char_width(f)(char_info(f)(character(v)));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := v;
-      sub_char_stretch(break_width[7])(character(v));
-      sub_char_shrink(break_width[8])(character(v));
+      sub_char_stretch(break_width[8])(character(v));
+      sub_char_shrink(break_width[9])(character(v));
   end;
   end
 else  case type(v) of
@@ -24541,8 +24552,8 @@ else  case type(v) of
       char_width(f)(char_info(f)(character(lig_char(v))));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := v;
-        sub_char_stretch(break_width[7])(character(lig_char(v)));
-        sub_char_shrink(break_width[8])(character(lig_char(v)));
+        sub_char_stretch(break_width[8])(character(lig_char(v)));
+        sub_char_shrink(break_width[9])(character(lig_char(v)));
     end;
     end;
   hlist_node,vlist_node,rule_node,kern_node: begin
@@ -24550,8 +24561,8 @@ else  case type(v) of
     if (type(v) = kern_node) and
        (pdf_adjust_spacing > 1) and (subtype(v) = normal)
     then begin
-        sub_kern_stretch(break_width[7])(v);
-        sub_kern_shrink(break_width[8])(v);
+        sub_kern_stretch(break_width[8])(v);
+        sub_kern_shrink(break_width[9])(v);
     end;
   end;
   othercases confusion("disc1")
@@ -24564,8 +24575,8 @@ if is_char_node(s) then
   break_width[1]:=@|break_width[1]+char_width(f)(char_info(f)(character(s)));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
-      add_char_stretch(break_width[7])(character(s));
-      add_char_shrink(break_width[8])(character(s));
+      add_char_stretch(break_width[8])(character(s));
+      add_char_shrink(break_width[9])(character(s));
   end;
   end
 else  case type(s) of
@@ -24574,8 +24585,8 @@ else  case type(s) of
       char_width(f)(char_info(f)(character(lig_char(s))));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := s;
-        add_char_stretch(break_width[7])(character(lig_char(s)));
-        add_char_shrink(break_width[8])(character(lig_char(s)));
+        add_char_stretch(break_width[8])(character(lig_char(s)));
+        add_char_shrink(break_width[9])(character(lig_char(s)));
     end;
     end;
   hlist_node,vlist_node,rule_node,kern_node: begin
@@ -24583,8 +24594,8 @@ else  case type(s) of
     if (type(s) = kern_node) and
        (pdf_adjust_spacing > 1) and (subtype(s) = normal)
     then begin
-        add_kern_stretch(break_width[7])(s);
-        add_kern_shrink(break_width[8])(s);
+        add_kern_stretch(break_width[8])(s);
+        add_kern_shrink(break_width[9])(s);
     end;
   end;
   othercases confusion("disc2")
@@ -24804,7 +24815,7 @@ deactivate: @<Deactivate node |r|@>;
 end
 
 @ When a line must stretch, the available stretchability can be found in the
-subarray |cur_active_width[2..5]|, in units of points, fil, fill, and filll.
+subarray |cur_active_width[2..6]|, in units of points, sfi, fil, fill and filll.
 
 The present section is part of \TeX's inner loop, and it is most often performed
 when the badness is infinite; therefore it is worth while to make a quick
@@ -24814,7 +24825,7 @@ test for large width excess and small stretchability, before calling the
 
 @<Set the value of |b| to the badness for stretching...@>=
 if (cur_active_width[3]<>0)or(cur_active_width[4]<>0)or@|
-  (cur_active_width[5]<>0) then
+  (cur_active_width[5]<>0)or(cur_active_width[6]<>0) then
   begin if do_last_line_fit then
     begin if cur_p=null then {the last line of a paragraph}
       @<Perform computations for last line and |goto found|@>;
@@ -24834,11 +24845,11 @@ else  begin if shortfall>7230584 then if cur_active_width[2]<1663497 then
   end
 
 @ Shrinkability is never infinite in a paragraph;
-we can shrink the line from |r| to |cur_p| by at most |cur_active_width[6]|.
-
+we can shrink the line from |r| to |cur_p| by at most |cur_active_width[7]|.
+ 
 @<Set the value of |b| to the badness for shrinking...@>=
-begin if -shortfall>cur_active_width[6] then b:=inf_bad+1
-else b:=badness(-shortfall,cur_active_width[6]);
+begin if -shortfall>cur_active_width[7] then b:=inf_bad+1
+else b:=badness(-shortfall,cur_active_width[7]);
 if b>12 then fit_class:=tight_fit@+else fit_class:=decent_fit;
 end
 
@@ -25119,16 +25130,16 @@ kern_node: if subtype(cur_p)=explicit then kern_break
   else begin
     act_width:=act_width+width(cur_p);
     if (pdf_adjust_spacing > 1) and (subtype(cur_p) = normal) then begin
-        add_kern_stretch(active_width[7])(cur_p);
-        add_kern_shrink(active_width[8])(cur_p);
+        add_kern_stretch(active_width[8])(cur_p);
+        add_kern_shrink(active_width[9])(cur_p);
     end;
   end;
 ligature_node: begin f:=font(lig_char(cur_p));
   act_width:=act_width+char_width(f)(char_info(f)(character(lig_char(cur_p))));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := cur_p;
-      add_char_stretch(active_width[7])(character(lig_char(cur_p)));
-      add_char_shrink(active_width[8])(character(lig_char(cur_p)));
+      add_char_stretch(active_width[8])(character(lig_char(cur_p)));
+      add_char_shrink(active_width[9])(character(lig_char(cur_p)));
   end;
   end;
 disc_node: @<Try to break after a discretionary fragment, then |goto done5|@>;
@@ -25156,8 +25167,8 @@ repeat f:=font(cur_p);
 act_width:=act_width+char_width(f)(char_info(f)(character(cur_p)));
 if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
     prev_char_p := cur_p;
-    add_char_stretch(active_width[7])(character(cur_p));
-    add_char_shrink(active_width[8])(character(cur_p));
+    add_char_stretch(active_width[8])(character(cur_p));
+    add_char_shrink(active_width[9])(character(cur_p));
 end;
 cur_p:=link(cur_p);
 until not is_char_node(cur_p);
@@ -25177,7 +25188,7 @@ check_shrinkage(glue_ptr(cur_p)); q:=glue_ptr(cur_p);
 act_width:=act_width+width(q);@|
 active_width[2+stretch_order(q)]:=@|
   active_width[2+stretch_order(q)]+stretch(q);@/
-active_width[6]:=active_width[6]+shrink(q)
+active_width[7]:=active_width[7]+shrink(q)
 
 @ The following code knows that discretionary texts contain
 only character nodes, kern nodes, box nodes, rule nodes, and ligature nodes.
@@ -25207,8 +25218,8 @@ if is_char_node(s) then
   disc_width[1]:=disc_width[1]+char_width(f)(char_info(f)(character(s)));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
-      add_char_stretch(disc_width[7])(character(s));
-      add_char_shrink(disc_width[8])(character(s));
+      add_char_stretch(disc_width[8])(character(s));
+      add_char_shrink(disc_width[9])(character(s));
   end;
   end
 else  case type(s) of
@@ -25217,8 +25228,8 @@ else  case type(s) of
       char_width(f)(char_info(f)(character(lig_char(s))));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := s;
-        add_char_stretch(disc_width[7])(character(lig_char(s)));
-        add_char_shrink(disc_width[8])(character(lig_char(s)));
+        add_char_stretch(disc_width[8])(character(lig_char(s)));
+        add_char_shrink(disc_width[9])(character(lig_char(s)));
     end;
     end;
   hlist_node,vlist_node,rule_node,kern_node: begin
@@ -25226,8 +25237,8 @@ else  case type(s) of
     if (type(s) = kern_node) and
        (pdf_adjust_spacing > 1) and (subtype(s) = normal)
     then begin
-        add_kern_stretch(disc_width[7])(s);
-        add_kern_shrink(disc_width[8])(s);
+        add_kern_stretch(disc_width[8])(s);
+        add_kern_shrink(disc_width[9])(s);
     end;
   end;
   othercases confusion("disc3")
@@ -25240,8 +25251,8 @@ if is_char_node(s) then
   act_width:=act_width+char_width(f)(char_info(f)(character(s)));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
-      add_char_stretch(active_width[7])(character(s));
-      add_char_shrink(active_width[8])(character(s));
+      add_char_stretch(active_width[8])(character(s));
+      add_char_shrink(active_width[9])(character(s));
   end;
   end
 else  case type(s) of
@@ -25250,8 +25261,8 @@ else  case type(s) of
       char_width(f)(char_info(f)(character(lig_char(s))));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := s;
-        add_char_stretch(active_width[7])(character(lig_char(s)));
-        add_char_shrink(active_width[8])(character(lig_char(s)));
+        add_char_stretch(active_width[8])(character(lig_char(s)));
+        add_char_shrink(active_width[9])(character(lig_char(s)));
     end;
     end;
   hlist_node,vlist_node,rule_node,kern_node: begin
@@ -25259,8 +25270,8 @@ else  case type(s) of
     if (type(s) = kern_node) and
        (pdf_adjust_spacing > 1) and (subtype(s) = normal)
     then begin
-        add_kern_stretch(active_width[7])(s);
-        add_kern_shrink(active_width[8])(s);
+        add_kern_stretch(active_width[8])(s);
+        add_kern_shrink(active_width[9])(s);
     end;
   end;
   othercases confusion("disc4")
@@ -27247,10 +27258,10 @@ if pi<inf_penalty then
 @ @<Compute the badness, |b|, using |awful_bad| if the box is too full@>=
 if cur_height<h then
   if (active_height[3]<>0) or (active_height[4]<>0) or
-    (active_height[5]<>0) then b:=0
+    (active_height[5]<>0) or (active_height[6]<>0) then b:=0
   else b:=badness(h-cur_height,active_height[2])
-else if cur_height-h>active_height[6] then b:=awful_bad
-else b:=badness(cur_height-h,active_height[6])
+else if cur_height-h>active_height[7] then b:=awful_bad
+else b:=badness(cur_height-h,active_height[7])
 
 @ Vertical lists that are subject to the |vert_break| procedure should not
 contain infinite shrinkability, since that would permit any amount of
@@ -27261,7 +27272,7 @@ if type(p)=kern_node then q:=p
 else  begin q:=glue_ptr(p);
   active_height[2+stretch_order(q)]:=@|
     active_height[2+stretch_order(q)]+stretch(q);@/
-  active_height[6]:=active_height[6]+shrink(q);
+  active_height[7]:=active_height[7]+shrink(q);
   if (shrink_order(q)<>normal)and(shrink(q)<>0) then
     begin@t@>@;@/
     print_err("Infinite glue shrinkage found in box being split");@/
@@ -31058,8 +31069,8 @@ by causing its width to be zero.
 
 @<Squeeze the equation as much as possible...@>=
 begin if (e<>0)and((w-total_shrink[normal]+q<=z)or@|
-   (total_shrink[fil]<>0)or(total_shrink[fill]<>0)or
-   (total_shrink[filll]<>0)) then
+   (total_shrink[sfi]<>0)or(total_shrink[fil]<>0)or
+   (total_shrink[fill]<>0)or(total_shrink[filll]<>0)) then
   begin free_node(b,box_node_size);
   b:=hpack(p,z-q,exactly);
   end
@@ -38494,10 +38505,11 @@ begin if (active_short(r)=0)or(active_glue(r)<=0) then goto not_found;
   {previous line was neither stretched nor shrunk, or was infinitely bad}
 if (cur_active_width[3]<>fill_width[0])or@|
   (cur_active_width[4]<>fill_width[1])or@|
-  (cur_active_width[5]<>fill_width[2]) then goto not_found;
+  (cur_active_width[5]<>fill_width[2])or@|
+  (cur_active_width[5]<>fill_width[3]) then goto not_found;
   {infinite stretch of this line not entirely due to |par_fill_skip|}
 if active_short(r)>0 then g:=cur_active_width[2]
-else g:=cur_active_width[6];
+else g:=cur_active_width[7];
 if g<=0 then goto not_found; {no finite stretch resp.\ no shrink}
 arith_error:=false; g:=fract(g,active_short(r),active_glue(r),max_dimen);
 if last_line_fit<1000 then g:=fract(g,last_line_fit,1000,max_dimen);
@@ -38528,8 +38540,8 @@ goto found;
 end
 
 @ @<Set the value of |b| to the badness of the last line for shr...@>=
-begin if -g>cur_active_width[6] then g:=-cur_active_width[6];
-b:=badness(-g,cur_active_width[6]);
+begin if -g>cur_active_width[7] then g:=-cur_active_width[7];
+b:=badness(-g,cur_active_width[7]);
 if b>12 then fit_class:=tight_fit@+else fit_class:=decent_fit;
 goto found;
 end
@@ -38540,7 +38552,7 @@ not adjusted.
 @<Adjust \(t)the additional data for last line@>=
 begin if cur_p=null then shortfall:=0;
 if shortfall>0 then g:=cur_active_width[2]
-else if shortfall<0 then g:=cur_active_width[6]
+else if shortfall<0 then g:=cur_active_width[7]
 else g:=0;
 end
 
