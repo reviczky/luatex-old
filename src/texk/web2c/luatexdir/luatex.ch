@@ -947,11 +947,11 @@ for k:=active_base to eqtb_top do
 @z
 
 @x
-@d tex_int_pars=55 {total number of \TeX's integer parameters}
+@d tex_int_pars=58 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d pdftex_first_integer_code = tex_int_pars {base for \pdfTeX's integer parameters}
 @y
-@d tex_int_pars=55 {total number of \TeX's integer parameters}
+@d tex_int_pars=58 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d web2c_int_base=tex_int_pars {base for web2c's integer parameters}
 @d web2c_int_pars=web2c_int_base {total number of web2c's integer parameters}
@@ -2343,14 +2343,12 @@ print_in_mode(mode);
 @z
 
 @x
-if indented then
-  begin tail:=new_null_box; link(head):=tail; width(tail):=par_indent;@+
-  end;
+if indented then begin
+  tail:=new_null_box; link(link(head)):=tail; width(tail):=par_indent;@+
 @y
-if indented then
-  begin tail:=new_null_box; link(head):=tail; width(tail):=par_indent;
+if indented then begin
+  tail:=new_null_box; link(link(head)):=tail; width(tail):=par_indent;@+
   if (insert_src_special_every_par) then insert_src_special;@+
-  end;
 @z
 
 @x

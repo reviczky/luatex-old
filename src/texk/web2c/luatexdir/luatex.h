@@ -38,10 +38,10 @@ extern void undumpfontsorttable();
 /* Additions to texmfmp.h for pdfTeX */
 
 /* mark a char in font */
-#define pdfmarkchar(f, c) pdfcharused[f][c/8] |= (1<<(c%8))
+#define pdfmarkchar(f, c) pdfcharused[f][c/16] |= (1<<(c%16))
 
 /* test whether a char in font is marked */
-#define pdfcharmarked(f, c) (boolean)(pdfcharused[f][c/8] & (1<<(c%8)))
+#define pdfcharmarked(f, c) (boolean)(pdfcharused[f][c/16] & (1<<(c%16)))
 
 /* writepdf() always writes by fwrite() */
 #define       writepdf(a, b) \

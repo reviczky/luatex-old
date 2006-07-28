@@ -195,7 +195,7 @@ end;
 @d zz=3 {we multiply the token capacity by approximately this amount}
 @y
 @d ww=3 {we multiply the byte capacity by approximately this amount}
-@d zz=4 {we multiply the token capacity by approximately this amount}
+@d zz=5 {we multiply the token capacity by approximately this amount}
 @z
 
 @x [58] Remove conversion to uppercase

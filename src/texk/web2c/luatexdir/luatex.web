@@ -873,7 +873,7 @@ initialization.  We shall define a word file later; but it will be possible
 for us to specify simple operations on word files before they are defined.
 
 @<Types...@>=
-@!eight_bits=0..biggest_char; {unsigned one-byte quantity}
+@!eight_bits=0..65535; {unsigned one-byte quantity}
 @!real_eight_bits=0..255; {unsigned one-byte quantity}
 @!alpha_file=packed file of text_char; {files that contain textual data}
 @!byte_file=packed file of real_eight_bits; {files that contain binary data}
@@ -4611,7 +4611,7 @@ relative position---then this code may need to be changed too.
 var h:pointer; {temporary head of copied list}
 @!q:pointer; {previous position in new list}
 @!r:pointer; {current node being fabricated for new list}
-@!words:0..5; {number of words remaining to be copied}
+@!words:0..8; {number of words remaining to be copied}
 begin h:=get_avail; q:=h;
 while p<>null do
   begin @<Make a copy of node |p| in node |r|@>;
@@ -4781,7 +4781,9 @@ expanded by `\.{\\the}'.
 @d end_cs_name=67 {end control sequence ( \.{\\endcsname} )}
 @d char_ghost=end_cs_name+1
    {\.{\\ghostleft}, \.{\\ghostright} character for kerning}
-@d min_internal=char_ghost+1 {the smallest code that can follow \.{\\the}}
+@d assign_local_box=char_ghost+1
+   {box for guillemets \.{\\localleftbox} or \.{\\localrightbox}}
+@d min_internal=assign_local_box+1 {the smallest code that can follow \.{\\the}}
 @d char_given=min_internal {character code defined by \.{\\chardef}}
 @d math_given=char_given+1 {math code defined by \.{\\mathchardef}}
 @d omath_given=math_given+1 {math code defined by \.{\\omathchardef}}
@@ -5007,6 +5009,8 @@ be pushed onto |nest| if necessary.
   @!eTeX_aux_field: pointer;
   @!pg_field,@!ml_field: integer;@+
   @!aux_field: memory_word;
+  @!local_par_field: pointer;
+  @!local_par_bool_field: boolean;
   end;
 
 @ @d mode==cur_list.mode_field {current mode}
@@ -5023,6 +5027,10 @@ be pushed onto |nest| if necessary.
 @d clang==aux.hh.rh {the other part of |aux| in horizontal mode}
 @d incompleat_noad==aux.int {the name of |aux| in math mode}
 @d mode_line==cur_list.ml_field {source file line number at beginning of list}
+@d local_par==cur_list.local_par_field
+   {pointer to whatsit for local stuff}
+@d local_par_bool==cur_list.local_par_bool_field
+   {has local stuff been changed in this group?}
 
 @<Glob...@>=
 @!nest:array[0..nest_size] of list_state_record;
@@ -5049,8 +5057,11 @@ nest_ptr:=0; max_nest_stack:=0;
 mode:=vmode; head:=contrib_head; tail:=contrib_head;
 eTeX_aux:=null;
 prev_depth:=ignore_depth; mode_line:=0;
+local_par:=null; local_par_bool:=false;
 prev_graf:=0; shown_mode:=0;
 @<Start a new current page@>;
+
+@ @p @<LOCAL: Declare |make_local_par_node|@>;
 
 @ When \TeX's work on one level is interrupted, the state is saved by
 calling |push_nest|. This routine changes |head| and |tail| so that
@@ -5064,6 +5075,7 @@ begin if nest_ptr>max_nest_stack then
   end;
 nest[nest_ptr]:=cur_list; {stack the record}
 incr(nest_ptr); head:=get_avail; tail:=head; prev_graf:=0; mode_line:=line;
+local_par:=make_local_par_node; local_par_bool:=false;
 eTeX_aux:=null;
 end;
 
@@ -5073,7 +5085,12 @@ called at the lowest semantic level, nor will it be called unless |head|
 is a node that should be returned to free memory.
 
 @p procedure pop_nest; {leave a semantic level, re-enter the old}
-begin free_avail(head); decr(nest_ptr); cur_list:=nest[nest_ptr];
+begin
+if local_par<>null then begin
+  if local_par_bool then begin end {|tail_append(local_par)|}
+  else free_node(local_par,local_par_size);
+  end;
+free_avail(head); decr(nest_ptr); cur_list:=nest[nest_ptr];
 end;
 
 @ Here is a procedure that displays what \TeX\ is working on, at all levels.
@@ -5449,7 +5466,9 @@ registers.
 @d display_widow_penalties_loc=etex_pen_base+3 {ditto, just before a display}
 @d etex_pens=etex_pen_base+4 {end of table of \eTeX's penalties}
 @#
-@d box_base=etex_pens {table of |number_regs| box registers}
+@d local_left_box_base=etex_pens
+@d local_right_box_base=local_left_box_base+1
+@d box_base=local_right_box_base+1 {table of |number_regs| box registers}
 @d cur_font_loc=box_base+number_regs {internal font number outside math mode}
 @d math_font_base=cur_font_loc+1 
    {table of |number_math_fonts| math font numbers}
@@ -5476,6 +5495,8 @@ registers.
 @d pdf_page_resources==equiv(pdf_page_resources_loc)
 @d pdf_pk_mode==equiv(pdf_pk_mode_loc)
 @d toks(#)==equiv(toks_base+#)
+@d local_left_box==equiv(local_left_box_base)
+@d local_right_box==equiv(local_right_box_base)
 @d box(#)==equiv(box_base+#)
 @d cur_font==equiv(cur_font_loc)
 @d fam_fnt(#)==equiv(math_font_base+#)
@@ -5750,7 +5771,10 @@ that will be defined later.
 @d right_hyphen_min_code=52 {minimum right hyphenation fragment size}
 @d holding_inserts_code=53 {do not remove insertion nodes from \.{\\box255}}
 @d error_context_lines_code=54 {maximum intermediate line pairs shown}
-@d tex_int_pars=55 {total number of \TeX's integer parameters}
+@d local_inter_line_penalty_code=55 {local \.{\\interlinepenalty}}
+@d local_broken_penalty_code=56 {local \.{\\brokenpenalty}}
+@d no_local_whatsits_code=57 {counts local whatsits}
+@d tex_int_pars=58 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d pdftex_first_integer_code = tex_int_pars {base for \pdfTeX's integer parameters}
 @d pdf_output_code           = pdftex_first_integer_code + 0 {switch on PDF output if positive}
@@ -5852,6 +5876,9 @@ that will be defined later.
 @d default_skew_char==int_par(default_skew_char_code)
 @d end_line_char==int_par(end_line_char_code)
 @d new_line_char==int_par(new_line_char_code)
+@d local_inter_line_penalty==int_par(local_inter_line_penalty_code)
+@d local_broken_penalty==int_par(local_broken_penalty_code)
+@d no_local_whatsits==int_par(no_local_whatsits_code)
 @d language==int_par(language_code)
 @d left_hyphen_min==int_par(left_hyphen_min_code)
 @d right_hyphen_min==int_par(right_hyphen_min_code)
@@ -7030,7 +7057,8 @@ one that starts with \.{\\begingroup} should end with \.{\\endgroup}.
 @d semi_simple_group=14 {code for `\.{\\begingroup...\\endgroup}'}
 @d math_shift_group=15 {code for `\.{\$...\$}'}
 @d math_left_group=16 {code for `\.{\\left...\\right}'}
-@d max_group_code=16
+@d local_box_group=17 {code for `\.{\\localleftbox...\\localrightbox}'}
+@d max_group_code=17
 
 @<Types...@>=
 @!group_code=0..max_group_code; {|save_level| for a level boundary}
@@ -15762,11 +15790,11 @@ end
 
 @<Glob...@>=
 @!pdf_file: byte_file; {the PDF output file}
-@!pdf_buf: ^eight_bits; {pointer to the PDF output buffer or PDF object stream buffer}
+@!pdf_buf: ^real_eight_bits; {pointer to the PDF output buffer or PDF object stream buffer}
 @!pdf_buf_size: integer; {end of PDF output buffer or PDF object stream buffer}
 @!pdf_ptr: integer; {pointer to the first unused byte in the PDF buffer or object stream buffer}
-@!pdf_op_buf: ^eight_bits; {the PDF output buffer}
-@!pdf_os_buf: ^eight_bits; {the PDF object stream buffer}
+@!pdf_op_buf: ^real_eight_bits; {the PDF output buffer}
+@!pdf_os_buf: ^real_eight_bits; {the PDF object stream buffer}
 @!pdf_os_buf_size: integer; {current size of the PDF object stream buffer, grows dynamically}
 @!pdf_os_objnum: ^integer; {array of object numbers within object stream}
 @!pdf_os_objoff: ^integer; {array of object offsets within object stream}
@@ -16006,7 +16034,7 @@ begin
             pdf_os_buf_size := pdf_os_buf_size + a
         else
             pdf_os_buf_size := sup_pdf_os_buf_size;
-        pdf_os_buf := xrealloc_array(pdf_os_buf, eight_bits, pdf_os_buf_size);
+        pdf_os_buf := xrealloc_array(pdf_os_buf, real_eight_bits, pdf_os_buf_size);
         pdf_buf := pdf_os_buf;
         pdf_buf_size := pdf_os_buf_size;
     end;
@@ -17305,7 +17333,7 @@ procedure do_vf; forward;
 procedure scan_pdf_ext_toks; forward;
 
 @ @<Glob...@>=
-@!pdf_font_type: ^eight_bits; {the type of font}
+@!pdf_font_type: ^real_eight_bits; {the type of font}
 @!pdf_font_attr: ^str_number; {pointer to additional attributes}
 @!tmp_f: internal_font_number; {for use with |pdf_init_font|}
 @ Here come some subroutines to deal with expanded fonts for HZ-algorithm.
@@ -23766,6 +23794,18 @@ line can be ascertained when it is necessary to decide whether to use
 
 @<Glob...@>=
 @!just_box:pointer; {the |hlist_node| for the last line of the new paragraph}
+@!internal_pen_inter:integer; {running \.{\\localinterlinepenalty}}
+@!internal_pen_broken:integer; {running \.{\\localbrokenpenalty}}
+@!internal_left_box:pointer; {running \.{\\localleftbox}}
+@!internal_left_box_width:integer; {running \.{\\localleftbox} width}
+@!init_internal_left_box:pointer; {running \.{\\localleftbox}}
+@!init_internal_left_box_width:integer; {running \.{\\localleftbox} width}
+@!internal_right_box:pointer; {running \.{\\localrightbox}}
+@!internal_right_box_width:integer; {running \.{\\localrightbox} width}
+@!temp_no_whatsits:integer; {used when closing group}
+
+@ @<Set init...@>=
+temp_no_whatsits:=0;
 
 @ Since |line_break| is a rather lengthy procedure---sort of a small world unto
 itself---we must build it up little by little, somewhat more cautiously
@@ -23884,7 +23924,7 @@ to each other.
 type(last_active):=hyphenated; line_number(last_active):=max_halfword;
 subtype(last_active):=0; {the |subtype| is never examined by the algorithm}
 
-@ The passive node for a given breakpoint contains only four fields:
+@ The passive node for a given breakpoint contains EIGHT fields:
 
 \yskip\hang|link| points to the passive node created just before this one,
 if any, otherwise it is |null|.
@@ -23899,16 +23939,28 @@ one in an optimal path to this breakpoint.
 one created during the current pass. (This field is used only when
 printing out detailed statistics about the line-breaking calculations.)
 
+\yskip\hang|passive_pen_inter| holds the current \.{\\localinterlinepenalty}
+
+\yskip\hang|passive_pen_broken| holds the current \.{\\localbrokenpenalty}
+
 \yskip\noindent
 There is a global variable called |passive| that points to the most
 recently created passive node. Another global variable, |printed_node|,
 is used to help print out the paragraph when detailed information about
 the line-breaking computation is being displayed.
 
-@d passive_node_size=2 {number of words in passive nodes}
+@d passive_node_size=10 {number of words in passive nodes}
 @d cur_break==rlink {in passive node, points to position of this breakpoint}
 @d prev_break==llink {points to passive node that should precede this one}
 @d serial==info {serial number for symbolic identification}
+@d passive_pen_inter(#)==mem[#+2].int
+@d passive_pen_broken(#)==mem[#+3].int
+@d passive_left_box(#)==mem[#+4].int
+@d passive_left_box_width(#)==mem[#+5].int
+@d passive_last_left_box(#)==mem[#+6].int
+@d passive_last_left_box_width(#)==mem[#+7].int
+@d passive_right_box(#)==mem[#+8].int
+@d passive_right_box_width(#)==mem[#+9].int
 
 @<Glob...@>=
 @!passive:pointer; {most recent node on passive list}
@@ -24646,6 +24698,21 @@ begin q:=get_node(passive_node_size);
 link(q):=passive; passive:=q; cur_break(q):=cur_p;
 @!stat incr(pass_number); serial(q):=pass_number;@+tats@;@/
 prev_break(q):=best_place[fit_class];@/
+{Here we keep track of the subparagraph penalties in the break nodes}
+passive_pen_inter(q):=internal_pen_inter;
+passive_pen_broken(q):=internal_pen_broken;
+passive_last_left_box(q):=internal_left_box;
+passive_last_left_box_width(q):=internal_left_box_width;
+if prev_break(q)<>null then begin
+  passive_left_box(q):=passive_last_left_box(prev_break(q));
+  passive_left_box_width(q):=passive_last_left_box_width(prev_break(q));
+  end
+else begin
+  passive_left_box(q):=init_internal_left_box;
+  passive_left_box_width(q):=init_internal_left_box_width;
+  end;
+passive_right_box(q):=internal_right_box;
+passive_right_box_width(q):=internal_right_box_width;
 q:=get_node(active_node_size); break_node(q):=passive;
 line_number(q):=best_pl_line[fit_class]+1;
 fitness(q):=fit_class; type(q):=break_type;
@@ -24759,6 +24826,10 @@ breaks must go through a forced break.
 begin artificial_demerits:=false;@/
 @^inner loop@>
 shortfall:=line_width-cur_active_width[1]; {we're this much too short}
+if break_node(r)=null then
+  shortfall:=shortfall-init_internal_left_box_width
+else shortfall:=shortfall-passive_last_left_box_width(break_node(r));
+shortfall:=shortfall-internal_right_box_width;
 
 @{
 if pdf_output > 2 then begin
@@ -25040,6 +25111,7 @@ loop@+  begin if threshold>inf_bad then threshold:=inf_bad;
   @<Create an active breakpoint representing the beginning of the paragraph@>;
   cur_p:=link(temp_head); auto_breaking:=true;@/
   prev_p:=cur_p; {glue at beginning is not a legal breakpoint}
+  @<LOCAL: Initialize with first |local_paragraph| node@>;
   prev_char_p := null;
   prev_legal := null;
   rejected_cur_p := null;
@@ -25418,8 +25490,11 @@ loop@+  begin q:=link(r);
     {|cur_break(cur_p)| is the next breakpoint}
   {now |q| cannot be |null|}
   if is_char_node(q) then goto done1;
-  if non_discardable(q) then goto done1;
-  if type(q)=kern_node then if subtype(q)<>explicit then goto done1;
+  if @<LOCAL: local paragraph node@> then begin end
+  else begin
+    if non_discardable(q) then goto done1;
+    if type(q)=kern_node then if subtype(q)<>explicit then goto done1;
+    end;
   r:=q; {now |type(q)=glue_node|, |kern_node|, |math_node| or |penalty_node|}
   if type(q)=math_node then if TeXXeT_en then
     @<Adjust \(t)the LR stack for the |post_line_break| routine@>;
@@ -25458,8 +25533,15 @@ list about to be justified.
 q:=cur_break(cur_p); disc_break:=false; post_disc_break:=false;
 glue_break := false;
 if q<>null then {|q| cannot be a |char_node|}
-  if type(q)=glue_node then
-    begin delete_glue_ref(glue_ptr(q));
+  if type(q)=glue_node then begin
+    if passive_right_box(cur_p)<>null then begin
+      r:=temp_head;
+      while link(r)<>q do r:=link(r);
+      s:=copy_node_list(passive_right_box(cur_p));
+      link(r):=s;
+      link(s):=q;
+      end;
+    delete_glue_ref(glue_ptr(q));
     glue_ptr(q):=right_skip;
     subtype(q):=right_skip_code+1; add_glue_ref(right_skip);
     glue_break := true;
@@ -25476,6 +25558,12 @@ if q<>null then {|q| cannot be a |char_node|}
     end
 else  begin q:=temp_head;
   while link(q)<>null do q:=link(q);
+  end;
+if passive_right_box(cur_p)<>null then begin
+  r:=copy_node_list(passive_right_box(cur_p));
+  link(r):=link(q);
+  link(q):=r;
+  q:=r;
   end;
 done:
 
@@ -25562,6 +25650,19 @@ justified. It ends with |q| at the beginning of that list, and with
 
 @<Put the \(l)\.{\\leftskip} glue at the left...@>=
 r:=link(q); link(q):=null; q:=link(temp_head); link(temp_head):=r;
+if passive_left_box(cur_p)<>null then begin
+  r:=copy_node_list(passive_left_box(cur_p));
+  s:=link(q);
+  link(r):=q;
+  q:=r;
+  if (cur_line=prev_graf+1) and (s<>null) then
+    if type(s)=hlist_node then
+      if list_ptr(s)=null then begin
+        q:=link(q);
+        link(r):=link(s);
+        link(s):=r;
+        end;
+  end;
 {at this point |q| is the leftmost node; all discardable nodes have been discarded}
 if pdf_protrude_chars > 0 then begin
     p := q;
@@ -25571,8 +25672,9 @@ if pdf_protrude_chars > 0 then begin
         k := new_margin_kern(-w, last_leftmost_char, left_side);
         link(k) := q;
         q := k;
+        end;
     end;
-end;
+{ omega bit}
 if left_skip<>zero_glue then
   begin r:=new_param_glue(left_skip_code);
   link(r):=q; q:=r;
@@ -25626,14 +25728,18 @@ be set to the sum of all relevant penalties for the current line, except
 that the final line is never penalized.
 
 @<Append a penalty node, if a nonzero penalty is appropriate@>=
-if cur_line+1<>best_line then
-  begin q:=inter_line_penalties_ptr;
+if cur_line+1<>best_line then begin
+  q:=inter_line_penalties_ptr;
   if q<>null then
     begin r:=cur_line;
     if r>penalty(q) then r:=penalty(q);
     pen:=penalty(q+r);
     end
+  else begin
+  if passive_pen_inter(cur_p)<>0 then
+      pen:=passive_pen_inter(cur_p)
   else pen:=inter_line_penalty;
+  end;
   q:=club_penalties_ptr;
   if q<>null then
     begin r:=cur_line-prev_graf;
@@ -25651,7 +25757,10 @@ if cur_line+1<>best_line then
   else if cur_line+2=best_line then
     if d then pen:=pen+display_widow_penalty
     else pen:=pen+widow_penalty;
-  if disc_break then pen:=pen+broken_penalty;
+  if disc_break then
+    if passive_pen_broken(cur_p)<>0 then
+      pen:=pen+passive_pen_broken(cur_p)
+    else pen:=pen+broken_penalty;
   if pen<>0 then
     begin r:=new_penalty(pen);
     link(tail):=r; tail:=r;
@@ -29036,9 +29145,21 @@ such a drastic effect. Such grouping affects neither the mode nor the
 current list.
 
 @<Cases of |main_control| that build...@>=
-non_math(left_brace): new_save_level(simple_group);
-any_mode(begin_group): new_save_level(semi_simple_group);
-any_mode(end_group): if cur_group=semi_simple_group then unsave
+non_math(left_brace): begin
+  new_save_level(simple_group);
+  eq_word_define(int_base+no_local_whatsits_code,0);
+  end;
+any_mode(begin_group): begin
+  new_save_level(semi_simple_group);
+  eq_word_define(int_base+no_local_whatsits_code,0);
+  end;
+any_mode(end_group):
+  if cur_group=semi_simple_group then begin
+    temp_no_whatsits:=no_local_whatsits;
+    unsave;
+    if temp_no_whatsits<>0 then
+      if abs(mode)=hmode then @<LOCAL: Add local paragraph node@>;
+    end
   else off_save;
 
 @ We have to deal with errors in which braces and such things are not
@@ -29114,7 +29235,12 @@ var p,@!q:pointer; {for short-term use}
 @!d:scaled; {holds |split_max_depth| in |insert_group|}
 @!f:integer; {holds |floating_penalty| in |insert_group|}
 begin case cur_group of
-simple_group: unsave;
+simple_group: begin
+  temp_no_whatsits:=no_local_whatsits;
+  unsave;
+  if temp_no_whatsits<>0 then
+    if abs(mode)=hmode then @<LOCAL: Add local paragraph node@>;
+  end;
 bottom_level: begin print_err("Too many }'s");
 @.Too many \}'s@>
   help2("You've closed more groups than you opened.")@/
@@ -29542,8 +29668,9 @@ if (mode=vmode)or(head<>tail) then
 push_nest; mode:=hmode; space_factor:=1000; set_cur_lang; clang:=cur_lang;
 prev_graf:=(norm_min(left_hyphen_min)*@'100+norm_min(right_hyphen_min))
              *@'200000+cur_lang;
-if indented then
-  begin tail:=new_null_box; link(head):=tail; width(tail):=par_indent;@+
+@<LOCAL: Add local paragraph node@>;
+if indented then begin
+  tail:=new_null_box; link(link(head)):=tail; width(tail):=par_indent;@+
   end;
 if every_par<>null then begin_token_list(every_par,every_par_text);
 if nest_ptr=1 then build_page; {put |par_skip| glue on current page}
@@ -29598,7 +29725,8 @@ end;
 @ @<Declare act...@>=
 procedure end_graf;
 begin if mode=hmode then
-  begin if head=tail then pop_nest {null paragraphs are ignored}
+  begin if (head=tail) or (link(head)=tail) then pop_nest
+        {null paragraphs are ignored, all contain a |local_paragraph| node}
   else line_break(false);
   if LR_save<>null then
     begin flush_list(LR_save); LR_save:=null;
@@ -29850,18 +29978,31 @@ primitive("-",discretionary,1);
 @!@:Single-character primitives -}{\quad\.{\\-}@>
 primitive("discretionary",discretionary,0);
 @!@:discretionary_}{\.{\\discretionary} primitive@>
+primitive("localleftbox",assign_local_box,0);
+@!@:assign_local_box}{\.{\\localleftbox} primitive@>
+primitive("localrightbox",assign_local_box,1);
+@!@:assign_local_box}{\.{\\localrightbox} primitive@>
 
 @ @<Cases of |print_cmd_chr|...@>=
 discretionary: if chr_code=1 then
   print_esc("-")@+else print_esc("discretionary");
+assign_local_box: if chr_code=0 then print_esc("localleftbox")
+                  else print_esc("localrightbox");
 
 @ @<Cases of |main_control| that build...@>=
 hmode+discretionary,mmode+discretionary: append_discretionary;
+any_mode(assign_local_box): append_local_box(cur_chr);
 
 @ The space factor does not change when we append a discretionary node,
 but it starts out as 1000 in the subsidiary lists.
 
 @<Declare act...@>=
+procedure append_local_box(kind:integer);
+begin 
+incr(save_ptr); saved(-1):=kind; new_save_level(local_box_group);
+scan_left_brace; push_nest; mode:=-hmode; space_factor:=1000;
+end;
+
 procedure append_discretionary;
 var c:integer; {hyphen character}
 begin tail_append(new_disc);
@@ -29880,8 +30021,27 @@ hboxes. A~subroutine called |build_discretionary| handles the transitions.
 
 @<Cases of |handle...@>=
 disc_group: build_discretionary;
+local_box_group: build_local_box;
 
 @ @<Declare act...@>=
+procedure build_local_box;
+var p:pointer;
+    kind:integer;
+begin
+unsave;
+kind:=saved(-1);
+decr(save_ptr);
+p:=link(head); pop_nest;
+p:=hpack(p,natural);
+if kind=0 then
+  eq_define(local_left_box_base,box_ref,p)
+else
+  eq_define(local_right_box_base,box_ref,p);
+if abs(mode)=hmode then
+  @<LOCAL: Add local paragraph node@>;
+eq_word_define(int_base+no_local_whatsits_code,no_local_whatsits+1);
+end;
+
 procedure build_discretionary;
 label done,exit;
 var p,@!q:pointer; {for link manipulation}
@@ -31060,6 +31220,7 @@ unsave; prev_graf:=prev_graf+3;
 push_nest; mode:=hmode; space_factor:=1000; set_cur_lang; clang:=cur_lang;
 prev_graf:=(norm_min(left_hyphen_min)*@'100+norm_min(right_hyphen_min))
              *@'200000+cur_lang;
+@<LOCAL: Add local paragraph node@>;
 @<Scan an optional space@>;
 if nest_ptr=1 then build_page;
 end;
@@ -31539,6 +31700,18 @@ end
 @<Assignments@>=
 assign_int: begin p:=cur_chr; scan_optional_equals; scan_int;
   word_define(p,cur_val);
+{If we are defining subparagraph penalty levels while we are
+in hmode, then we put out a whatsit immediately, otherwise
+we leave it alone.  This mechanism might not be sufficiently
+powerful, and some other algorithm, searching down the stack,
+might be necessary.  Good first step.}
+  if (abs(mode)=hmode) and
+     ((p=(int_base+local_inter_line_penalty_code)) or
+      (p=(int_base+local_broken_penalty_code))) then begin
+    @<LOCAL: Add local paragraph node@>;
+    eq_word_define(int_base+no_local_whatsits_code,no_local_whatsits+1);
+    local_par_bool:=true;
+    end;
   end;
 assign_dimen: begin p:=cur_chr; scan_optional_equals;
   scan_normal_dimen; word_define(p,cur_val);
@@ -33300,7 +33473,8 @@ stays the same.
 
 @d immediate_code=4 {command modifier for \.{\\immediate}}
 @d set_language_code=5 {command modifier for \.{\\setlanguage}}
-@d pdftex_first_extension_code = 6
+@d local_par_node=6 {|subtype| in whatsits for local paragraph node}
+@d pdftex_first_extension_code = 7
 @d pdf_annot_node              == pdftex_first_extension_code + 7
 @d pdf_catalog_code            == pdftex_first_extension_code + 17
 @d pdf_dest_node               == pdftex_first_extension_code + 11
@@ -33348,6 +33522,8 @@ primitive("immediate",extension,immediate_code);@/
 @!@:immediate_}{\.{\\immediate} primitive@>
 primitive("setlanguage",extension,set_language_code);@/
 @!@:set_language_}{\.{\\setlanguage} primitive@>
+primitive("localinterlinepenalty",assign_int,local_inter_line_penalty_code);@/
+primitive("localbrokenpenalty",assign_int,local_broken_penalty_code);@/
 primitive("pdfliteral",extension,pdf_literal_node);@/
 @!@:pdf_literal_}{\.{\\pdfliteral} primitive@>
 primitive("pdfobj",extension,pdf_obj_code);@/
@@ -34830,6 +35006,7 @@ language_node:begin print_esc("setlanguage");
   print_int(what_lhm(p)); print_char(",");
   print_int(what_rhm(p)); print_char(")");
   end;
+@<LOCAL: print out |local_paragraph| node@>;
 pdf_literal_node: begin
     print_esc("pdfliteral");
     case pdf_literal_mode(p) of
@@ -35099,6 +35276,9 @@ pdf_snapy_node: begin
 end;
 pdf_snapy_comp_node:
     r := get_node(small_node_size);
+local_par_node: begin r:=get_node(local_par_size);
+  words:=local_par_size;
+  end;
 othercases confusion("ext2")
 @:this can't happen ext2}{\quad ext2@>
 endcases
@@ -35164,6 +35344,8 @@ pdf_snapy_node: begin
 end;
 pdf_snapy_comp_node:
     free_node(p, small_node_size);
+local_par_node: 
+    free_node(p,local_par_size);
 othercases confusion("ext3")
 @:this can't happen ext3}{\quad ext3@>
 endcases;@/
@@ -35196,7 +35378,7 @@ else
 
 @<Advance \(p)past a whatsit node in the \(l)|line_break| loop@>=@+
 begin
-adv_past(cur_p);
+adv_past(cur_p) else @<LOCAL: Advance past a |local_paragraph| node@>;
 if (subtype(cur_p) = pdf_refxform_node) or (subtype(cur_p) = pdf_refximage_node) then
     act_width:=act_width+pdf_width(cur_p);
 end
@@ -35330,6 +35512,7 @@ special_node:special_out(p);
 language_node:do_nothing;
 pdf_save_pos_node:
   @<Save current position in DVI mode@>;
+local_par_node:do_nothing;
 othercases confusion("ext4")
 @:this can't happen ext4}{\quad ext4@>
 endcases;
@@ -35437,6 +35620,100 @@ else begin new_whatsit(language_node,small_node_size);
 
 @ @<Finish the extensions@>=
 for k:=0 to 15 do if write_open[k] then a_close(write_file[k])
+
+@ 
+@d local_pen_inter(#)==mem[#+1].int {\.{\\localinterlinepenalty}}
+@d local_pen_broken(#)==mem[#+2].int {\.{\\localbrokenpenalty}}
+@d local_box_left(#)==mem[#+3].int {\.{\\localleftbox}}
+@d local_box_left_width(#)==mem[#+4].int
+@d local_box_right(#)==mem[#+5].int {\.{\\localleftbox}}
+@d local_box_right_width(#)==mem[#+6].int
+@d local_par_size==7
+
+@<LOCAL: Declare |make_local_par_node|@>=
+function make_local_par_node:pointer;
+{This function creates a |local_paragraph| node}
+var p:pointer;
+begin
+p:=get_node(local_par_size); type(p):=whatsit_node;
+subtype(p):=local_par_node; link(p):=null;
+local_pen_inter(p):=local_inter_line_penalty;
+local_pen_broken(p):=local_broken_penalty;
+if local_left_box=null then begin
+  local_box_left(p):=null;
+  local_box_left_width(p):=0;
+  end
+else begin
+  local_box_left(p):=copy_node_list(local_left_box);
+  local_box_left_width(p):=width(local_left_box);
+  end;
+if local_right_box=null then begin
+  local_box_right(p):=null;
+  local_box_right_width(p):=0;
+  end
+else begin
+  local_box_right(p):=copy_node_list(local_right_box);
+  local_box_right_width(p):=width(local_right_box);
+  end;
+make_local_par_node:=p;
+end
+
+@ @<LOCAL: Initialize with first |local_paragraph| node@>=
+if subtype(cur_p)=local_par_node then begin
+  internal_pen_inter:=local_pen_inter(cur_p);
+  internal_pen_broken:=local_pen_broken(cur_p);
+  init_internal_left_box:=local_box_left(cur_p);
+  init_internal_left_box_width:=local_box_left_width(cur_p);
+  internal_left_box:=init_internal_left_box;
+  internal_left_box_width:=init_internal_left_box_width;
+  internal_right_box:=local_box_right(cur_p);
+  internal_right_box_width:=local_box_right_width(cur_p);
+  end
+
+@ @<LOCAL: Advance past a |local_paragraph| node@>=
+if subtype(cur_p)=local_par_node then begin
+  internal_pen_inter:=local_pen_inter(cur_p);
+  internal_pen_broken:=local_pen_broken(cur_p);
+  internal_left_box:=local_box_left(cur_p);
+  internal_left_box_width:=local_box_left_width(cur_p);
+  internal_right_box:=local_box_right(cur_p);
+  internal_right_box_width:=local_box_right_width(cur_p);
+  end
+
+@ @<LOCAL: print out |local_paragraph| node@>=
+local_par_node: begin
+  print_esc("whatsit");
+  append_char(".");
+  print_ln; print_current_string;
+  print_esc("localinterlinepenalty"); print("=");
+  print_int(local_pen_inter(p));
+  print_ln; print_current_string;
+  print_esc("localbrokenpenalty"); print("=");
+  print_int(local_pen_broken(p));
+  print_ln; print_current_string;
+  print_esc("localleftbox");
+  if local_box_left(p)=null then print("=null")
+  else begin
+    append_char(".");
+    show_node_list(local_box_left(p));
+    decr(pool_ptr);
+    end;
+  print_ln; print_current_string;
+  print_esc("localrightbox");
+  if local_box_right(p)=null then print("=null")
+  else begin
+    append_char(".");
+    show_node_list(local_box_right(p));
+    decr(pool_ptr);
+    end;
+  decr(pool_ptr);
+  end
+
+@ @<LOCAL: Add local paragraph node@>=
+begin tail_append(make_local_par_node) end
+
+@ @<LOCAL: local paragraph node@>=
+((type(q)=whatsit_node) and (subtype(q)=local_par_node))
 
 @ Shipping out PDF marks.
 
