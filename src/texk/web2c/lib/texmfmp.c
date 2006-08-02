@@ -386,7 +386,7 @@ topenin P1H(void)
 
   /* One more time, this time converting to TeX's internal character
      representation.  */
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(luaTeX)
   for (i = first; i < last; i++)
     buffer[i] = xord[buffer[i]];
 #endif
@@ -1365,7 +1365,7 @@ input_line P1C(FILE *, f)
     --last;
 
   /* Don't bother using xord if we don't need to.  */
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(luaTeX)
   for (i = first; i <= last; i++)
      buffer[i] = xord[buffer[i]];
 #endif
