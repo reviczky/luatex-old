@@ -23,9 +23,9 @@
    entirely on one line.  */
 #define max_line_length 78
 
-#define max_strings 20000
-#define hash_prime 101
-#define sym_table_size 3000
+#define max_strings 50000
+#define hash_prime 7883
+#define sym_table_size 50000
 #define unused 271828
 
 /* Says whether to give voluminous progress reports.  */
@@ -158,9 +158,9 @@ search_table P1C(const_string, id)
   while (ptr != -1)
     {
       if (strcmp (id, sym_table[ptr].id) == 0)
-	return (ptr);
+		return (ptr);
       else
-	ptr = sym_table[ptr].next;
+		ptr = sym_table[ptr].next;
     }
   return -1;
 }
@@ -195,7 +195,7 @@ remove_locals P1H(void)
       next_string_free = mark_string_free;
       ptr = hash_list[h];
       while (ptr > next_sym_free)
-	ptr = sym_table[ptr].next;
+		ptr = sym_table[ptr].next;
       hash_list[h] = ptr;
     }
   global = 1;
