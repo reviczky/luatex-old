@@ -264,6 +264,178 @@ int luaopen_tex (lua_State *L)
 
 /* do this aleph stuff here, for now */
 
+void
+btestin(void)
+{
+    string fname =
+    kpse_find_file (nameoffile + 1, kpse_program_binary_format, true);
+
+    if (fname) {
+      libcfree(nameoffile);
+      nameoffile = xmalloc(2+strlen(fname));
+      namelength = strlen(fname);
+      strcpy(nameoffile+1, fname);
+    }
+    else {
+      libcfree(nameoffile);
+      nameoffile = xmalloc(2);
+      namelength = 0;
+      nameoffile[0] = 0;
+      nameoffile[1] = 0;
+    }
+}
+
+
+int
+getfilemode P2C(FILE *, f, int, def)
+{
+    int c,m;
+    if ((def==0)||(feof(f))) m=0;
+    else {
+       c = getc(f);
+       if (c==EOF) m=0;
+       else if (c==0x5c) {
+          if (feof(f)) m=0;
+          else {
+             c = getc(f);
+             if (c==EOF) m=0;
+             else if (c==0) m=4;
+             else m=1;
+             ungetc(c,f);
+             c=0x5c;
+          }
+       }
+       else if (c==0x25) {
+          if (feof(f)) m=0;
+          else {
+             c = getc(f);
+             if (c==EOF) m=0;
+             else if (c==0) m=4;
+             else m=1;
+             ungetc(c,f);
+             c=0x25;
+          }
+       }
+       else if (c==0xe0) m=2;
+       else if (c==0x6c) m=2;
+       else if (c==0) {
+          if (feof(f)) m=0;
+          else {
+             c = getc(f);
+             if (c==EOF) m=0;
+             else if (c==0x5c) m=3;
+             else if (c==0x25) m=3;
+             else m=def;
+             ungetc(c,f);
+             c=0;
+          }
+       }
+       else m=def;
+       ungetc(c,f);
+    }
+    return m;
+}
+
+int
+getc_two_LE P1C(FILE *, f)
+{
+    register int i,j;
+    i = getc(f);
+    if (i==EOF) { return i; }
+    j = getc(f);
+    if (j==EOF) { return j; }
+    return ((j<<8)|i);
+}
+
+void
+ungetc_two_LE P2C(int, c, FILE *, f)
+{
+    ungetc((c>>8), f);
+    ungetc((c&0377), f);
+}
+
+int
+getc_two P1C(FILE *, f)
+{      
+    register int i,j;
+    i = getc(f);
+    if (i==EOF) { return i; }
+    j = getc(f);
+    if (j==EOF) { return j; }
+    return ((i<<8)|j);
+}
+ 
+void
+ungetc_two P2C(int, c, FILE *, f)
+{
+    ungetc((c&0377), f);
+    ungetc((c>>8), f);
+}
+ 
+extern boolean zpnewinputln ();
+
+boolean
+newinputln P4C(FILE *,f, halfword,themode, halfword,translation, boolean,bypass)
+{
+    return zpnewinputln((alphafile)f,
+                        (halfword)themode,
+                        (halfword)translation,
+                        (boolean) bypass);
+}
+ 
+boolean
+new_input_line P2C(FILE *, f, halfword, themode)
+{
+  register int i=EOF;
+ 
+  last = first;
+  otpinputend = 0;
+ 
+  if (themode==1) {
+     while ((otpinputend < ocpbufsize) && ((i = getc (f)) != EOF) &&
+            ((i != '\r') && (i != '\n')))
+        otpinputbuf[++otpinputend] = i;
+     if (i=='\r') {
+         i=getc(f); if (i != '\n') ungetc(i,f);
+     }
+  } else if (themode==2) {
+     while ((otpinputend < ocpbufsize) && ((i = getc (f)) != EOF) &&
+            (i != 0x25))
+        otpinputbuf[++otpinputend] = i;
+  } else if (themode==3) {
+     while ((otpinputend < ocpbufsize) && ((i = getc_two (f)) != EOF) &&
+            ((i != '\r') && (i != '\n')))
+        otpinputbuf[++otpinputend] = i;
+     if (i=='\r') {
+         i=getc_two(f); if (i != '\n') ungetc_two(i,f);
+     }
+  } else /* themode==4 */ {
+     while ((otpinputend < ocpbufsize) && ((i = getc_two_LE (f)) != EOF) &&
+            ((i != '\r') && (i != '\n')))
+        otpinputbuf[++otpinputend] = i;
+     if (i=='\r') {
+         i=getc_two_LE(f); if (i != '\n') ungetc_two_LE(i,f);
+     }
+  }
+ 
+  if (i == EOF && otpinputend == 0)
+      return false;
+ 
+  /* We didn't get the whole line because our buffer was too small.
+*/
+ if (i != EOF && (((themode!=2) && (i != '\n')) || ((themode==2) && (i != 0x25))))
+    {
+      (void) fprintf (stderr,
+                     "! Unable to read an entire line---ocp_buf_size=%ld.\n",ocpbufsize);
+      (void) fprintf (stderr, "Please increase ocp_buf_size in texmf.cnf.\n");
+      uexit (1);
+    }
+ 
+    return true;
+}
+
+
+
 memoryword **fonttables;
 static int font_entries = 0;
 
@@ -365,4 +537,191 @@ int fontsort_number;
         (memoryword *) xmalloc((sizeword.cint+1)*sizeof(memoryword));
     fontsorttables[fontsort_number][0].cint = sizeword.cint;
     undumpthings(fontsorttables[fontsort_number][1], sizeword.cint);
+}
+
+int **ocptables;
+static int ocp_entries = 0;
+
+void
+allocateocptable P2C(int, ocp_number, int, ocp_size)
+{
+    int i;
+    if (ocp_entries==0) {
+      ocptables = (int **) xmalloc(256*sizeof(int**));
+      ocp_entries=256;
+    } else if ((ocp_number==256)&&(ocp_entries==256)) {
+      ocptables = xrealloc(ocptables, 65536);
+      ocp_entries=65536;
+    }
+    ocptables[ocp_number] =
+       (int *) xmalloc((1+ocp_size)*sizeof(int));
+    ocptables[ocp_number][0] = ocp_size;
+    for (i=1; i<=ocp_size; i++) {
+        ocptables[ocp_number][i]  = 0;
+    }
+}
+
+void
+dumpocptable P1C(int, ocp_number)
+{
+    dumpthings(ocptables[ocp_number][0], ocptables[ocp_number][0]+1);
+}
+
+void
+undumpocptable P1C(int, ocp_number)
+{
+    int sizeword;
+    if (ocp_entries==0) {
+      ocptables = (int **) xmalloc(256*sizeof(int**));
+      ocp_entries=256;
+    } else if ((ocp_number==256)&&(ocp_entries==256)) {
+      ocptables = xrealloc(ocptables, 65536);
+      ocp_entries=65536;
+    }
+    undumpthings(sizeword,1);
+    ocptables[ocp_number] =
+        (int *) xmalloc((1+sizeword)*sizeof(int));
+    ocptables[ocp_number][0] = sizeword;
+    undumpthings(ocptables[ocp_number][1], sizeword);
+}
+
+
+void
+runexternalocp P1C(string, external_ocp_name)
+{
+  char *in_file_name;
+  char *out_file_name;
+  FILE *in_file;
+  FILE *out_file;
+  char command_line[400];
+  int i;
+  unsigned c;
+  int c_in;
+#ifdef WIN32
+  char *tempenv;
+
+#define null_string(s) ((s == NULL) || (*s == '\0'))
+
+  tempenv = getenv("TMPDIR");
+  if (null_string(tempenv))
+    tempenv = getenv("TEMP");
+  if (null_string(tempenv))
+    tempenv = getenv("TMP");
+  if (null_string(tempenv))
+    tempenv = "c:/tmp";	/* "/tmp" is not good if we are on a CD-ROM */
+  in_file_name = concat(tempenv, "/__aleph__in__XXXXXX");
+  mktemp(in_file_name);
+#else
+  in_file_name = strdup("/tmp/__aleph__in__XXXXXX");
+  mkstemp(in_file_name);
+#endif /* WIN32 */
+
+  in_file = fopen(in_file_name, FOPEN_WBIN_MODE);
+  
+  for (i=1; i<=otpinputend; i++) {
+      c = otpinputbuf[i];
+      if (c>0xffff) {
+          fprintf(stderr, "Aleph does not currently support 31-bit chars\n");
+          exit(1);
+      }
+      if (c>0x4000000) {
+          fputc(0xfc | ((c>>30) & 0x1), in_file);
+          fputc(0x80 | ((c>>24) & 0x3f), in_file);
+          fputc(0x80 | ((c>>18) & 0x3f), in_file);
+          fputc(0x80 | ((c>>12) & 0x3f), in_file);
+          fputc(0x80 | ((c>>6) & 0x3f), in_file);
+          fputc(0x80 | (c & 0x3f), in_file);
+      } else if (c>0x200000) {
+          fputc(0xf8 | ((c>>24) & 0x3), in_file);
+          fputc(0x80 | ((c>>18) & 0x3f), in_file);
+          fputc(0x80 | ((c>>12) & 0x3f), in_file);
+          fputc(0x80 | ((c>>6) & 0x3f), in_file);
+          fputc(0x80 | (c & 0x3f), in_file);
+      } else if (c>0x10000) {
+          fputc(0xf0 | ((c>>18) & 0x7), in_file);
+          fputc(0x80 | ((c>>12) & 0x3f), in_file);
+          fputc(0x80 | ((c>>6) & 0x3f), in_file);
+          fputc(0x80 | (c & 0x3f), in_file);
+      } else if (c>0x800) {
+          fputc(0xe0 | ((c>>12) & 0xf), in_file);
+          fputc(0x80 | ((c>>6) & 0x3f), in_file);
+          fputc(0x80 | (c & 0x3f), in_file);
+      } else if (c>0x80) {
+          fputc(0xc0 | ((c>>6) & 0x1f), in_file);
+          fputc(0x80 | (c & 0x3f), in_file);
+      } else {
+          fputc(c & 0x7f, in_file);
+      }
+  }
+  fclose(in_file);
+  
+#define advance_cin if ((c_in = fgetc(out_file)) == -1) { \
+                         fprintf(stderr, "File contains bad char\n"); \
+                         goto end_of_while; \
+                    }
+                     
+#ifdef WIN32
+  out_file_name = concat(tempenv, "/__aleph__out__XXXXXX");
+  mktemp(out_file_name);
+#else
+  out_file_name = strdup("/tmp/__aleph__out__XXXXXX");
+  mkstemp(out_file_name);
+#endif
+
+  sprintf(command_line, "%s <%s >%s\n",
+          external_ocp_name+1, in_file_name, out_file_name);
+  system(command_line);
+  out_file = fopen(out_file_name, FOPEN_RBIN_MODE);
+  otpoutputend = 0;
+  otpoutputbuf[otpoutputend] = 0;
+  while ((c_in = fgetc(out_file)) != -1) {
+     if (c_in>=0xfc) {
+         c = (c_in & 0x1)   << 30;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 24;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 18;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 12;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 6;
+         {advance_cin}
+         c |= c_in & 0x3f;
+     } else if (c_in>=0xf8) {
+         c = (c_in & 0x3) << 24;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 18;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 12;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 6;
+         {advance_cin}
+         c |= c_in & 0x3f;
+     } else if (c_in>=0xf0) {
+         c = (c_in & 0x7) << 18;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 12;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 6;
+         {advance_cin}
+         c |= c_in & 0x3f;
+     } else if (c_in>=0xe0) {
+         c = (c_in & 0xf) << 12;
+         {advance_cin}
+         c |= (c_in & 0x3f) << 6;
+         {advance_cin}
+         c |= c_in & 0x3f;
+     } else if (c_in>=0x80) {
+         c = (c_in & 0x1f) << 6;
+         {advance_cin}
+         c |= c_in & 0x3f;
+     } else {
+         c = c_in & 0x7f;
+     }
+     otpoutputbuf[++otpoutputend] = c;
+  }
+
+end_of_while:
+  remove(in_file_name);
+  remove(out_file_name);
 }

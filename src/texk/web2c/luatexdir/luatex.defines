@@ -40,6 +40,12 @@ $Id $
 @define procedure luacall();
 @define procedure closelua();
 
+{ bits and pieces from aleph }
+
+@define function newinputln ();
+@define function getfilemode ();
+@define function newinputline ();
+
 @define function getequiv1();
 @define procedure setequiv1();
 
@@ -48,9 +54,21 @@ $Id $
 @define procedure allocatefonttable ();
 @define procedure dumpfonttable ();
 @define procedure undumpfonttable ();
+
+@define var fontsorttables;
+
 @define procedure allocatefontsorttable ();
 @define procedure dumpfontsorttable ();
 @define procedure undumpfontsorttable ();
+
+@define var ocptables;
+@define var ocptemp;
+
+@define procedure allocateocptable ();
+@define procedure dumpocptable ();
+@define procedure undumpocptable ();
+@define procedure runexternalocp ();
+@define procedure btestin ;
 
 @define function loadpoolstrings();
 

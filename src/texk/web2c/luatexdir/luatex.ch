@@ -134,7 +134,7 @@ versions of the program.
 @!pool_name='TeXformats:TEX.POOL                     ';
   {string of length |file_name_size|; tells where the string pool appears}
 @y
-@d file_name_size == maxint
+@d file_name_size == 250
 @d ssup_error_line = 255
 @d ssup_max_strings == 262143
 {Larger values than 65536 cause the arrays consume much more memory.}
@@ -218,6 +218,12 @@ versions of the program.
 
 @!sup_hyph_size = ssup_hyph_size;
 @!inf_hyph_size = iinf_hyphen_size; {Must be not less than |hyph_prime|!}
+@!sup_ocp_list_size = 1000000;
+@!inf_ocp_list_size = 1000;
+@!sup_ocp_buf_size = 1000000;
+@!inf_ocp_buf_size = 1000;
+@!sup_ocp_stack_size = 1000000;
+@!inf_ocp_stack_size = 1000;
 @z
 
 @x
@@ -233,9 +239,9 @@ versions of the program.
 @d hash_prime=1777 {a prime number equal to about 85\pct! of |hash_size|}
 @d hyph_size=307 {another prime; the number of \.{\\hyphenation} exceptions}
 @y
-@d hash_size=10000 {maximum number of control sequences; it should be at most
+@d hash_size=65536 {maximum number of control sequences; it should be at most
   about |(mem_max-mem_min)/10|}
-@d hash_prime=8501 {a prime number equal to about 85\pct! of |hash_size|}
+@d hash_prime=55711 {a prime number equal to about 85\pct! of |hash_size|}
 @d hyph_prime=607 {another prime for hashing \.{\\hyphenation} exceptions;
                 if you change this, you should also change |iinf_hyphen_size|.}
 @z
@@ -366,7 +372,7 @@ else  begin last_nonblank:=first;
       if max_buf_stack=buf_size then
         @<Report overflow of the input buffer, and abort@>;
       end;
-    buffer[last]:=xord[f^]; get(f); incr(last);
+    buffer[last]:=f^; get(f); incr(last);
     if buffer[last-1]<>" " then last_nonblank:=last;
     end;
   last:=last_nonblank; input_ln:=true;
@@ -417,6 +423,9 @@ tini@/
   error messages; should be between 30 and |error_line-15|}
 @!max_print_line:integer;
   {width of longest text lines output; should be at least 60}
+@!ocp_list_size:integer;
+@!ocp_buf_size:integer;
+@!ocp_stack_size:integer;
 @!max_strings:integer; {maximum number of strings; must not exceed |max_halfword|}
 @!strings_free:integer; {strings available after format loaded}
 @!string_vacancies:integer; {the minimum number of characters that should be
@@ -904,9 +913,13 @@ end;
 
 @x
 prev_graf:=0; shown_mode:=0;
+dir_save:=null; dir_math_save:=false;
+local_par:=null; local_par_bool:=false;
 @<Start a new current page@>;
 @y
 prev_graf:=0; shown_mode:=0;
+dir_save:=null; dir_math_save:=false;
+local_par:=null; local_par_bool:=false;
 @/{The following piece of code is a copy of module 991:}
 page_contents:=empty; page_tail:=page_head; {|link(page_head):=null;|}@/
 last_glue:=max_halfword; last_penalty:=0; last_kern:=0;
@@ -933,9 +946,9 @@ page_depth:=0; page_max_depth:=0;
 @z
 
 @x
-@d undefined_control_sequence=frozen_null_font+number_fonts {dummy location}
+@d frozen_null_ocp=frozen_null_font+number_fonts
 @y
-@d undefined_control_sequence=frozen_null_font+max_font_max+1 {dummy location}
+@d frozen_null_ocp=frozen_null_font+max_font_max+1
 @z
 
 @x
@@ -944,19 +957,6 @@ for k:=active_base to undefined_control_sequence-1 do
 @y
 for k:=active_base to eqtb_top do
   eqtb[k]:=eqtb[undefined_control_sequence];
-@z
-
-@x
-@d tex_int_pars=58 {total number of \.{\\TeX} + Aleph integer parameters}
-@#
-@d pdftex_first_integer_code = tex_int_pars {base for \pdfTeX's integer parameters}
-@y
-@d tex_int_pars=58 {total number of \.{\\TeX} + Aleph integer parameters}
-@#
-@d web2c_int_base=tex_int_pars {base for web2c's integer parameters}
-@d web2c_int_pars=web2c_int_base {total number of web2c's integer parameters}
-@#
-@d pdftex_first_integer_code = web2c_int_pars {base for \pdfTeX's integer parameters}
 @z
 
 @x
@@ -1092,10 +1092,14 @@ if (hash_offset<0)or(hash_offset>hash_base) then bad:=42;
 
 @x
 @!input_file : array[1..max_in_open] of alpha_file;
+@!input_file_mode : array[1..max_in_open] of halfword;
+@!input_file_translation : array[1..max_in_open] of halfword;
 @!line : integer; {current line number in the current source file}
 @!line_stack : array[1..max_in_open] of integer;
 @y
 @!input_file : ^alpha_file;
+@!input_file_mode : ^halfword;
+@!input_file_translation : ^halfword;
 @!line : integer; {current line number in the current source file}
 @!line_stack : ^integer;
 @!source_filename_stack : ^str_number;
@@ -1472,11 +1476,11 @@ program.
 @z
 
 @x
-for j:=1 to n do append_to_name(xord[TEX_format_default[j]]);
+for j:=1 to n do append_to_name(TEX_format_default[j]);
 @y
 if name_of_file then libc_free (name_of_file);
 name_of_file := xmalloc_array (packed_ASCII_code, n+(b-a+1)+format_ext_length+1);
-for j:=1 to n do append_to_name(xord[TEX_format_default[j]]);
+for j:=1 to n do append_to_name(TEX_format_default[j]);
 @z
 
 @x
@@ -1594,8 +1598,7 @@ recorder_change_filename(stringcast(name_of_file+1));
 @x
 begin wlog(banner);
 @y
-begin
-if src_specials_p or file_line_error_style_p or parse_first_line_p
+begin if src_specials_p or file_line_error_style_p or parse_first_line_p
 then
   wlog(banner_k)
 else
@@ -1719,11 +1722,10 @@ if aire="" then pack_file_name(nom,TEX_font_area,".ofm")
 else pack_file_name(nom,aire,".ofm");
 if not b_open_in(tfm_file) then abort;
 @y
-{|kpse_find_file| will append the |".tfm"|, and avoid searching the disk
- before the font alias files as well.}
+{|kpse_find_file| will append the |".ofm"| or |".tfm"|, 
+ and avoid searching the disk before the font alias files as well.}
 pack_file_name(nom,aire,"");
-if not ofm_open_in(tfm_file) then 
-  if not b_open_in(tfm_file) then abort;
+if not ofm_open_in(tfm_file) then abort;
 @z
 
 @x
@@ -1738,6 +1740,44 @@ if not ofm_open_in(tfm_file) then
 if eof(tfm_file) then abort;
 @y
 if feof(tfm_file) then abort;
+@z
+
+@x
+if not b_open_in(ocp_file) then ocp_abort("opening file");
+@y
+if not ocp_open_in(ocp_file) then ocp_abort("opening file");
+@z
+
+@x
+@d ocpget==get(ocp_file)
+@d ocpbyte==ocp_file^
+@y
+@d ocpget==ocp_temp:=getc(ocp_file)
+@d ocpbyte==ocp_temp
+@z
+
+@x
+@!ocp_list_info:array[ocp_list_index] of memory_word;
+  {the big collection of ocp list data}
+@!ocp_listmem_ptr:ocp_list_index; {first unused word of |ocp_list_info|}
+@!ocp_listmem_run_ptr:ocp_list_index; {temp unused word of |ocp_list_info|}
+@!ocp_lstack_info:array[ocp_lstack_index] of memory_word;
+  {the big collection of ocp lstack data}
+@!ocp_lstackmem_ptr:ocp_lstack_index; {first unused word of |ocp_lstack_info|}
+@!ocp_lstackmem_run_ptr:ocp_lstack_index; {temp unused word of |ocp_lstack_info|}
+@!ocp_list_ptr:internal_ocp_list_number; {largest internal ocp list number in use}
+@!ocp_list_list:array[internal_ocp_list_number] of ocp_list_index;
+@y
+@!ocp_list_info:^memory_word;
+  {the big collection of ocp list data}
+@!ocp_listmem_ptr:ocp_list_index; {first unused word of |ocp_list_info|}
+@!ocp_listmem_run_ptr:ocp_list_index; {temp unused word of |ocp_list_info|}
+@!ocp_lstack_info:^memory_word;
+  {the big collection of ocp lstack data}
+@!ocp_lstackmem_ptr:ocp_lstack_index; {first unused word of |ocp_lstack_info|}
+@!ocp_lstackmem_run_ptr:ocp_lstack_index; {temp unused word of |ocp_lstack_info|}
+@!ocp_list_ptr:internal_ocp_list_number; {largest internal ocp list number in use}
+@!ocp_list_list:^ocp_list_index;
 @z
 
 @x
@@ -2344,10 +2384,14 @@ print_in_mode(mode);
 
 @x
 if indented then begin
-  tail:=new_null_box; link(link(head)):=tail; width(tail):=par_indent;@+
+  p:=new_null_box; box_dir(p):=par_direction;
+  width(p):=par_indent;@+
+  tail_append(p);
 @y
 if indented then begin
-  tail:=new_null_box; link(link(head)):=tail; width(tail):=par_indent;@+
+  p:=new_null_box; box_dir(p):=par_direction;
+  width(p):=par_indent;@+
+  tail_append(p);
   if (insert_src_special_every_par) then insert_src_special;@+
 @z
 
@@ -2516,7 +2560,7 @@ dump_int(@"57325458);  {Web2C \TeX's magic constant: "W2TX"}
 {Align engine to 4 bytes with one or more trailing NUL}
 x:=strlen(engine_name);
 format_engine:=xmalloc_array(text_char,x+4);
-strcpy(format_engine, engine_name);
+strcpy(stringcast(format_engine), stringcast(engine_name));
 for k:=x to x+3 do format_engine[k]:=0;
 x:=x+4-(x mod 4);
 dump_int(x);dump_things(format_engine[0], x);
@@ -2549,7 +2593,7 @@ if (x<0) or (x>256) then goto bad_fmt; {corrupted format file}
 format_engine:=xmalloc_array(text_char, x);
 undump_things(format_engine[0], x);
 format_engine[x-1]:=0; {force string termination, just in case}
-if strcmp(engine_name, format_engine) then
+if strcmp(stringcast(engine_name), stringcast(format_engine)) then
   begin wake_up_terminal;
   wterm_ln('---! ', stringcast(name_of_file+1), ' was written by ', format_engine);
   libc_free(format_engine);
@@ -2583,6 +2627,7 @@ undump_int(hash_high);
   eq_level(undefined_control_sequence):=level_zero;
   for x:=eqtb_size+1 to eqtb_top do
     eqtb[x]:=eqtb[undefined_control_sequence];
+  @<fix the |ocp_input_mode_base| definition@>;
 @z
 
 @x
@@ -2780,7 +2825,7 @@ pdf_char_used:=xmalloc_array(char_used_array, font_max);
 pdf_font_size:=xmalloc_array(scaled, font_max);
 pdf_font_num:=xmalloc_array(integer, font_max);
 pdf_font_map:=xmalloc_array(fm_entry_ptr, font_max);
-pdf_font_type:=xmalloc_array(eight_bits, font_max);
+pdf_font_type:=xmalloc_array(real_eight_bits, font_max);
 pdf_font_attr:=xmalloc_array(str_number, font_max);
 pdf_font_blink:=xmalloc_array(internal_font_number, font_max);
 pdf_font_elink:=xmalloc_array(internal_font_number, font_max);
@@ -2828,6 +2873,73 @@ for font_k := font_base to font_max do begin
     pdf_font_kn_ac_base[font_k] := 0;
     end;
 make_pdftex_banner
+@z
+
+@x
+for k:=0 to active_max_ptr-1 do dump_wd(active_info[k]);
+print_ln; print_int(active_max_ptr); print(" words of active ocps");
+
+@ @<Undump the active ocp information@>=
+undump_size(0)(active_mem_size)('active start point')(active_min_ptr);
+undump_size(0)(active_mem_size)('active mem size')(active_max_ptr);
+for k:=0 to active_max_ptr-1 do undump_wd(active_info[k]);
+@y
+dump_things(active_info[0], active_max_ptr);
+print_ln; print_int(active_max_ptr); print(" words of active ocps");
+
+@ @<Undump the active ocp information@>=
+undump_size(0)(active_mem_size)('active start point')(active_min_ptr);
+undump_size(0)(active_mem_size)('active mem size')(active_max_ptr);
+undump_things(active_info[0], active_max_ptr);
+@z
+
+@x
+@ @<Dump the ocp list information@>=
+dump_int(ocp_listmem_ptr);
+for k:=0 to ocp_listmem_ptr-1 do dump_wd(ocp_list_info[k]);
+dump_int(ocp_list_ptr);
+for k:=null_ocp_list to ocp_list_ptr do begin
+  dump_int(ocp_list_list[k]);
+  print_nl("\ocplist");
+  print_esc(ocp_list_id_text(k));
+  print_char("=");
+  print_ocp_list(ocp_list_list[k]);
+  end;
+dump_int(ocp_lstackmem_ptr);
+for k:=0 to ocp_lstackmem_ptr-1 do dump_wd(ocp_lstack_info[k])
+@y
+@ @<Dump the ocp list information@>=
+dump_int(ocp_listmem_ptr);
+dump_things(ocp_list_info[0], ocp_listmem_ptr);
+dump_int(ocp_list_ptr);
+dump_things(ocp_list_list[null_ocp_list], ocp_list_ptr+1-null_ocp_list);
+for k:=null_ocp_list to ocp_list_ptr do begin
+  print_nl("\ocplist");
+  print_esc(ocp_list_id_text(k));
+  print_char("=");
+  print_ocp_list(ocp_list_list[k]);
+  end;
+dump_int(ocp_lstackmem_ptr);
+dump_things(ocp_lstack_info[0], ocp_lstackmem_ptr)
+@z
+
+@x
+@ @<Undump the ocp list information@>=
+undump_size(1)(1000000)('ocp list mem size')(ocp_listmem_ptr);
+for k:=0 to ocp_listmem_ptr-1 do undump_wd(ocp_list_info[k]);
+undump_size(ocp_list_base)(ocp_list_biggest)('ocp list max')(ocp_list_ptr);
+for k:=null_ocp_list to ocp_list_ptr do
+  undump_int(ocp_list_list[k]);
+undump_size(1)(1000000)('ocp lstack mem size')(ocp_lstackmem_ptr);
+for k:=0 to ocp_lstackmem_ptr-1 do undump_wd(ocp_lstack_info[k])
+@y
+@ @<Undump the ocp list information@>=
+undump_size(1)(1000000)('ocp list mem size')(ocp_listmem_ptr);
+undump_things(ocp_list_info[0], ocp_listmem_ptr);
+undump_size(0)(1000000)('ocp list max')(ocp_list_ptr);
+undump_things(ocp_list_list[null_ocp_list], ocp_list_ptr+1-null_ocp_list);
+undump_size(0)(1000000)('ocp lstack mem size')(ocp_lstackmem_ptr);
+undump_things(ocp_lstack_info[0], ocp_lstackmem_ptr)
 @z
 
 @x
@@ -3001,6 +3113,9 @@ begin @!{|start_here|}
   setup_bound_var (79)('error_line')(error_line);
   setup_bound_var (50)('half_error_line')(half_error_line);
   setup_bound_var (79)('max_print_line')(max_print_line);
+  setup_bound_var(1000)('ocp_list_size')(ocp_list_size);
+  setup_bound_var(1000)('ocp_buf_size')(ocp_buf_size);
+  setup_bound_var(1000)('ocp_stack_size')(ocp_stack_size);
   setup_bound_var (0)('hash_extra')(hash_extra);
   setup_bound_var (72)('pk_dpi')(pk_dpi);
   const_chk (mem_bot);
@@ -3046,6 +3161,8 @@ begin @!{|start_here|}
   save_stack:=xmalloc_array (memory_word, save_size);
   input_stack:=xmalloc_array (in_state_record, stack_size);
   input_file:=xmalloc_array (alpha_file, max_in_open);
+  input_file_mode:=xmalloc_array (halfword, max_in_open);
+  input_file_translation:=xmalloc_array (halfword, max_in_open);
   line_stack:=xmalloc_array (integer, max_in_open);
   eof_seen:=xmalloc_array (boolean, max_in_open);
   grp_stack:=xmalloc_array (save_pointer, max_in_open);
@@ -3053,15 +3170,24 @@ begin @!{|start_here|}
   source_filename_stack:=xmalloc_array (str_number, max_in_open);
   full_source_filename_stack:=xmalloc_array (str_number, max_in_open);
   param_stack:=xmalloc_array (halfword, param_size);
-  dvi_buf:=xmalloc_array (eight_bits, dvi_buf_size);
+  dvi_buf:=xmalloc_array (real_eight_bits, dvi_buf_size);
   hyph_word :=xmalloc_array (str_number, hyph_size);
   hyph_list :=xmalloc_array (halfword, hyph_size);
   hyph_link :=xmalloc_array (hyph_pointer, hyph_size);
+  ocp_list_info:=xmalloc_array (memory_word, ocp_list_size);
+  ocp_lstack_info:=xmalloc_array (memory_word, ocp_list_size);
+  ocp_list_list:=xmalloc_array (ocp_list_index, ocp_list_size);
+  otp_init_input_buf:=xmalloc_array (quarterword, ocp_buf_size);
+  otp_input_buf:=xmalloc_array (quarterword, ocp_buf_size);
+  otp_output_buf:=xmalloc_array (quarterword, ocp_buf_size);
+  otp_stack_buf:=xmalloc_array (quarterword, ocp_stack_size);
+  otp_calcs:=xmalloc_array (halfword, ocp_stack_size);
+  otp_states:=xmalloc_array (halfword, ocp_stack_size);
   obj_tab:=xmalloc_array (obj_entry, inf_obj_tab_size); {will grow dynamically}
   pdf_mem:=xmalloc_array (integer, inf_pdf_mem_size); {will grow dynamically}
   dest_names:=xmalloc_array (dest_name_entry, inf_dest_names_size); {will grow dynamically}
-  pdf_op_buf:=xmalloc_array (eight_bits, pdf_op_buf_size);
-  pdf_os_buf:=xmalloc_array (eight_bits, inf_pdf_os_buf_size); {will grow dynamically}
+  pdf_op_buf:=xmalloc_array (real_eight_bits, pdf_op_buf_size);
+  pdf_os_buf:=xmalloc_array (real_eight_bits, inf_pdf_os_buf_size); {will grow dynamically}
   pdf_os_objnum:=xmalloc_array (integer, pdf_os_max_objs);
   pdf_os_objoff:=xmalloc_array (integer, pdf_os_max_objs);
 @+Init
@@ -3176,7 +3302,7 @@ pdf_char_used:=xmalloc_array(char_used_array,font_max);
 pdf_font_size:=xmalloc_array(scaled,font_max);
 pdf_font_num:=xmalloc_array(integer,font_max);
 pdf_font_map:=xmalloc_array(fm_entry_ptr,font_max);
-pdf_font_type:=xmalloc_array(eight_bits,font_max);
+pdf_font_type:=xmalloc_array(real_eight_bits,font_max);
 pdf_font_attr:=xmalloc_array(str_number,font_max);
 pdf_font_blink:=xmalloc_array(internal_font_number,font_max);
 pdf_font_elink:=xmalloc_array(internal_font_number,font_max);
@@ -3339,19 +3465,6 @@ var j:small_number; {write stream number}
 @z
 
 @x
-@!init if (buffer[loc]="*")and(format_ident=" (INITEX)") then
-@y
-@!init if (etex_p or(buffer[loc]="*"))and(format_ident=" (INITEX)") then
-@z
-
-@x
-  incr(loc); eTeX_mode:=1; {enter extended mode}
-@y
-  if (buffer[loc]="*") then incr(loc);
-  eTeX_mode:=1; {enter extended mode}
-@z
-
-@x
 @!eTeX_mode: 0..1; {identifies compatibility and extended mode}
 @y
 @!eTeX_mode: 0..1; {identifies compatibility and extended mode}
@@ -3375,6 +3488,52 @@ var j:small_number; {write stream number}
 @x
 hyph_root:=0; hyph_start:=0;
 @y
+@z
+
+@x
+@!otp_init_input_buf:array[0..20000] of quarterword;
+
+@!otp_input_start:halfword;
+@!otp_input_last:halfword;
+@!otp_input_end:halfword;
+@!otp_input_buf:array[0..20000] of quarterword;
+
+@!otp_output_end:halfword;
+@!otp_output_buf:array[0..20000] of quarterword;
+
+@!otp_stack_used:halfword;
+@!otp_stack_last:halfword;
+@!otp_stack_new:halfword;
+@!otp_stack_buf:array[0..1000] of quarterword;
+
+@!otp_pc:halfword;
+
+@!otp_calc_ptr:halfword;
+@!otp_calcs:array[0..1000] of halfword;
+@!otp_state_ptr:halfword;
+@!otp_states:array[0..1000] of halfword;
+@y
+@!otp_init_input_buf:^quarterword;
+
+@!otp_input_start:halfword;
+@!otp_input_last:halfword;
+@!otp_input_end:halfword;
+@!otp_input_buf:^quarterword;
+
+@!otp_output_end:halfword;
+@!otp_output_buf:^quarterword;
+
+@!otp_stack_used:halfword;
+@!otp_stack_last:halfword;
+@!otp_stack_new:halfword;
+@!otp_stack_buf:^quarterword;
+
+@!otp_pc:halfword;
+
+@!otp_calc_ptr:halfword;
+@!otp_calcs:^halfword;
+@!otp_state_ptr:halfword;
+@!otp_states:^halfword;
 @z
 
 @x
@@ -3523,6 +3682,7 @@ exit:end;
 
 @* \[54] System-dependent changes.
 @z
+
 
 @x
 @* \[55] Index.
