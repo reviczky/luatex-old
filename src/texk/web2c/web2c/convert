@@ -62,7 +62,7 @@ case $basefile in
     output_files="$basefile[0-9].c ${basefile}ini.c ${basefile}d.h \
 ${basefile}coerce.h"
     ;;
-  tex|eomega|etex|luatex|pdftex|pdfetex|omega|aleph)
+  tex|eomega|etex|pdftex|pdfetex|omega|aleph)
     more_defines="$srcdir/web2c/texmf.defines"
     prog_defines="$srcdir/${basefile}dir/$basefile.defines"
     if test -f $prog_defines; then
@@ -71,6 +71,22 @@ ${basefile}coerce.h"
     web2c_options="-t -c${basefile}coerce"
     hfile=texmfmp.h
     fixwrites_options=-t
+    postcmd="| ./web2c/splitup $splitup_options ${basefile}"
+    cfile=${basefile}2.c # last output file, or thereabouts
+    output=
+    output_files="$basefile[0-9].c ${basefile}ini.c ${basefile}d.h \
+${basefile}coerce.h"
+    ;;
+  luatex)
+    more_defines="$srcdir/web2c/texmf.defines"
+    prog_defines="$srcdir/${basefile}dir/$basefile.defines"
+    if test -f $prog_defines; then
+      more_defines="$more_defines $prog_defines"
+    fi
+    web2c_options="-t -c${basefile}coerce"
+    hfile=texmfmp.h
+    fixwrites_options=-t
+    splitup_options="-i -l 13500"
     postcmd="| ./web2c/splitup $splitup_options ${basefile}"
     cfile=${basefile}2.c # last output file, or thereabouts
     output=
