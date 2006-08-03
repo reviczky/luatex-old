@@ -213,9 +213,18 @@ A similar test suite called the ``\.{e-TRIP} test'' is available for
 helping to determine whether a particular implementation deserves to be
 known as `\eTeX'.
 
+@d eTeX_version_string=="2.2" {current \eTeX\ version}
+@d Omega_version_string=="1.15" { \.{\\OmegaVersion} }
+@d Aleph_version_string=="0.0" { \.{\\AlephVersion} }
 @d eTeX_version=2 { \.{\\eTeXversion} }
+@d Omega_version=1 { \.{\\Omegaversion} }
+@d Aleph_version=0 { \.{\\Alephversion} }
+@d eTeX_minor_version=1 { \.{\\eTeXminorversion} }
+@d Omega_minor_version=15 { \.{\\Omegaminorversion} }
+@d Aleph_minor_version=0 { \.{\\Alephminorversion} }
 @d eTeX_revision==".2" { \.{\\eTeXrevision} }
-@d eTeX_version_string=='-2.2' {current \eTeX\ version}
+@d Omega_revision==".15" { \.{\\Omegarevision} }
+@d Aleph_revision==".0" { \.{\\Alephrevision} }
 @#
 @d pdftex_version==140 { \.{\\pdftexversion} }
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
@@ -503,10 +512,13 @@ emphasize this distinction.
 @d number_regs=65536 {|biggest_reg+1|}
 @d biggest_mark=65535 {the largest allowed marks class; must be |<=max_quarterword|}
 @d number_marks=65536 {|biggest_mark+1|}
-@d biggest_char=2097151 {the largest allowed character number; must be |<=max_halfword|}
-@d too_big_char=2097152 {|biggest_char+1|}
-@d special_char=2097153 {|biggest_char+2|}
-@d number_chars=2097152 {|biggest_char+1|}
+{using |2^20+2^16| characters instead of |2^21| saves 286MB on the virtual memory size
+ of the running executable}
+@d biggest_char=1114111 {2097151} {the largest allowed character number; must be |<=max_halfword|}
+@d too_big_char=1114112 {2097152} {|biggest_char+1|}
+@d special_char=1114113 {2097153} {|biggest_char+2|}
+@d number_chars=1114112 {2097152} {|biggest_char+1|}
+@d string_offset=2097152
 @d font_biggest=65535 {the real biggest font}
 @d number_fonts=font_biggest-font_base+2
 @d number_math_fonts=768
@@ -1220,7 +1232,7 @@ we access the string pool only via macros that can easily be redefined.
 
 @d si(#) == # {convert from |ASCII_code| to |packed_ASCII_code|}
 @d so(#) == # {convert from |packed_ASCII_code| to |ASCII_code|}
-@d str_start_macro(#) == str_start[(#) - number_chars]
+@d str_start_macro(#) == str_start[(#) - string_offset]
 
 @<Types...@>=
 @!pool_pointer = integer; {for variables that point into |str_pool|}
@@ -1275,7 +1287,7 @@ This function returns the identification number of the new string as its
 value.
 
 @p function make_string : str_number; {current string enters the pool}
-begin if str_ptr=(max_strings+number_chars) then
+begin if str_ptr=(max_strings+string_offset) then
   overflow("number of strings",max_strings-init_str_ptr);
 @:TeX capacity exceeded number of strings}{\quad number of strings@>
 incr(str_ptr); str_start_macro(str_ptr):=pool_ptr;
@@ -1354,7 +1366,7 @@ var j: pool_pointer; {running index}
 a: ASCII_code; {a unicode character }
 @!result: boolean; {result of comparison}
 begin result:=false; 
-if s<number_chars then begin
+if s<string_offset then begin
   a := buffer_to_unichar(k); 
   if a<>s then goto not_found;
   end
@@ -1382,8 +1394,8 @@ a: ASCII_code; {a utf char}
 @!result: boolean; {result of comparison}
 begin result:=false;
 a:= 0;
-if s<number_chars then begin
-  if t>=number_chars then begin
+if s<string_offset then begin
+  if t>=string_offset then begin
     if s<=@"7F then
      if length(t)=1 then
        if str_pool[str_start_macro(t)]=s then
@@ -1394,7 +1406,7 @@ if s<number_chars then begin
   else
     if t<>s then goto not_found;
   end
-else if t<number_chars then begin
+else if t<string_offset then begin
  if t<=@"7F then
    if length(s)=1 then
      if str_pool[str_start_macro(s)]=t then
@@ -1420,7 +1432,7 @@ on the information that \.{WEB} has output while processing \TeX.
 @.INITEX@>
 @^string pool@>
 
-The first |number_chars| strings are single-characters strings matching
+The first |string_offset| strings are single-characters strings matching
 Unicode. There is no point in generating all of these. But |str_ptr| has
 initialized properly, otherwise |print_char| cannot see the difference
 between characters and strings.
@@ -1433,7 +1445,7 @@ var k,@!l:0..255; {small indices or counters}
 @!g:str_number; {garbage}
 @!a:integer; {accumulator for check sum}
 @!c:boolean; {check sum has been checked}
-begin pool_ptr:=0; str_ptr:=number_chars; str_start[0]:=0;
+begin pool_ptr:=0; str_ptr:=string_offset; str_start[0]:=0;
 @<Read the other strings from the \.{TEX.POOL} file and return |true|,
   or give an error message and return |false|@>;
 exit:end;
@@ -1710,7 +1722,7 @@ var j:pool_pointer; {current character code position}
 @!nl:integer; {new-line character to restore}
 begin if s>=str_ptr then s:="???" {this can't happen}
 @.???@>
-else if s<number_chars then
+else if s<string_offset then
   if s<0 then s:="???" {can't happen}
   else begin if selector>=pseudo then
       begin print_char(s); return; {internal strings are not expanded}
@@ -1862,7 +1874,7 @@ be printed using |print_char|. Therefore we use |slow_print| for them:
 @<Basic print...@>=
 procedure old_slow_print(@!s:integer); {prints string |s|}
 var j:pool_pointer; {current character code position}
-begin if (s>=str_ptr) or (s<number_chars) then print(s)
+begin if (s>=str_ptr) or (s<string_offset) then print(s)
 else begin j:=str_start_macro(s);
   while j<str_start_macro(s+1) do
     begin print(so(str_pool[j])); incr(j);
@@ -1900,7 +1912,7 @@ the user's escape character (which is usually a backslash).
 procedure print_esc(@!s:str_number); {prints escape character, then |s|}
 var c:integer; {the escape character code}
 begin  @<Set variable |c| to the current escape character@>;
-if c>=0 then if c<number_chars then print(c);
+if c>=0 then if c<string_offset then print(c);
 slow_print(s);
 end;
 
@@ -6522,8 +6534,8 @@ here, and the |number_regs| \.{\\dimen} registers.
 @d pdftex_first_dimen_code = 23 {first number defined in this section}
 @d pdf_h_origin_code       = pdftex_first_dimen_code + 0 {horigin of the PDF output}
 @d pdf_v_origin_code       = pdftex_first_dimen_code + 1 {vorigin of the PDF output}
-@d pdf_page_width_code     = pdftex_first_dimen_code + 2 {page width of the PDF output}
-@d pdf_page_height_code    = pdftex_first_dimen_code + 3 {page height of the PDF output}
+@d page_width_code         = pdftex_first_dimen_code + 2 {page width of the PDF output}
+@d page_height_code        = pdftex_first_dimen_code + 3 {page height of the PDF output}
 @d pdf_link_margin_code    = pdftex_first_dimen_code + 4 {link margin in the PDF output}
 @d pdf_dest_margin_code    = pdftex_first_dimen_code + 5 {dest margin in the PDF output}
 @d pdf_thread_margin_code  = pdftex_first_dimen_code + 6 {thread margin in the PDF output}
@@ -6564,8 +6576,8 @@ here, and the |number_regs| \.{\\dimen} registers.
 @d page_bottom_offset==dimen_par(page_bottom_offset_code)
 @d pdf_h_origin      == dimen_par(pdf_h_origin_code)
 @d pdf_v_origin      == dimen_par(pdf_v_origin_code)
-@d pdf_page_width    == dimen_par(pdf_page_width_code)
-@d pdf_page_height   == dimen_par(pdf_page_height_code)
+@d page_width    == dimen_par(page_width_code)
+@d page_height   == dimen_par(page_height_code)
 @d pdf_link_margin   == dimen_par(pdf_link_margin_code)
 @d pdf_dest_margin   == dimen_par(pdf_dest_margin_code)
 @d pdf_thread_margin == dimen_par(pdf_thread_margin_code)
@@ -6601,8 +6613,8 @@ page_right_offset_code:print_esc("pagerightoffset");
 page_bottom_offset_code:print_esc("pagebottomoffset");
 pdf_h_origin_code:      print_esc("pdfhorigin");
 pdf_v_origin_code:      print_esc("pdfvorigin");
-pdf_page_width_code:    print_esc("pdfpagewidth");
-pdf_page_height_code:   print_esc("pdfpageheight");
+page_width_code:    print_esc("pagewidth");
+page_height_code:   print_esc("pageheight");
 pdf_link_margin_code:   print_esc("pdflinkmargin");
 pdf_dest_margin_code:   print_esc("pdfdestmargin");
 pdf_thread_margin_code: print_esc("pdfthreadmargin");
@@ -6663,10 +6675,14 @@ primitive("pdfhorigin",assign_dimen,dimen_base+pdf_h_origin_code);@/
 @!@:pdf_h_origin_}{\.{\\pdfhorigin} primitive@>
 primitive("pdfvorigin",assign_dimen,dimen_base+pdf_v_origin_code);@/
 @!@:pdf_v_origin_}{\.{\\pdfvorigin} primitive@>
-primitive("pdfpagewidth",assign_dimen,dimen_base+pdf_page_width_code);@/
-@!@:pdf_page_width_}{\.{\\pdfpagewidth} primitive@>
-primitive("pdfpageheight",assign_dimen,dimen_base+pdf_page_height_code);@/
-@!@:pdf_page_height_}{\.{\\pdfpageheight} primitive@>
+@#
+primitive("pagewidth",assign_dimen,dimen_base+page_width_code);@/
+primitive("pdfpagewidth",assign_dimen,dimen_base+page_width_code);@/
+@!@:page_width_}{\.{\\pdfpagewidth} primitive@>
+primitive("pageheight",assign_dimen,dimen_base+page_height_code);@/
+primitive("pdfpageheight",assign_dimen,dimen_base+page_height_code);@/
+@!@:page_height_}{\.{\\pdfpageheight} primitive@>
+@#
 primitive("pdflinkmargin",assign_dimen,dimen_base+pdf_link_margin_code);@/
 @!@:pdf_link_margin_}{\.{\\pdflinkmargin} primitive@>
 primitive("pdfdestmargin",assign_dimen,dimen_base+pdf_dest_margin_code);@/
@@ -6885,7 +6901,7 @@ var h:integer; {hash code}
 @!k:pointer; {index in string pool}
 @!j,@!l:integer;
 begin
-if s<number_chars then begin
+if s<string_offset then begin
   p := s;
   if (p<0) or (prim_eq_level(p)<>level_one) then
     p := undefined_primitive;
@@ -7740,7 +7756,7 @@ if (p<hi_mem_min) or (p>mem_end) then
 @.CLOBBERED@>
   end;
 if info(p)>=cs_token_flag then print_cs(info(p)-cs_token_flag)
-else  begin m:=info(p) div number_chars; c:=info(p) mod number_chars;
+else  begin m:=info(p) div string_offset; c:=info(p) mod string_offset;
   if info(p)<0 then print_esc("BAD.")
 @.BAD@>
   else @<Display the token $(|m|,|c|)$@>;
@@ -9029,7 +9045,7 @@ if loc<>null then {list not exhausted}
         @<Get the next token, suppressing expansion@>
       else check_outer_validity;
     end
-  else  begin cur_cmd:=t div number_chars; cur_chr:=t mod number_chars;
+  else  begin cur_cmd:=t div string_offset; cur_chr:=t mod string_offset;
     case cur_cmd of
     left_brace: incr(align_state);
     right_brace: decr(align_state);
@@ -9194,7 +9210,7 @@ and except when the arguments to \.{\\ifx} are being scanned.
 @p procedure get_token; {sets |cur_cmd|, |cur_chr|, |cur_tok|}
 begin no_new_control_sequence:=false; get_next; no_new_control_sequence:=true;
 @^inner loop@>
-if cur_cs=0 then cur_tok:=(cur_cmd*number_chars)+cur_chr
+if cur_cs=0 then cur_tok:=(cur_cmd*string_offset)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
 
@@ -9352,7 +9368,7 @@ while p<>null do
       overflow("buffer size",buf_size);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
     end;
-  s := info(p) mod number_chars;
+  s := info(p) mod string_offset;
   if s <= @"80 then begin
     buffer[j]:=s; incr(j);
     end
@@ -9436,7 +9452,7 @@ if cur_cmd>=call then
     end
 else expand;
 goto restart;
-done: if cur_cs=0 then cur_tok:=(cur_cmd*number_chars)+cur_chr
+done: if cur_cs=0 then cur_tok:=(cur_cmd*string_offset)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
 
@@ -9448,7 +9464,7 @@ begin while cur_cmd>max_command do
   begin expand;
   get_next;
   end;
-if cur_cs=0 then cur_tok:=(cur_cmd*number_chars)+cur_chr
+if cur_cs=0 then cur_tok:=(cur_cmd*string_offset)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
 
@@ -9919,15 +9935,13 @@ var p:pointer; {tail of the backup list}
 @!k:pool_pointer; {index into |str_pool|}
 begin 
 if s<number_chars then begin 
-	get_x_token; {recursion is possible here}
+	@<Get the next non-blank non-call token@>;
     if (cur_cs=0)and((cur_chr=s)or(cur_chr=s-"a"+"A")) then
-      begin store_new_token(cur_tok);
-      end
-    else if cur_cmd<>spacer then
+      scan_keyword:=true
+    else 
       begin back_input;
       scan_keyword:=false; return;
       end;
-    scan_keyword:=true;
   end 
 else begin
   p:=backup_head; link(p):=null; 
@@ -10172,7 +10186,9 @@ the codes for its extensions: |eTeX_version_code|, \dots\ .
 @d pdf_last_link_code         = pdftex_first_rint_code + 13 {code for \.{\\pdflastlink}}
 @d pdftex_last_item_codes     = pdftex_first_rint_code + 13 {end of \pdfTeX's command codes}
 @#
-@d eTeX_int=pdftex_last_item_codes+1 {first of \eTeX\ codes for integers}
+@d Aleph_int=pdftex_last_item_codes+1 {first of \Aleph\ codes for integers}
+@d Aleph_int_num=5 {number of \Aleph\ integers}
+@d eTeX_int=Aleph_int+Aleph_int_num {first of \eTeX\ codes for integers}
 @d eTeX_dim=eTeX_int+8 {first of \eTeX\ codes for dimensions}
 @d eTeX_glue=eTeX_dim+9 {first of \eTeX\ codes for glue}
 @d eTeX_mu=eTeX_glue+1 {first of \eTeX\ codes for muglue}
@@ -11317,10 +11333,10 @@ such that |job_name_code| remains last.
 @d string_code=2 {command code for \.{\\string}}
 @d meaning_code=3 {command code for \.{\\meaning}}
 @d font_name_code=4 {command code for \.{\\fontname}}
-@d etex_convert_base=5 {base for \eTeX's command codes}
-@d eTeX_revision_code=etex_convert_base {command code for \.{\\eTeXrevision}}
-@d etex_convert_codes=etex_convert_base+1 {end of \eTeX's command codes}
-@d pdftex_first_expand_code = etex_convert_codes {base for \pdfTeX's command codes}
+@d etex_code=5 {command code for \.{\\eTeXVersion}}
+@d omega_code=6 {command code for \.{\\OmegaVersion}}
+@d aleph_code=7 {command code for \.{\\AlephVersion}}
+@d pdftex_first_expand_code = 8 {base for \pdfTeX's command codes}
 @d pdftex_revision_code     = pdftex_first_expand_code + 0 {command code for \.{\\pdftexrevision}}
 @d pdftex_banner_code       = pdftex_first_expand_code + 1 {command code for \.{\\pdftexbanner}}
 @d pdf_font_name_code       = pdftex_first_expand_code + 2 {command code for \.{\\pdffontname}}
@@ -11360,9 +11376,14 @@ primitive("string",convert,string_code);@/
 @!@:string_}{\.{\\string} primitive@>
 primitive("meaning",convert,meaning_code);@/
 @!@:meaning_}{\.{\\meaning} primitive@>
+primitive("eTeXVersion",convert,etex_code);@/
+@!@:omega_version_}{\.{\\OmegaVersion} primitive@>
+primitive("OmegaVersion",convert,omega_code);@/
+@!@:omega_version_}{\.{\\OmegaVersion} primitive@>
+primitive("AlephVersion",convert,aleph_code);@/
+@!@:aleph_version_}{\.{\\AlephVersion} primitive@>
 primitive("fontname",convert,font_name_code);@/
 @!@:font_name_}{\.{\\fontname} primitive@>
-@#
 primitive("pdftexrevision",convert,pdftex_revision_code);@/
 @!@:pdftex_revision_}{\.{\\pdftexrevision} primitive@>
 primitive("pdftexbanner",convert,pdftex_banner_code);@/
@@ -11427,8 +11448,10 @@ convert: case chr_code of
   roman_numeral_code: print_esc("romannumeral");
   string_code: print_esc("string");
   meaning_code: print_esc("meaning");
+  etex_code: print_esc("eTeXVersion");
+  omega_code: print_esc("OmegaVersion");
+  aleph_code: print_esc("AlephVersion");
   font_name_code: print_esc("fontname");
-  eTeX_revision_code: print_esc("eTeXrevision");
   pdftex_revision_code: print_esc("pdftexrevision");
   pdftex_banner_code:   print_esc("pdftexbanner");
   pdf_font_name_code:   print_esc("pdffontname");
@@ -11456,6 +11479,7 @@ convert: case chr_code of
   pdf_ximage_bbox_code:    print_esc("pdfximagebbox");
   lua_code:                print_esc("directlua");
   lua_escape_string_code:  print_esc("luaescapestring");
+  @/@<Cases of |convert| for |print_cmd_chr|@>@/
   othercases print_esc("jobname")
   endcases;
 
@@ -11489,8 +11513,10 @@ number_code,roman_numeral_code: scan_int;
 string_code, meaning_code: begin save_scanner_status:=scanner_status;
   scanner_status:=normal; get_token; scanner_status:=save_scanner_status;
   end;
+etex_code: do_nothing;
+omega_code: do_nothing;
+aleph_code: do_nothing;
 font_name_code: scan_font_ident;
-eTeX_revision_code: do_nothing;
 pdftex_revision_code: do_nothing;
 pdftex_banner_code: do_nothing;
 pdf_font_name_code, pdf_font_objnum_code, pdf_font_size_code: begin
@@ -11788,7 +11814,7 @@ lua_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    luacall(cur_val,(s-number_chars));
+    luacall(cur_val,(s-string_offset));
 	if pool_ptr>b then begin
       link(garbage) := str_toks(b);
 	  ins_list(link(temp_head));
@@ -11815,13 +11841,15 @@ roman_numeral_code: print_roman_int(cur_val);
 string_code:if cur_cs<>0 then sprint_cs(cur_cs)
   else print_char(cur_chr);
 meaning_code: print_meaning;
+etex_code: print(eTeX_version_string);
+omega_code: print(Omega_version_string);
+aleph_code: print(Aleph_version_string);
 font_name_code: begin print(font_name(cur_val));
   if font_size(cur_val)<>font_dsize(cur_val) then
     begin print(" at "); print_scaled(font_size(cur_val));
     print("pt");
     end;
   end;
-eTeX_revision_code: print(eTeX_revision);
 pdftex_revision_code: print(pdftex_revision);
 pdftex_banner_code: print(pdftex_banner);
 pdf_font_name_code, pdf_font_objnum_code: begin
@@ -11889,6 +11917,7 @@ pdf_ximage_bbox_code: begin
     print("pt");
 end;
 job_name_code: print(job_name);
+@/@<Cases of `Print the result of command |c|'@>@/
 end {there are no other cases}
 
 @ Now we can't postpone the difficulties any longer; we must bravely tackle
@@ -12688,7 +12717,7 @@ end;
 @^system dependencies@>
 
 @p procedure end_name;
-begin if str_ptr+3>(max_strings+number_chars) then
+begin if str_ptr+3>(max_strings+string_offset) then
   overflow("number of strings",max_strings-init_str_ptr);
 @:TeX capacity exceeded number of strings}{\quad number of strings@>
 if area_delimiter=0 then cur_area:=""
@@ -16161,24 +16190,24 @@ this is essentially the depth of |push| commands in the \.{DVI} output.
 @ @<Calculate DVI page dimensions and margins@>=
 cur_h_offset := h_offset;
 cur_v_offset := v_offset;
-if pdf_page_width <> 0 then
-    cur_page_width := pdf_page_width
+if page_width <> 0 then
+    cur_page_width := page_width
 else
     cur_page_width := width(p) + 2*cur_h_offset + 2*4736286;
     {4736286 = 1in, the funny DVI origin offset}
-if pdf_page_height <> 0 then
-    cur_page_height := pdf_page_height
+if page_height <> 0 then
+    cur_page_height := page_height
 else
     cur_page_height := height(p) + depth(p) + 2*cur_v_offset + 2*4736286;
     {4736286 = 1in, the funny DVI origin offset}
 if page_bottom_offset <> 0 then
     cur_bottom_offset := page_bottom_offset
 else
-    cur_bottom_offset := cur_page_height - 2*4736286;
+    cur_bottom_offset := 2*4736286;
 if page_right_offset <> 0 then
     cur_right_offset := page_right_offset
 else
-    cur_right_offset := cur_page_width- 2*4736286
+    cur_right_offset :=  2*4736286
 
 
 @ @<Initialize variables as |ship_out| begins@>=
@@ -16717,7 +16746,7 @@ dvi_direction:=save_direction;
 end;
 
 @ @<Output node |p| for |vlist_out|...@>=
-begin if is_char_node(p) then confusion("vlistout")
+begin if is_char_node(p) then begin print_font_and_char(p); confusion("vlistout"); end
 @:this can't happen vlistout}{\quad vlistout@>
 else @<Output the non-|char_node| |p| for |vlist_out|@>;
 next_p:p:=link(p);
@@ -18191,7 +18220,7 @@ begin
     othercases confusion("latelua1")
     endcases;
     b := pool_ptr;
-    luacall(lua_id,(s-number_chars));
+    luacall(lua_id,(s-string_offset));
     while b<pool_ptr do begin
        pdf_out(str_pool[b]);
        incr(b);
@@ -20546,12 +20575,12 @@ last_thread := null
 @ @<Calculate page dimensions and margins@>=
 cur_h_offset := pdf_h_origin + h_offset;
 cur_v_offset := pdf_v_origin + v_offset;
-if pdf_page_width <> 0 then
-    cur_page_width := pdf_page_width
+if page_width <> 0 then
+    cur_page_width := page_width
 else
     cur_page_width := width(p) + 2*cur_h_offset;
-if pdf_page_height <> 0 then
-    cur_page_height := pdf_page_height
+if page_height <> 0 then
+    cur_page_height := page_height
 else
     cur_page_height := height(p) + depth(p) + 2*cur_v_offset
 
@@ -34346,13 +34375,13 @@ end;
 
 @ When the case of a |chr_code| changes, we don't change the |cmd|.
 We also change active characters, using the fact that
-|cs_token_flag+active_base| is a multiple of~|number_chars|.
+|cs_token_flag+active_base| is a multiple of~|string_offset|.
 @^data structure assumptions@>
 
 @<Change the case of the token in |p|, if a change is appropriate@>=
 t:=info(p);
 if t<cs_token_flag+single_base then
-  begin c:=t mod number_chars;
+  begin c:=t mod string_offset;
   if equiv(b+c)<>0 then info(p):=t-c+equiv(b+c);
   end
 
@@ -34631,13 +34660,13 @@ if x<>hyph_size then goto bad_fmt
 @<Dump the string pool@>=
 dump_int(pool_ptr);
 dump_int(str_ptr);
-for k:=number_chars to str_ptr do dump_int(str_start_macro(k));
+for k:=string_offset to str_ptr do dump_int(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin dump_four_ASCII; k:=k+4;
   end;
 k:=pool_ptr-4; dump_four_ASCII;
-print_ln; print_int(str_ptr-number_chars); print(" strings of total length ");
+print_ln; print_int(str_ptr-string_offset); print(" strings of total length ");
 print_int(pool_ptr)
 
 @ @d undump_four_ASCII==
@@ -34648,7 +34677,7 @@ print_int(pool_ptr)
 @<Undump the string pool@>=
 undump_size(0)(pool_size)('string pool size')(pool_ptr);
 undump_size(0)(max_strings)('max strings')(str_ptr);
-for k:=number_chars to str_ptr do undump(0)(pool_ptr)(str_start_macro(k));
+for k:=string_offset to str_ptr do undump(0)(pool_ptr)(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin undump_four_ASCII; k:=k+4;
@@ -36910,8 +36939,8 @@ begin
     pdf_indirect_ln("N", a);
     pdf_indirect_ln("P", head_tab[obj_type_page]);
     pdf_print("/R [0 0 ");
-    pdf_print_bp(pdf_page_width); pdf_out(" ");
-    pdf_print_bp(pdf_page_height);
+    pdf_print_bp(page_width); pdf_out(" ");
+    pdf_print_bp(page_height);
     pdf_print_ln("]");
     pdf_end_dict;
     pdf_begin_dict(thread, 1);
@@ -38855,22 +38884,70 @@ resp.\ disabled by assigning a positive, resp.\ non-positive value to
 that integer.
 
 @#
+@d Aleph_version_code=Aleph_int {code for \.{\\Alephversion}}
+@d Omega_version_code=Aleph_int+1 {code for \.{\\Omegaversion}}
+@d Aleph_minor_version_code=Aleph_int+2 {code for \.{\\Alephminorversion}}
+@d Omega_minor_version_code=Aleph_int+3 {code for \.{\\Omegaminorversion}}
+@d eTeX_minor_version_code=Aleph_int+4 {code for \.{\\eTeXminorversion}}
 @d eTeX_version_code=eTeX_int {code for \.{\\eTeXversion}}
+@d Aleph_revision_code=job_name_code+1 {command code for \.{\\Alephrevision}}
+@d Omega_revision_code=job_name_code+2 {command code for \.{\\Omegarevision}}
+@d eTeX_revision_code=job_name_code+3 {command code for \.{\\eTeXrevision}}
 
 @<Generate all \eTeX...@>=
 primitive("lastnodetype",last_item,last_node_type_code);
 @!@:last_node_type_}{\.{\\lastnodetype} primitive@>
+primitive("Alephversion",last_item,Aleph_version_code);
+@!@:eTeX_version_}{\.{\\Alephversion} primitive@>
+primitive("Omegaversion",last_item,Omega_version_code);
+@!@:eTeX_version_}{\.{\\Omegaversion} primitive@>
 primitive("eTeXversion",last_item,eTeX_version_code);
 @!@:eTeX_version_}{\.{\\eTeXversion} primitive@>
+primitive("Alephminorversion",last_item,Aleph_minor_version_code);
+@!@:eTeX_minor_version_}{\.{\\Alephminorversion} primitive@>
+primitive("Omegaminorversion",last_item,Omega_minor_version_code);
+@!@:eTeX_minor_version_}{\.{\\Omegaminorversion} primitive@>
+primitive("eTeXminorversion",last_item,eTeX_minor_version_code);
+@!@:eTeX_minor_version_}{\.{\\eTeXminorversion} primitive@>
+primitive("Alephrevision",convert,Aleph_revision_code);@/
+@!@:eTeX_revision_}{\.{\\Alephrevision} primitive@>
+primitive("Omegarevision",convert,Omega_revision_code);@/
+@!@:eTeX_revision_}{\.{\\Omegarevision} primitive@>
 primitive("eTeXrevision",convert,eTeX_revision_code);@/
 @!@:eTeX_revision_}{\.{\\eTeXrevision} primitive@>
 
 @ @<Cases of |last_item| for |print_cmd_chr|@>=
 last_node_type_code: print_esc("lastnodetype");
+Aleph_version_code: print_esc("Alephversion");
+Omega_version_code: print_esc("Omegaversion");
 eTeX_version_code: print_esc("eTeXversion");
+Aleph_minor_version_code: print_esc("Alephminorversion");
+Omega_minor_version_code: print_esc("Omegaminorversion");
+eTeX_minor_version_code: print_esc("eTeXminorversion");
+
 
 @ @<Cases for fetching an integer value@>=
+Aleph_version_code: cur_val:=Aleph_version;
+Omega_version_code: cur_val:=Omega_version;
 eTeX_version_code: cur_val:=eTeX_version;
+Aleph_minor_version_code: cur_val:=Aleph_minor_version;
+Omega_minor_version_code: cur_val:=Omega_minor_version;
+eTeX_minor_version_code: cur_val:=eTeX_minor_version;
+
+@ @<Cases of |convert| for |print_cmd_chr|@>=
+Aleph_revision_code: print_esc("Alephrevision");
+Omega_revision_code: print_esc("Omegarevision");
+eTeX_revision_code: print_esc("eTeXrevision");
+
+@ @<Cases of `Scan the argument for command |c|'@>=
+Aleph_revision_code: do_nothing;
+Omega_revision_code: do_nothing;
+eTeX_revision_code: do_nothing;
+
+@ @<Cases of `Print the result of command |c|'@>=
+Aleph_revision_code: print(Aleph_revision);
+Omega_revision_code: print(Omega_revision);
+eTeX_revision_code: print(eTeX_revision);
 
 @ @d eTeX_ex==(eTeX_mode=1) {is this extended mode?}
 
@@ -39067,12 +39144,16 @@ font.
 @d font_char_ic_code=eTeX_dim+3 {code for \.{\\fontcharic}}
 
 @<Generate all \eTeX...@>=
+primitive("charwd",last_item,font_char_wd_code);
 primitive("fontcharwd",last_item,font_char_wd_code);
 @!@:font_char_wd_}{\.{\\fontcharwd} primitive@>
+primitive("charht",last_item,font_char_ht_code);
 primitive("fontcharht",last_item,font_char_ht_code);
 @!@:font_char_ht_}{\.{\\fontcharht} primitive@>
+primitive("chardp",last_item,font_char_dp_code);
 primitive("fontchardp",last_item,font_char_dp_code);
 @!@:font_char_dp_}{\.{\\fontchardp} primitive@>
+primitive("charic",last_item,font_char_ic_code);
 primitive("fontcharic",last_item,font_char_ic_code);
 @!@:font_char_ic_}{\.{\\fontcharic} primitive@>
 

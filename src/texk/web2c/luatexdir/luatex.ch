@@ -2661,22 +2661,22 @@ if x<>hyph_prime then goto bad_fmt
 
 @x
 dump_int(str_ptr);
-for k:=number_chars to str_ptr do dump_int(str_start_macro(k));
+for k:=string_offset to str_ptr do dump_int(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin dump_four_ASCII; k:=k+4;
   end;
 k:=pool_ptr-4; dump_four_ASCII;
 @y
-dump_int((str_ptr-number_chars));
-dump_things(str_start[0], (str_ptr-number_chars)+1);
+dump_int((str_ptr-string_offset));
+dump_things(str_start[0], (str_ptr-string_offset)+1);
 dump_things(str_pool[0], pool_ptr);
 @z
 
 @x
 undump_size(0)(pool_size)('string pool size')(pool_ptr);
 undump_size(0)(max_strings)('max strings')(str_ptr);
-for k:=number_chars to str_ptr do undump(0)(pool_ptr)(str_start_macro(k));
+for k:=string_offset to str_ptr do undump(0)(pool_ptr)(str_start_macro(k));
 k:=0;
 while k+4<pool_ptr do
   begin undump_four_ASCII; k:=k+4;
@@ -2690,8 +2690,8 @@ undump_size(0)(sup_max_strings-strings_free)('sup strings')(str_ptr);@/
 if max_strings<str_ptr+strings_free then
   max_strings:=str_ptr+strings_free;
 str_start:=xmalloc_array(pool_pointer, max_strings);
-str_ptr:=str_ptr + number_chars;
-undump_checked_things(0, pool_ptr, str_start[0], (str_ptr-number_chars)+1);@/
+str_ptr:=str_ptr + string_offset;
+undump_checked_things(0, pool_ptr, str_start[0], (str_ptr-string_offset)+1);@/
 str_pool:=xmalloc_array(packed_ASCII_code, pool_size);
 undump_things(str_pool[0], pool_ptr);
 @z
@@ -3650,7 +3650,7 @@ if len=0 then  {trivial case}
   begin result:=""; goto found;
   end
 else  begin s:=search-1;  {start search with newest string below |s|; |search>1|!}
-  while s>biggest_char do  {first |biggest_char| strings depend on implementation!!}
+  while s>=string_offset do  {first |string_offset| strings depend on implementation!!}
     begin if length(s)=len then
       if str_eq_str(s,search) then
         begin result:=s; goto found;
