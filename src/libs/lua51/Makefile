@@ -103,8 +103,12 @@ macosx:
 
 mingw:
 	$(MAKE) "LUA_A=lua51.dll" "LUA_T=lua.exe" \
-	"AR=$(CC) -shared -o" "RANLIB=strip --strip-unneeded" \
+	"AR=$(CC) -shared -o" ""RANLIB=strip --strip-unneeded" \
 	"MYCFLAGS=-DLUA_BUILD_AS_DLL" "MYLIBS=" "MYLDFLAGS=-s" lua.exe
+
+mingwcross: 
+	$(MAKE) "LUA_A=liblua.a" "LUA_T=lua.exe" \
+	MYCFLAGS= MYLIBS= lua.exe
 
 posix:
 	$(MAKE) a MYCFLAGS=-DLUA_USE_POSIX
