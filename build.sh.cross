@@ -79,4 +79,5 @@ unset NATIVE
 # show the results
 mkdir -p windows/texk/web2c
 cp build/texk/web2c/luatex windows/texk/web2c/luatex.exe
+strip windows/texk/web2c/luatex.exe
 ls -l windows/texk/web2c/luatex.exe
