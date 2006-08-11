@@ -19,6 +19,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef WEB2C_CONFIG_H
 #define WEB2C_CONFIG_H
 
+/* MINGW: prevent inclusion io.h and dirent.h */
+#ifdef __MINGW32__
+#  ifndef _IO_H_
+#    define _IO_H_
+#  endif
+#  ifndef _DIRENT_H_
+#    define _DIRENT_H_
+#  endif
+#endif
+
+
 #if defined (TEX_DLL) && (defined (WIN32) || defined (__CYGWIN__))
 #ifdef MAKE_TEX_DLL
 #define TEXDLL __declspec (dllexport)

@@ -74,8 +74,13 @@ install_makeargs = INSTALL='$(INSTALL)' INSTALL_DATA='$(INSTALL_DATA)' \
 proglib = lib/lib.a
 windowlib = window/window.a
 
+native = @NATIVEWEB@
+target = @TARGET@
+host  = @HOST@
+
+
 # The sh script that does the conversion:
-web2c = srcdir=$(srcdir) $(SHELL) $(srcdir)/web2c/convert
+web2c = srcdir=$(srcdir) $(SHELL) $(srcdir)/web2c/convert $(native)
 # Additional dependencies:
 web2c_common = web2c/convert web2c/common.defines
 web2c_programs = web2c/fixwrites web2c/splitup web2c/web2c
@@ -90,9 +95,9 @@ TIE = @TIE@
 WEAVE = weave
 
 # Calling tangle
-tangle = WEBINPUTS=$(srcdir) $(TANGLE)
-ctangle = $(CTANGLE)
-tie = $(TIE)
+tangle = WEBINPUTS=$(srcdir) $(native)/$(TANGLE)
+ctangle = $(native)/$(CTANGLE)
+tie = $(native)/$(TIE)
 
 # The environment for making dumps.
 # No need to specify TEXMF, as ../kpathsea/texmf.cnf should contain
@@ -636,9 +641,9 @@ ctangle: ctangle.o cweb.o
 	$(MAKE) $(common_makeargs) ctangleboot.c cwebboot.c
 # ctangle.c is a special case, since it is needed to compile itself.
 ctangle.c: ctangleboot cwebdir/ctangle.w cwebdir/ctang-w2c.ch
-	CWEBINPUTS=$(srcdir)/cwebdir $(CTANGLEBOOT) ctangle ctang-w2c
+	CWEBINPUTS=$(srcdir)/cwebdir $(native)/$(CTANGLEBOOT) ctangle ctang-w2c
 cweb.c: ctangleboot cwebdir/common.w cwebdir/comm-w2c.ch
-	CWEBINPUTS=$(srcdir)/cwebdir $(CTANGLEBOOT) common comm-w2c cweb.c
+	CWEBINPUTS=$(srcdir)/cwebdir $(native)/$(CTANGLEBOOT) common comm-w2c cweb.c
 clean:: ctangle-clean
 clean:: cweb-clean
 ctangle-clean:

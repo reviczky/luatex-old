@@ -26,7 +26,16 @@
 #  if defined(VMS) && (__DECCXX_VER < 50200000)
 #    include <unixlib.h>
 #  endif
+#else // WIN32
+#  ifdef __MINGW32__
+extern "C" {
+#  include <c-proto.h>
+#  include <win32lib.h>
+}
+#  endif
 #endif // WIN32
+
+
 #include "GString.h"
 #include "gfile.h"
 

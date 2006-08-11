@@ -21,8 +21,12 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/utils.c#24 $
 */
 
 #include "sys/types.h"
+#ifndef __MINGW32__
 #include "sysexits.h"
 #include "regex.h"
+#else
+#define EX_SOFTWARE 70
+#endif
 #include "ptexlib.h"
 #include "zlib.h"
 #include "md5.h"
@@ -1134,6 +1138,8 @@ void getfiledump (strnumber s, int offset, int length)
     xfree (file_name);
 }
 
+#ifndef __MINGW32__
+
 #define DEFAULT_SUB_MATCH_COUNT 10
 static int sub_match_count = DEFAULT_SUB_MATCH_COUNT;
 static regmatch_t *pmatch = NULL;
@@ -1223,6 +1229,13 @@ void getmatch (int i)
     strpool[poolptr++] = '-';
     strpool[poolptr++] = '>';
 }
+#else
+void matchstrings (strnumber s, strnumber t, int subcount, boolean icase)
+{ }
+
+void getmatch (int i)
+{ }
+#endif
 
 
 /* makecfilename

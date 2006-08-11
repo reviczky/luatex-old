@@ -18,6 +18,9 @@
 #ifndef WIN32
 #include <unistd.h>
 #endif
+#ifdef __MINGW32__
+#include "oldnames.h"
+#endif
 #include <string.h>
 #include <ctype.h>
 #include "gmem.h"

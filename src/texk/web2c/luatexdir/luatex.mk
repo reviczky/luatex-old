@@ -25,7 +25,7 @@ luatex_o = luatexini.o luatex0.o luatex1.o luatex2.o luatex3.o luatexextra.o loa
 
 # Making luatex
 luatex: luatexd.h $(luatex_o) $(luatexextra_o) $(luatexlibsdep)
-	@CXXHACKLINK@ $(luatex_o) $(luatexextra_o) $(luatexlibs) $(socketlibs) -Wl,-E -ldl @CXXHACKLDLIBS@ @CXXLDEXTRA@
+	@CXXHACKLINK@ $(luatex_o) $(luatexextra_o) $(luatexlibs) $(socketlibs) -Wl,-E $(luatexlibsldextra) @CXXHACKLDLIBS@ @CXXLDEXTRA@
 
 # C file dependencies.
 $(luatex_c) luatexcoerce.h luatexd.h: luatex.p $(web2c_texmf) $(srcdir)/$(luatexdir)/luatex.defines $(srcdir)/$(luatexdir)/luatex.h
@@ -53,7 +53,7 @@ luatangle.p: tangle $(srcdir)/$(luatexdir)/luatangle.web $(srcdir)/$(luatexdir)/
 
 # Tangling
 luatex.p luatex.pool: luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
-	./luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
+	$(native)/luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
 
 #   Sources for luatex.ch:
 #luatex_ch_srcs = $(srcdir)/$(luatexdir)/luatex.web \

@@ -860,7 +860,7 @@ static fm_entry *lookup_ps_name(fm_entry * fm)
     else if (avail_tfm_found != NULL) {
         p = avail_tfm_found;
         p->tfm_num = readfontinfo(getnullcs(), maketexstring(p->tfm_name),
-                                  getnullstr(), -1000, 0);
+                                  getnullstr(), -1000, 0, -1);
         p->tfm_avail = TFM_FOUND;
     } else if (non_tfm_found != NULL) {
         p = non_tfm_found;

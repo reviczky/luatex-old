@@ -74,11 +74,45 @@ dnl These tests prevent reliable cross-compilation.  Sigh.
 dnl Some special hacks are used to make cross-compilation
 dnl succeed in one special case.
 
-AC_UNSET_CC
-AC_C_CHAR_UNSIGNED
-AC_C_BIGENDIAN
-AC_CHECK_SIZEOF(long)
-AC_RESET_CC
+dnl this assumes these are set in the top-level configure
+
+TARGET=$target
+AC_SUBST(TARGET)
+
+HOST=$host
+AC_SUBST(HOST)
+
+dnl TH: Well, for the moment I am only interested in cross-compiling
+dnl from one simple 32 bit operating system to another on the same
+dnl (intel) machine, so just do a simple test 
+
+dnl AC_UNSET_CC
+case "$ac_cv_prog_cc_cross" in
+  "yes")
+    AC_DEFINE(SIZEOF_LONG, 4)
+  ;;
+  *)
+    AC_C_CHAR_UNSIGNED
+    AC_C_BIGENDIAN
+    AC_CHECK_SIZEOF(long)
+  ;;
+esac
+dnl AC_RESET_CC
+
+dnl Nevertheless, we do make some allowances for cross-compilation.
+dnl NATIVE should be defined as the root of the native build tree
+dnl when calling configure for a cross-compilation
+
+case "$ac_cv_prog_cc_cross" in
+  "yes")
+    NATIVEWEB=$NATIVE/texk/web2c
+    ;;
+  *)
+    NATIVEWEB="."
+    ;;
+esac
+export NATIVEWEB
+AC_SUBST(NATIVEWEB)
 
 # --with and --enable options.
 test "x$with_x_toolkit" = xyes && with_x=yes

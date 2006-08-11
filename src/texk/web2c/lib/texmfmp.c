@@ -20,10 +20,10 @@
 #include <kpathsea/absolute.h>
 
 #include <time.h> /* For `struct tm'.  */
-#if defined (HAVE_SYS_TIME_H)
-#include <sys/time.h>
-#elif defined (HAVE_SYS_TIMEB_H)
+#if defined (HAVE_SYS_TIMEB_H)
 #include <sys/timeb.h>
+#elif defined (HAVE_SYS_TIME_H)
+#include <sys/time.h>
 #endif
 
 #if defined(__STDC__)
@@ -325,7 +325,7 @@ maininit P2C(int, ac, string *, av)
 #endif /* TeX */
 }
 
-#ifndef WIN32
+#if !defined(WIN32) || defined(__MINGW32__)
 /* The entry point: set up for reading the command line, which will
    happen in `topenin', then call the main body.  */
 
@@ -874,7 +874,6 @@ parse_options P2C(int, argc,  string *, argv)
         strncpy (outputcomment, optarg, 255);
         outputcomment[255] = 0;
       }
-
 #ifdef IPC
     } else if (ARGUMENT_IS ("ipc-start")) {
       ipc_open_out ();
@@ -1802,7 +1801,7 @@ callmakempx P2C(string, mpname,  string, mpxname)
 #if defined (__sun__) || defined (__cplusplus)
 #define NO_MF_ASM
 #endif
-#if defined(WIN32) && !defined(NO_MF_ASM)
+#if defined(WIN32) && !defined(NO_MF_ASM) && !defined(__MINGW32__)
 #include "lib/mfmpw32.c"
 #elif defined (__i386__) && defined (__GNUC__) && !defined (NO_MF_ASM)
 #include "lib/mfmpi386.asm"

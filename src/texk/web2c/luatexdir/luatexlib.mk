@@ -73,9 +73,25 @@ luatexdir/libpdf.a: $(pdflib_sources) luatexdir/luatexextra.h
 LIBLUADIR=../../libs/lua51
 LIBLUASRCDIR=$(srcdir)/$(LIBLUADIR)
 LIBLUADEP=$(LIBLUADIR)/liblua.a
-$(LIBLUADEP):
-	mkdir -p $(LIBLUADIR) && cd $(LIBLUADIR) && cp -f $(LIBLUASRCDIR)/* . && $(MAKE) linux
 
+luatexlibsldextra=
+luatarget=posix
+ifeq ($(target),i386-mingw32)
+  ifeq ($(host),i386-linux)
+    luatarget = mingwcross
+  else
+    luatarget = mingw
+  endif
+else
+ifeq ($(target),i386-linux)
+  luatexlibsldextra = -ldl
+  luatarget = linux
+endif
+endif
+
+
+$(LIBLUADEP):
+	mkdir -p $(LIBLUADIR) && cd $(LIBLUADIR) && cp -f $(LIBLUASRCDIR)/* . && $(MAKE) $(luatarget)
 
 # slnunicode
 SLNUNICODEDIR=../../libs/slnunicode-0.9.1

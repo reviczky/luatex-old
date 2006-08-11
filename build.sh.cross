@@ -1,8 +1,23 @@
 #! /usr/bin/env bash
 # $Id$
 # builds new pdftex binaries
+
+# fix path
+OLDPATH=$PATH
+PATH=/usr/mingw32/mingw32/bin:$PATH
+
 MAKE=make
 STRIP=strip
+
+NATIVE=`pwd`
+NATIVE=$NATIVE/linux
+export NATIVE
+
+mkdir -p $NATIVE/texk/web2c/web2c
+
+cp build/texk/web2c/web2c/{web2c,fixwrites,splitup} $NATIVE/texk/web2c/web2c
+cp build/texk/web2c/{luatex,tangle,tangleboot,luatangle} $NATIVE/texk/web2c
+
 # this deletes all previous builds. 
 # comment out the rm and mkdir if you want to keep them (and uncomment and
 # change the $MAKE distclean below)
@@ -13,10 +28,13 @@ cd build
 # mkdir above)
 # $MAKE distclean;
 # do a configure without all the things we don't need
-unset NATIVE
 
-echo "ignore warnings and errors about the main texmf tree"
+echo "NATIVE=$NATIVE"
 ../src/configure \
+            --target=i386-mingw32 \
+            --host=i386-linux   \
+            --build=i386-linux  \
+            --disable-ipc       \
             --without-bibtex8   \
             --without-cjkutils  \
             --without-detex     \
@@ -54,5 +72,11 @@ echo "ignore warnings and errors about the main texmf tree"
 (cd texk/web2c; $MAKE luatex) || exit 1
 # go back
 cd ..
+# restore environment
+PATH=$OLDPATH
+unset NATIVE
+
 # show the results
-ls -l build/texk/web2c/luatex{.pool,}
+mkdir -p windows/texk/web2c
+cp build/texk/web2c/luatex windows/texk/web2c/luatex.exe
+ls -l windows/texk/web2c/luatex.exe
