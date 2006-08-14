@@ -99,7 +99,7 @@
   \ifon\startsection{\bf\ignorespaces#3.\quad}\ignorespaces}
 \let\?=\relax % we want to be able to \write a \?
 
-\def\title{\pdfTeX}
+\def\title{LuaTeX}
 \let\maybe=\iffalse % print only changed modules
 \def\topofcontents{\hsize 5.5in
   \vglue 0pt plus 1fil minus 1.5in
@@ -111,14 +111,22 @@
 \def\gglob{20, 26} % this should be the next two sections of "<Global...>"
 
 @* \[1] Introduction.
-This is \eTeX, a program derived from and extending the capabilities of
-\TeX, a document compiler intended to produce typesetting of high
-quality.
+
+This is LuaTeX, a continuation of $\pdfTeX$ and $\Aleph$.  LuaTeX is a
+document compiler intended to simplify high-quality typesetting for
+many of the world's languages.  It is an extension of D. E. Knuth's
+\TeX, which was designed essentially for the typesetting of languages
+using the Latin alphabet.
+
+The $\Aleph$ subsystem loosens many of the restrictions imposed by~\TeX:
+register numbers are no longer limited to 8~bits;  fonts may have more
+than 256~characters;  more than 256~fonts may be used;  etc.
+
 The \PASCAL\ program that follows is the definition of \TeX82, a standard
 @:PASCAL}{\PASCAL@>
 @!@:TeX82}{\TeX82@>
-version of \TeX\ that is designed to be highly portable so that identical output
-will be obtainable on a great variety of computers.
+version of \TeX\ that is designed to be highly portable so that
+identical output will be obtainable on a great variety of computers.
 
 The main purpose of the following program is to explain the algorithms of \TeX\
 as clearly as possible. As a result, the program will not necessarily be very
@@ -230,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060213' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060811' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060814' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -452,7 +460,6 @@ in production versions of \TeX.
   can be going on simultaneously}
 @!font_max=75; {maximum internal font number; must not exceed |max_quarterword|
   and must be at most |font_base+256|}
-@!font_mem_size=20000; {number of words of |font_info| for all fonts}
 @!param_size=60; {maximum number of simultaneous macro parameters}
 @!nest_size=40; {maximum number of semantic levels simultaneously active}
 @!max_strings=3000; {maximum number of strings; must not exceed |max_halfword|}
@@ -5811,9 +5818,12 @@ for k:=0 to biggest_char do
 for k:=0 to 255 do
   begin math_code(k):=hi(k); 
   end;
-cat_code(carriage_return):=car_ret; cat_code(" "):=spacer;
-cat_code("\"):=escape; cat_code("%"):=comment;
-cat_code(invalid_code):=invalid_char; cat_code(null_code):=ignore;
+cat_code(carriage_return):=car_ret;
+cat_code(" "):=spacer;
+cat_code("\"):=escape;
+cat_code("%"):=comment;
+cat_code(invalid_code):=invalid_char;
+cat_code(null_code):=ignore;
 for k:="0" to "9" do math_code(k):=hi(k+var_code);
 for k:="A" to "Z" do
   begin cat_code(k):=letter; cat_code(k+"a"-"A"):=letter;@/
@@ -5821,36 +5831,6 @@ for k:="A" to "Z" do
   math_code(k+32):=hi(k+32+var_code+@"10000);@/
   lc_code(k):=k+32; lc_code(k+32):=k+32;@/
   uc_code(k):=k; uc_code(k+32):=k;@/
-  sf_code(k):=999;
-  end;
-for k:=@"C0 to @"D6 do begin 
-  cat_code(k):=letter; cat_code(k+32):=letter;@/
-  lc_code(k):=k+32; lc_code(k+32):=k+32;@/
-  uc_code(k):=k; uc_code(k+32):=k;@/
-  sf_code(k):=999;
-  end;
-for k:=@"D8 to @"DE do begin
-  cat_code(k):=letter; cat_code(k+32):=letter;@/
-  lc_code(k):=k+32; lc_code(k+32):=k+32;@/
-  uc_code(k):=k; uc_code(k+32):=k;@/
-  sf_code(k):=999;
-  end;
-for k:=0 to @"36 do begin 
-  cat_code((k*2)+@"100):=letter;
-  cat_code((k*2)+@"100+1):=letter;@/
-  lc_code((k*2)+@"100):=(k*2)+@"100+1; 
-  lc_code((k*2)+@"100+1):=(k*2)+@"100+1;@/
-  uc_code((k*2)+@"100):=(k*2)+@"100;@/
-  uc_code((k*2)+@"100+1):=(k*2)+@"100;@/
-  sf_code(k):=999;
-  end;
-for k:=@"38 to @"40 do begin 
-  cat_code((k*2)+@"100-1):=letter;
-  cat_code((k*2)+@"100):=letter;@/
-  lc_code((k*2)+@"100-1):=(k*2)+@"100; 
-  lc_code((k*2)+@"100):=(k*2)+@"100;@/
-  uc_code((k*2)+@"100-1):=(k*2)+@"100-1;@/
-  uc_code((k*2)+@"100):=(k*2)+@"100-1;@/
   sf_code(k):=999;
   end;
 
@@ -5995,7 +5975,7 @@ that will be defined later.
 @d local_broken_penalty_code=56 {local \.{\\brokenpenalty}}
 @d no_local_whatsits_code=57 {counts local whatsits}
 @d no_local_dirs_code=58
-@d level_local_dir_code=59
+@d level_local_dir_code=59 {TH: 60 is unused!}
 @d tex_int_pars=61 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d dir_base=int_base+tex_int_pars
@@ -6222,6 +6202,13 @@ right_hyphen_min_code:print_esc("righthyphenmin");
 holding_inserts_code:print_esc("holdinginserts");
 error_context_lines_code:print_esc("errorcontextlines");
 @#
+local_inter_line_penalty_code: print_esc("localinterlinepenalty");
+local_broken_penalty_code: print_esc("localbrokenpenalty");
+{the next three do not have a matching primitive}
+no_local_whatsits_code: print("[no_local_whatsits]");
+no_local_dirs_code: print("[no_local_dirs]");
+level_local_dir_code: print("[level_local_dir]");
+@#
 pdf_output_code:           print_esc("pdfoutput");
 pdf_compress_level_code:   print_esc("pdfcompresslevel");
 pdf_objcompresslevel_code: print_esc("pdfobjcompresslevel");
@@ -6248,7 +6235,7 @@ pdf_adjust_interword_glue_code:    print_esc("pdfadjustinterwordglue");
 pdf_prepend_kern_code:    print_esc("pdfprependkern");
 pdf_append_kern_code:    print_esc("pdfappendkern");
 @/@<Cases for |print_param|@>@/
-othercases print("[unknown integer parameter!]")
+othercases begin print("[unknown integer parameter!]"); end
 endcases;
 end;
 
@@ -35170,7 +35157,6 @@ if log_opened then
     hash_size:1);@/
   wlog(font_ptr-font_base:1,' font');
   if font_ptr<>font_base+1 then wlog('s');
-  wlog_ln(', out of ',font_mem_size:1,' for ',font_max-font_base:1);@/
   wlog(' ',hyph_count:1,' hyphenation exception');
   if hyph_count<>1 then wlog('s');
   wlog_ln(' out of ',hyph_size:1);@/
