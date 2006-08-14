@@ -13,7 +13,8 @@ cd build
 # mkdir above)
 # $MAKE distclean;
 # do a configure without all the things we don't need
-unset NATIVE
+NATIVE=`pwd`
+export NATIVE
 
 echo "ignore warnings and errors about the main texmf tree"
 ../src/configure \
@@ -54,5 +55,6 @@ echo "ignore warnings and errors about the main texmf tree"
 (cd texk/web2c; $MAKE luatex) || exit 1
 # go back
 cd ..
+unset NATIVE
 # show the results
 ls -l build/texk/web2c/luatex{.pool,}
