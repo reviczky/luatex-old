@@ -382,7 +382,7 @@ TEXMFSCRIPTS = $TEXMF/scripts//
 %
 % For security reasons, it is better not to have . part of the path.
 % 
-TEXMFCNF = {$SELFAUTOLOC,$SELFAUTODIR,$SELFAUTOPARENT}{,{/share,}/texmf{-local,}/web2c};$TETEXDIR;$TEXMF/web2c;@web2c@
+TEXMFCNF = {$SELFAUTOLOC,$SELFAUTODIR,$SELFAUTOPARENT}{,{/share,}/texmf{-local,}/web2c}
 
 # $progname: kpathsea v. 3.5.3 or later overwrites this at runtime. To
 # avoid empty expansions from binaries linked against an earlier
