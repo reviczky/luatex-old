@@ -113,7 +113,6 @@ versions of the program.
   can be going on simultaneously}
 @!font_max=75; {maximum internal font number; must not exceed |max_quarterword|
   and must be at most |font_base+256|}
-@!font_mem_size=20000; {number of words of |font_info| for all fonts}
 @!param_size=60; {maximum number of simultaneous macro parameters}
 @!nest_size=40; {maximum number of semantic levels simultaneously active}
 @!max_strings=3000; {maximum number of strings; must not exceed |max_halfword|}
@@ -144,13 +143,7 @@ versions of the program.
 @d ssup_hyph_size == 65535 {Changing this requires changing (un)dumping!}
 @d iinf_hyphen_size == 610 {Must be not less than |hyph_prime|!}
 
-@d max_font_max=2000 {maximum number of internal fonts; this can be
-                      increased, but |hash_size+max_font_max|
-                      should not exceed 29000.}
-@d font_base=0 {smallest internal font number; must be
-                |>= min_quarterword|; do not change this without
-                modifying the dynamic definition of the font arrays.}
-
+@d font_max=65530 { not maxed out so that the web tests still work without warning}
 
 @<Constants...@>=
 @!hash_offset=514; {smallest index in hash array, i.e., |hash_base| }
@@ -168,13 +161,13 @@ versions of the program.
 @!inf_mem_bot = 0;
 @!sup_mem_bot = 1;
 
-@!inf_main_memory = 3000;
+@!inf_main_memory = 2000000;
 @!sup_main_memory = 32000000;
 
-@!inf_trie_size = 8000;
+@!inf_trie_size = 80000;
 @!sup_trie_size = ssup_trie_size;
 
-@!inf_max_strings = 3000;
+@!inf_max_strings = 100000;
 @!sup_max_strings = ssup_max_strings;
 @!inf_strings_free = 100;
 @!sup_strings_free = sup_max_strings;
@@ -192,19 +185,13 @@ versions of the program.
 @!sup_param_size = 6000;
 
 @!inf_save_size = 600;
-@!sup_save_size = 40000;
+@!sup_save_size = 80000;
 
 @!inf_stack_size = 200;
 @!sup_stack_size = 30000;
 
 @!inf_dvi_buf_size = 800;
 @!sup_dvi_buf_size = 65536;
-
-@!inf_font_mem_size = 20000;
-@!sup_font_mem_size = 2000000;
-
-@!sup_font_max = max_font_max;
-@!inf_font_max = 50; {could be smaller, but why?}
 
 @!inf_pool_size = 32000;
 @!sup_pool_size = 40000000;
@@ -239,6 +226,8 @@ versions of the program.
 @d hash_prime=1777 {a prime number equal to about 85\pct! of |hash_size|}
 @d hyph_size=307 {another prime; the number of \.{\\hyphenation} exceptions}
 @y
+@d font_base=0 {smallest internal font number; must not be less
+  than |min_quarterword|}
 @d hash_size=65536 {maximum number of control sequences; it should be at most
   about |(mem_max-mem_min)/10|}
 @d hash_prime=55711 {a prime number equal to about 85\pct! of |hash_size|}
@@ -436,9 +425,6 @@ tini@/
   control sequences; must exceed |string_vacancies| by the total
   length of \TeX's own strings, which is currently about 23000}
 @!pool_free:integer;{pool space free after format loaded}
-@!font_mem_size:integer; {number of words of |font_info| for all fonts}
-@!font_max:integer; {maximum internal font number; ok to exceed |max_quarterword|
-  and must be at most |font_base|+|max_font_max|}
 @!font_k:integer; {loop variable for initialization}
 @!hyph_size:integer; {maximun number of hyphen exceptions}
 @!trie_size:integer; {space for hyphenation patterns; should be larger for
@@ -732,14 +718,6 @@ been commented~out.
 @z
 
 @x
-if (font_base<min_quarterword)or(font_max>max_quarterword) then bad:=15;
-if font_max>font_base+@"10000 then bad:=16;
-@y
-if (max_font_max<min_halfword)or(max_font_max>max_halfword) then bad:=15;
-if font_max>font_base+max_font_max then bad:=16;
-@z
-
-@x
 macros are simplified in the obvious way when |min_quarterword=0|.
 @^inner loop@>@^system dependencies@>
 
@@ -943,12 +921,6 @@ page_depth:=0; page_max_depth:=0;
   {permanent `\.{\\special}'}
 @d frozen_null_font=frozen_control_sequence+11
   {permanent `\.{\\nullfont}'}
-@z
-
-@x
-@d frozen_null_ocp=frozen_null_font+number_fonts
-@y
-@d frozen_null_ocp=frozen_null_font+max_font_max+1
 @z
 
 @x
@@ -3098,8 +3070,6 @@ begin @!{|start_here|}
   setup_bound_var (5000)('pool_free')(pool_free); {min pool avail after fmt}
   setup_bound_var (15000)('max_strings')(max_strings);
   setup_bound_var (100)('strings_free')(strings_free);
-  setup_bound_var (100000)('font_mem_size')(font_mem_size);
-  setup_bound_var (500)('font_max')(font_max);
   setup_bound_var (20000)('trie_size')(trie_size);
     {if |ssup_trie_size| increases, recompile}
   setup_bound_var (659)('hyph_size')(hyph_size);
@@ -3146,8 +3116,6 @@ begin @!{|start_here|}
   const_chk (pool_free);
   const_chk (max_strings);
   const_chk (strings_free);
-  const_chk (font_mem_size);
-  const_chk (font_max);
   const_chk (hash_extra);
   const_chk (obj_tab_size);
   const_chk (pdf_mem_size);
