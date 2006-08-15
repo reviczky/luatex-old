@@ -6,6 +6,10 @@
 luatex = @LTEX@ luatex
 luatexdir = luatexdir
 
+LIBOBSDCOMPATDIR=../../libs/obsdcompat
+LIBOBSDCOMPATFSRCDIR=$(srcdir)/$(LIBOBSDCOMPATDIR)
+XCPPFLAGS=-I$(LIBOBSDCOMPATDIR) -I$(LIBOBSDCOMPATDIR)/.. -I$(LIBOBSDCOMPATFSRCDIR) -I$(LIBOBSDCOMPATFSRCDIR)/..
+
 Makefile: $(srcdir)/$(luatexdir)/luatex.mk
 
 # luatex_bin = luatex ttf2afm pdftosrc
@@ -71,6 +75,7 @@ luatex.p luatex.pool: luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(lu
 #	$(TIE) -m $@ $(srcdir)/$(luatexdir)/luatex.web luatex.ch
 #luatex-all.tex: luatex-all.web
 #	$(WEAVE) luatex-all.web
+#	echo -e '1s/ webmac/ pdfwebmac/\nw\nq' | ed $@ >/dev/null 2>&1
 #luatex-all.pdf: luatex-all.tex
 #	$(luatex) luatex-all.tex
 

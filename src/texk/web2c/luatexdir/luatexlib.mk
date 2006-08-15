@@ -58,6 +58,16 @@ clean:: md5lib-clean
 md5lib-clean:
 	rm -f $(LIBMD5DEP)
 
+# obsdcompat
+LIBOBSDDIR=../../libs/obsdcompat
+LIBOBSDSRCDIR=$(srcdir)/$(LIBOBSDCOMPATDIR)
+LIBOBSDDEP=@LIBOBSDDEP@
+LDLIBOBSD=@LDLIBOBSD@
+
+$(LIBOBSDDIR)/libopenbsd-compat.a: $(LIBOBSDSRCDIR)/*.c $(LIBOBSDSRCDIR)/*.h
+# common_makeargs = $(MFLAGS) CC='$(CC)' CFLAGS='$(CFLAGS)' LDFLAGS='$(LDFLAGS)' $(XMAKEARGS)
+# CFLAGS setzt libopenbsd-compat selbst, nicht durchreichen!
+	cd $(LIBOBSDDIR); $(MAKE) $(MFLAGS) $(XMAKEARGS) libopenbsd-compat.a
 
 # libpdf itself
 pdflib = luatexdir/libpdf.a
@@ -104,8 +114,8 @@ $(SLNUNICODEDEP): $(SLNUNICODEDIR)/slnunico.c $(SLNUNICODEDIR)/slnudata.c
 
 # Convenience variables.
 
-luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LIBLUADEP) $(SLNUNICODEDEP)
-luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBLUADEP) $(SLNUNICODEDEP)
+luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) $(LIBLUADEP) $(SLNUNICODEDEP)
+luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) $(LIBLUADEP) $(SLNUNICODEDEP)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 

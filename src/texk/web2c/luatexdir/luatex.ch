@@ -914,12 +914,12 @@ page_depth:=0; page_max_depth:=0;
 @z
 
 @x
-@d frozen_null_font=frozen_control_sequence+10
+@d frozen_null_font=frozen_control_sequence+12
   {permanent `\.{\\nullfont}'}
 @y
-@d frozen_special=frozen_control_sequence+10
+@d frozen_special=frozen_control_sequence+12
   {permanent `\.{\\special}'}
-@d frozen_null_font=frozen_control_sequence+11
+@d frozen_null_font=frozen_control_sequence+13
   {permanent `\.{\\nullfont}'}
 @z
 

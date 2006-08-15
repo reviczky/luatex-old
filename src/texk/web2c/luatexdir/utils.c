@@ -27,15 +27,16 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/utils.c#24 $
 #else
 #define EX_SOFTWARE 70
 #endif
-#include "ptexlib.h"
-#include "zlib.h"
 #include "md5.h"
-#include <kpathsea/c-vararg.h>
 #include <kpathsea/c-proto.h>
 #include <kpathsea/c-stat.h>
 #include <kpathsea/c-fopen.h>
 #include <string.h>
 #include <time.h>
+#include <float.h>              /* for DBL_EPSILON */
+#include "zlib.h"
+#include "ptexlib.h"
+#include "openbsd-compat.h"
 
 /*@unused@*/
 static const char perforce_id[] =
@@ -158,19 +159,12 @@ void pdf_puts (const char *s)
         pdfbuf[pdfptr++] = *s++;
 }
 
-#ifdef __GNUC__
-void pdf_printf (const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
-#endif
+__attribute__ ((format (printf, 1, 2))) 
 void pdf_printf (const char *fmt, ...)
 {
     va_list args;
     va_start (args, fmt);
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-    vsnprintf (print_buf, PRINTF_BUF_SIZE,
-#else
-    vsprintf (print_buf,
-#endif
-              fmt, args);
+    vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
     pdf_puts (print_buf);
     va_end (args);
 }
@@ -188,19 +182,12 @@ strnumber maketexstring (const char *s)
     return last_tex_string;
 }
 
-#ifdef __GNUC__
-void tex_printf (const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
-#endif
-void tex_printf (const char *fmt, ...)
+__attribute__ ((format (printf, 1, 2)))
+void tex_printf (const char *fmt, ...) 
 {
     va_list args;
     va_start (args, fmt);
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-    vsnprintf (print_buf, PRINTF_BUF_SIZE,
-#else
-    vsprintf (print_buf,
-#endif
-              fmt, args);
+    vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
     print (maketexstring (print_buf));
     flushstr (last_tex_string);
     xfflush (stdout);
@@ -215,14 +202,19 @@ static void safe_print (const char *str)
         print (*c);
 }
 
+void removepdffile (void)
+{
+    if (!kpathsea_debug && outputfilename) {
+        xfclose (pdffile, makecstring (outputfilename));
+        remove (makecstring (outputfilename));
+    }
+}
+
 /* pdftex_fail may be called when a buffer overflow has happened/is
    happening, therefore may not call mktexstring.  However, with the
    current implementation it appears that error messages are misleading,
    possibly because pool overflows are detected too late. */
-#ifdef __GNUC__
-void pdftex_fail (const char *fmt, ...)
-    __attribute__ ((noreturn, format (printf, 1, 2)));
-#endif
+__attribute__ ((noreturn, format (printf, 1, 2)))
 void pdftex_fail (const char *fmt, ...)
 {
     va_list args;
@@ -236,19 +228,11 @@ void pdftex_fail (const char *fmt, ...)
         safe_print (")");
     }
     safe_print (": ");
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-    vsnprintf (print_buf, PRINTF_BUF_SIZE,
-#else
-    vsprintf (print_buf,
-#endif
-              fmt, args);
+    vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
     safe_print (print_buf);
     va_end (args);
     println ();
-    if (!kpathsea_debug && outputfilename) {
-        xfclose (pdffile, makecstring (outputfilename));
-        remove (makecstring (outputfilename));
-    }
+    removepdffile();
     safe_print (" ==> Fatal error occurred, no output PDF file produced!");
     println ();
     if (kpathsea_debug) {
@@ -258,10 +242,8 @@ void pdftex_fail (const char *fmt, ...)
     }
 }
 
-#ifdef __GNUC__
-void pdftex_warn (const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
-#endif
-void pdftex_warn (const char *fmt, ...)
+__attribute__ ((format (printf, 1, 2)))
+void pdftex_warn (const char *fmt, ...) 
 {
     va_list args;
     va_start (args, fmt);
@@ -270,16 +252,17 @@ void pdftex_warn (const char *fmt, ...)
     if (cur_file_name)
         tex_printf (" (file %s)", cur_file_name);
     tex_printf (": ");
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-    vsnprintf (print_buf, PRINTF_BUF_SIZE,
-#else
-    vsprintf (print_buf,
-#endif
-              fmt, args);
+    vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
     print (maketexstring (print_buf));
     flushstr (last_tex_string);
     va_end (args);
     println ();
+}
+
+void garbagewarning (void)
+{
+    pdftex_warn ("dangling objects discarded, no output file produced.");
+    removepdffile ();
 }
 
 char *makecstring (integer s)
@@ -287,10 +270,10 @@ char *makecstring (integer s)
     static char *cstrbuf = NULL;
     char *p;
     static int allocsize;
-    int allocgrow, i, l;
-	if (s >=2097152) {
-	  s -= 2097152;
-	  l = strstart[s + 1] - strstart[s];
+     int allocgrow, i, l;
+ 	if (s >=2097152) {
+ 	  s -= 2097152;
+ 	  l = strstart[s + 1] - strstart[s];
 	  check_buf (l + 1, MAX_CSTRING_LEN);
 	  if (cstrbuf == NULL) {
         allocsize = l + 1;
@@ -298,26 +281,26 @@ char *makecstring (integer s)
 	  } else if (l + 1 > allocsize) {
         allocgrow = allocsize * 0.2;
         if (l + 1 - allocgrow > allocsize)
-		  allocsize = l + 1;
+            allocsize = l + 1;
         else if (allocsize < MAX_CSTRING_LEN - allocgrow)
-		  allocsize += allocgrow;
+            allocsize += allocgrow;
         else
-		  allocsize = MAX_CSTRING_LEN;
+            allocsize = MAX_CSTRING_LEN;
         cstrbuf = xreallocarray (cstrbuf, char, allocsize);
 	  }
-	  p = cstrbuf;
-	  for (i = 0; i < l; i++)
-        *p++ = strpool[i + strstart[s]];
-	  *p = 0;
-	} else {
+ 	} else {
 	  if (cstrbuf == NULL) {
-        allocsize = 5;
-        cstrbuf = xmallocarray (char, allocsize);
-	  }
-	  *cstrbuf=0;
-	  pdftex_fail("makecstring for character: NI");
-	}
-	return cstrbuf;
+         allocsize = 5;
+         cstrbuf = xmallocarray (char, allocsize);
+ 	  }
+ 	  *cstrbuf=0;
+ 	  pdftex_fail("makecstring for character: NI");
+ 	}
+    p = cstrbuf;
+    for (i = 0; i < l; i++)
+        *p++ = strpool[i + strstart[s]];
+    *p = 0;
+    return cstrbuf;
 }
 
 void setjobid (int year, int month, int day, int time)
@@ -337,11 +320,7 @@ void setjobid (int year, int month, int day, int time)
         strlen (versionstring) + strlen (kpathsea_version_string);
     s = xtalloc (slen, char);
     /* The Web2c version string starts with a space.  */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
     snprintf (s, slen,
-#else
-    sprintf (s,
-#endif
              "%.4d/%.2d/%.2d %.2d:%.2d %s %s %s%s %s",
              year, month, day, time / 60, time % 60,
              name_string, format_string, ptexbanner,
@@ -366,11 +345,7 @@ void makepdftexbanner (void)
         strlen (versionstring) + strlen (kpathsea_version_string);
     s = xtalloc (slen, char);
     /* The Web2c version string starts with a space.  */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
     snprintf (s, slen,
-#else
-    sprintf (s,
-#endif
              "%s%s %s", ptexbanner, versionstring, kpathsea_version_string);
     pdftexbanner = maketexstring (s);
     xfree (s);
@@ -464,6 +439,7 @@ void libpdffinish ()
     epdf_free ();
     ttf_free ();
     sfd_free ();
+    glyph_unicode_free ();
 }
 
 /* Converts any string given in in in an allowed PDF string which can be
@@ -483,11 +459,7 @@ char *convertStringToPDFString (const char *in, int len)
         check_buf (j + sizeof (buf), MAX_PSTRING_LEN);
         if (((unsigned char) in[i] < '!') || ((unsigned char) in[i] > '~')) {
             /* convert control characters into oct */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
             snprintf (buf, sizeof (buf),
-#else
-            sprintf (buf,
-#endif
                      "\\%03o", (unsigned int) (unsigned char) in[i]);
             out[j++] = buf[0];
             out[j++] = buf[1];
@@ -534,11 +506,7 @@ void escapestring (poolpointer in)
 
         if ((ch < '!') || (ch > '~')) {
             /* convert control characters into oct */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-            snprintf (&strpool[poolptr], 4,
-#else
-            sprintf (&strpool[poolptr],
-#endif
+            snprintf ((char *) &strpool[poolptr], 4,
                      "\\%.3o", (unsigned int) ch);
             poolptr += 4;
             continue;
@@ -610,11 +578,7 @@ void escapename (poolpointer in)
 
         if ((ch >= 1 && ch <= 32) || ch >= 127) {
             /* escape */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-            snprintf (&strpool[poolptr], 3,
-#else
-            sprintf (&strpool[poolptr],
-#endif
+            snprintf ((char *) &strpool[poolptr], 3,
                      "#%.2X", (unsigned int) ch);
             poolptr += 3;
             continue;
@@ -635,11 +599,7 @@ void escapename (poolpointer in)
         case 123:
         case 125:
             /* escape */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-            snprintf (&strpool[poolptr], 3,
-#else
-            sprintf (&strpool[poolptr],
-#endif
+            snprintf ((char *) &strpool[poolptr], 3,
                      "#%.2X", (unsigned int) ch);
             poolptr += 3;
             break;
@@ -671,11 +631,7 @@ void escapehex (poolpointer in)
 
         ch = (unsigned char) strpool[in++];
 
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-        snprintf (&strpool[poolptr], 3,
-#else
-        sprintf (&strpool[poolptr],
-#endif
+        snprintf ((char *) &strpool[poolptr], 3,
                  "%.2X", (unsigned int) ch);
         poolptr += 2;
     }
@@ -740,11 +696,7 @@ static void convertStringToHexString (const char *in, char *out, int lin)
     char buf[3];
     j = 0;
     for (i = 0; i < lin; i++) {
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-        snprintf (buf, sizeof (buf);
-#else
-        sprintf (buf,
-#endif
+        snprintf (buf, sizeof (buf),
                  "%02X", (unsigned int) (unsigned char) in[i]);
         out[j++] = buf[0];
         out[j++] = buf[1];
@@ -913,11 +865,7 @@ static void makepdftime (time_t t, char *time_str)
     } else {
         off_hours = off / 60;
         off_mins = abs (off - off_hours * 60);
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
         snprintf (&time_str[size], 9,
-#else
-        sprintf (&time_str[size],
-#endif
                  "%+03d'%02d'", off_hours, off_mins);
     }
 }
@@ -1002,11 +950,7 @@ void getfilesize (strnumber s)
         char buf[20];
 
         /* st_size has type off_t */
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
         snprintf (buf, sizeof (buf),
-#else
-        sprintf (buf,
-#endif
                  "%lu", (long unsigned int) file_data.st_size);
         len = strlen (buf);
         if (poolptr + len >= poolsize) {
@@ -1059,16 +1003,16 @@ void getmd5sum (strnumber s, boolean file)
         xfree (file_name);
     } else {
         /* s contains the data */
-	    if (s >=2097152) {
-		  s -= 2097152;
-		  md5_init (&state);
-		  md5_append (&state,
-					  (const md5_byte_t *) &strpool[strstart[s]],
-					  strstart[s + 1] - strstart[s]);
-		  md5_finish (&state, digest);
+ 	    if (s >=2097152) {
+ 		  s -= 2097152;
+        md5_init (&state);
+        md5_append (&state,
+                    (const md5_byte_t *) &strpool[strstart[s]],
+                    strstart[s + 1] - strstart[s]);
+        md5_finish (&state, digest);
 		} else {
-		  pdftex_fail("utils.c: getmd5sum() for single_characters: NI");
-		}
+ 		  pdftex_fail("utils.c: getmd5sum() for single_characters: NI");
+ 		}
     }
 
     if (poolptr + len >= poolsize) {
@@ -1118,8 +1062,7 @@ void getfiledump (strnumber s, int offset, int length)
     /* there is enough space in the string pool, the read
        data are put in the upper half of the result, thus
        the conversion to hex can be done without overwriting
-       unconverted bytes. Be aware that sprintf also appends
-       a nul byte at the end. */
+       unconverted bytes. */
     data_ptr = poolptr + length;
     read = fread (&strpool[data_ptr], sizeof (char), length, f);
     fclose (f);
@@ -1127,11 +1070,7 @@ void getfiledump (strnumber s, int offset, int length)
     /* convert to hex */
     data_end = data_ptr + read;
     for (; data_ptr < data_end; data_ptr++) {
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-        snprintf (&strpool[poolptr], 3,
-#else
-        sprintf (&strpool[poolptr],
-#endif
+        snprintf ((char *) &strpool[poolptr], 3,
                  "%.2X", (unsigned int) strpool[data_ptr]);
         poolptr += 2;
     }
@@ -1210,13 +1149,9 @@ void getmatch (int i)
     }
 
     if (found) {
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >=199901L
-        snprintf (&strpool[poolptr], 20,
-#else
-        sprintf (&strpool[poolptr],
-#endif
-                 "%d", pmatch[i].rm_so);
-        poolptr += strlen (&strpool[poolptr]);
+        snprintf ((char *) &strpool[poolptr], 20,
+                 "%d", (int)pmatch[i].rm_so);
+        poolptr += strlen ((char *) &strpool[poolptr]);
         strpool[poolptr++] = '-';
         strpool[poolptr++] = '>';
         memcpy (&strpool[poolptr], &match_string[pmatch[i].rm_so], len);
@@ -1325,6 +1260,16 @@ char *stripzeros (char *a)
         *q++ = *p++;
         t = s;
     }
-    *q = '\0';
+	*q = '\0';
     return a;
+}
+
+void stripspaces (char *p)
+{
+    char *q;
+    for (q = p; *p != '\0'; p++) {
+        if (*p != ' ')
+            *q++ = *p;
+    }
+    *q = '\0';
 }

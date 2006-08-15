@@ -1,7 +1,7 @@
 /*
 Copyright (c) 1996-2006 Han The Thanh, <thanh@pdftex.org>
 
-This file is part of luatex.
+This file is part of luaTeX.
 
 pdfTeX is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with pdfTeX; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-$Id $
+$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/ptexlib.h#26 $
 */
 
 #ifndef LUATEXLIB
@@ -26,7 +26,7 @@ $Id $
 /* WEB2C macros and prototypes */
 #  if !defined(LUATEXCOERCE) && !defined(PDFETEXCOERCE)
 #    ifdef luaTeX
-#      undef luaTeX 		/* to avoid warning about redefining pdfTeX in pdftexd.h */
+#      undef luaTeX             /* to avoid warning about redefining pdfTeX in pdftexd.h */
 #    endif                      /* pdfTeX */
 #    define EXTERN extern
 #    include "luatexd.h"
@@ -38,6 +38,7 @@ $Id $
 /* avl */
 #  include "avlstuff.h"
 
+#  include "openbsd-compat.h"
 
 /* pdftexlib type declarations */
 typedef struct {
@@ -52,6 +53,7 @@ typedef struct {
     char *name;                 /* encoding file name */
     integer objnum;             /* object number */
     char **glyph_names;
+    integer tounicode;          /* object number of associated ToUnicode entry */
 } enc_entry;
 
 struct _subfont_entry;
@@ -67,6 +69,13 @@ typedef struct {
     char *name;                 /* sfd name, eg "Unicode" */
     subfont_entry *subfont;     /* linked list of subfonts */
 } sfd_entry;
+
+typedef struct {
+    char *name;                 /* glyph name */
+    long code;                  /* -1 = undefined; -2 = multiple codes, stored
+                                   as string in unicode_seq; otherwise unicode value */
+    char *unicode_seq;          /* multiple unicode sequence */
+} glyph_unicode_entry;
 
 typedef struct {
     char *tfm_name;             /* TFM file name */
@@ -153,7 +162,12 @@ extern int readchar (boolean, chardesc *);
 
 /* subfont.c */
 extern void sfd_free (void);
-extern boolean handle_subfont_fm (fm_entry * fm, int mode);
+extern boolean handle_subfont_fm (fm_entry *, int);
+
+/* tounicode.c */
+extern void glyph_unicode_free (void);
+extern void deftounicode (strnumber, strnumber);
+extern integer write_tounicode (char **, char *);
 
 /* utils.c */
 extern boolean str_eq_cstr (strnumber, char *);
@@ -172,11 +186,15 @@ extern void fb_seek (integer);
 extern void libpdffinish (void);
 extern char *makecfilename (strnumber s);
 extern void make_subset_tag (fm_entry *, char **);
+__attribute__ ((format (printf, 1, 2))) 
 extern void pdf_printf (const char *, ...);
 extern void pdf_puts (const char *);
+__attribute__ ((noreturn, format (printf, 1, 2)))
 extern void pdftex_fail (const char *, ...);
+__attribute__ ((format (printf, 1, 2)))
 extern void pdftex_warn (const char *, ...);
 extern void setjobid (int, int, int, int);
+__attribute__ ((format (printf, 1, 2)))
 extern void tex_printf (const char *, ...);
 extern void writestreamlength (integer, integer);
 extern char *convertStringToPDFString (const char *in, int len);
@@ -197,6 +215,9 @@ extern void matchstrings (strnumber s, strnumber t, int subcount,
 extern void getmatch (int i);
 extern void makepdftexbanner (void);
 extern void initstarttime ();
+extern void removepdffile (void);
+extern void garbagewarning (void);
+extern void stripspaces (char *p);
 
 /* vfpacket.c */
 extern eightbits packetbyte (void);
@@ -238,7 +259,7 @@ extern void writeimage (integer);
 extern integer imagecolordepth (integer img);
 
 /* writejbig2.c */
-extern void flushjbig2page0bjects(void);
+extern void flushjbig2page0objects ();
 
 /* writet1.c */
 extern boolean t1_subset (char *, char *, unsigned char *);

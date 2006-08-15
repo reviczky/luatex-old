@@ -104,6 +104,8 @@ $Id $
 @define procedure setjobid();
 @define procedure unescapehex();
 @define procedure writestreamlength();
+@define procedure removepdffile;
+@define procedure garbagewarning;
 
 
 { functions from vfpacket.c }
@@ -142,5 +144,8 @@ $Id $
 { functions from avlstuff.c }
 @define procedure avlputobj();
 @define function avlfindobj();
+
+{ functions from tounicode.c }
+@define procedure deftounicode();
 
 { end of luatex.defines }
