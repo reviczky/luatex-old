@@ -5,6 +5,7 @@
 # fix path
 OLDPATH=$PATH
 PATH=/usr/mingw32/mingw32/bin:$PATH
+export PATH
 
 MAKE=make
 STRIP=strip
@@ -32,8 +33,8 @@ cd build
 echo "NATIVE=$NATIVE"
 ../src/configure \
             --target=i386-mingw32 \
+            --build=i386-mingw32  \
             --host=i386-linux   \
-            --build=i386-linux  \
             --disable-ipc       \
             --without-bibtex8   \
             --without-cjkutils  \
