@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <string.h>
 
+#ifndef __MINGW32__
 /* XXX mode should be mode_t */
 
 void
@@ -145,4 +146,10 @@ strmode(int mode, char *p)
 	*p++ = ' ';		/* will be a '+' if ACL's implemented */
 	*p = '\0';
 }
+#else
+
+void
+strmode(int mode, char *p)
+{}
+#endif
 #endif

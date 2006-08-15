@@ -48,6 +48,9 @@ static /**/const char *const rcsid[] = { (const char *)rcsid, "\100(#)" msg }
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
+#ifdef __MINGW32__
+#include <io.h>
+#endif
 #include <unistd.h> /* For STDIN_FILENO, etc */
 
 /*
