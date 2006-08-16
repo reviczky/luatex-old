@@ -14,11 +14,6 @@ NATIVE=`pwd`
 NATIVE=$NATIVE/linux
 export NATIVE
 
-mkdir -p $NATIVE/texk/web2c/web2c
-
-cp build/texk/web2c/web2c/{web2c,fixwrites,splitup} $NATIVE/texk/web2c/web2c
-cp build/texk/web2c/{luatex,tangle,tangleboot,luatangle} $NATIVE/texk/web2c
-
 # this deletes all previous builds. 
 # comment out the rm and mkdir if you want to keep them (and uncomment and
 # change the $MAKE distclean below)
@@ -30,7 +25,6 @@ cd build
 # $MAKE distclean;
 # do a configure without all the things we don't need
 
-echo "NATIVE=$NATIVE"
 ../src/configure \
             --target=i386-mingw32 \
             --build=i386-mingw32  \

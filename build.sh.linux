@@ -58,5 +58,11 @@ echo "ignore warnings and errors about the main texmf tree"
 # go back
 cd ..
 unset NATIVE
+
+mkdir -p linux/texk/web2c/web2c
+cp build/texk/web2c/web2c/{web2c,fixwrites,splitup} linux/texk/web2c/web2c
+cp build/texk/web2c/{luatex,tangle,tangleboot,luatangle} linux/texk/web2c
+strip linux/texk/web2c/luatex
+
 # show the results
-ls -l build/texk/web2c/luatex
+ls -l linux/texk/web2c/luatex
