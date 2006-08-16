@@ -36,6 +36,9 @@
 
 #include "obsdcompat/includes.h"
 
+#define OBSDLIB_VERSION "4.3.1.1"
+#define OBSDLIB_VERNUM 0x4310
+
 /* OpenBSD function replacements */
 #ifndef HAVE_STRLCPY
 /* #include <sys/types.h> XXX Still needed? */
