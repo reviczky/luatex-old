@@ -42,9 +42,7 @@ $Id $
 
 { bits and pieces from aleph }
 
-@define function newinputln ();
-@define function getfilemode ();
-@define function newinputline ();
+@define procedure btestin ;
 
 @define function getequiv1();
 @define procedure setequiv1();
@@ -68,7 +66,6 @@ $Id $
 @define procedure dumpocptable ();
 @define procedure undumpocptable ();
 @define procedure runexternalocp ();
-@define procedure btestin ;
 
 @define function loadpoolstrings();
 

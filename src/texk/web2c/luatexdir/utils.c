@@ -23,7 +23,6 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/utils.c#24 $
 #include "sys/types.h"
 #ifndef __MINGW32__
 #include "sysexits.h"
-#include "regex.h"
 #else
 #define EX_SOFTWARE 70
 #endif
@@ -1076,102 +1075,6 @@ void getfiledump (strnumber s, int offset, int length)
     }
     xfree (file_name);
 }
-
-#ifndef __MINGW32__
-
-#define DEFAULT_SUB_MATCH_COUNT 10
-static int sub_match_count = DEFAULT_SUB_MATCH_COUNT;
-static regmatch_t *pmatch = NULL;
-static char *match_string = NULL;
-
-void matchstrings (strnumber s, strnumber t, int subcount, boolean icase)
-{
-    regex_t preg;
-    int cflags = REG_EXTENDED;
-    int eflags = 0;
-    int ret;
-    char *str;
-
-    if (icase) {
-        cflags |= REG_ICASE;
-    }
-
-    if (poolptr + 10 >= poolsize) {
-        poolptr = poolsize;
-        return;
-    }
-
-    str = makecstring (s);
-    ret = regcomp (&preg, str, cflags);
-    if (ret != 0) {
-        size_t size = regerror (ret, &preg, NULL, 0);
-        str = xtalloc (size, char);
-        regerror (ret, &preg, str, size);
-        pdftex_warn ("%s%s", "\\pdfmatch: ", str);
-        xfree (str);
-        strpool[poolptr++] = '-';
-        strpool[poolptr++] = '1';
-    } else {
-        str = makecstring (t);
-        sub_match_count = ((subcount < 0) ? DEFAULT_SUB_MATCH_COUNT : subcount);
-        xfree (pmatch);
-        if (sub_match_count > 0) {
-            pmatch = xtalloc (sub_match_count, regmatch_t);
-        }
-        ret = regexec (&preg, str, sub_match_count, pmatch, eflags);
-        xfree (match_string);
-        match_string = xstrdup (str);
-        strpool[poolptr++] = ((ret == 0) ? '1' : '0');
-    }
-
-    regfree (&preg);
-}
-
-void getmatch (int i)
-{
-    int size = 0;
-    int len = 0;
-
-    boolean found = i < sub_match_count
-        && match_string != NULL && pmatch[i].rm_so >= 0 && i >= 0;
-
-    if (found) {
-        len = pmatch[i].rm_eo - pmatch[i].rm_so;
-        size = 20 + len;
-        /* 20: place for integer number and '->' */
-    } else {
-        size = 4;
-    }
-
-    if (poolptr + size >= poolsize) {
-        poolptr = poolsize;
-        return;
-    }
-
-    if (found) {
-        snprintf ((char *) &strpool[poolptr], 20,
-                 "%d", (int)pmatch[i].rm_so);
-        poolptr += strlen ((char *) &strpool[poolptr]);
-        strpool[poolptr++] = '-';
-        strpool[poolptr++] = '>';
-        memcpy (&strpool[poolptr], &match_string[pmatch[i].rm_so], len);
-        poolptr += len;
-        return;
-    }
-
-    strpool[poolptr++] = '-';
-    strpool[poolptr++] = '1';
-    strpool[poolptr++] = '-';
-    strpool[poolptr++] = '>';
-}
-#else
-void matchstrings (strnumber s, strnumber t, int subcount, boolean icase)
-{ }
-
-void getmatch (int i)
-{ }
-#endif
-
 
 /* makecfilename
   input/ouput same as makecstring:

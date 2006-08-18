@@ -44,14 +44,6 @@ extern void undumpocptable();
 extern void runexternalocp();
 extern void btestin();
 
-extern boolean new_input_line ();
-extern boolean newinputln ();
-extern int getc_two ();
-extern int getfilemode ();
-extern void ungetc_two ();
-
-#define newinputline(stream, mode, flag)   new_input_line (stream, mode)
-
 /* Additions to texmfmp.h for pdfTeX */
 
 /* mark a char in font */

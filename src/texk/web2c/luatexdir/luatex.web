@@ -867,30 +867,6 @@ The program actually makes use also of a third kind of file, called a
 initialization.  We shall define a word file later; but it will be possible
 for us to specify simple operations on word files before they are defined.
 
-@d no_mode=0
-@d onebyte_mode=1
-@d ebcdic_mode=2
-@d twobyte_mode=3
-@d twobyteLE_mode=4
-
-@d trans_input=0
-@d trans_output=1
-@d trans_default_input=2
-@d trans_default_output=3
-@d trans_no_input=4
-@d trans_no_output=5
-@d trans_no_default_input=6
-@d trans_no_default_output=7
-
-@d mode_input=0
-@d mode_output=1
-@d mode_default_input=2
-@d mode_default_output=3
-@d mode_no_input=4
-@d mode_no_output=5
-@d mode_no_default_input=6
-@d mode_no_default_output=7
-
 @<Types...@>=
 @!eight_bits=0..65535; {unsigned one-byte quantity}
 @!real_eight_bits=0..255; {unsigned one-byte quantity}
@@ -1013,8 +989,6 @@ representing the beginning and ending of a line of text.
 @!first:0..buf_size; {the first unused position in |buffer|}
 @!last:0..buf_size; {end of the line just input to |buffer|}
 @!max_buf_stack:0..buf_size; {largest index used in |buffer|}
-@!term_in_mode:halfword;
-@!term_in_translation:halfword;
 
 @ The |input_ln| function brings the next line of input from the specified
 file into available positions of the buffer array and returns the value
@@ -1189,7 +1163,7 @@ label exit;
 begin t_open_in;
 loop@+begin wake_up_terminal; write(term_out,'**'); update_terminal;
 @.**@>
-  if not new_input_ln(term_in,term_in_mode,term_in_translation,true)
+  if not input_ln(term_in,true)
 then {this shouldn't happen}
     begin write_ln(term_out);
     write(term_out,'! End of file on the terminal... why?');
@@ -1316,10 +1290,10 @@ buffer, and returns its character value.
   deletions_allowed:=false; error; deletions_allowed:=true;
   a:=@"FFFD; return; end
 
-@p function buffer_to_unichar(@!k:integer):ASCII_code;
+@p function buffer_to_unichar(@!k:integer):integer;
 label exit;
-var a:@!ASCII_code; {a utf char}
-b:@!quarterword; { a utf nibble}
+var a:@!integer; {a utf char}
+b:@!integer; { a utf nibble}
 begin
     b := buffer[k];
     if b<@"80 then
@@ -1475,6 +1449,9 @@ or bell-rings or characters that are treated anomalously in text files.
 Unprintable characters of codes 128--255 are, similarly, rendered
 \.{\^\^80}--\.{\^\^ff}.
 
+Unprintable characters of codes 256--|65535| are, similarly, rendered
+\.{\^\^\^\^0100}--\.{\^\^\^\^ffff}.
+
 The boolean expression defined here should be |true| unless \TeX\
 internal code number~|k| corresponds to a non-troublesome visible
 symbol in the local character set.  An appropriate formula for the
@@ -1487,10 +1464,6 @@ Thus, at least 80 printable characters are needed.
 @:TeXbook}{\sl The \TeX book@>
 @^character set dependencies@>
 @^system dependencies@>
-
-@<Character |k| cannot be printed@>=
-  (k<" ")or(k>"~")
-
 
 @ @<Read the other strings...@>=
   g := loadpoolstrings((pool_size-string_vacancies));
@@ -1607,41 +1580,6 @@ using the |xchr| array to map it into an external character compatible with
 @d wterm_char(#)==begin if (#>=@"20) or (#=@"0A) or (#=@"0D) or (#=@"09) then wterm(xchr[#])
                  else begin wterm('^'); wterm('^'); wterm(xchr[#+64]);  end; end
 
-{TH: TODO: fix this for s > 65535 !}
-
-@d omega_write(#)==case term_out_mode of {this is to the log file}
-                   no_mode: write(#,xchr[s]);
-                   onebyte_mode,ebcdic_mode: write(#,xchr[s]);
-                   twobyte_mode: begin write(#,xchr[s div @"100]);
-                     write(#,xchr[s mod @"100]);
-                     end;
-                   twobyteLE_mode: begin write(#,xchr[s mod @"100]);
-                     write(#,xchr[s div @"100]);
-                     end;
-                   end
-
-@d omega_term_write(#)==case term_out_mode of
-                   no_mode: wterm_char(s);
-                   onebyte_mode,ebcdic_mode: wterm_char(s);
-                   twobyte_mode: begin write(#,xchr[s div @"100]);
-                     write(#,xchr[s mod @"100]);
-                     end;
-                   twobyteLE_mode: begin write(#,xchr[s mod @"100]);
-                     write(#,xchr[s div @"100]);
-                     end;
-                   end
-
-@d omega_file_write(#)==case write_file_mode[#] of
-                   no_mode: write(write_file[#],xchr[s]);
-                   onebyte_mode,ebcdic_mode: write(write_file[#],xchr[s]);
-                   twobyte_mode: begin write(write_file[#],xchr[s div @"100]);
-                     write(write_file[#],xchr[s mod @"100]);
-                     end;
-                   twobyteLE_mode: begin write(write_file[#],xchr[s mod @"100]);
-                     write(write_file[#],xchr[s div @"100]);
-                     end;
-                   end
-
 
 @<Basic print...@>=
 procedure print_char(@!s:ASCII_code); {prints a single character}
@@ -1651,7 +1589,7 @@ begin if @<Character |s| is the current new-line character@> then
   begin print_ln; return;
   end;
 case selector of
-term_and_log: begin omega_term_write(term_out); omega_write(log_file);
+term_and_log: begin wterm_char(s); wlog(xchr[s]);
   incr(term_offset); incr(file_offset);
   if term_offset=max_print_line then
     begin wterm_cr; term_offset:=0;
@@ -1660,17 +1598,17 @@ term_and_log: begin omega_term_write(term_out); omega_write(log_file);
     begin wlog_cr; file_offset:=0;
     end;
   end;
-log_only: begin omega_write(log_file); incr(file_offset);
+log_only: begin wlog(xchr[s]); incr(file_offset);
   if file_offset=max_print_line then print_ln;
   end;
-term_only: begin omega_term_write(term_out); incr(term_offset);
+term_only: begin wterm_char(s); incr(term_offset);
   if term_offset=max_print_line then print_ln;
   end;
 no_print: do_nothing;
 pseudo: if tally<trick_count then trick_buf[tally mod error_line]:=s;
 new_string: begin if pool_ptr<pool_size then append_char(s);
   end; {we drop characters if the string space is full}
-othercases omega_file_write(selector)
+othercases write(write_file[selector],xchr[s])
 endcases;@/
 incr(tally);
 exit:end;
@@ -1731,9 +1669,11 @@ begin if s>=str_ptr then s:="???" {this can't happen}
 @.???@>
 else if s<string_offset then
   if s<0 then s:="???" {can't happen}
-  else begin if selector>=pseudo then
-      begin print_char(s); return; {internal strings are not expanded}
-      end;
+  else begin 
+    {TH not sure about this!}
+    {if selector>pseudo then}
+      {begin print_char(s); return; {internal strings are not expanded}}
+      {end;}
     if (@<Character |s| is the current new-line character@>) then
       if selector<pseudo then
         begin print_ln; return;
@@ -1741,18 +1681,18 @@ else if s<string_offset then
     if s <= @"80 then
       print_char(s)
     else if s<@"800 then begin
-      print_char(@"C0 + s div @"40);
-      print_char(@"80 + s mod @"40);
+      print_char(@"C0 + (s div @"40));
+      print_char(@"80 + (s mod @"40));
       end
     else if s<@"FFFF then begin
-      print_char(@"E0 + s div @"1000);
-      print_char(@"80 + (s mod @"1000) div @"40);
-      print_char(@"80 + (s mod @"1000) mod @"40);
+      print_char(@"E0 + (s div @"1000));
+      print_char(@"80 + ((s mod @"1000) div @"40));
+      print_char(@"80 + ((s mod @"1000) mod @"40));
     end else begin
-      print_char(@"F0 + s div @"40000);
-      print_char(@"80 + (s mod @"40000) div @"1000);
-      print_char(@"80 + ((s mod @"40000) mod @"1000) div @"40);
-      print_char(@"80 + ((s mod @"40000) mod @"1000) mod @"40);
+      print_char(@"F0 + (s div @"40000));
+      print_char(@"80 + ((s mod @"40000) div @"1000));
+      print_char(@"80 + (((s mod @"40000) mod @"1000) div @"40));
+      print_char(@"80 + (((s mod @"40000) mod @"1000) mod @"40));
       end;
     return;
     end;
@@ -1762,124 +1702,18 @@ while j<str_start_macro(s+1) do
   end;
 exit:end;
 
-procedure overflow_ocp_buf_size; forward;
-procedure overflow_ocp_stack_size; forward;
-
-{TH: TODO: fix omega_print !!}
-
 procedure print_nl(@!s:str_number); {prints string |s| at beginning of line}
 begin if ((term_offset>0)and(odd(selector)))or@|
   ((file_offset>0)and(selector>=log_only)) then print_ln;
 print(s);
 end;
 
-procedure omega_print(s:str_number);
-var new_s:str_number;
-    om_mode,om_translation:integer;
-    j:integer;
-begin
-om_mode:=no_mode;
-om_translation:=0;
-case selector of
-term_and_log,log_only,term_only: begin
-  om_mode:=term_out_mode;
-  if om_mode<>no_mode then om_translation:=term_out_translation;
-  end;
-no_print,pseudo,new_string: do_nothing;
-othercases begin
-  om_mode:=write_file_mode[selector];
-  if om_mode<>no_mode then om_translation:=write_file_translation[selector];
-  end
-endcases;
-if (om_mode=no_mode) or
-   ((om_mode=onebyte_mode) and (om_translation=0)) then
-  begin
-  j:=str_start_macro(s);
-  while j<str_start_macro(s+1) do begin
-    new_s:=so(str_pool[j]);
-    if new_s<@"20 then begin
-      print_char(@"5E); print_char(@"5E); print_char(new_s+@'100);
-      end
-    else if new_s<@"7F then
-      print_char(new_s)
-    else if new_s=@"7F then begin
-      print_char(@"5E); print_char(@"5E); print_char(new_s-@'100);
-      end
-    else if new_s<@"100 then begin
-      print_char(@"5E); print_char(@"5E);
-      print_lc_hex((new_s mod @"100) div @"10); print_lc_hex(new_s mod @"10);
-      end
-    else begin {Here is where we generate the strings on the fly.}
-      print_char(@"5E); print_char(@"5E);
-      print_char(@"5E); print_char(@"5E);
-      print_lc_hex(new_s div @"1000);
-      print_lc_hex((new_s mod @"1000) div @"100);
-      print_lc_hex((new_s mod @"100) div @"10);
-      print_lc_hex(new_s mod @"10);
-      end;
-    incr(j);
-    end;
-  end
-else begin
-  if om_translation=0 then begin
-    j:=str_start_macro(s);
-    otp_counter:=1;
-    while j<str_start_macro(s+1) do begin
-      otp_output_buf[otp_counter]:=so(str_pool[j]);
-      incr(otp_counter);
-      incr(j);
-      end;
-    otp_output_end:=otp_counter;
-    end
-  else begin
-    otp_input_start:=0;
-    otp_input_last:=0;
-    otp_stack_used:=0;
-    otp_stack_last:=0;
-    otp_stack_new:=0;
-    otp_output_end:=0;
-    otp_pc:=0;
-    otp_finished:=false;
-    otp_calc_ptr:=0;
-    otp_calcs[otp_calc_ptr]:=0;
-    otp_state_ptr:=0;
-    otp_states[otp_state_ptr]:=0;
-    otp_input_ocp:=om_translation;
-    j:=str_start_macro(s);
-    otp_counter:=1;
-    while j<str_start_macro(s+1) do begin
-      otp_input_buf[otp_counter]:=so(str_pool[j]);
-      incr(otp_counter);
-      incr(j);
-      end;
-    otp_input_end:=otp_counter;
-    while not otp_finished do
-      @<Run the OTP program@>;
-    end;
-  for otp_counter:=1 to (otp_output_end-1) do begin
-    new_s:=otp_output_buf[otp_counter];
-    if (om_mode<twobyte_mode) and (new_s>255) then
-      begin
-      print_char(@"5E); print_char(@"5E);
-      print_char(@"5E); print_char(@"5E);
-      print_lc_hex(new_s div @"1000);
-      print_lc_hex((new_s mod @"1000) div @"100);
-      print_lc_hex((new_s mod @"100) div @"10);
-      print_lc_hex(new_s mod @"10);
-      end
-    else
-      print_char(new_s);
-    end;
-  end;
-end;
-
-
 @ Control sequence names, file names, and strings constructed with
 \.{\\string} might contain |ASCII_code| values that can't
 be printed using |print_char|. Therefore we use |slow_print| for them:
 
 @<Basic print...@>=
-procedure old_slow_print(@!s:integer); {prints string |s|}
+procedure slow_print(@!s:integer); {prints string |s|}
 var j:pool_pointer; {current character code position}
 begin if (s>=str_ptr) or (s<string_offset) then print(s)
 else begin j:=str_start_macro(s);
@@ -1888,11 +1722,6 @@ else begin j:=str_start_macro(s);
     end;
   end;
 end;
-procedure slow_print(@!s:integer); {prints string |s|}
-begin if (s>=str_ptr) or (s<=biggest_char) then print(s)
-else omega_print(s);
-end;
-
 
 @ Here is the very first thing that \TeX\ prints: a headline that identifies
 the version number and format package. The |term_offset| variable is temporarily
@@ -2035,7 +1864,7 @@ This procedure is never called when |interaction<scroll_mode|.
 @p procedure term_input; {gets a line from the terminal}
 var k:0..buf_size; {index into |buffer|}
 begin update_terminal; {now the user sees the prompt for sure}
-if not new_input_ln(term_in,term_in_mode,term_in_translation,true)
+if not input_ln(term_in,true)
 then fatal_error("End of file on the terminal!");
 @.End of file on the terminal@>
 term_offset:=0; {the user's line ended with \<\rm return>}
@@ -5055,9 +4884,7 @@ that might be expanded by `\.{\\the}'.
    {Operations for building a list of OCPs}
 @d ocp_trace_level=ocp_list_op+1
    {Tracing of active OCPs, either 0 or 1}
-@d char_trans=ocp_trace_level+1
-@d char_mode=char_trans+1
-@d max_command=char_mode
+@d max_command=ocp_trace_level
    {the largest command code seen at |big_switch|}
 
 @ The remaining command codes are extra special, since they cannot get through
@@ -5671,19 +5498,7 @@ registers.
 @d ocp_active_min_ptr_base = ocp_active_number_base+1
 @d ocp_active_max_ptr_base = ocp_active_min_ptr_base+1
 @d ocp_active_base = ocp_active_max_ptr_base+1
-@d ocp_input_mode_base=ocp_active_base+max_active_ocp_lists
-@d ocp_input_onebyte_translation_base    =ocp_input_mode_base+ 1
-@d ocp_input_ebcdic_translation_base     =ocp_input_mode_base+ 2
-@d ocp_input_twobyte_translation_base    =ocp_input_mode_base+ 3
-@d ocp_input_twobyteLE_translation_base  =ocp_input_mode_base+ 4
-
-@d ocp_output_mode_base                  =ocp_input_mode_base+ 5
-@d ocp_output_onebyte_translation_base   =ocp_input_mode_base+ 6
-@d ocp_output_ebcdic_translation_base    =ocp_input_mode_base+ 7
-@d ocp_output_twobyte_translation_base   =ocp_input_mode_base+ 8
-@d ocp_output_twobyteLE_translation_base =ocp_input_mode_base+ 9
-
-@d toks_base                             =ocp_input_mode_base+10
+@d toks_base       = ocp_active_base+max_active_ocp_lists
    {table of |number_regs| token list registers}
 @#
 @d etex_pen_base=toks_base+number_regs {start of table of \eTeX's penalties}
@@ -5849,6 +5664,7 @@ if (n=par_shape_loc) or ((n>=etex_pen_base) and (n<etex_pens)) then
   else print_int(info(par_shape_ptr));
   end
 else if n<toks_base then
+  {TH TODO make extra cases for ocps here! }
   begin print_cmd_chr(assign_toks,n); print_char("=");
   if equiv(n)<>null then show_token_list(link(equiv(n)),null,32);
   end
@@ -8617,25 +8433,11 @@ end;
 @ To get \TeX's whole input mechanism going, we perform the following
 actions.
 
-The lines from |term_in_mode| to |term_out_translation| config could not
-work exactly like it was done in Aleph, because in non-ini mode, there
-is no |eqtb| until after the format is loaded (aleph does the required
-|eqtb| & |hash| setup differently). If I understood correctly, only
-the |qeb_define| was non-transient, so let's do that in two locations.
-The other place is right after the |alloc|, in luatex.ch
-
 @<Initialize the input routines@>=
 begin input_ptr:=0; max_in_stack:=0;
 in_open:=0; open_parens:=0; max_buf_stack:=0;
 grp_stack[0]:=0; if_stack[0]:=null;
 param_ptr:=0; max_param_stack:=0;
-Init
-@<fix the |ocp_input_mode_base| definition@>;
-Tini
-term_in_mode:=1;
-term_out_mode:=1;
-term_in_translation := 0;
-term_out_translation:= 0;
 first:=buf_size; repeat buffer[first]:=0; decr(first); until first=0;
 scanner_status:=normal; warning_index:=null; first:=1;
 state:=new_line; start:=1; index:=0; line:=0; name:=0;
@@ -8645,9 +8447,6 @@ align_state:=1000000;@/
 if not init_terminal then goto final_end;
 limit:=last; first:=last+1; {|init_terminal| has set |loc| and |last|}
 end
-
-@ @<fix the |ocp_input_mode_base| definition@>=
-geq_define(ocp_input_mode_base,data,1)
 
 @* \[24] Getting the next token.
 The heart of \TeX's input mechanism is the |get_next| procedure, which
@@ -8791,15 +8590,16 @@ label restart, {go here to get the next input token}
 var k:0..buf_size; {an index into |buffer|}
 @!t:halfword; {a token}
 @!cat:0..15; {|cat_code(cur_chr)|, usually}
-@!c,@!cc:ASCII_code; {constituents of a possible expanded code}
-@!d:2..3; {number of excess characters in an expanded code}
+@!c,@!cc,@!ccc,@!cccc:ASCII_code; {constituents of a possible expanded code}
+@!d:2..7; {number of excess characters in an expanded code}
 begin restart: cur_cs:=0;
 if state<>token_list then
 @<Input from external file, |goto restart| if no input found@>
 else @<Input from token list, |goto restart| if end of list or
   if a parameter needs to be expanded@>;
 @<If an alignment entry has just ended, take appropriate action@>;
-exit:end;
+exit:
+end;
 
 @ An alignment entry ends when a tab or \.{\\cr} occurs, provided that the
 current level of braces is the same as the level that was present at the
@@ -8812,8 +8612,8 @@ if cur_cmd<=car_ret then if cur_cmd>=tab_mark then if align_state=0 then
   @<Insert the \(v)\<v_j> template and |goto restart|@>
 
 @ 
-@d unicode_loc(#)==if buffer[#]>@"F0 then #:=#+4 else if buffer[#]>@"E0 
-     then #:=#+3 else if buffer[#]>@"C0 then #:=#+2 else incr(#)
+@d unicode_loc(#)==if buffer[#]>=@"F0 then #:=#+4 else if buffer[#]>=@"E0 
+     then #:=#+3 else if buffer[#]>=@"C0 then #:=#+2 else incr(#)
 
 @<Input from external file, |goto restart| if no input found@>=
 @^inner loop@>
@@ -8932,21 +8732,41 @@ end
   if c<="9" then cur_chr:=c-"0" @+else cur_chr:=c-"a"+10;
   if cc<="9" then cur_chr:=16*cur_chr+cc-"0"
   else cur_chr:=16*cur_chr+cc-"a"+10
+@d long_hex_to_cur_chr==
+  if c<="9" then cur_chr:=c-"0" @+else cur_chr:=c-"a"+10;
+  if cc<="9" then cur_chr:=16*cur_chr+cc-"0"
+  else cur_chr:=16*cur_chr+cc-"a"+10;
+  if ccc<="9" then cur_chr:=16*cur_chr+ccc-"0"
+  else cur_chr:=16*cur_chr+ccc-"a"+10;
+  if cccc<="9" then cur_chr:=16*cur_chr+cccc-"0"
+  else cur_chr:=16*cur_chr+cccc-"a"+10
+ 
 
 @<If this |sup_mark| starts an expanded character...@>=
-begin if cur_chr=buffer[loc] then if loc<limit then
-  begin c:=buffer[loc+1]; @+if c<@'200 then {yes we have an expanded char}
-    begin loc:=loc+2;
-    if is_hex(c) then if loc<=limit then
-      begin cc:=buffer[loc]; @+if is_hex(cc) then
-        begin incr(loc); hex_to_cur_chr; goto reswitch;
+begin 
+  if cur_chr=buffer[loc] then 
+  if loc<limit then begin 
+    if (cur_chr=buffer[loc+1]) and (cur_chr=buffer[loc+2]) and ((loc+6)<=limit) then begin 
+      c:=buffer[loc+3]; cc:=buffer[loc+4]; 
+      ccc:=buffer[loc+5]; cccc:=buffer[loc+6];
+      if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) then begin
+        loc:=loc+7; long_hex_to_cur_chr;
+        goto reswitch;
         end;
       end;
-    if c<@'100 then cur_chr:=c+@'100 @+else cur_chr:=c-@'100;
-    goto reswitch;
+  	c:=buffer[loc+1]; 
+    if c<@'200 then begin {yes we have an expanded char}
+      loc:=loc+2;
+      if is_hex(c) then if loc<=limit then begin 
+        cc:=buffer[loc]; @+if is_hex(cc) then begin 
+          incr(loc); hex_to_cur_chr; goto reswitch;
+          end;
+        end;
+      if c<@'100 then cur_chr:=c+@'100 @+else cur_chr:=c-@'100;
+      goto reswitch;
+      end;
     end;
-  end;
-state:=mid_line;
+  state:=mid_line;
 end
 
 @ @<Process an active-character...@>=
@@ -8999,31 +8819,76 @@ the buffer left two or three places.
 
 @<If an expanded...@>=
 begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
-  begin c:=buffer[k+1]; @+if c<@'200 then {yes, one is indeed present}
-    begin d:=2;
-    if is_hex(c) then @+if k+2<=limit then
-      begin cc:=buffer[k+2]; @+if is_hex(cc) then incr(d);
-      end;
-    if d>2 then
-      begin hex_to_cur_chr; buffer[k-1]:=cur_chr;
-      end
-    else if c<@'100 then buffer[k-1]:=c+@'100
-    else buffer[k-1]:=c-@'100;
-    limit:=limit-d; first:=first-d;
-    while k<=limit do
-      begin buffer[k]:=buffer[k+d]; incr(k);
-      end;
-    goto start_cs;
-    end;
-  end;
+  begin if (cur_chr=buffer[k+1]) and (cur_chr=buffer[k+2]) and 
+           ((k+6)<=limit) then 
+     begin c:=buffer[k+3]; cc:=buffer[k+4]; 
+       ccc:=buffer[k+5]; cccc:=buffer[k+6];
+       if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) then 
+       begin d:=7; long_hex_to_cur_chr;
+       if cur_chr <= @"80 then
+         buffer[k-1]:= cur_chr
+       else if cur_chr<@"800 then begin
+         buffer[k-1]:=@"C0 + cur_chr div @"40;
+         incr(k); decr(d);
+         buffer[k-1]:=@"80 + cur_chr mod @"40;
+         end
+       else if cur_chr<@"FFFF then begin
+         buffer[k-1]:=@"E0 + cur_chr div @"1000;
+         incr(k);  decr(d);
+         buffer[k-1]:=@"80 + (cur_chr mod @"1000) div @"40;
+         incr(k);  decr(d);
+         buffer[k-1]:=@"80 + (cur_chr mod @"1000) mod @"40;
+         end
+       else begin
+         buffer[k-1]:=@"F0 + cur_chr div @"40000;
+         incr(k);  decr(d);
+         buffer[k-1]:=@"80 + (cur_chr mod @"40000) div @"1000;
+         incr(k);  decr(d);
+         buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) div @"40;
+         incr(k);  decr(d);
+         buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) mod @"40;
+         end;
+       while k<=limit do
+         begin buffer[k]:=buffer[k+d]; incr(k);
+         end;
+       goto start_cs;
+       end
+     end
+     else begin 
+       c:=buffer[k+1]; @+if c<@'200 then {yes, one is indeed present}
+       begin 
+          d:=2;
+          if is_hex(c) then @+if k+2<=limit then
+            begin cc:=buffer[k+2]; @+if is_hex(cc) then incr(d);
+            end;
+          if d>2 then
+            begin hex_to_cur_chr; buffer[k-1]:=cur_chr;
+            end
+          else if c<@'100 then buffer[k-1]:=c+@'100
+          else buffer[k-1]:=c-@'100;
+          limit:=limit-d; first:=first-d;
+          while k<=limit do
+            begin buffer[k]:=buffer[k+d]; incr(k);
+            end;
+          goto start_cs;
+       end
+     end
+  end
 end
 
 @ @<Scan ahead in the buffer...@>=
 begin repeat cur_chr:=buffer_to_unichar(k); cat:=cat_code(cur_chr); unicode_loc(k);
 until (cat<>letter)or(k>limit);
 @<If an expanded...@>;
-if cat<>letter then decr(k);
-  {now |k| points to first nonletter}
+if cat<>letter then begin
+    decr(k);
+	if (cur_chr>@"FFFF) then
+      decr(k);
+	if (cur_chr>@"800) then
+      decr(k);
+	if (cur_chr>@"7F) then
+      decr(k);
+  end;  {now |k| points to first nonletter}
 if k>loc+1 then {multiletter control sequence has been scanned}
   begin cur_cs:=id_lookup(loc,k-loc); loc:=k; goto found;
   end;
@@ -9131,8 +8996,7 @@ if not force_eof then
     else force_eof:=true;
     end
   else
-  begin if new_input_ln(cur_file,input_file_mode[index],
-           input_file_translation[index],true) then {not end of file}
+  begin if input_ln(cur_file,true) then {not end of file}
     firm_up_the_line {this sets |limit|}
   else if (every_eof<>null)and not eof_seen[index] then
     begin limit:=first-1; eof_seen[index]:=true; {fake one empty line}
@@ -9990,8 +9854,14 @@ else begin
       begin store_new_token(cur_tok); incr(k);
       end
     else if (cur_cmd<>spacer)or(p<>backup_head) then
-      begin back_input;
-      if p<>backup_head then back_list(link(backup_head));
+      begin 
+      if p<>backup_head then begin
+         q:=get_avail; info(q):=cur_tok; link(q):=null;
+         link(p) := q;
+         back_list(link(backup_head));
+	     end
+      else
+         back_input;
       scan_keyword:=false; return;
       end;
     end;
@@ -11392,15 +11262,13 @@ such that |job_name_code| remains last.
 @d pdf_file_size_code       = pdftex_first_expand_code + 16 {command code for \.{\\pdffilesize}}
 @d pdf_mdfive_sum_code      = pdftex_first_expand_code + 17 {command code for \.{\\pdfmdfivesum}}
 @d pdf_file_dump_code       = pdftex_first_expand_code + 18 {command code for \.{\\pdffiledump}}
-@d pdf_match_code           = pdftex_first_expand_code + 19 {command code for \.{\\pdfmatch}}
-@d pdf_last_match_code      = pdftex_first_expand_code + 20 {command code for \.{\\pdflastmatch}}
-@d uniform_deviate_code     = pdftex_first_expand_code + 21 {command code for \.{\\uniformdeviate}}
-@d normal_deviate_code      = pdftex_first_expand_code + 22 {command code for \.{\\normaldeviate}}
-@d pdf_insert_ht_code       = pdftex_first_expand_code + 23 {command code for \.{\\pdfinsertht}}
-@d pdf_ximage_bbox_code     = pdftex_first_expand_code + 24 {command code for \.{\\pdfximagebbox}}
-@d lua_code                 = pdftex_first_expand_code + 25 {command code for \.{\\directlua}}
-@d lua_escape_string_code   = pdftex_first_expand_code + 26 {command code for \.{\\luaescapestring}}
-@d pdftex_convert_codes     = pdftex_first_expand_code + 27 {end of \pdfTeX's command codes}
+@d uniform_deviate_code     = pdftex_first_expand_code + 19 {command code for \.{\\uniformdeviate}}
+@d normal_deviate_code      = pdftex_first_expand_code + 20 {command code for \.{\\normaldeviate}}
+@d pdf_insert_ht_code       = pdftex_first_expand_code + 21 {command code for \.{\\pdfinsertht}}
+@d pdf_ximage_bbox_code     = pdftex_first_expand_code + 22 {command code for \.{\\pdfximagebbox}}
+@d lua_code                 = pdftex_first_expand_code + 23 {command code for \.{\\directlua}}
+@d lua_escape_string_code   = pdftex_first_expand_code + 24 {command code for \.{\\luaescapestring}}
+@d pdftex_convert_codes     = pdftex_first_expand_code + 25 {end of \pdfTeX's command codes}
 @d job_name_code=pdftex_convert_codes {command code for \.{\\jobname}}
 
 @<Put each...@>=
@@ -11456,10 +11324,6 @@ primitive("pdfmdfivesum",convert,pdf_mdfive_sum_code);@/
 @!@:pdf_mdfive_sum_}{\.{\\pdfmdfivesum} primitive@>
 primitive("pdffiledump",convert,pdf_file_dump_code);@/
 @!@:pdf_file_dump_}{\.{\\pdffiledump} primitive@>
-primitive("pdfmatch",convert,pdf_match_code);@/
-@!@:pdf_match_}{\.{\\pdfmatch} primitive@>
-primitive("pdflastmatch",convert,pdf_last_match_code);@/
-@!@:pdf_last_match_}{\.{\\pdflastmatch} primitive@>
 primitive("pdfstrcmp",convert,pdf_strcmp_code);@/
 @!@:pdf_strcmp_}{\.{\\pdfstrcmp} primitive@>
 primitive("pdfuniformdeviate",convert,uniform_deviate_code);@/
@@ -11506,8 +11370,6 @@ convert: case chr_code of
   pdf_file_size_code:     print_esc("pdffilesize");
   pdf_mdfive_sum_code:    print_esc("pdfmdfivesum");
   pdf_file_dump_code:     print_esc("pdffiledump");
-  pdf_match_code:         print_esc("pdfmatch");
-  pdf_last_match_code:    print_esc("pdflastmatch");
   pdf_strcmp_code:        print_esc("pdfstrcmp");
   uniform_deviate_code:   print_esc("pdfuniformdeviate");
   normal_deviate_code:    print_esc("pdfnormaldeviate");
@@ -11758,53 +11620,6 @@ pdf_file_dump_code:
     getfiledump(s, i, j);
     link(garbage) := str_toks(b);
     flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_match_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    {scan for icase}
-    bool := scan_keyword("icase");
-    {scan for subcount}
-    i := -1; {default for subcount}
-    if scan_keyword("subcount") then begin
-      scan_int;
-      i := cur_val;
-    end;
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    scan_pdf_ext_toks;
-    t := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    matchstrings(s, t, i, bool);
-    link(garbage) := str_toks(b);
-    flush_str(t);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_last_match_code:
-  begin
-    scan_int;
-    if cur_val < 0 then begin
-      print_err("Bad match number");
-@.Bad match number@>
-      help2("Since I expected zero or a positive number,")@/
-      ("I changed this one to zero.");
-      int_error(cur_val);
-      cur_val := 0;
-    end;
-    b := pool_ptr;
-    getmatch(cur_val);
-    link(garbage) := str_toks(b);
     ins_list(link(temp_head));
     return;
   end;
@@ -12106,8 +11921,6 @@ and |normal| if it is open and ready to read the next line.
 
 @<Glob...@>=
 @!read_file:array[0..15] of alpha_file; {used for \.{\\read}}
-@!read_file_mode:array[0..15] of halfword;
-@!read_file_translation:array[0..15] of halfword;
 @!read_open:array[0..16] of normal..closed; {state of |read_file[n]|}
 
 @ @<Set init...@>=
@@ -12173,23 +11986,15 @@ must be told not to start with |get|.
 @^system dependencies@>
 
 @<Input the first line of |read_file[m]|@>=
-begin read_file_mode[m]:=
-  get_file_mode(read_file[m], equiv(ocp_input_mode_base));
-if read_file_mode[m]>0
-then read_file_translation[m]:=
-     equiv(ocp_input_onebyte_translation_base+read_file_mode[m]-1);
-if new_input_ln(read_file[m],read_file_mode[m],
-   read_file_translation[m],false) then read_open[m]:=normal
+if input_ln(read_file[m],false) then read_open[m]:=normal
 else  begin a_close(read_file[m]); read_open[m]:=closed;
   end
-end
 
 @ An empty line is appended at the end of a |read_file|.
 @^empty line at end of file@>
 
 @<Input the next line of |read_file[m]|@>=
-begin if not new_input_ln(read_file[m],
-read_file_mode[m],read_file_translation[m],true) then
+begin if not input_ln(read_file[m],true) then
   begin a_close(read_file[m]); read_open[m]:=closed;
   if align_state<>1000000 then
     begin runaway;
@@ -13123,13 +12928,7 @@ contain a single blank line.
 
 @<Read the first line...@>=
 begin line:=1;
-input_file_mode[index]:=
-  get_file_mode(cur_file, equiv(ocp_input_mode_base));
-if input_file_mode[index]>0
-then input_file_translation[index]:=
-     equiv(ocp_input_onebyte_translation_base+input_file_mode[index]-1);
-if new_input_ln(cur_file,input_file_mode[index],
-   input_file_translation[index],false) then do_nothing;
+if input_ln(cur_file,false) then do_nothing;
 firm_up_the_line;
 if end_line_char_inactive then decr(limit)
 else  buffer[limit]:=end_line_char;
@@ -33346,8 +33145,6 @@ any_mode(push_ocp_list),
 any_mode(pop_ocp_list),
 any_mode(ocp_list_op),
 any_mode(ocp_trace_level) : prefixed_command;
-any_mode(char_mode) : do_char_mode;
-any_mode(char_trans) : do_char_translation;
 
 @ If the user says, e.g., `\.{\\global\\global}', the redundancy is
 silently accepted.
@@ -40919,250 +40716,7 @@ end;
 @* \[54] $\Omega$ changes.
 
 @ Here we do the main work required for reading and interpreting
-  $\Omega$ Input Translation Processes.
-
-@ @<Put each...@>=
-primitive("InputTranslation",           char_trans, trans_input);
-primitive("OutputTranslation",          char_trans, trans_output);
-primitive("DefaultInputTranslation",    char_trans, trans_default_input);
-primitive("DefaultOutputTranslation",   char_trans, trans_default_output);
-primitive("noInputTranslation",         char_trans, trans_no_input);
-primitive("noOutputTranslation",        char_trans, trans_no_output);
-primitive("noDefaultInputTranslation",  char_trans, trans_no_default_input);
-primitive("noDefaultOutputTranslation", char_trans, trans_no_default_output);
-primitive("InputMode",                  char_mode,  mode_input);
-primitive("OutputMode",                 char_mode,  mode_output);
-primitive("DefaultInputMode",           char_mode,  mode_default_input);
-primitive("DefaultOutputMode",          char_mode,  mode_default_output);
-primitive("noInputMode",                char_mode,  mode_no_input);
-primitive("noOutputMode",               char_mode,  mode_no_output);
-primitive("noDefaultInputMode",         char_mode,  mode_no_default_input);
-primitive("noDefaultOutputMode",        char_mode,  mode_no_default_output);
-
-geq_define(ocp_input_onebyte_translation_base, data, 0);
-geq_define(ocp_input_ebcdic_translation_base, data, 0);
-geq_define(ocp_input_twobyte_translation_base, data, 0);
-geq_define(ocp_input_twobyteLE_translation_base, data, 0);
-geq_define(ocp_input_mode_base, data, 0);
-
-geq_define(ocp_output_onebyte_translation_base, data, 0);
-geq_define(ocp_output_ebcdic_translation_base, data, 0);
-geq_define(ocp_output_twobyte_translation_base, data, 0);
-geq_define(ocp_output_twobyteLE_translation_base, data, 0);
-geq_define(ocp_output_mode_base, data, 0);
-
-@ @<Cases of |print_cmd_chr|...@>=
-char_trans:
-  case chr_code of
-  trans_input:             print_esc("InputTranslation");
-  trans_output:            print_esc("OutputTranslation");
-  trans_default_input:     print_esc("DefaultInputTranslation");
-  trans_default_output:    print_esc("DefaultOutputTranslation");
-  trans_no_input:          print_esc("noInputTranslation");
-  trans_no_output:         print_esc("noOutputTranslation");
-  trans_no_default_input:  print_esc("noDefaultInputTranslation");
-  trans_no_default_output: print_esc("noDefaultOutputTranslation");
-  end;
-char_mode:
-  case chr_code of
-  mode_input:              print_esc("InputMode");
-  mode_output:             print_esc("OutputMode");
-  mode_default_input:      print_esc("DefaultInputMode");
-  mode_default_output:     print_esc("DefaultOutputMode");
-  mode_no_input:           print_esc("noInputMode");
-  mode_no_output:          print_esc("noOutputMode");
-  mode_no_default_input:   print_esc("noDefaultInputMode");
-  mode_no_default_output:  print_esc("noDefaultOutputMode");
-  end;
-
-@ @<Declare subprocedures for |prefixed_command|@>=
-procedure scan_file_referrent;
-begin
-if scan_keyword("currentfile") then cur_val:=max_halfword
-else scan_int;
-end;
-
-procedure scan_mode;
-begin
-if scan_keyword("onebyte") then cur_val:=onebyte_mode
-else if scan_keyword("ebcdic") then cur_val:=ebcdic_mode
-else if scan_keyword("twobyte") then cur_val:=twobyte_mode
-else if scan_keyword("twobyteLE") then cur_val:=twobyteLE_mode
-else begin print_err("Invalid input mode"); cur_val:=0; end;
-end;
-
-procedure do_char_translation;
-var kind:halfword;
-    fileref:halfword;
-    moderef:halfword;
-    ocpref:halfword;
-begin
-fileref:=0;
-moderef:=0;
-ocpref:=0;
-kind:=cur_chr;
-if (kind mod 4) <= 1 then begin
-  scan_file_referrent;
-  fileref:=cur_val;
-  end
-else begin
-  scan_mode;
-  moderef:=cur_val;
-  end;
-if kind < 4 then begin
-  scan_ocp_ident;
-  ocpref:=cur_val;
-  end;
-case (kind mod 4) of
-  trans_input: begin
-    if (fileref>=0) and (fileref<=15) then begin
-      read_file_translation[fileref]:=ocpref;
-      end
-    else if fileref<>max_halfword then begin
-      term_in_translation:=ocpref;
-      end
-    else begin
-      base_ptr:=input_ptr; input_stack[base_ptr]:=cur_input;
-      while state = token_list do
-        begin
-        decr(base_ptr);
-        cur_input:=input_stack[base_ptr];
-        end;
-      if name>17 then input_file_translation[index]:=ocpref;
-      cur_input:=input_stack[input_ptr];
-      end;
-    end;
-  trans_output: begin
-    if (fileref>=0) and (fileref<=15) then begin
-      write_file_translation[fileref]:=ocpref;
-      end
-    else begin
-      term_out_translation:=ocpref;
-      end;
-    end;
-  trans_default_input: begin
-    geq_define(ocp_input_mode_base+moderef,data,ocpref);
-    end;
-  trans_default_output: begin
-    geq_define(ocp_output_mode_base+moderef,data,ocpref);
-    end;
-  end;
-end;
-
-procedure do_char_mode;
-var kind:halfword;
-    fileref:halfword;
-    moderef:halfword;
-begin
-fileref:=0;
-moderef:=0;
-kind:=cur_chr;
-if (kind mod 4) <= 1 then begin
-  scan_file_referrent;
-  fileref:=cur_val;
-  end;
-if kind < 4 then begin
-  scan_mode;
-  moderef:=cur_val;
-  end;
-case (kind mod 4) of
-  trans_input: begin
-    if (fileref>=0) and (fileref<=15) then begin
-      read_file_mode[fileref]:=moderef;
-      end
-    else if fileref<>max_halfword then begin
-      term_in_mode:=moderef;
-      end
-    else begin
-      base_ptr:=input_ptr; input_stack[base_ptr]:=cur_input;
-      while state = token_list do
-        begin
-        decr(base_ptr);
-        cur_input:=input_stack[base_ptr];
-        end;
-      if name>17 then input_file_mode[index]:=moderef;
-      cur_input:=input_stack[input_ptr];
-      end;
-    end;
-  trans_output: begin
-    if (fileref>=0) and (fileref<=15) then begin
-      write_file_mode[fileref]:=moderef;
-      end
-    else begin
-      term_out_mode:=moderef;
-      end;
-    end;
-  trans_default_input: begin
-    geq_define(ocp_input_mode_base,data,moderef);
-    end;
-  trans_default_output: begin
-    geq_define(ocp_output_mode_base,data,moderef);
-    end;
-  end;
-end;
-
-function p_new_input_ln(f:alpha_file;
-the_mode,translation:halfword;
-bypass_eoln:boolean):boolean;
-begin
-if (the_mode=no_mode) or ((the_mode=onebyte_mode) and (translation=0))
-then p_new_input_ln:=input_ln(f,bypass_eoln)
-else if not newinputline(f,the_mode,bypass_eoln)
-then p_new_input_ln:=false
-else if translation=0 then
-begin
-   if (first+otp_input_end)>=buf_size then overflow("buffer size", buf_size);
-   state:=new_line;
-   start:=first;
-   last:=start;
-   loc:=start;
-   for otp_counter:=1 to otp_input_end do
-   begin
-      buffer[last]:=otp_input_buf[otp_counter];
-      incr(last);
-   end;
-   while buffer[last-1]=' ' do decr(last);
-   limit:=last-1;
-   p_new_input_ln:=true
-end
-else
-begin
-   otp_input_start:=0;
-   otp_input_last:=0;
-   otp_stack_used:=0;
-   otp_stack_last:=0;
-   otp_stack_new:=0;
-   otp_output_end:=0;
-   otp_pc:=0;
-   otp_finished:=false;
-   otp_calc_ptr:=0;
-   otp_calcs[otp_calc_ptr]:=0;
-   otp_state_ptr:=0;
-   otp_states[otp_state_ptr]:=0;
-   otp_input_ocp:=translation;
-   while not otp_finished do
-      @<Run the OTP program@>;
-   if (first+otp_output_end)>=buf_size then overflow("buffer size", buf_size);
-   state:=new_line;
-   start:=first;
-   last:=start;
-   loc:=start;
-   for otp_counter:=1 to otp_output_end do
-   begin
-      buffer[last]:=otp_output_buf[otp_counter];
-      incr(last);
-   end;
-   while buffer[last-1]=' ' do decr(last);
-   limit:=last-1;
-   p_new_input_ln:=true
-end
-end;
-
-@ Here we do the main work required for reading and interpreting
   $\Omega$ Compiled Translation Processes.
-
-@
-@<Types...@>=
 
 @ Here are all the instructions in our mini-assembler.
 @d otp_right_output=1
@@ -41268,7 +40822,12 @@ begin
 goto big_switch;
 end;
 
-@
+@ The OTP input buffer is an array of 16-bit values. 
+In the future, the range |@"D800| \dots |@"DFFF| will be used for 
+surrogate pairs, so it cannot be used for simple 16-bit values
+like it is in Omega, so a future incompatibility with Aleph is 
+unavoidable.
+
 @<Read in the buffer for treatment@>=
 begin
 otp_init_input_end:=0;
@@ -41277,7 +40836,19 @@ while (cur_cmd=letter) or (cur_cmd=other_char) or
   incr(otp_init_input_end);
   if otp_init_input_end >ocp_buf_size then
     overflow_ocp_buf_size;
-  otp_init_input_buf[otp_init_input_end]:=cur_chr;
+  { |cur_chr| can cover the full range |0..0x10FFFF| }
+  if cur_chr<@"10000 then
+    otp_init_input_buf[otp_init_input_end]:=cur_chr
+  else
+    if false then begin  { ignore for now }
+      otp_init_input_buf[otp_init_input_end]:=((cur_chr - @"10000) div @"400) + @"D800;
+      incr(otp_init_input_end);
+      if otp_init_input_end >ocp_buf_size then
+        overflow_ocp_buf_size;
+      otp_init_input_buf[otp_init_input_end]:=((cur_chr - @"10000) mod @"400) + @"DC00;
+      end 
+    else
+      otp_init_input_buf[otp_init_input_end]:=cur_chr;
   get_token;
   if (cur_cmd<>letter) and (cur_cmd<>other_char) and
      (cur_cmd<>char_given) then begin
@@ -41336,7 +40907,12 @@ else begin
   end
 end
 
-@
+@ The OTP output buffer is an array of 16-bit values. To convert
+back to the |buffer| it has to be re-encoded into UTF-8. An
+incompatibility with Aleph is unavoidable here: In the future, the
+ range |@"D800| \dots |@"DFFF| is used for surrogate pairs, not for
+simple 16-bit values. 
+
 @<Place the output buffer back on the stream@>=
 begin
 if (first+otp_output_end)>=ocp_buf_size then
@@ -41349,10 +40925,65 @@ start:=first;
 last:=start;
 loc:=start;
 for otp_counter:=1 to otp_output_end do begin
-  buffer[last]:=otp_output_buf[otp_counter];
-  incr(last);  {no overflow problem}
+    { convert back to utf-8 }
+	t := otp_output_buf[otp_counter];
+	if otp_counter < otp_output_end then
+	 if false then { ignore surrogates for now }
+       if ((t>=@"D800) and (t<@"DC00)) then 
+	     if (otp_output_buf[otp_counter+1]>=@"DC00)
+          and (otp_output_buf[otp_counter+1]<@"E000) then begin
+             incr(otp_counter);
+	         t := (t-@"D800) * @"400 + (otp_output_buf[otp_counter]-@"DC00) + @"10000;
+           end
+       else if ((t>=@"DC00) and (t<@"E000)) then 
+	     if (otp_output_buf[otp_counter+1]>=@"D800)
+           and (otp_output_buf[otp_counter+1]<@"DC00) then begin
+             incr(otp_counter);
+	         t := (otp_output_buf[otp_counter]-@"D800) * @"400 + (t-@"DC00) + @"10000;
+           end;
+    if t <= @"80 then
+      buffer[last]:= t
+    else if t<@"800 then begin
+      buffer[last]:=@"C0 + t div @"40;
+      incr(last); 
+      if last=buf_size-2 then
+        @<Report overflow of the input buffer, and abort@>;
+      buffer[last]:=@"80 + t mod @"40;
+      end
+    else if t<@"FFFF then	begin
+      buffer[last]:=@"E0 + t div @"1000;
+      incr(last);
+      if last=buf_size-2 then
+        @<Report overflow of the input buffer, and abort@>;
+      buffer[last]:=@"80 + (t mod @"1000) div @"40;
+      incr(last);
+      if last=buf_size-2 then
+        @<Report overflow of the input buffer, and abort@>;
+      buffer[last]:=@"80 + (t mod @"1000) mod @"40;
+      end
+    else begin
+      buffer[last]:=@"F0 + t div @"40000;
+      incr(last);
+      if last=buf_size-2 then
+        @<Report overflow of the input buffer, and abort@>;
+      buffer[last]:=@"80 + (t mod @"40000) div @"1000;
+      incr(last);
+      if last=buf_size-2 then
+        @<Report overflow of the input buffer, and abort@>;
+      buffer[last]:=@"80 + ((t mod @"40000) mod @"1000) div @"40;
+      incr(last);
+      if last=buf_size-2 then
+        @<Report overflow of the input buffer, and abort@>;
+      buffer[last]:=@"80 + ((t mod @"40000) mod @"1000) mod @"40;
+      end;
+    incr(last);
+    if last=buf_size-2 then
+      @<Report overflow of the input buffer, and abort@>;
   end;
 limit:=last-1;
+if (t>@"FFFF) then decr(limit);
+if (t>@"800)  then decr(limit);
+if (t>@"7F)   then decr(limit);
 first:=last;
 end
 

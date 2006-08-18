@@ -2599,7 +2599,6 @@ undump_int(hash_high);
   eq_level(undefined_control_sequence):=level_zero;
   for x:=eqtb_size+1 to eqtb_top do
     eqtb[x]:=eqtb[undefined_control_sequence];
-  @<fix the |ocp_input_mode_base| definition@>;
 @z
 
 @x
