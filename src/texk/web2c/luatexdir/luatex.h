@@ -20,6 +20,35 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 $Id $
 */
 
+/* some code array functions */
+
+extern void     setmathcode (integer n, halfword v, quarterword grouplevel);
+extern halfword getmathcode (integer n);
+
+extern void     setdelcode (integer n, halfword v,  halfword w, quarterword grouplevel);
+extern halfword getdelcodea (integer n);
+extern halfword getdelcodeb (integer n);
+
+extern void unsavemathcodes (quarterword grouplevel);
+extern void initializemathcodes ();
+extern void dumpmathcodes ();
+extern void undumpmathcodes ();
+
+extern void     setlccode  (integer n, halfword v, quarterword grouplevel);
+extern halfword getlccode  (integer n);
+extern void     setuccode  (integer n, halfword v, quarterword grouplevel);
+extern halfword getuccode  (integer n);
+extern void     setsfcode  (integer n, halfword v, quarterword grouplevel);
+extern halfword getsfcode  (integer n);
+extern void     setcatcode (integer n, halfword v, quarterword grouplevel);
+extern halfword getcatcode (integer n);
+
+extern void unsavetextcodes (quarterword grouplevel);
+extern void initializetextcodes ();
+extern void dumptextcodes ();
+extern void undumptextcodes ();
+
+
 /* this is needed for delcodes */ 
 
 #define setequiv1(a,v)  eqtb[(a)].cint1=v

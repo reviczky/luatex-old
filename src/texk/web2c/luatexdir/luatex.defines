@@ -40,6 +40,37 @@ $Id $
 @define procedure luacall();
 @define procedure closelua();
 
+{ bits for extended char code access }
+
+@define function getmathcode();
+@define procedure setmathcode();
+@define function getdelcodea();
+@define function getdelcodeb();
+@define procedure setdelcode();
+
+@define procedure unsavemathcodes ();
+@define procedure initializemathcodes;
+@define procedure dumpmathcodes;
+@define procedure undumpmathcodes;
+
+@define function getlccode();
+@define procedure setlccode();
+
+@define function getuccode();
+@define procedure setuccode();
+
+@define function getsfcode();
+@define procedure setsfcode();
+
+@define function getcatcode();
+@define procedure setcatcode();
+
+@define procedure unsavetextcodes ();
+@define procedure initializetextcodes;
+@define procedure dumptextcodes;
+@define procedure undumptextcodes;
+
+
 { bits and pieces from aleph }
 
 @define procedure btestin ;

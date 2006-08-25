@@ -1655,6 +1655,7 @@ begin
 	  a := a + (b-128);
       end
     else begin  { NI: this is an encoding error }
+      wterm('[INVALID:',b:1,']');
       a := @"FFFD;
       end;
 result := a;
@@ -1678,13 +1679,13 @@ else if s<string_offset then
       if selector<pseudo then
         begin print_ln; return;
         end;
-    if s <= @"80 then
+    if s<=@"7F then
       print_char(s)
-    else if s<@"800 then begin
+    else if s<=@"7FF then begin
       print_char(@"C0 + (s div @"40));
       print_char(@"80 + (s mod @"40));
       end
-    else if s<@"FFFF then begin
+    else if s<=@"FFFF then begin
       print_char(@"E0 + (s div @"1000));
       print_char(@"80 + ((s mod @"1000) div @"40));
       print_char(@"80 + ((s mod @"1000) mod @"40));
@@ -5245,9 +5246,8 @@ things.
 paragraphs is to define these names, and to set up the initial values of the
 equivalents.
 
-In the first region we have |number_chars| equivalents for ``active characters'' that
-act as control sequences, followed by |number_chars| equivalents for single-character
-control sequences.
+In the first region we have |number_chars| equivalents for ``active
+characters'' that act as control sequences.
 
 Then comes region~2, which corresponds to the hash table that we will
 define later.  The maximum address in this region is used for a dummy
@@ -5256,8 +5256,7 @@ locations for control sequences that are perpetually defined
 (since they are used in error recovery).
 
 @d active_base=1 {beginning of region 1, for active character equivalents}
-@d single_base=active_base+number_chars {equivalents of one-character control sequences}
-@d null_cs=single_base+number_chars {equivalent of \.{\\csname\\endcsname}}
+@d null_cs=active_base+number_chars {equivalent of \.{\\csname\\endcsname}}
 @d hash_base=null_cs+1 {beginning of region 2, for the hash table}
 @d frozen_control_sequence=hash_base+hash_size {for error recovery}
 @d frozen_protection=frozen_control_sequence {inaccessible but definable}
@@ -5516,11 +5515,11 @@ registers.
    {table of |number_math_fonts| math font numbers}
 @d cat_code_base=math_font_base+number_math_fonts 
    {table of |number_chars| command codes (the ``catcodes'')}
-@d lc_code_base=cat_code_base+number_chars {table of |number_chars| lowercase mappings}
-@d uc_code_base=lc_code_base+number_chars {table of |number_chars| uppercase mappings}
-@d sf_code_base=uc_code_base+number_chars {table of |number_chars| spacefactor mappings}
-@d math_code_base=sf_code_base+number_chars {table of |number_chars| math mode mappings}
-@d int_base=math_code_base+number_chars {beginning of region 5}
+@d lc_code_base=cat_code_base+1 {table of |number_chars| lowercase mappings}
+@d uc_code_base=lc_code_base+1 {table of |number_chars| uppercase mappings}
+@d sf_code_base=uc_code_base+1 {table of |number_chars| spacefactor mappings}
+@d math_code_base=sf_code_base+1 {table of |number_chars| math mode mappings}
+@d int_base=math_code_base+1 {beginning of region 5}
 @#
 @d par_shape_ptr==equiv(par_shape_loc)
 @d output_routine==equiv(output_routine_loc)
@@ -5542,12 +5541,6 @@ registers.
 @d box(#)==equiv(box_base+#)
 @d cur_font==equiv(cur_font_loc)
 @d fam_fnt(#)==equiv(math_font_base+#)
-@d cat_code(#)==equiv(cat_code_base+#)
-@d lc_code(#)==equiv(lc_code_base+#)
-@d uc_code(#)==equiv(uc_code_base+#)
-@d sf_code(#)==equiv(sf_code_base+#)
-@d math_code(#)==equiv(math_code_base+#)
-  {Note: |math_code(c)| is the true math code plus |min_halfword|}
 
 @<Put each...@>=
 primitive("output",assign_toks,output_routine_loc);
@@ -5627,30 +5620,30 @@ eq_level(cur_font_loc):=level_one;@/
 for k:=math_font_base to math_font_base+47 do eqtb[k]:=eqtb[cur_font_loc];
 equiv(cat_code_base):=0; eq_type(cat_code_base):=data;
 eq_level(cat_code_base):=level_one;@/
-for k:=cat_code_base+1 to int_base-1 do eqtb[k]:=eqtb[cat_code_base];
-{do not set all math_codes!}
-for k:=0 to biggest_char do
-  begin cat_code(k):=other_char; sf_code(k):=1000;
-  end;
-for k:=0 to 255 do
-  begin math_code(k):=hi(k); 
-  end;
-cat_code(carriage_return):=car_ret;
-cat_code(" "):=spacer;
-cat_code("\"):=escape;
-cat_code("%"):=comment;
-cat_code(invalid_code):=invalid_char;
-cat_code(null_code):=ignore;
-for k:="0" to "9" do math_code(k):=hi(k+var_code);
-for k:="A" to "Z" do
-  begin cat_code(k):=letter; cat_code(k+"a"-"A"):=letter;@/
-  math_code(k):=hi(k+var_code+@"10000);
-  math_code(k+32):=hi(k+32+var_code+@"10000);@/
-  lc_code(k):=k+32; lc_code(k+32):=k+32;@/
-  uc_code(k):=k; uc_code(k+32):=k;@/
-  sf_code(k):=999;
+eqtb[lc_code_base] :=eqtb[cat_code_base];
+eqtb[uc_code_base] :=eqtb[cat_code_base];
+eqtb[sf_code_base] :=eqtb[cat_code_base];
+eqtb[math_code_base]:=eqtb[cat_code_base];@/
+set_cat_code(carriage_return,car_ret,level_one);
+set_cat_code(" ",spacer,level_one);
+set_cat_code("\",escape,level_one);
+set_cat_code("%",comment,level_one);
+set_cat_code(invalid_code,invalid_char,level_one);
+set_cat_code(null_code,ignore,level_one);@/
+for k:="0" to "9" do set_math_code(k,(hi(k+var_code)),level_one);@/
+for k:="A" to "Z" do begin 
+  set_cat_code(k,letter,level_one); 
+  set_cat_code(k+"a"-"A",letter,level_one);@/
+  set_math_code(k,(hi(k+var_code+@"10000)),level_one);
+  set_math_code(k+32,(hi(k+32+var_code+@"10000)),level_one);@/
+  set_lc_code(k,k+32,level_one); set_lc_code(k+32,k+32,level_one);@/
+  set_uc_code(k,k,level_one);    set_uc_code(k+32,k,level_one);@/
+  set_sf_code(k,999,level_one);
   end;
 
+@ @<Set init...@>=
+initialize_math_codes;
+initialize_text_codes;
 
 @ @<Show equivalent |n|, in region 4@>=
 if (n=par_shape_loc) or ((n>=etex_pen_base) and (n<etex_pens)) then
@@ -5716,12 +5709,12 @@ if n<math_code_base then
   print_char("="); print_int(equiv(n));
   end
 else begin 
-  if is_omath(ho(equiv(n))) then
+  if is_omath(get_math_code(n-math_code_base)) then
     print_esc("omathcode")
   else    
     print_esc("mathcode"); 
   print_int(n-math_code_base);
-  print_char("="); print_int(ho(equiv(n)));
+  print_char("="); print_int(get_math_code(n-math_code_base));
   end
 
 @ Region 5 of |eqtb| contains the integer parameters and registers defined
@@ -5847,10 +5840,8 @@ that will be defined later.
 @d int_pars=etex_int_pars {total number of integer parameters}
 @d count_base=int_base+int_pars {|number_regs| user \.{\\count} registers}
 @d del_code_base=count_base+number_regs {|number_chars| delimiter code mappings}
-@d dimen_base=del_code_base+number_chars {beginning of region 6}
+@d dimen_base=del_code_base+1 {beginning of region 6}
 @#
-@d del_code0(#)==eqtb[del_code_base+#].int
-@d del_code1(#)==getequiv1(del_code_base+#)
 @d count(#)==eqtb[count_base+#].int
 @d int_par(#)==eqtb[int_base+#].int {an integer parameter}
 @d pretolerance==int_par(pretolerance_code)
@@ -6241,8 +6232,7 @@ for k:=int_base to del_code_base-1 do eqtb[k].int:=0;
 mag:=1000; tolerance:=10000; hang_after:=1; max_dead_cycles:=25;
 escape_char:="\"; end_line_char:=carriage_return;
 eqtb[int_base+level_local_dir_code].int:=level_one;
-for k:=0 to biggest_char do begin del_code0(k):=-1; setequiv1(del_code_base+k,-1); end ;
-del_code0("."):=0; setequiv1(del_code_base+".",0); {this null delimiter is used in error recovery}
+set_del_code(".",0,0,level_one); {this null delimiter is used in error recovery}
 
 
 @ The following procedure, which is called just before \TeX\ initializes its
@@ -6268,15 +6258,8 @@ else if n<del_code_base then
     print_char("="); print_int(eqtb[n].int);
   end
 else begin 
-  if ((is_omath(eqtb[n].int)) or (is_omath(getequiv1(n)))) then begin
-    print_esc("odelcode"); print_int(n-del_code_base);
-    print_char("="); print_int(eqtb[n].int); 
-    print_char(' ');
-    print_int(getequiv1(n));
-  end else begin
-    print_esc("delcode"); print_int(n-del_code_base);
-    print_char("="); print_int(eqtb[n].int);
-    end;
+  {TH: todo, this stuff doesnt work}
+  print_esc("delcode");
   end;
 end
 
@@ -6762,33 +6745,38 @@ for k:=j+1 to j+l-1 do
   end
 
 
-@ Single-character control sequences do not need to be looked up in a hash
-table, since we can use the character code itself as a direct address.
-The procedure |print_cs| prints the name of a control sequence, given
+@ The procedure |print_cs| prints the name of a control sequence, given
 a pointer to its address in |eqtb|. A space is printed after the name
 unless it is a single nonletter or an active character. This procedure
 might be invoked with invalid data, so it is ``extra robust.'' The
 individual characters must be printed one at a time using |print|, since
 they may be unprintable.
 
+@d single_letter(#)==(length(#)=1)or(length(#)>4)or
+   ((length(#)=4)and(str_pool[str_start_macro(#)]>=@"F0))or
+   ((length(#)=3)and(str_pool[str_start_macro(#)]>=@"E0))or
+   ((length(#)=2)and(str_pool[str_start_macro(#)]>=@"C0))
+
 @<Basic printing...@>=
 procedure print_cs(@!p:integer); {prints a purported control sequence}
 begin if p<hash_base then {single character}
-  if p>=single_base then
-    if p=null_cs then
-      begin print_esc("csname"); print_esc("endcsname");
-      end
-    else  begin print_esc(p-single_base);
-      if cat_code(p-single_base)=letter then print_char(" ");
-      end
+  if p=null_cs then
+    begin print_esc("csname"); print_esc("endcsname");
+    end
   else if p<active_base then print_esc("IMPOSSIBLE.")
 @.IMPOSSIBLE@>
   else print(p-active_base)
 else if p>=undefined_control_sequence then print_esc("IMPOSSIBLE.")
 else if (text(p)<0)or(text(p)>=str_ptr) then print_esc("NONEXISTENT.")
 @.NONEXISTENT@>
-else  begin print_esc(text(p));
-  print_char(" ");
+else  begin 
+  print_esc(text(p));
+  if single_letter(text(p)) then begin
+   	if get_cat_code(pool_to_unichar(str_start_macro(text(p))))=letter then 
+      do_nothing;
+    end
+  else
+    print_char(" ");
   end;
 end;
 
@@ -6798,10 +6786,9 @@ prints a space after the control sequence.
 @<Basic printing procedures@>=
 procedure sprint_cs(@!p:pointer); {prints a control sequence}
 begin if p<hash_base then
-  if p<single_base then print(p-active_base)
-  else  if p<null_cs then print_esc(p-single_base)
-    else  begin print_esc("csname"); print_esc("endcsname");
-      end
+  if p<null_cs then print(p-active_base)
+  else  begin print_esc("csname"); print_esc("endcsname");
+    end
 else print_esc(text(p));
 end;
 
@@ -6811,25 +6798,28 @@ and an operand (which will be the |equiv|). The |primitive| procedure
 does this, in a way that no \TeX\ user can. The global value |cur_val|
 contains the new |eqtb| pointer after |primitive| has acted.
 
-@p @!init procedure primitive(@!s:str_number;@!c:quarterword;@!o:halfword);
+@p @!init procedure primitive(@!ss:str_number;@!c:quarterword;@!o:halfword);
 var k:pool_pointer; {index into |str_pool|}
+@!s:str_number; {actual |str_number| used }
 @!j:0..buf_size; {index into |buffer|}
 @!l:small_number; {length of the string}
 @!prim_val:integer; {needed to fill |prim_eqtb|}
-begin if s<number_chars then begin
-  cur_val:=s+single_base;
-  prim_val:=s;
-end
-else  begin k:=str_start_macro(s); l:=str_start_macro(s+1)-k;
+begin if ss<number_chars then begin
+  if ss>127 then confusion("prim"); { should be ASCII }
+  append_char(ss); 
+  s:=make_string;
+  end
+else
+  s:=ss;
+k:=str_start_macro(s); l:=str_start_macro(s+1)-k;
     {we will move |s| into the (possibly non-empty) |buffer|}
-  if first+l>buf_size+1 then
-      overflow("buffer size",buf_size);
+if first+l>buf_size+1 then
+  overflow("buffer size",buf_size);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
-  for j:=0 to l-1 do buffer[first+j]:=so(str_pool[k+j]);
-  cur_val:=id_lookup(first,l); {|no_new_control_sequence| is |false|}
-  flush_string; text(cur_val):=s; {we don't want to have the string twice}
-  prim_val:=prim_lookup(s);
-  end;
+for j:=0 to l-1 do buffer[first+j]:=so(str_pool[k+j]);
+cur_val:=id_lookup(first,l); {|no_new_control_sequence| is |false|}
+flush_string; text(cur_val):=s; {we don't want to have the string twice}
+prim_val:=prim_lookup(s);
 eq_level(cur_val):=level_one; eq_type(cur_val):=c; equiv(cur_val):=o;
 prim_eq_level(prim_val):=level_one;
 prim_eq_type(prim_val):=c;
@@ -7329,6 +7319,8 @@ var p:pointer; {position to be restored}
 @!t:halfword; {saved value of |cur_tok|}
 @!a:boolean; {have we already processed an \.{\\aftergroup} ?}
 begin a:=false;
+unsave_math_codes(cur_level);
+unsave_text_codes(cur_level);
 if cur_level>level_one then
   begin decr(cur_level);
   @<Clear off top level from |save_stack|@>;
@@ -8587,7 +8579,7 @@ label restart, {go here to get the next input token}
   start_cs, {go here to start looking for a control sequence}
   found, {go here when a control sequence has been found}
   exit; {go here when the next input token has been got}
-var k:0..buf_size; {an index into |buffer|}
+var k,l:0..buf_size; {an index into |buffer|}
 @!t:halfword; {a token}
 @!cat:0..15; {|cat_code(cur_chr)|, usually}
 @!c,@!cc,@!ccc,@!cccc:ASCII_code; {constituents of a possible expanded code}
@@ -8620,7 +8612,7 @@ if cur_cmd<=car_ret then if cur_cmd>=tab_mark then if align_state=0 then
 begin switch: if loc<=limit then {current line not yet finished}
   begin 
   cur_chr:=buffer_to_unichar(loc); unicode_loc(loc);
-  reswitch: cur_cmd:=cat_code(cur_chr);
+  reswitch: cur_cmd:=get_cat_code(cur_chr);
   @<Change state if necessary, and |goto switch| if the
     current character should be ignored,
     or |goto reswitch| if the current character
@@ -8792,7 +8784,7 @@ buffer and the process is repeated, slowly but surely.
 
 @<Scan a control...@>=
 begin if loc>limit then cur_cs:=null_cs {|state| is irrelevant in this case}
-else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); cat:=cat_code(cur_chr);
+else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cur_chr);
   unicode_loc(k);
   if cat=letter then state:=skip_blanks
   else if cat=spacer then state:=skip_blanks
@@ -8804,14 +8796,14 @@ else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); cat:=cat_code(cur_c
     sequence is found, adjust |cur_cs| and |loc|, and
     |goto found|@>
   else @<If an expanded code is present, reduce it and |goto start_cs|@>;
-  cur_cs:=single_base+buffer[loc]; incr(loc);
+  cur_cs:=id_lookup(loc,1); incr(loc);
   end;
 found: cur_cmd:=eq_type(cur_cs); cur_chr:=equiv(cur_cs);
 if cur_cmd>=outer_call then check_outer_validity;
 end
 
 @ Whenever we reach the following piece of code, we will have
-|cur_chr=buffer[k-1]| and |k<=limit+1| and |cat=cat_code(cur_chr)|. If an
+|cur_chr=buffer[k-1]| and |k<=limit+1| and |cat=get_cat_code(cur_chr)|. If an
 expanded code like \.{\^\^A} or \.{\^\^df} appears in |buffer[(k-1)..(k+1)]|
 or |buffer[(k-1)..(k+2)]|, we
 will store the corresponding code in |buffer[k-1]| and shift the rest of
@@ -8825,14 +8817,14 @@ begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
        ccc:=buffer[k+5]; cccc:=buffer[k+6];
        if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) then 
        begin d:=7; long_hex_to_cur_chr;
-       if cur_chr <= @"80 then
+       if cur_chr <= @"7F then
          buffer[k-1]:= cur_chr
-       else if cur_chr<@"800 then begin
+       else if cur_chr<=@"7FF then begin
          buffer[k-1]:=@"C0 + cur_chr div @"40;
          incr(k); decr(d);
          buffer[k-1]:=@"80 + cur_chr mod @"40;
          end
-       else if cur_chr<@"FFFF then begin
+       else if cur_chr<=@"FFFF then begin
          buffer[k-1]:=@"E0 + cur_chr div @"1000;
          incr(k);  decr(d);
          buffer[k-1]:=@"80 + (cur_chr mod @"1000) div @"40;
@@ -8848,8 +8840,9 @@ begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
          incr(k);  decr(d);
          buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) mod @"40;
          end;
-       while k<=limit do
-         begin buffer[k]:=buffer[k+d]; incr(k);
+	   l := k;
+       while l<=limit do
+         begin buffer[l]:=buffer[l+d]; incr(l);
          end;
        goto start_cs;
        end
@@ -8877,14 +8870,14 @@ begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
 end
 
 @ @<Scan ahead in the buffer...@>=
-begin repeat cur_chr:=buffer_to_unichar(k); cat:=cat_code(cur_chr); unicode_loc(k);
+begin repeat cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cur_chr); unicode_loc(k);
 until (cat<>letter)or(k>limit);
 @<If an expanded...@>;
 if cat<>letter then begin
     decr(k);
 	if (cur_chr>@"FFFF) then
       decr(k);
-	if (cur_chr>@"800) then
+	if (cur_chr>@"7FF) then
       decr(k);
 	if (cur_chr>@"7F) then
       decr(k);
@@ -9193,10 +9186,7 @@ temporary file.
 @<Implement \.{\\primitive}@>=
 begin save_scanner_status := scanner_status; scanner_status:=normal;
 get_token; scanner_status:=save_scanner_status;
-if cur_cs < hash_base then
-  cur_cs := prim_lookup(cur_cs-257)
-else
-  cur_cs := prim_lookup(text(cur_cs));
+cur_cs := prim_lookup(text(cur_cs));
 if cur_cs<>undefined_primitive then begin
   if cur_cmd>max_command then begin
     cur_cmd := prim_eq_type(cur_cs);
@@ -9269,14 +9259,14 @@ while p<>null do
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
     end;
   s := info(p) mod string_offset;
-  if s <= @"80 then begin
+  if s <= @"7F then begin
     buffer[j]:=s; incr(j);
     end
-  else if s<@"800 then begin
+  else if s<=@"7FF then begin
     buffer[j]:=@"C0 + s div @"40; incr(j);
     buffer[j]:=@"80 + s mod @"40; incr(j);
     end
-  else if s<@"FFFF then begin
+  else if s<=@"FFFF then begin
     buffer[j]:=@"E0 + s div @"1000; incr(j);
     buffer[j]:=@"80 + (s mod @"1000) div @"40; incr(j);
     buffer[j]:=@"80 + (s mod @"1000) mod @"40; incr(j);
@@ -9289,12 +9279,11 @@ while p<>null do
     end;
   p:=link(p); 
   end;
-if j>first+1 then
+if j>first then
   begin no_new_control_sequence:=false; cur_cs:=id_lookup(first,j-first);
   no_new_control_sequence:=true;
   end
 else if j=first then cur_cs:=null_cs {the list is empty}
-else cur_cs:=single_base+buffer[first] {the list has length one}
 
 @ An |end_template| command is effectively changed to an |endv| command
 by the following code. (The reason for this is discussed below; the
@@ -10013,7 +10002,7 @@ exit:end;
 @ @<Fetch a character code from some table@>=
 begin scan_char_num;
 if m=math_code_base then begin
-  cur_val1:=ho(math_code(cur_val));
+  cur_val1:=get_math_code(cur_val);
   if ((cur_val1 div @"1000000)>8) or
      (((cur_val1 mod @"1000000) div @"10000)>15) or
      ((cur_val1 mod @"10000)>255) then
@@ -10027,13 +10016,29 @@ if m=math_code_base then begin
             (cur_val1 mod @"10000);
   scanned_result(cur_val1)(int_val);
   end
+else if m=lc_code_base then begin
+  cur_val1:=get_lc_code(cur_val);
+  scanned_result(cur_val1)(int_val);
+  end
+else if m=uc_code_base then begin
+  cur_val1:=get_uc_code(cur_val);
+  scanned_result(cur_val1)(int_val);
+  end
+else if m=sf_code_base then begin
+  cur_val1:=get_sf_code(cur_val);
+  scanned_result(cur_val1)(int_val);
+  end
+else if m=cat_code_base then begin
+  cur_val1:=get_cat_code(cur_val);
+  scanned_result(cur_val1)(int_val);
+  end
 else if m<math_code_base then scanned_result(equiv(m+cur_val))(int_val)
 else scanned_result(eqtb[m+cur_val].int)(int_val);
 end
 
 @ @<Fetch an ext character code from some table@>=
 begin scan_char_num;
-if m=math_code_base then scanned_result(ho(math_code(cur_val)))(int_val)
+if m=math_code_base then scanned_result(get_math_code(cur_val))(int_val)
 { TH: next two lines should not be possible }
 else if m<math_code_base then scanned_result(equiv(m+cur_val))(int_val)
 else scanned_result(eqtb[m+cur_val].int)(int_val);
@@ -10706,9 +10711,10 @@ if cur_tok<cs_token_flag then
     if cur_cmd=right_brace then incr(align_state)
     else decr(align_state);
   end
-else if cur_tok<cs_token_flag+single_base then
+else if cur_tok<cs_token_flag+null_cs then
   cur_val:=cur_tok-cs_token_flag-active_base
-else cur_val:=cur_tok-cs_token_flag-single_base;
+else {the value of a csname in this context is its name}
+  cur_val:=pool_to_unichar(str_start_macro(text(cur_tok-cs_token_flag)));
 if cur_val>biggest_char then
   begin print_err("Improper alphabetic constant");
 @.Improper alphabetic constant@>
@@ -11133,6 +11139,7 @@ symbols that |lua| considers special while scanning a literal string
 
 @d unicode_incr(#)==if str_pool[#]>@"F0 then #:=#+4 else if str_pool[#]>@"E0 
      then #:=#+3 else if str_pool[#]>@"C0 then #:=#+2 else incr(#)
+
 
 @p @t\4@>@<Declare \eTeX\ procedures for token lists@>@;@/
 function lua_str_toks(@!b:pool_pointer):pointer;
@@ -12276,10 +12283,7 @@ if_primitive_code: begin
   scanner_status:=normal;
   get_next;
   scanner_status:=save_scanner_status;
-  if cur_cs < hash_base then
-    m := prim_lookup(cur_cs-257)
-  else
-    m := prim_lookup(text(cur_cs));
+  m := prim_lookup(text(cur_cs));
   b :=((cur_cmd<>undefined_cs) and
        (m<>undefined_primitive) and
        (cur_cmd=prim_eq_type(m)) and
@@ -27550,7 +27554,7 @@ loop@+  begin if is_char_node(s) then
     goto continue;
     end
   else goto done1;
-  set_lc_code(c);
+  do_set_lc_code(c);
   if hc[0]<>0 then
     if (hc[0]=c)or(uc_hyph>0) then goto done2
     else goto done1;
@@ -27568,7 +27572,7 @@ hn:=0;
 loop@+  begin if is_char_node(s) then
     begin if font(s)<>hf then goto done3;
     hyf_bchar:=character(s); c:=qo(hyf_bchar);
-    set_lc_code(c);
+    do_set_lc_code(c);
     if hc[0]=0 then goto done3;
     if hn=63 then goto done3;
     hb:=s; incr(hn); hu[hn]:=c; hc[hn]:=hc[0]; hyf_bchar:=non_char;
@@ -27595,7 +27599,7 @@ begin if font(lig_char(s))<>hf then goto done3;
 j:=hn; q:=lig_ptr(s);@+if q>null then hyf_bchar:=character(q);
 while q>null do
   begin c:=qo(character(q));
-  set_lc_code(c);
+  do_set_lc_code(c);
   if hc[0]=0 then goto done3;
   if j=63 then goto done3;
   incr(j); hu[j]:=c; hc[j]:=hc[0];@/
@@ -28287,7 +28291,7 @@ end
 @ @<Append a new letter or hyphen@>=
 if cur_chr="-" then @<Append the value |n| to list |p|@>
 else begin 
-  set_lc_code(cur_chr);
+  do_set_lc_code(cur_chr);
   if hc[0]=0 then 
     begin print_err("Not a letter");
 @.Not a letter@>
@@ -28764,7 +28768,7 @@ if digit_sensed or(cur_chr<"0")or(cur_chr>"9") then
       cur_chr:=0;
       end 
     else begin
-      cur_chr:=lc_code(cur_chr);
+      cur_chr:=get_lc_code(cur_chr);
       if cur_chr=0 then
         begin print_err("Nonletter");
 @.Nonletter@>
@@ -30209,7 +30213,7 @@ The overall structure of the main loop is presented here. Some program labels
 are inside the individual sections.
 
 @d adjust_space_factor==@t@>@;@/
-  main_s:=sf_code(cur_chr);
+  main_s:=get_sf_code(cur_chr);
   if main_s=1000 then space_factor:=1000
   else if main_s<1000 then
     begin if main_s>0 then space_factor:=main_s;
@@ -30558,10 +30562,7 @@ any_mode(ignore_spaces): begin
     scanner_status:=normal;
     get_next;
     scanner_status:=t;
-    if cur_cs < hash_base then
-      cur_cs := prim_lookup(cur_cs-257)
-    else
-      cur_cs  := prim_lookup(text(cur_cs));
+    cur_cs  := prim_lookup(text(cur_cs));
     if cur_cs<>undefined_primitive then begin
       cur_cmd := prim_eq_type(cur_cs);
       cur_chr := prim_equiv(cur_cs);
@@ -32241,7 +32242,7 @@ label restart,reswitch,exit;
 var c:integer; {math character code}
 begin restart:@<Get the next non-blank non-relax...@>;
 reswitch:case cur_cmd of
-letter,other_char,char_given: begin c:=ho(math_code(cur_chr));
+letter,other_char,char_given: begin c:=get_math_code(cur_chr);
    if c=@"8000000 then
       begin @<Treat |cur_chr| as an active character@>;
       goto restart;
@@ -32299,9 +32300,9 @@ was first properly typeset by \TeX. The code in this section was used.
 
 @<Cases of |main_control| that build...@>=
 mmode+letter,mmode+other_char,mmode+char_given:
-  set_math_char(ho(math_code(cur_chr)));
+  set_math_char(get_math_code(cur_chr));
 mmode+char_num: begin scan_char_num; cur_chr:=cur_val;
-  set_math_char(ho(math_code(cur_chr)));
+  set_math_char(get_math_code(cur_chr));
   end;
 mmode+math_char_num: begin
   if cur_chr=0 then scan_fifteen_bit_int
@@ -32420,7 +32421,7 @@ else if r=2 then scan_fifty_one_bit_int
 else  begin @<Get the next non-blank non-relax...@>;
   case cur_cmd of
   letter,other_char: begin
-    cur_val:=del_code0(cur_chr); cur_val1:=del_code1(cur_chr);
+    cur_val:=get_del_code_a(cur_chr); cur_val1:=get_del_code_b(cur_chr);
     end;
   delim_num: if cur_chr=0 then scan_twenty_seven_bit_int
              else scan_fifty_one_bit_int;
@@ -33208,6 +33209,18 @@ since the following routines test for the \.{\\global} prefix as follows.
 @d word_define(#)==if global then geq_word_define(#)@+else eq_word_define(#)
 @d del_word_define(#)==if global
                        then del_geq_word_define(#)@+else del_eq_word_define(#)
+@d define_math_code(#)==if global 
+   then set_math_code(#,level_one)@+else set_math_code(#,cur_level)
+@d define_del_code(#)==if global 
+   then set_del_code(#,level_one)@+else set_del_code(#,cur_level)
+@d define_lc_code(#)==if global 
+   then set_lc_code(#,level_one)@+else set_lc_code(#,cur_level)
+@d define_uc_code(#)==if global 
+   then set_uc_code(#,level_one)@+else set_uc_code(#,cur_level)
+@d define_sf_code(#)==if global 
+   then set_sf_code(#,level_one)@+else set_sf_code(#,cur_level)
+@d define_cat_code(#)==if global 
+   then set_cat_code(#,level_one)@+else set_cat_code(#,cur_level)
 
 @<Adjust \(f)for the setting of \.{\\globaldefs}@>=
 if global_defs<>0 then
@@ -33510,34 +33523,70 @@ def_family: print_size(chr_code-math_font_base);
 @ The different types of code values have different legal ranges; the
 following program is careful to check each case properly.
 
+@d check_def_code(#)== if ((cur_val<0)and(p<#))or(cur_val>n) then
+      begin print_err("Invalid code ("); print_int(cur_val);
+      if p<# then print("), should be in the range 0..")
+      else print("), should be at most ");
+      print_int(n);
+      help1("I'm going to use 0 instead of that illegal code value.");@/
+      error; cur_val:=0;
+     end
+@.Invalid code@>
+
+
 @<Assignments@>=
 def_code: begin @<Let |n| be the largest legal code value, based on |cur_chr|@>;
-  p:=cur_chr; scan_char_num; p:=p+cur_val; scan_optional_equals;
-  scan_int;
-  if ((cur_val<0)and(p<del_code_base))or(cur_val>n) then
-    begin print_err("Invalid code ("); print_int(cur_val);
-@.Invalid code@>
-    if p<del_code_base then print("), should be in the range 0..")
-    else print("), should be at most ");
-    print_int(n);
-    help1("I'm going to use 0 instead of that illegal code value.");@/
-    error; cur_val:=0;
-    end;
-  if p<math_code_base then define(p,data,cur_val)
-  else if p<int_base then begin
+  p:=cur_chr;
+  if cur_chr=math_code_base then begin
+    scan_char_num; p:= cur_val;
+    scan_optional_equals;  
+    scan_int;
+    check_def_code(math_code_base);
     if cur_val=@"8000 then cur_val:=@"8000000
     else cur_val:=((cur_val div @"1000) * @"1000000) +
                   (((cur_val mod @"1000) div @"100) * @"10000) +
                   (cur_val mod @"100);
-    define(p,data,hi(cur_val));
+    define_math_code(p,cur_val);
     end
-  else begin
-   cur_val1:=cur_val div @"1000;
-   cur_val1:=(cur_val1 div @"100)*@"10000 + (cur_val1 mod @"100);
-   cur_val:=cur_val mod @"1000;
-   cur_val:=(cur_val div @"100)*@"10000 + (cur_val mod @"100);
-   del_word_define(p,cur_val1,cur_val);
-   end;
+  else if cur_chr=lc_code_base then begin
+    scan_char_num; p:= cur_val;
+    scan_optional_equals;  
+    scan_int;
+    check_def_code(lc_code_base);
+    define_lc_code(p,cur_val);
+    end
+  else if cur_chr=uc_code_base then begin
+    scan_char_num; p:= cur_val;
+    scan_optional_equals;  
+    scan_int;
+    check_def_code(uc_code_base);
+    define_uc_code(p,cur_val);
+    end
+  else if cur_chr=sf_code_base then begin
+    scan_char_num; p:= cur_val;
+    scan_optional_equals;  
+    scan_int;
+    check_def_code(sf_code_base);
+    define_sf_code(p,cur_val);
+    end
+  else if cur_chr=cat_code_base then begin
+    scan_char_num; p:= cur_val;
+    scan_optional_equals;  
+    scan_int;
+    check_def_code(cat_code_base);
+    define_cat_code(p,cur_val);
+    end
+  else if cur_chr=del_code_base then begin
+    scan_char_num; p:= cur_val;
+    scan_optional_equals;  
+    scan_int;
+    check_def_code(del_code_base);
+    cur_val1:=cur_val div @"1000;
+    cur_val1:=(cur_val1 div @"100)*@"10000 + (cur_val1 mod @"100);
+    cur_val:=cur_val mod @"1000;
+    cur_val:=(cur_val div @"100)*@"10000 + (cur_val mod @"100);
+    define_del_code(p,cur_val1,cur_val);
+    end;
   end;
 extdef_code: begin 
   if cur_chr=del_code_base then begin
@@ -33550,10 +33599,10 @@ extdef_code: begin
      help1("I'm going to use 0 instead of that illegal code value.");@/
      error; cur_val1:=0; cur_val:=0;
      end;
-   del_word_define(p,cur_val1,cur_val);
+   define_del_code(p,cur_val1,cur_val);
    end
    else begin
-   p:=cur_chr; scan_char_num; p:=p+cur_val; scan_optional_equals;
+   p:=cur_chr; scan_char_num; p:=cur_val; scan_optional_equals;
    scan_int;
    if (cur_val>@"8000000) then
      begin print_err("Invalid code ("); print_int(cur_val);
@@ -33562,7 +33611,7 @@ extdef_code: begin
      help1("I'm going to use 0 instead of that illegal code value.");@/
      error; cur_val:=0;
      end;
-   define(p,data,cur_val);
+   define_math_code(p,cur_val);
    end;
   end;
 
@@ -33934,8 +33983,7 @@ begin if job_name=0 then open_log_file;
 @.texput@>
 get_r_token; u:=cur_cs;
 if u>=hash_base then t:=text(u)
-else if u>=single_base then
-  if u=null_cs then t:="FONT"@+else t:=u-single_base
+else if u=null_cs then t:="FONT"
 else  begin old_setting:=selector; selector:=new_string;
   print("FONT"); print(u-active_base); selector:=old_setting;
 @.FONTx@>
@@ -34206,7 +34254,8 @@ procedure shift_case;
 var b:pointer; {|lc_code_base| or |uc_code_base|}
 @!p:pointer; {runs through the token list}
 @!t:halfword; {token}
-@!c:eight_bits; {character code}
+@!c:halfword; {character code}
+@!i:halfword; {inbetween}
 begin b:=cur_chr; p:=scan_toks(false,false); p:=link(def_ref);
 while p<>null do
   begin @<Change the case of the token in |p|, if a change is appropriate@>;
@@ -34222,9 +34271,15 @@ We also change active characters, using the fact that
 
 @<Change the case of the token in |p|, if a change is appropriate@>=
 t:=info(p);
-if t<cs_token_flag+single_base then
-  begin c:=t mod string_offset;
-  if equiv(b+c)<>0 then info(p):=t-c+equiv(b+c);
+if t<cs_token_flag+null_cs then
+  begin 
+  c:=t mod string_offset;
+  if b=uc_code_base then begin 
+     i:=get_uc_code(c);
+	 if i<>0 then info(p):=t-c+i; 
+     end
+  else 
+     begin if get_lc_code(c)<>0 then info(p):=t-c+get_lc_code(c); end;
   end
 
 @ We come finally to the last pieces missing from |main_control|, namely the
@@ -34583,6 +34638,8 @@ undump_int(var_used); undump_int(dyn_used)
 @<Dump regions 1 to 4 of |eqtb|@>;
 @<Dump regions 5 and 6 of |eqtb|@>;
 dump_int(par_loc); dump_int(write_loc);@/
+dump_math_codes;
+dump_text_codes;
 @<Dump the hash table@>
 
 @ @<Undump the table of equivalents@>=
@@ -34590,6 +34647,8 @@ dump_int(par_loc); dump_int(write_loc);@/
 undump(hash_base)(frozen_control_sequence)(par_loc);
 par_token:=cs_token_flag+par_loc;@/
 undump(hash_base)(frozen_control_sequence)(write_loc);@/
+undump_math_codes;
+undump_text_codes;
 @<Undump the hash table@>
 
 @ The table of equivalents usually contains repeated information, so we dump it
@@ -35121,7 +35180,7 @@ random_seed :=(microseconds*1000)+(epochseconds mod 1000000);@/
 init_randoms(random_seed);@/
 @<Compute the magic offset@>;
 @<Initialize the print |selector|...@>;
-if (loc<limit)and(cat_code(buffer[loc])<>escape) then start_input;
+if (loc<limit)and(get_cat_code(buffer[loc])<>escape) then start_input;
   {\.{\\input} assumed}
 @<DIR: Initialize |text_dir_ptr|@>;
 end
@@ -39612,10 +39671,9 @@ while p<>null do
     end;
   buffer[m]:=info(p) mod @'400; incr(m); p:=link(p);
   end;
-if m>first+1 then
+if m>first then
   cur_cs:=id_lookup(first,m-first) {|no_new_control_sequence| is |true|}
 else if m=first then cur_cs:=null_cs {the list is empty}
-else cur_cs:=single_base+buffer[first] {the list has length one}
 
 @ The conditional \.{\\iffontchar} tests the existence of a character in
 a font.
@@ -40440,15 +40498,16 @@ stored values (and possibly wasting a few trie nodes that were used
 previously and are not needed now).  We always store at least one
 |lc_code| value such that |hyph_index| (defined below) will not be zero.
 
+{TH FIXME: this only works for 8bit chars!}
 @<Store all current |lc_code| values@>=
 p:=trie_l[q]; first_child:=true;
 for c:=0 to 255 do
-  if (lc_code(c)>0)or((c=255)and first_child) then
+  if (get_lc_code(c)>0)or((c=255)and first_child) then
     begin if p=0 then
       @<Insert a new trie node between |q| and |p|, and
         make |p| point to it@>
     else trie_c[p]:=si(c);
-    trie_o[p]:=qi(lc_code(c));
+    trie_o[p]:=qi(get_lc_code(c));
     q:=p; p:=trie_r[q]; first_child:=false;
     end;
 if first_child then trie_l[q]:=0@+else trie_r[q]:=0
@@ -40470,8 +40529,8 @@ for the current language.
     then hyph_index:=0 {no hyphenation codes for |cur_lang|}
   else hyph_index:=trie_link(hyph_start+cur_lang)
 @#
-@d set_lc_code(#)== {set |hc[0]| to hyphenation or lc code for |#|}
-  if hyph_index=0 then hc[0]:=lc_code(#)
+@d do_set_lc_code(#)== {set |hc[0]| to hyphenation or lc code for |#|}
+  if hyph_index=0 then hc[0]:=get_lc_code(#)
   else if trie_char(hyph_index+#)<>qi(#) then hc[0]:=0
   else hc[0]:=qo(trie_op(hyph_index+#))
 
@@ -40941,16 +41000,16 @@ for otp_counter:=1 to otp_output_end do begin
              incr(otp_counter);
 	         t := (otp_output_buf[otp_counter]-@"D800) * @"400 + (t-@"DC00) + @"10000;
            end;
-    if t <= @"80 then
+    if t <= @"7F then
       buffer[last]:= t
-    else if t<@"800 then begin
+    else if t<=@"7FF then begin
       buffer[last]:=@"C0 + t div @"40;
       incr(last); 
       if last=buf_size-2 then
         @<Report overflow of the input buffer, and abort@>;
       buffer[last]:=@"80 + t mod @"40;
       end
-    else if t<@"FFFF then	begin
+    else if t<=@"FFFF then	begin
       buffer[last]:=@"E0 + t div @"1000;
       incr(last);
       if last=buf_size-2 then
@@ -40982,7 +41041,7 @@ for otp_counter:=1 to otp_output_end do begin
   end;
 limit:=last-1;
 if (t>@"FFFF) then decr(limit);
-if (t>@"800)  then decr(limit);
+if (t>@"7FF)  then decr(limit);
 if (t>@"7F)   then decr(limit);
 first:=last;
 end
@@ -41479,8 +41538,7 @@ if cur_chr=1 then external_ocp:=true
 else external_ocp:=false;
 get_r_token; u:=cur_cs;
 if u>=hash_base then t:=text(u)
-else if u>=single_base then
-  if u=null_cs then t:="OCP"@+else t:=u-single_base
+else if u=null_cs then t:="OCP"
 else  begin old_setting:=selector; selector:=new_string;
   print("OCP"); print(u-active_base); selector:=old_setting;
 @.OCPx@>
@@ -41524,8 +41582,7 @@ begin if job_name=0 then open_log_file;
 @.texput@>
 get_r_token; u:=cur_cs;
 if u>=hash_base then t:=text(u)
-else if u>=single_base then
-  if u=null_cs then t:="OCPLIST"@+else t:=u-single_base
+else if u=null_cs then t:="OCPLIST"
 else  begin old_setting:=selector; selector:=new_string;
   print("OCPLIST"); print(u-active_base); selector:=old_setting;
 @.OCPx@>
