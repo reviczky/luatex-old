@@ -336,57 +336,6 @@ int font_number;
     undumpthings(fonttables[font_number][1], sizeword.cint);
 }
 
-memoryword **fontsorttables;
-static int fontsort_entries = 0;
-
-void
-allocatefontsorttable P2C(int, fontsort_number, int, fontsort_size)
-{
-    int i;
-    if (fontsort_entries==0) {
-      fontsorttables = (memoryword **) xmalloc(256*sizeof(memoryword**));
-      fontsort_entries=256;
-    } else if ((fontsort_number==256)&&(fontsort_entries==256)) {
-      fontsorttables = xrealloc(fontsorttables, 65536);
-      fontsort_entries=65536;
-    }
-    fontsorttables[fontsort_number] =
-       (memoryword *) xmalloc((fontsort_size+1)*sizeof(memoryword));
-    fontsorttables[fontsort_number][0].cint = fontsort_size;
-    fontsorttables[fontsort_number][0].cint1 = 0;
-    for (i=1; i<=fontsort_size; i++) {
-        fontsorttables[fontsort_number][i].cint  = 0;
-        fontsorttables[fontsort_number][i].cint1 = 0;
-    }
-}
-
-void
-dumpfontsorttable P2C(int, fontsort_number, int, words)
-{
-    fontsorttables[fontsort_number][0].cint=words;
-    dumpthings(fontsorttables[fontsort_number][0],
-               fontsorttables[fontsort_number][0].cint+1);
-}
-
-void
-undumpfontsorttable(fontsort_number)
-int fontsort_number;
-{
-    memoryword sizeword;
-    if (fontsort_entries==0) {
-      fontsorttables = (memoryword **) xmalloc(256*sizeof(memoryword**));
-      fontsort_entries=256;
-    } else if ((fontsort_number==256)&&(fontsort_entries==256)) {
-      fontsorttables = xrealloc(fontsorttables, 65536);
-      fontsort_entries=65536;
-    }
-
-    undumpthings(sizeword,1);
-    fontsorttables[fontsort_number] =
-        (memoryword *) xmalloc((sizeword.cint+1)*sizeof(memoryword));
-    fontsorttables[fontsort_number][0].cint = sizeword.cint;
-    undumpthings(fontsorttables[fontsort_number][1], sizeword.cint);
-}
 
 int **ocptables;
 static int ocp_entries = 0;

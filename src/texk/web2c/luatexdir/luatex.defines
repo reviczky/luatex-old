@@ -84,12 +84,6 @@ $Id $
 @define procedure dumpfonttable ();
 @define procedure undumpfonttable ();
 
-@define var fontsorttables;
-
-@define procedure allocatefontsorttable ();
-@define procedure dumpfontsorttable ();
-@define procedure undumpfontsorttable ();
-
 @define var ocptables;
 @define var ocptemp;
 

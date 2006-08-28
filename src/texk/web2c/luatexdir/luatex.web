@@ -3012,20 +3012,6 @@ macros are simplified in the obvious way when |min_quarterword=0|.
 @ The reader should study the following definitions closely:
 @^system dependencies@>
 
-In luatex (as in aleph), a memory word is actually 2 times 4 bytes
-wide. For the most part, this is transparent because the definition 
-of e.g. |quarterword| is now 16 bits instead of 8. But for the |int|
-and exception has been made: |int| is still 32 bits, but there
-are two of them in a single memory word. The second one should be 
-called |int1|, but because web2c does all of the memory handling in
-the C code, tangle does not know about it. 
-
-That is why there does not appear a proper record definition here:
-the actual access to this field is handled by a pair of C macros,
-|getequiv1| and |setequiv1|. They are treated like external functions
-in the pascal part.
-@^dirty \PASCAL@>@^hacks@>
-
 @d sc==int {|scaled| data is equivalent to |integer|}
 
 @<Types...@>=
@@ -7258,15 +7244,6 @@ eqtb[p].int:=w;
 assign_trace(p,"into")@;@/
 exit:end;
 
-procedure del_eq_word_define(@!p:pointer;@!w,wone:integer);
-begin if xeq_level[p]<>cur_level then
-  begin eq_save(p,xeq_level[p]); xeq_level[p]:=cur_level;
-  end;
-eqtb[p].int:=w;
-setequiv1(p,wone);
-end;
-
-
 @ The |eq_define| and |eq_word_define| routines take care of local definitions.
 @^global definitions@>
 Global definitions are done in almost the same way, but there is no need
@@ -7287,14 +7264,6 @@ begin eqtb[p].int:=w; xeq_level[p]:=level_one;
 end;
 assign_trace(p,"into")@;@/
 end;
-
-procedure del_geq_word_define(@!p:pointer;@!w,wone:integer);
-  {global |del_eq_word_define|}
-begin eqtb[p].int:=w;
-setequiv1(p,wone);
-xeq_level[p]:=level_one;
-end;
-
 
 @ Subroutine |save_for_after| puts a token on the stack for save-keeping.
 
@@ -14741,6 +14710,8 @@ ocp_list_lstack(p):=llstack;
 ocp_list_lstack_no(p):=llstack_no;
 ocp_list_lnext(p):=llnext;
 ocp_listmem_run_ptr:=ocp_listmem_run_ptr+2;
+if ocp_listmem_run_ptr>=ocp_list_size then
+  overflow("ocp_list_size",ocp_list_size);
 make_ocp_list_node:=p;
 end;
 
@@ -14752,6 +14723,8 @@ p:=ocp_lstackmem_run_ptr;
 ocp_lstack_ocp(p):=locp;
 ocp_lstack_lnext(p):=llnext;
 incr(ocp_lstackmem_run_ptr);
+if ocp_lstackmem_run_ptr>=ocp_stack_size then
+  overflow("ocp_stack_size",ocp_stack_size);
 make_ocp_lstack_node:=p;
 end;
 
@@ -14825,9 +14798,7 @@ else begin
   while q<>0 do begin
     p:=q; q:=ocp_lstack_lnext(q);
     end;
-  {ocp_lstack_lnext(p):=make_ocp_lstack_node(locp, null);}
-  {TH: null < 0 in web2c}
-  ocp_lstack_lnext(p):=make_ocp_lstack_node(locp, 0);
+  ocp_lstack_lnext(p):=make_ocp_lstack_node(locp,0);
   end;
 end;
 
@@ -14850,7 +14821,6 @@ else begin
     while r <> 0 do begin
       p:=q; q:=r; r:=ocp_lstack_lnext(r);
       end;
-    {ocp_lstack_lnext(p) := null} {TH: null is negative in web2c }
     ocp_lstack_lnext(p) := 0; 
     end
   end;
@@ -14877,7 +14847,7 @@ if cur_val<0 then {in this case |f=0|}
 if cur_val>@'40000 then arith_error:=true
 else cur_val := cur_val*unity +f;
 if arith_error or(abs(cur_val)>=@'10000000000) then
-begin print_err("Stack number too large");
+begin print_err("Stack number too large"); error;
 end;
 if negative then negate(cur_val);
 end;
@@ -14924,6 +14894,7 @@ else if cur_cmd <> ocp_list_op then begin
   print_err("Bad ocp list specification");
 @.Bad ocp list specification@>
   help1("I was looking for a ocp list specification.");
+  error;
   result := make_null_ocp_list;
   end
 else begin
@@ -14931,6 +14902,7 @@ else begin
   scan_scaled; llstack_no:=cur_val;
   if (llstack_no<=0) or (llstack_no>=ocp_maxint) then begin
     print_err("Stack numbers must be between 0 and 4096 (exclusive)");
+    error;
     result := make_null_ocp_list;
     end
   else begin
@@ -33207,8 +33179,6 @@ since the following routines test for the \.{\\global} prefix as follows.
 @d global==(a>=4)
 @d define(#)==if global then geq_define(#)@+else eq_define(#)
 @d word_define(#)==if global then geq_word_define(#)@+else eq_word_define(#)
-@d del_word_define(#)==if global
-                       then del_geq_word_define(#)@+else del_eq_word_define(#)
 @d define_math_code(#)==if global 
    then set_math_code(#,level_one)@+else set_math_code(#,cur_level)
 @d define_del_code(#)==if global 
@@ -40929,7 +40899,8 @@ end
 begin
 otp_input_ocp:=active_ocp(active_real);
 if otp_input_ocp=0 then begin
-  print_nl("Null ocp being used: all input lost");
+  print_err("Null ocp being used: all input lost");
+  error;
   otp_output_end:=0;
   end
 else if ocp_external(otp_input_ocp)=0 then begin

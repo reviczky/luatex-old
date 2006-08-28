@@ -51,17 +51,10 @@ extern void undumptextcodes ();
 
 /* this is needed for delcodes */ 
 
-#define setequiv1(a,v)  eqtb[(a)].cint1=v
-#define getequiv1(a)    eqtb[(a)].cint1
-
 extern memoryword **fonttables;
-extern memoryword **fontsorttables;
 extern void allocatefonttable();
 extern void dumpfonttable();
 extern void undumpfonttable();
-extern void allocatefontsorttable();
-extern void dumpfontsorttable();
-extern void undumpfontsorttable();
 
 extern int **ocptables;
 extern int ocptemp;
