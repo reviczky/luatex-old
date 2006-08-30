@@ -315,6 +315,13 @@ end;
 @z
 
 @x
+     lua_a_open_in := a_open_in(f);
+@y
+     lua_a_open_in := a_open_in(f,kpse_tex_format);
+@z
+
+
+@x
 @ Files can be closed with the \ph\ routine `|close(f)|', which
 @^system dependencies@>
 should be used when all input or output with respect to |f| has been completed.
@@ -1617,10 +1624,10 @@ begin scan_file_name; {set |cur_name| to desired file name}
 if cur_ext="" then cur_ext:=".tex";
 pack_cur_name;
 loop@+  begin begin_file_reading; {set up |cur_file| and new level of input}
-  if a_open_in(cur_file) then goto done;
+  if lua_a_open_in(cur_file) then goto done;
   if cur_area="" then
     begin pack_file_name(cur_name,TEX_area,cur_ext);
-    if a_open_in(cur_file) then goto done;
+    if lua_a_open_in(cur_file) then goto done;
     end;
 @y
 var temp_str: str_number;
@@ -1631,7 +1638,7 @@ loop@+begin
   tex_input_type := 1; {Tell |open_input| we are \.{\\input}.}
   {Kpathsea tries all the various ways to get the file.}
   if open_in_name_ok(stringcast(name_of_file+1))
-     and a_open_in(cur_file, kpse_tex_format) then
+     and lua_a_open_in(cur_file) then
     goto done;
 @z
 
@@ -1642,9 +1649,9 @@ loop@+begin
 @z
 
 @x
-done: name:=a_make_name_string(cur_file);
+name:=a_make_name_string(cur_file);
 @y
-done: name:=a_make_name_string(cur_file);
+name:=a_make_name_string(cur_file);
 source_filename_stack[in_open]:=name;
 full_source_filename_stack[in_open]:=make_full_name_string;
 if name=str_ptr-1 then {we can try to conserve string pool space now}
@@ -2456,13 +2463,12 @@ else kpse_make_tex_discard_errors := 0;
 @x
   if cur_ext="" then cur_ext:=".tex";
   pack_cur_name;
-  if a_open_in(read_file[n]) then read_open[n]:=just_open;
+  if lua_a_open_in(read_file[n]) then begin
 @y
   pack_cur_name;
   tex_input_type:=0; {Tell |open_input| we are \.{\\openin}.}
   if open_in_name_ok(stringcast(name_of_file+1))
-     and a_open_in(read_file[n], kpse_tex_format) then
-    read_open[n]:=just_open;
+     and lua_a_open_in(read_file[n]) then begin
 @z
 
 @x
@@ -3408,13 +3414,15 @@ var j:small_number; {write stream number}
 @z
 
 @x
-      while not a_open_out(write_file[j]) do
+      while not lua_a_open_out(write_file[j]) do
         prompt_file_name("output file name",".tex");
+      write_file[j]:= name_file_pointer;
       write_open[j]:=true;
 @y
       while not open_out_name_ok(stringcast(name_of_file+1))
-            or not a_open_out(write_file[j]) do
+            or not lua_a_open_out(write_file[j]) do
         prompt_file_name("output file name",".tex");
+      write_file[j]:= name_file_pointer;
       write_open[j]:=true;
       {If on first line of input, log file is not ready yet, so don't log.}
       if log_opened then begin

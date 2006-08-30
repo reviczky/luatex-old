@@ -40,6 +40,13 @@ $Id $
 @define procedure luacall();
 @define procedure closelua();
 
+@define procedure luainitialize();
+
+{ for callbacks }
+
+@define function runcallback();
+@define function callbackdefined();
+
 { bits for extended char code access }
 
 @define function getmathcode();
@@ -74,9 +81,6 @@ $Id $
 { bits and pieces from aleph }
 
 @define procedure btestin ;
-
-@define function getequiv1();
-@define procedure setequiv1();
 
 @define var fonttables;
 
