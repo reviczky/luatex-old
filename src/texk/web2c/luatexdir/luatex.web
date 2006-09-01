@@ -960,9 +960,9 @@ begin if callback_defined(callback_id,'texio','open_read_file') then begin
                          address_of(fnam),address_of(f));
 	if test then begin
 	  name_file_pointer := f;
-	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	  {for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
 	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-	  name_length := length(fnam);
+	  name_length := length(fnam);}
 	  { flush_string;}
       lua_a_open_in := ret;
 	  end
@@ -985,9 +985,9 @@ begin if callback_defined(callback_id,'texio','open_write_file') then begin
 	                     stringcast(name_of_file+1),address_of(ret),address_of(fnam),address_of(f));
     if test then begin
 	  name_file_pointer := f;
-	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	  {for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
 	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-	  name_length := length(fnam);
+	  name_length := length(fnam);}
       lua_a_open_out := ret;
       end
     else begin
