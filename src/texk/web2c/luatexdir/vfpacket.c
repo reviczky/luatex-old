@@ -95,7 +95,7 @@ void startpacket (internalfontnumber f, integer c)
   vfpacketlength = vf_array[vfpacketbase[f]].len[c - getfontbc(f)];
 }
 
-eightbits packetbyte ()
+realeightbits packetbyte ()
 {
     vfpacketlength--;
     return *packet_data_ptr++;
