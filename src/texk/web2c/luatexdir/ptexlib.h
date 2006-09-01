@@ -220,7 +220,7 @@ extern void garbagewarning (void);
 extern void stripspaces (char *p);
 
 /* vfpacket.c */
-extern eightbits packetbyte (void);
+extern realeightbits packetbyte (void);
 extern integer newvfpacket (internalfontnumber);
 extern void poppacketstate (void);
 extern void pushpacketstate (void);
