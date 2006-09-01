@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060830' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060901' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -890,7 +890,6 @@ implement \TeX\ can open a file whose external name is specified by
   {on some systems this may be a \&{record} variable}
 @!name_length:0..file_name_size;@/{this many characters are actually
   relevant in |name_of_file| (the rest are blank)}
-@!name_string:str_number;
 @!name_file_pointer:alpha_file;
 
 @ The \ph\ compiler with which the present version of \TeX\ was prepared has
@@ -951,15 +950,20 @@ end;
 
 @ Add callback check
 
-@p procedure set_name_string; forward;
-function lua_a_open_in(var f:alpha_file):boolean;
+@p function lua_a_open_in(var f:alpha_file):boolean;
 var ret,test:boolean;
-begin if callback_defined(callback_id,'texio','open_file') then begin
-    set_name_string;
-    test := run_callback(callback_id,'texio','open_file','cSs>bf','r','tex',
-                         name_string,address_of(ret),address_of(f));
+  k:integer;
+  fnam:str_number;
+begin if callback_defined(callback_id,'texio','open_read_file') then begin
+    test := run_callback(callback_id,'texio','open_read_file','S>bsf',
+                         stringcast(name_of_file+1),address_of(ret),
+                         address_of(fnam),address_of(f));
 	if test then begin
 	  name_file_pointer := f;
+	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
+	  name_length := length(fnam);
+	  { flush_string;}
       lua_a_open_in := ret;
 	  end
 	else begin
@@ -974,12 +978,16 @@ end;
 @#
 function lua_a_open_out(var f:alpha_file):boolean;
 var ret,test:boolean;
-begin if callback_defined(callback_id,'texio','open_file') then begin
-    set_name_string;
-    test := run_callback(callback_id,'texio','open_file','cSs>bf','w','tex',
-	                     name_string,address_of(ret),address_of(f));
+  k:integer;
+  fnam:str_number;
+begin if callback_defined(callback_id,'texio','open_write_file') then begin
+    test := run_callback(callback_id,'texio','open_write_file','S>bsf',
+	                     stringcast(name_of_file+1),address_of(ret),address_of(fnam),address_of(f));
     if test then begin
 	  name_file_pointer := f;
+	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
+	  name_length := length(fnam);
       lua_a_open_out := ret;
       end
     else begin
@@ -1014,16 +1022,6 @@ end;
 procedure w_close(var f:word_file); {close a word file}
 begin close(f);
 end;
-
-@ Add callback check
-
-@p procedure lua_a_close(var f:alpha_file); {close a text file}
-var test:boolean;
-begin if callback_defined(callback_id,'texio','close_file') then
-    test := run_callback(callback_id,'texio','close_file','f>',f)
-  else a_close(f);
-end;
-
 
 @ Binary input and output are done with \PASCAL's ordinary |get| and |put|
 procedures, so we don't have to make any other special arrangements for
@@ -1108,25 +1106,18 @@ else  begin last_nonblank:=first;
 end;
 
 function lua_input_ln(var f:alpha_file;@!bypass_eoln:boolean):boolean;
-var lua_input_line:str_number;
-	lua_result:boolean;
+var lua_result:boolean;
+	last_ptr:integer;
 	k:pool_pointer;
 begin
   if callback_defined(callback_id,'texio','input_line') then begin
-	lua_input_line:=0;
     last:=first;
-    lua_result := run_callback(callback_id,'texio','input_line','f>S',f, 
-			 	            address_of(lua_input_line));
-	if (lua_result=true)and(lua_input_line>0) then begin
-      for k:=str_start_macro(lua_input_line) to str_start_macro(lua_input_line+1)-1 do begin
-        if last>=max_buf_stack then
-          begin max_buf_stack:=last+1;
-          if max_buf_stack=buf_size then
-             @<Report overflow of the input buffer, and abort@>;
-          end;
-        buffer[last]:=str_pool[k]; incr(last);
-        end;
-      lua_input_ln := true;
+	last_ptr := first;
+    lua_result := run_callback(callback_id,'texio','input_line','f>l',f, address_of(last_ptr));
+	if (lua_result=true) then begin
+	  last := last_ptr;
+	  if last>max_buf_stack then max_buf_stack:=last; 
+	  lua_input_ln := true;
       end
     else 
       lua_input_ln := false;
@@ -1247,7 +1238,7 @@ label exit;
 begin t_open_in;
 loop@+begin wake_up_terminal; write(term_out,'**'); update_terminal;
 @.**@>
-  if not lua_input_ln(term_in,true)
+  if not input_ln(term_in,true)
 then {this shouldn't happen}
     begin write_ln(term_out);
     write(term_out,'! End of file on the terminal... why?');
@@ -1949,7 +1940,7 @@ This procedure is never called when |interaction<scroll_mode|.
 @p procedure term_input; {gets a line from the terminal}
 var k:0..buf_size; {index into |buffer|}
 begin update_terminal; {now the user sees the prompt for sure}
-if not lua_input_ln(term_in,true)
+if not input_ln(term_in,true)
 then fatal_error("End of file on the terminal!");
 @.End of file on the terminal@>
 term_offset:=0; {the user's line ended with \<\rm return>}
@@ -8466,7 +8457,7 @@ is finished:
 @p procedure end_file_reading;
 begin first:=start; line:=line_stack[index];
 if (name=18)or(name=19) then pseudo_close else
-if name>17 then lua_a_close(cur_file); {forget it}
+if name>17 then a_close(cur_file); {forget it}
 pop_input; decr(in_open);
 end;
 
@@ -12052,7 +12043,7 @@ must be told not to start with |get|.
 
 @<Input the first line of |read_file[m]|@>=
 if lua_input_ln(read_file[m],false) then read_open[m]:=normal
-else  begin lua_a_close(read_file[m]); read_open[m]:=closed;
+else  begin a_close(read_file[m]); read_open[m]:=closed;
   end
 
 @ An empty line is appended at the end of a |read_file|.
@@ -12060,7 +12051,7 @@ else  begin lua_a_close(read_file[m]); read_open[m]:=closed;
 
 @<Input the next line of |read_file[m]|@>=
 begin if not lua_input_ln(read_file[m],true) then
-  begin lua_a_close(read_file[m]); read_open[m]:=closed;
+  begin a_close(read_file[m]); read_open[m]:=closed;
   if align_state<>1000000 then
     begin runaway;
     print_err("File ended within "); print_esc("read");
@@ -12772,9 +12763,6 @@ begin if (pool_ptr+name_length>pool_size)or(str_ptr=max_strings)or
 else  begin for k:=1 to name_length do append_char(name_of_file[k]);
   make_name_string:=make_string;
   end;
-end;
-procedure set_name_string;
-begin name_string:=make_name_string;
 end;
 function a_make_name_string(var f:alpha_file):str_number;
 begin a_make_name_string:=make_name_string;
@@ -34221,7 +34209,7 @@ var c:0..1; {1 for \.{\\openin}, 0 for \.{\\closein}}
 @!n:0..15; {stream number}
 begin c:=cur_chr; scan_four_bit_int; n:=cur_val;
 if read_open[n]<>closed then
-  begin lua_a_close(read_file[n]); read_open[n]:=closed;
+  begin a_close(read_file[n]); read_open[n]:=closed;
   end;
 if c<>0 then
   begin scan_optional_equals; scan_file_name;
@@ -35114,7 +35102,7 @@ else begin
     @<Finish the \.{DVI} file@>;
 end;
 if log_opened then
-  begin wlog_cr; lua_a_close(log_file); selector:=selector-2;
+  begin wlog_cr; a_close(log_file); selector:=selector-2;
   if selector=term_only then
     begin print_nl("Transcript written on ");
 @.Transcript written...@>
@@ -37575,7 +37563,7 @@ implementations, due to machine-dependent rounding in the glue calculations.)
 if not doing_leaders then
   begin j:=write_stream(p);
   if subtype(p)=write_node then write_out(p)
-  else  begin if write_open[j] then lua_a_close(write_file[j]);
+  else  begin if write_open[j] then a_close(write_file[j]);
     if subtype(p)=close_node then write_open[j]:=false
     else if j<16 then
       begin cur_name:=open_name(p); cur_area:=open_area(p);
@@ -37661,7 +37649,7 @@ else begin new_whatsit(language_node,small_node_size);
   end
 
 @ @<Finish the extensions@>=
-for k:=0 to 15 do if write_open[k] then lua_a_close(write_file[k])
+for k:=0 to 15 do if write_open[k] then a_close(write_file[k])
 
 @ 
 @d local_pen_inter(#)==mem[#+1].int {\.{\\localinterlinepenalty}}
