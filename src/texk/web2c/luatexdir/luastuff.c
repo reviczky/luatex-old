@@ -171,6 +171,7 @@ void fix_package_path (lua_State *L, char *key, char *ext, int doinit)
     while (*rover) { 
       if (*rover == '\\')
 	*rover = '/';
+      rover++;
     }
     lua_pushstring(L, path);
     lua_setfield(L,-2,key);
