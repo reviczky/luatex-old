@@ -45,12 +45,15 @@ int
 texio_print (lua_State *L) {
   int i, len;
   const char *st;
+  strnumber s;
   if (!lua_isstring(L, -1)) {
     lua_pushstring(L, "no string to print");
     lua_error(L);
   }
   st = lua_tostring(L, -1);
-  zprint (maketexstring(st));
+  s = maketexstring(st);
+  zprint (s);
+  flushstr(s);
   return 0; 
 }
 
@@ -58,12 +61,15 @@ int
 texio_printnl (lua_State *L) {
   int i, len;
   const char *st;
+  strnumber s;
   if (!lua_isstring(L, -1)) {
     lua_pushstring(L, "no string to print");
     lua_error(L);
   }
   st = lua_tostring(L, -1);
-  zprintnl (maketexstring(st));
+  s = maketexstring(st);
+  zprintnl (s);
+  flushstr(s);
   return 0; 
 }
 
@@ -160,6 +166,11 @@ void fix_package_path (lua_State *L, char *key, char *ext, int doinit)
 	path = allocpath;
 
       }
+    }
+    rover = path;
+    while (*rover) { 
+      if (*rover == '\\')
+	*rover = '/';
     }
     lua_pushstring(L, path);
     lua_setfield(L,-2,key);
