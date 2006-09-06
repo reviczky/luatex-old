@@ -3,8 +3,7 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-static lua_State *Luas[65356];
-
+static lua_State *Luas[65536];
 
 void
 make_table (lua_State *L, char *tab, char *getfunc, char*setfunc) {
@@ -223,17 +222,28 @@ void
 luainitialize (int luaid, int format) {
   int error;
   char *loadaction;
+  FILE *test;
+  char *fname = NULL;
   loadaction = malloc(120);
   if (loadaction==NULL)
-    return;
-  if (strcmp(" (INITEX)",makecstring(format))==0)
-    snprintf(loadaction,120, "tex.formatname = nil; require \"startup\"");
-  else
-    snprintf(loadaction,120, "tex.formatname = \"%s\"; require \"startup\"",makecstring(format));
-  luainterpreter (luaid);
-  if(luaL_loadbuffer(Luas[luaid],loadaction,strlen(loadaction),"line")||
-     lua_pcall(Luas[luaid],0,0,0)) {
-    fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[luaid],-1));
+	return;	
+  // TODO: make this an fstat, nicer
+  if (test=fopen("startup.lua","r")) {
+	fname = strdup("startup.lua");
+	fclose(test);
+  } else {
+    fname = kpse_find_file ("startup.lua",kpse_texmfscripts_format,0);
+  }
+  if (fname) {
+	if (strcmp(" (INITEX)",makecstring(format))==0) 
+	  snprintf(loadaction,120, "tex.formatname = nil; dofile (\"%s\")",fname);
+	else
+	  snprintf(loadaction,120, "tex.formatname = \"%s\"; dofile (\"%s\")",makecstring(format),fname);
+	luainterpreter (luaid);
+	if(luaL_loadbuffer(Luas[luaid],loadaction,strlen(loadaction),"line")||
+	   lua_pcall(Luas[luaid],0,0,0)) {
+	  fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[luaid],-1));
+	}
   }
   free(loadaction);
 }

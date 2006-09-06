@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060901' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060906' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -1401,7 +1401,12 @@ begin
 	  a := a + (b-128);
       end
     else begin { NI: this is an encoding error }
-      a := b;
+	  print_err("Buffer contains an invalid utf-8 sequence");
+@.Text line contains...@>
+	  help2("A funny symbol somehow ended up in the input buffer.")@/
+    	   ("Just continue, I'll change it to 0xFFFD.");@/
+      deletions_allowed:=false; error; deletions_allowed:=true;
+      a:=@"FFFD;
       end;
 exit: 
   buffer_to_unichar := a;
@@ -1612,9 +1617,11 @@ terminal or to the transcript file, respectively.
   pseudoprinting}
 @!trick_count: integer; {threshold for pseudoprinting, explained later}
 @!first_count: integer; {another variable for pseudoprinting}
+@!inhibit_par_tokens:boolean; { for minor adjustments to |show_token_list| }
 
 @ @<Initialize the output routines@>=
 selector:=term_only; tally:=0; term_offset:=0; file_offset:=0;
+inhibit_par_tokens:=false;
 
 @ Macro abbreviations for output to the terminal and to the log file are
 defined here for convenience. Some systems need special conventions
@@ -1730,8 +1737,13 @@ begin
 	  a := a + (b-128);
       end
     else begin  { NI: this is an encoding error }
-      wterm('[INVALID:',b:1,']');
-      a := @"FFFD;
+	  wlog_ln('! Pool contains an invalid utf-8 sequence');
+	  wterm_ln('! Pool contains an invalid utf-8 sequence');
+@.Text line contains...@>
+	  help2("A funny symbol somehow ended up in the string pool.")@/
+    	   ("Just continue, I'll change it to 0xFFFD.");@/
+      deletions_allowed:=false; error; deletions_allowed:=true;
+      a:=@"FFFD;
       end;
 result := a;
 not_found: pool_to_unichar := result;
@@ -7611,7 +7623,10 @@ if (p<hi_mem_min) or (p>mem_end) then
   begin print_esc("CLOBBERED."); return;
 @.CLOBBERED@>
   end;
-if info(p)>=cs_token_flag then print_cs(info(p)-cs_token_flag)
+if info(p)>=cs_token_flag then begin
+  if not ((inhibit_par_tokens) and (info(p)=par_token)) then
+	  print_cs(info(p)-cs_token_flag);
+  end
 else  begin m:=info(p) div string_offset; c:=info(p) mod string_offset;
   if info(p)<0 then print_esc("BAD.")
 @.BAD@>
@@ -9975,7 +9990,6 @@ Otherwise |cur_val| will contain the integer or scaled value in question.
 {TH: CHECK: aleph has |int_val...dir_val|. }
 @!cur_val_level:int_val..tok_val; {the ``level'' of this value}
 
-
 @ The hash table is initialized with `\.{\\count}', `\.{\\dimen}', `\.{\\skip}',
 and `\.{\\muskip}' all having |register| as their command code; they are
 distinguished by the |chr_code|, which is either |int_val|, |dimen_val|,
@@ -11714,14 +11728,17 @@ lua_code:
     save_def_ref := def_ref;
     save_warning_index := warning_index;
 	scan_register_num;
+	i := cur_val;{|tokens_to_string| may trash |cur_val }
     scan_pdf_ext_toks;
+	inhibit_par_tokens:=true;
     s := tokens_to_string(def_ref);
+	inhibit_par_tokens:=false;
     delete_token_ref(def_ref);
     def_ref := save_def_ref;
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     b := pool_ptr;
-    luacall(cur_val,(s-string_offset));
+    luacall(i,(s-string_offset));
 	if pool_ptr>b then begin
       link(garbage) := str_toks(b);
 	  ins_list(link(temp_head));
@@ -11746,7 +11763,7 @@ case c of
 number_code: print_int(cur_val);
 roman_numeral_code: print_roman_int(cur_val);
 string_code:if cur_cs<>0 then sprint_cs(cur_cs)
-  else print_char(cur_chr);
+  else print(cur_chr);
 meaning_code: print_meaning;
 etex_code: print(eTeX_version_string);
 omega_code: print(Omega_version_string);
@@ -40690,8 +40707,9 @@ begin
 end;
 
 function set_tex_dimen_register (j:integer;v:scaled):integer;
+var a:small_number;
 begin  {return non-nil for error}
-dimen(j) := v;
+word_define(j+dimen_base,v);
 set_tex_dimen_register := 0;
 end;
 
@@ -40701,8 +40719,9 @@ begin
 end;
 
 function set_tex_count_register (j:integer;v:scaled):integer;
+var a:small_number;
 begin  {return non-nil for error}
-count(j) := v;
+word_define(j+count_base,v);
 set_tex_count_register := 0;
 end;
 
@@ -40719,6 +40738,7 @@ end;
 function set_tex_toks_register (j:integer;s:str_number):integer;
 var save_pool_ptr:pool_pointer;
   ref:pointer;
+  a:small_number;
 begin
   set_tex_toks_register := 0;
   save_pool_ptr := pool_ptr;
@@ -40728,7 +40748,8 @@ begin
   pool_ptr := save_pool_ptr;
   token_ref_count(ref) := 0;
   link(ref) := link(temp_head);
-  toks(j) := ref;
+  a:=0;
+  define(j+toks_base,call,ref);
   flush_str(s);
 end;
 

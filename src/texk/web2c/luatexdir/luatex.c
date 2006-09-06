@@ -123,7 +123,7 @@ int getcount (lua_State *L) {
 }
 
 int settoks (lua_State *L) {
-  int i,j,k,l,len;
+  int i,jj,kk,l,len;
   i = lua_gettop(L);
   char *st;
   if (!lua_isstring(L,i)) {
@@ -132,10 +132,11 @@ int settoks (lua_State *L) {
   }
   st = (char *)lua_tostring(L,i);
   len = lua_strlen(L, i);
-  k = (int)lua_tonumber(L,(i-1));
+  kk = (int)lua_tonumber(L,(i-1));
   lua_settop(L,(i-3)); /* table at -2 */
-  check_index_range(k);
-  if(settextoksregister(k,maketexstring(st))) {
+  check_index_range(kk);
+  jj = maketexstring(st);
+  if(zsettextoksregister(kk,jj)) {
 	lua_pushstring(L, "incorrect value");
 	lua_error(L);
   }
@@ -267,14 +268,14 @@ int luaopen_tex (lua_State *L)
 void
 btestin(void)
 {
-    string fname =
-    kpse_find_file (nameoffile + 1, kpse_program_binary_format, true);
+  string fname = kpse_find_file ((char *)(nameoffile + 1), 
+				   kpse_program_binary_format, true);
 
     if (fname) {
       libcfree(nameoffile);
       nameoffile = xmalloc(2+strlen(fname));
       namelength = strlen(fname);
-      strcpy(nameoffile+1, fname);
+      strcpy((char *)nameoffile+1, fname);
     }
     else {
       libcfree(nameoffile);
