@@ -1,4 +1,4 @@
-/* $Id */
+/* $Id$ */
 
 #include "luatex-api.h"
 #include <ptexlib.h>
