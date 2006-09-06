@@ -3,7 +3,7 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-static lua_State *Luas[65536];
+lua_State *Luas[65536];
 
 void
 make_table (lua_State *L, char *tab, char *getfunc, char*setfunc) {

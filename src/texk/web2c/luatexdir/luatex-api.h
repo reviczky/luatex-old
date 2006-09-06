@@ -12,6 +12,8 @@ typedef struct LoadS {
     size_t size;
 } LoadS;
 
+extern lua_State *Luas[];
+
 extern void make_table (lua_State *L, char *tab, char *getfunc, char*setfunc);
 
 extern int luaopen_tex (lua_State *L);
