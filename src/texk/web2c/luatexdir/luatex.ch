@@ -658,9 +658,9 @@ end;
 @z
 
 @x
-print_char("."); show_context;
+show_context;
 @y
-print_char("."); show_context;
+show_context;
 if (halt_on_error_p) then begin
   history:=fatal_error_stop; jump_out;
 end;

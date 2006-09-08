@@ -140,6 +140,7 @@ luainterpreter (int n) {
   luaopen_tex(L);
   luaopen_unicode(L);
   luaopen_texio(L);
+  luaopen_kpse(L);
   fix_package_path(L,"path","lua",1);
 #if defined(_WIN32)
   fix_package_path(L,"cpath","dll",0);

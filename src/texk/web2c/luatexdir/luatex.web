@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060906' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060908' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -1993,10 +1993,11 @@ amounts of user interaction:
 @d error_stop_mode=3 {stops at every opportunity to interact}
 @d print_err(#)==begin if interaction=error_stop_mode then wake_up_terminal;
   print_nl("! "); print(#);
-  end
+  last_error:=#; end
 
 @<Glob...@>=
 @!interaction:batch_mode..error_stop_mode; {current level of interaction}
+@!last_error:str_number;
 
 @ @<Set init...@>=interaction:=error_stop_mode;
 
@@ -2123,8 +2124,16 @@ label continue,exit;
 var c:ASCII_code; {what the user types}
 @!s1,@!s2,@!s3,@!s4:integer;
   {used to save global variables when deleting tokens}
+@!t:boolean;
 begin if history<error_message_issued then history:=error_message_issued;
-print_char("."); show_context;
+print_char("."); 
+if callback_defined(callback_id,'texio','show_error_hook') then begin
+  if name<string_offset then
+    t := run_callback(callback_id,'texio','show_error_hook','sdd>',last_error,name,line)
+  else
+    t := run_callback(callback_id,'texio','show_error_hook','ssd>',last_error,name,line);
+end;
+show_context;
 if interaction=error_stop_mode then @<Get user's advice and |return|@>;
 incr(error_count);
 if error_count=100 then
@@ -6683,6 +6692,47 @@ A global boolean variable called |no_new_control_sequence| is set to
 @!prim_used:pointer; {allocation pointer for |prim|}
 @!prim_eqtb:array[0..prim_size] of memory_word;
 
+@ The extra set of functions make sure we can query the
+primitive meanings of thing s from C code
+
+@p function get_prim_eq_level(prim:integer):quarterword;
+begin
+  get_prim_eq_level := prim_eq_level(prim);
+end;
+function get_prim_eq_type(prim:integer):quarterword;
+begin
+  get_prim_eq_type := prim_eq_type(prim);
+end;
+function get_prim_equiv(prim:integer):halfword;
+begin
+  get_prim_equiv := prim_equiv(prim);
+end;
+function get_eq_type(prim:integer):quarterword;
+begin
+  get_eq_type := eq_type(prim);
+end;
+function get_eq_level(prim:integer):quarterword;
+begin
+  get_eq_level := eq_level(prim);
+end;
+function get_equiv(prim:integer):halfword;
+begin
+  get_equiv := equiv(prim);
+end;
+function get_count_base:halfword;
+begin
+  get_count_base := count_base;
+end;
+function get_scaled_base:halfword;
+begin
+  get_scaled_base := scaled_base;
+end;
+function get_toks_base:halfword;
+begin
+  get_toks_base := toks_base;
+end;
+
+
 @ @<Set init...@>=
 no_new_control_sequence:=true; {new identifiers are usually forbidden}
 prim_next(0):=0; prim_text(0):=0;
@@ -6774,17 +6824,19 @@ label found; {go here if you found it}
 var h:integer; {hash code}
 @!p:pointer; {index in |hash| array}
 @!k:pointer; {index in string pool}
+@!the_hash_prime:halfword;
 @!j,@!l:integer;
 begin
+the_hash_prime:= prim_prime;
 if s<string_offset then begin
   p := s;
-  if (p<0) or (prim_eq_level(p)<>level_one) then
+  if (p<0) or (get_prim_eq_level(p)<>level_one) then
     p := undefined_primitive;
 end
 else begin
   j:=str_start_macro(s);
   if s = str_ptr then l := cur_length else l := length(s);
-  @<Compute the primitive code |h|@>;
+  @<Compute the string hash code |h|@>;
   p:=h+prim_base; {we start searching here; note that |0<=h<hash_prime|}
   loop@+begin if prim_text(p)>0 then if length(prim_text(p))=l then
     if str_eq_str(prim_text(p),s) then goto found;
@@ -6801,6 +6853,49 @@ else begin
 found: prim_lookup:=p;
 end;
 
+function string_lookup(@!s:str_number):pointer; {search the primitives table}
+label found; {go here if you found it}
+var h:integer; {hash code}
+@!p:pointer; {index in |hash| array}
+@!k:pointer; {index in string pool}
+@!the_hash_prime: halfword;
+@!j,@!l:integer;
+begin
+the_hash_prime := hash_prime;
+if s<string_offset then begin
+  p := s;
+  if (p<0) or (eq_level(p)<>level_one) then
+    p := undefined_cs;
+end
+else begin
+  j:=str_start_macro(s);
+  if s = str_ptr then l := cur_length else l := length(s);
+  @<Compute the string hash code |h|@>;
+  p:=h+hash_base; {we start searching here; note that |0<=h<hash_prime|}
+  loop@+begin if text(p)>0 then if length(text(p))=l then
+    if str_eq_str(text(p),s) then goto found;
+    if next(p)=0 then
+      begin 
+     	p:=undefined_cs ;
+        goto found;
+      end;
+    p:=next(p);
+    end;
+  end;
+found: string_lookup:=p;
+end;
+
+function is_primitive(csname:str_number):boolean;
+  var n,m:integer;
+begin
+  m := prim_lookup(csname);
+  n := string_lookup(csname);
+  is_primitive :=((n<>undefined_cs) and
+       (m<>undefined_primitive) and
+       (eq_type(n)=get_prim_eq_type(m)) and
+       (equiv(n)=get_prim_equiv(m)));
+end;
+
 @ @<Insert a new primitive...@>=
 begin if prim_text(p)>0 then
   begin repeat if prim_is_full then overflow("primitive size",prim_size);
@@ -6815,11 +6910,11 @@ end
 @ The value of |prim_prime| should be roughly 85\pct! of
 |prim_size|, and it should be a prime number.
 
-@<Compute the primitive code |h|@>=
+@<Compute the string hash code |h|@>=
 h:=str_pool[j];
 for k:=j+1 to j+l-1 do
   begin h:=h+h+str_pool[k];
-  while h>=prim_prime do h:=h-prim_prime;
+  while h>=the_hash_prime do h:=h-the_hash_prime;
   end
 
 
@@ -6899,9 +6994,9 @@ cur_val:=id_lookup(first,l); {|no_new_control_sequence| is |false|}
 flush_string; text(cur_val):=s; {we don't want to have the string twice}
 prim_val:=prim_lookup(s);
 eq_level(cur_val):=level_one; eq_type(cur_val):=c; equiv(cur_val):=o;
-prim_eq_level(prim_val):=level_one;
-prim_eq_type(prim_val):=c;
-prim_equiv(prim_val):=o;
+prim_eq_level(prim_val) := level_one;
+prim_eq_type(prim_val) := c;
+prim_equiv(prim_val) := o;
 end;
 tini
 
@@ -9253,8 +9348,8 @@ get_token; scanner_status:=save_scanner_status;
 cur_cs := prim_lookup(text(cur_cs));
 if cur_cs<>undefined_primitive then begin
   if cur_cmd>max_command then begin
-    cur_cmd := prim_eq_type(cur_cs);
-    cur_chr := prim_equiv(cur_cs);
+    cur_cmd := get_prim_eq_type(cur_cs);
+    cur_chr := get_prim_equiv(cur_cs);
     cur_tok := (cur_cmd*@'400)+cur_chr;
     cur_cs  := 0;
 	goto reswitch;
@@ -10060,6 +10155,33 @@ othercases @<Complain that \.{\\the} can't do this; give zero result@>
 endcases;@/
 while cur_val_level>level do @<Convert \(c)|cur_val| to a lower level@>;
 @<Fix the reference count, if any, and negate |cur_val| if |negative|@>;
+exit:end;
+
+procedure scan_something_simple(@!cmd:halfword;@!subitem:halfword);
+  {fetch an internal parameter}
+label exit;
+var m:halfword; {|chr_code| part of the operand token}
+    n, k: integer; {accumulators}
+@!q:halfword; {general purpose index}
+@!i:four_quarters; {character info}
+@!p:0..nest_size; {index into |nest|}
+@!level:small_number; { allowed level}
+begin m:=subitem; level:=tok_val;
+case cmd of
+assign_toks: scanned_result(equiv(m))(tok_val);
+assign_int: scanned_result(eqtb[m].int)(int_val);
+assign_dir: scanned_result(eqtb[m].int)(dir_val);
+assign_dimen: scanned_result(eqtb[m].sc)(dimen_val);
+assign_glue: scanned_result(equiv(m))(glue_val);
+assign_mu_glue: scanned_result(equiv(m))(mu_val);
+set_aux: @<Fetch the |space_factor| or the |prev_depth|@>;
+set_prev_graf: @<Fetch the |prev_graf|@>;
+set_page_int:@<Fetch the |dead_cycles| or the |insert_penalties|@>;
+set_page_dimen: @<Fetch something on the |page_so_far|@>;
+set_shape: @<Fetch the |par_shape| size@>;
+char_given,math_given,omath_given: scanned_result(m)(int_val);
+othercases @<Complain that \.{\\the} can't do this; give zero result@>
+endcases;@/
 exit:end;
 
 @ @<Fetch a character code from some table@>=
@@ -11261,7 +11383,10 @@ var old_setting:0..max_selector; {holds |selector| setting}
 @!c:small_number; {value of |cur_chr|}
 begin @<Handle \.{\\unexpanded} or \.{\\detokenize} and |return|@>;@/
 get_x_token; scan_something_internal(tok_val,false);
-if cur_val_level>=ident_val then @<Copy the token list@>
+if cur_val_level>=ident_val then begin
+  @<Copy the token list@>;
+  the_toks:=p;
+  end
 else begin old_setting:=selector; selector:=new_string; b:=pool_ptr;
   case cur_val_level of
   int_val:print_int(cur_val);
@@ -11277,6 +11402,36 @@ else begin old_setting:=selector; selector:=new_string; b:=pool_ptr;
   end;
 exit:end;
 
+function the_scanned_result:str_number;
+var old_setting:0..max_selector; {holds |selector| setting}
+@!p,@!q,@!r:pointer; {used for copying a token list}
+@!c:small_number; {value of |cur_chr|}
+begin
+old_setting:=selector; selector:=new_string;
+if cur_val_level>=ident_val then begin
+  if cur_val<>null then begin
+    show_token_list(link(cur_val),null,pool_size-pool_ptr);
+    the_scanned_result:=make_string;
+    end
+  else
+    the_scanned_result:="";
+  end
+else begin
+    case cur_val_level of
+    int_val:print_int(cur_val);
+    dir_val:print_dir(cur_val);
+    dimen_val:begin print_scaled(cur_val); print("pt");
+      end;
+    glue_val: begin print_spec(cur_val,"pt"); delete_glue_ref(cur_val);
+      end;
+    mu_val: begin print_spec(cur_val,"mu"); delete_glue_ref(cur_val);
+      end;
+    end; {there are no other cases}
+    the_scanned_result:=make_string;
+  end;
+selector:=old_setting;
+end;
+
 @ @<Copy the token list@>=
 begin p:=temp_head; link(p):=null;
 if cur_val_level=ident_val then store_new_token(cs_token_flag+cur_val)
@@ -11286,7 +11441,6 @@ else if cur_val<>null then
     begin fast_store_new_token(info(r)); r:=link(r);
     end;
   end;
-the_toks:=p;
 end
 
 @ Here's part of the |expand| subroutine that we are now ready to complete:
@@ -11337,8 +11491,9 @@ such that |job_name_code| remains last.
 @d pdf_insert_ht_code       = pdftex_first_expand_code + 21 {command code for \.{\\pdfinsertht}}
 @d pdf_ximage_bbox_code     = pdftex_first_expand_code + 22 {command code for \.{\\pdfximagebbox}}
 @d lua_code                 = pdftex_first_expand_code + 23 {command code for \.{\\directlua}}
-@d lua_escape_string_code   = pdftex_first_expand_code + 24 {command code for \.{\\luaescapestring}}
-@d pdftex_convert_codes     = pdftex_first_expand_code + 25 {end of \pdfTeX's command codes}
+@d detokenized_lua_code     = pdftex_first_expand_code + 24 {command code for \.{\\detokenizedlua}}
+@d lua_escape_string_code   = pdftex_first_expand_code + 25 {command code for \.{\\luaescapestring}}
+@d pdftex_convert_codes     = pdftex_first_expand_code + 26 {end of \pdfTeX's command codes}
 @d job_name_code=pdftex_convert_codes {command code for \.{\\jobname}}
 
 @<Put each...@>=
@@ -11402,6 +11557,8 @@ primitive("pdfnormaldeviate",convert,normal_deviate_code);@/
 @!@:normal_deviate_}{\.{\\pdfnormaldeviate} primitive@>
 primitive("directlua",convert,lua_code);@/
 @!@:lua_}{\.{\\directlua} primitive@>
+primitive("detokenizedlua",convert,detokenized_lua_code);@/
+@!@:detokenized_lua_}{\.{\\detokenizedlua} primitive@>
 primitive("luaescapestring",convert,lua_escape_string_code);@/
 @!@:lua_}{\.{\\luaescapestring} primitive@>
 @#
@@ -11446,6 +11603,7 @@ convert: case chr_code of
   pdf_insert_ht_code: print_esc("pdfinsertht");
   pdf_ximage_bbox_code:    print_esc("pdfximagebbox");
   lua_code:                print_esc("directlua");
+  detokenized_lua_code:    print_esc("detokenizedlua");
   lua_escape_string_code:  print_esc("luaescapestring");
   @/@<Cases of |convert| for |print_cmd_chr|@>@/
   othercases print_esc("jobname")
@@ -11723,6 +11881,29 @@ lua_escape_string_code:
     return;
   end;
 lua_code:
+  begin
+    save_scanner_status := scanner_status;
+    save_def_ref := def_ref;
+    save_warning_index := warning_index;
+	scan_register_num;
+	i := cur_val;{|tokens_to_string| may trash |cur_val }
+    scan_pdf_ext_toks;
+	inhibit_par_tokens:=true;
+    s := tokens_to_string(def_ref);
+	inhibit_par_tokens:=false;
+    delete_token_ref(def_ref);
+    def_ref := save_def_ref;
+    warning_index := save_warning_index;
+    scanner_status := save_scanner_status;
+    b := pool_ptr;
+    luacall(i,(s-string_offset));
+	if pool_ptr>b then begin
+	  pseudo_from_string;
+    end;
+    flush_str(s);
+    return;
+  end;
+detokenized_lua_code:
   begin
     save_scanner_status := scanner_status;
     save_def_ref := def_ref;
@@ -12352,8 +12533,8 @@ if_primitive_code: begin
   m := prim_lookup(text(cur_cs));
   b :=((cur_cmd<>undefined_cs) and
        (m<>undefined_primitive) and
-       (cur_cmd=prim_eq_type(m)) and
-       (cur_chr=prim_equiv(m)));
+       (cur_cmd=get_prim_eq_type(m)) and
+       (cur_chr=get_prim_equiv(m)));
   end;
 end {there are no other cases}
 
@@ -30636,8 +30817,8 @@ any_mode(ignore_spaces): begin
     scanner_status:=t;
     cur_cs  := prim_lookup(text(cur_cs));
     if cur_cs<>undefined_primitive then begin
-      cur_cmd := prim_eq_type(cur_cs);
-      cur_chr := prim_equiv(cur_cs);
+      cur_cmd := get_prim_eq_type(cur_cs);
+      cur_chr := get_prim_equiv(cur_cs);
       goto reswitch;
       end;
     end;
@@ -33325,6 +33506,28 @@ end;
 
 @ @<Initialize table entries...@>=
 text(frozen_protection):="inaccessible";
+
+@ Assignments from Lua need helpers. 
+
+@p function is_int_assign(cmd:halfword):boolean;
+begin
+  is_int_assign := (cmd=assign_int);
+end;
+function is_dim_assign(cmd:halfword):boolean;
+begin
+  is_dim_assign := (cmd=assign_dimen);
+end;
+procedure assign_internal_int(cmd:halfword;value:integer);
+var  a:small_number;
+begin
+	word_define(cmd,value);
+end;
+procedure assign_internal_dim(cmd:halfword;value:integer);
+var  a:small_number;
+begin
+  word_define(cmd,value);
+end;
+
 
 @ Here's an example of the way many of the following routines operate.
 (Unfortunately, they aren't all as simple as this.)
@@ -39551,6 +39754,20 @@ flush_string;
 @<Initiate input from new pseudo file@>;
 end;
 
+procedure pseudo_from_string;
+var old_setting:0..max_selector; {holds |selector| setting}
+@!s:str_number; {string to be converted into a pseudo file}
+@!l,@!m:pool_pointer; {indices into |str_pool|}
+@!p,@!q,@!r:pointer; {for list construction}
+@!w: four_quarters; {four ASCII codes}
+@!nl,@!sz:integer;
+begin 
+s:=make_string;
+@<Convert string |s| into a new pseudo file@>;
+flush_string;
+@<Initiate input from new pseudo file@>;
+end;
+
 @ @<Convert string |s| into a new pseudo file@>=
 str_pool[pool_ptr]:=si(" "); l:=str_start_macro(s);
 nl:=si(new_line_char);
@@ -40709,7 +40926,7 @@ end;
 function set_tex_dimen_register (j:integer;v:scaled):integer;
 var a:small_number;
 begin  {return non-nil for error}
-word_define(j+dimen_base,v);
+word_define(j+scaled_base,v);
 set_tex_dimen_register := 0;
 end;
 

@@ -67,42 +67,69 @@ static int dimen_to_number (lua_State *L,char *s){
 
 int setdimen (lua_State *L) {
   int i,j,k;
+  int cur_cs;
+  int texstr;
   i = lua_gettop(L);
+  // find the value
   if (!lua_isnumber(L,i))
+    if (lua_isstring(L,i)) {
 	j = dimen_to_number(L,(char *)lua_tostring(L,i));
+    } else {
+      lua_pushstring(L, "unsupported value type");
+      lua_error(L);
+    }
   else
     j = (int)lua_tonumber(L,i);
-  k = (int)lua_tonumber(L,(i-1));
-  lua_settop(L,(i-3)); /* table at -2 */
+  // find the index
+  if (lua_type(L,i-1)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i-1));
+    cur_cs = stringlookup(texstr);
+    flushstr(texstr);
+    k = zgetequiv(cur_cs)-getscaledbase();
+  } else {
+    k = (int)luaL_checkinteger(L,i-1);
+  }
   check_index_range(k);
   if(settexdimenregister(k,j)) {
-	lua_pushstring(L, "incorrect value");
-	lua_error(L);
+    lua_pushstring(L, "incorrect value");
+    lua_error(L);
   }
   return 0;
 }
 
 int getdimen (lua_State *L) {
-  int i, j;
+  int i,j,  k;
+  int cur_cs;
+  int texstr;
   i = lua_gettop(L);
-  j = (int)lua_tonumber(L,(i));
-  lua_settop(L,(i-2)); /* table at -1 */
-  check_index_range(j);
-  j = gettexdimenregister(j);
+  if (lua_type(L,i)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i));
+    cur_cs = stringlookup(texstr);
+    flushstr(texstr);
+    k = zgetequiv(cur_cs)-getscaledbase();
+  } else {
+    k = (int)luaL_checkinteger(L,i);
+  }
+  check_index_range(k);
+  j = gettexdimenregister(k);
   lua_pushnumber(L, j);
   return 1;
 }
 
 int setcount (lua_State *L) {
   int i,j,k;
+  int cur_cs;
+  int texstr;
   i = lua_gettop(L);
-  if (!lua_isnumber(L,i)) {
-    lua_pushstring(L, "unsupported value type");
-    lua_error(L);
+  j = (int)luaL_checkinteger(L,i);
+  if (lua_type(L,i-1)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i-1));
+    cur_cs = stringlookup(texstr);
+    flushstr(texstr);
+    k = zgetequiv(cur_cs)-getcountbase();
+  } else {
+    k = (int)luaL_checkinteger(L,i-1);
   }
-  j = (int)lua_tonumber(L,i);
-  k = (int)lua_tonumber(L,(i-1));
-  lua_settop(L,(i-3)); /* table at -2 */
   check_index_range(k);
   if (settexcountregister(k,j)) {
 	lua_pushstring(L, "incorrect value");
@@ -112,18 +139,28 @@ int setcount (lua_State *L) {
 }
 
 int getcount (lua_State *L) {
-  int i, j;
+  int i, j, k;
+  int cur_cs;
+  int texstr;
   i = lua_gettop(L);
-  j = (int)lua_tonumber(L,(i));
-  lua_settop(L,(i-2)); /* table at -1 */
-  check_index_range(j);
-  j = gettexcountregister(j);
+  if (lua_type(L,i)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i));
+    cur_cs = stringlookup(texstr);
+    flushstr(texstr);
+    k = zgetequiv(cur_cs)-getcountbase();
+  } else {
+    k = (int)luaL_checkinteger(L,i);
+  }
+  check_index_range(k);
+  j = gettexcountregister(k);
   lua_pushnumber(L, j);
   return 1;
 }
 
 int settoks (lua_State *L) {
-  int i,jj,kk,l,len;
+  int i,j,k,l,len;
+  int cur_cs;
+  int texstr;
   i = lua_gettop(L);
   char *st;
   if (!lua_isstring(L,i)) {
@@ -132,25 +169,42 @@ int settoks (lua_State *L) {
   }
   st = (char *)lua_tostring(L,i);
   len = lua_strlen(L, i);
-  kk = (int)lua_tonumber(L,(i-1));
-  lua_settop(L,(i-3)); /* table at -2 */
-  check_index_range(kk);
-  jj = maketexstring(st);
-  if(zsettextoksregister(kk,jj)) {
-	lua_pushstring(L, "incorrect value");
-	lua_error(L);
+
+  if (lua_type(L,i-1)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i-1));
+    cur_cs = stringlookup(texstr);
+    flushstr(texstr);
+    k = zgetequiv(cur_cs)-gettoksbase();
+  } else {
+    k = (int)luaL_checkinteger(L,i-1);
+  }
+  check_index_range(k);
+  j = maketexstring(st);
+  if(zsettextoksregister(k,j)) {
+    flushstr(j);
+    lua_pushstring(L, "incorrect value");
+    lua_error(L);
   }
   return 0;
 }
 
 int gettoks (lua_State *L) {
-  int i,j;
+  int i,k;
   strnumber t;
+  int cur_cs;
+  int texstr;
   i = lua_gettop(L);
-  j = (int)lua_tonumber(L,(i));
-  lua_settop(L,(i-2)); /* table at -1 */
-  check_index_range(j);
-  t = gettextoksregister(j);
+  if (lua_type(L,i)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i));
+    cur_cs = stringlookup(texstr);
+    flushstr(texstr);
+    k = zgetequiv(cur_cs)-gettoksbase();
+  } else {
+    k = (int)luaL_checkinteger(L,i);
+  }
+
+  check_index_range(k);
+  t = gettextoksregister(k);
   lua_pushstring(L, makecstring(t));
   flushstr(t);
   return 1;
@@ -234,6 +288,84 @@ int setboxdp (lua_State *L) {
   return setboxdim(L,depth_offset);
 }
 
+int settex (lua_State *L) {
+  char *st;
+  int i,j,texstr;
+  int cur_cs, cur_cmd;
+  i = lua_gettop(L);
+  if (lua_isstring(L,(i-1))) {
+    st = (char *)lua_tostring(L,(i-1));
+    texstr = maketexstring(st);
+    if (zisprimitive(texstr)) {
+      cur_cs = stringlookup(texstr);
+      flushstr(texstr);
+      cur_cmd = zgeteqtype(cur_cs);
+      if (isintassign(cur_cmd)) {
+	if (lua_isnumber(L,i)) {
+	  assigninternalint(zgetequiv(cur_cs),lua_tonumber(L,i));
+	} else {
+	  lua_pushstring(L, "unsupported value type");
+	  lua_error(L);
+	}
+      } else if (isdimassign(cur_cmd)) {
+	if (!lua_isnumber(L,i))
+	  if (lua_isstring(L,i)) {
+	    j = dimen_to_number(L,(char *)lua_tostring(L,i));
+	  } else {
+	    lua_pushstring(L, "unsupported value type");
+	    lua_error(L);
+	  }
+	else
+	  j = (int)lua_tonumber(L,i);
+	assigninternaldim(zgetequiv(cur_cs),j);
+      } else {
+	lua_pushstring(L, "unsupported tex internal assignment");
+	lua_error(L);
+      }
+    } else {
+      lua_rawset(L,(i-2));
+    }
+  } else {
+    lua_rawset(L,(i-2));
+  }
+  return 0;
+}
+
+int gettex (lua_State *L) {
+  char *st;
+  int i,texstr;
+  int cur_cs, cur_cmd, cur_code;
+  int save_cur_val,save_cur_val_level;
+  i = lua_gettop(L);
+  if (lua_isstring(L,i)) {
+    st = (char *)lua_tostring(L,i);
+    texstr = maketexstring(st);
+    cur_cs = zprimlookup(texstr);
+    flushstr(texstr);
+    if (cur_cs) {
+      cur_cmd = zgetprimeqtype(cur_cs);
+      cur_code = zgetprimequiv(cur_cs);
+      save_cur_val = curval;
+      save_cur_val_level = curvallevel;
+      zscansomethingsimple(cur_cmd,cur_code);
+      texstr = thescannedresult();
+      curval = save_cur_val;
+      curvallevel = save_cur_val_level;
+      lua_pushstring(L,makecstring(texstr));
+      flushstr(texstr);
+      return 1;
+    } else {
+      lua_rawget(L,(i-1));
+      return 1;
+    }    
+  } else {
+    lua_rawget(L,(i-1));
+    return 1;
+  }
+  return 0; // not reached
+}
+
+
 static const struct luaL_reg texlib [] = {
   {"print", poolprint},
   {"setdimen", setdimen},
@@ -260,6 +392,16 @@ int luaopen_tex (lua_State *L)
   make_table(L,"wd","getboxwd","setboxwd");
   make_table(L,"ht","getboxht","setboxht");
   make_table(L,"dp","getboxdp","setboxdp");
+  /* make the meta entries */
+  /* fetch it back */
+  luaL_newmetatable(L,"tex_meta"); 
+  lua_pushstring(L, "__index");
+  lua_pushcfunction(L, gettex); 
+  lua_settable(L, -3);
+  lua_pushstring(L, "__newindex");
+  lua_pushcfunction(L, settex); 
+  lua_settable(L, -3);
+  lua_setmetatable(L,-2); /* meta to itself */
   return 1;
 }
 

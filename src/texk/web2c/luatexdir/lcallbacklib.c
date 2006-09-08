@@ -25,6 +25,7 @@ callbackdefined (int luaid, char *table,char *name) {
 
 #define CALLBACK_FILE           'f'
 #define CALLBACK_BOOLEAN        'b'
+#define CALLBACK_INTEGER        'd'
 #define CALLBACK_LINE           'l'
 #define CALLBACK_STRNUMBER      's'
 #define CALLBACK_STRING         'S'
@@ -57,7 +58,7 @@ runcallback (int luaid, char *table,char *name, char *values, ...) {
 	    //lua_pushboolean(Luas[luaid], va_arg(vl, int));
 	    readfile = (FILE **)lua_newuserdata(Luas[luaid], sizeof(FILE *));
 	    *readfile = va_arg(vl, FILE *); 
-	    luaL_getmetatable(Luas[luaid], LUA_FILEHANDLE);
+	    luaL_getmetatable(Luas[luaid], LUA_TEXFILEHANDLE);
 	    lua_setmetatable(Luas[luaid], -2);
 	    break;
 	  case CALLBACK_CHARNUM: /* C string */ 
@@ -68,6 +69,9 @@ runcallback (int luaid, char *table,char *name, char *values, ...) {
 	  case CALLBACK_STRING: /* C string */ 
 	    s = va_arg(vl, char *);
 	    lua_pushstring(Luas[luaid], strdup(s));
+	    break;
+	  case CALLBACK_INTEGER: /* int */ 
+	    lua_pushnumber(Luas[luaid], va_arg(vl, int));
 	    break;
 	  case CALLBACK_STRNUMBER: /* TeX string */ 
 	    s = makecstring(va_arg(vl, int));
@@ -95,6 +99,12 @@ runcallback (int luaid, char *table,char *name, char *values, ...) {
 	    if (!lua_isboolean(Luas[luaid],nres))
 	      goto EXIT;
 	    int b = lua_toboolean(Luas[luaid],nres);
+	    *va_arg(vl, int *) = b;
+	    break;
+	  case CALLBACK_INTEGER: 
+	    if (!lua_isnumber(Luas[luaid],nres))
+	      goto EXIT;
+	    b = lua_tonumber(Luas[luaid],nres);
 	    *va_arg(vl, int *) = b;
 	    break;
 	  case CALLBACK_FILE: 

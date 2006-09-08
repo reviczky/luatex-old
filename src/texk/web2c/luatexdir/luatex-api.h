@@ -7,6 +7,7 @@
 #include <../lua51/lauxlib.h>
 #include <../lua51/lualib.h>
 
+
 typedef struct LoadS {
     const char *s;
     size_t size;
@@ -19,6 +20,8 @@ extern void make_table (lua_State *L, char *tab, char *getfunc, char*setfunc);
 extern int luaopen_tex (lua_State *L);
 
 extern int luaopen_pdf (lua_State *L);
+
+#define LUA_TEXFILEHANDLE		"TEXFILE*"
 
 extern int luaopen_texio (lua_State *L);
 
@@ -33,3 +36,5 @@ extern int callbackdefined (int luaid, char *table,char *name);
 extern int runcallback (int luaid, char *table, char *name, char *values, ...);
 
 extern void luainitialize (int luaid, int format);
+
+extern int luaopen_kpse (lua_State *L);
