@@ -41,7 +41,7 @@ static const struct luaL_reg pdflib [] = {
 
 int luaopen_pdf (lua_State *L) 
 {
-  luaL_openlib(L, "pdf", pdflib, 0);
+  luaL_register(L, "pdf", pdflib);
   make_table(L,"v","getv","setv");
   make_table(L,"h","geth","seth");
   return 1;

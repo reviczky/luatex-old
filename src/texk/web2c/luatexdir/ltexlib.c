@@ -29,6 +29,88 @@ poolprint(lua_State * L) {
   return 0;
 }
 
+typedef struct {
+  char *text;
+  void *next;
+} rope;
+
+static rope luacstring_head = {NULL,NULL};
+
+static rope *luacstring_rover = NULL;
+
+int 
+luacprint(lua_State * L) {
+  int i, n, len;
+  char *st;
+  rope *rn;
+  n = lua_gettop(L);
+  //luacstring_rover = &luacstring_head;
+  if (luacstring_rover == NULL)
+    luacstring_rover = &luacstring_head;
+  //while (luacstring_rover->next != NULL)
+  //  luacstring_rover = luacstring_rover->next;
+  for (i = 1; i <= n; i++) {
+    if (!lua_isstring(L, i)) {
+      lua_pushstring(L, "no string to print");
+      lua_error(L);
+    }
+    if(lua_strlen(L, i)) {
+      st = strdup(lua_tostring(L, i));
+      if (st) {
+	//
+	luacstrings++; /* tex-side variable */
+	rn = (rope *)malloc(sizeof(rope));
+	rn->text = st;
+	rn->next = NULL;
+	luacstring_rover->next = rn;
+        luacstring_rover = rn;
+      }
+    }
+  }
+  return 0;
+}
+
+boolean 
+luacstringpenultimate (void) {
+  return (luacstring_head.next == NULL);
+}
+
+boolean 
+luacstringinput (void) {
+  char *st;
+  rope *t;
+  int ret,len;
+  if (luacstring_head.next != NULL) {
+    luacstrings--; /* tex-side variable */
+    t = luacstring_head.next;
+    st = t->text;
+    /* put that thing in the buffer */
+    last = first;
+    ret = last;
+    len = strlen(st);
+    check_buf (last + len,bufsize);
+    while (len-->0)
+      buffer[last++] = *st++;
+    while (last-1>ret && buffer[last-1] == ' ')
+      last--;
+    free(t->text);
+    luacstring_head.next = t->next;
+    free(t);
+    return 1;
+  }
+  return 0;
+}
+
+void 
+luacstringclose (void) {
+  if (luacstring_head.next != NULL) {
+    free(luacstring_head.next);
+    luacstring_head.next = NULL;
+  }
+  luacstring_rover = NULL;
+}
+
+
 /* local (static) versions */
 
 #define width_offset 1
@@ -106,6 +188,10 @@ int getdimen (lua_State *L) {
     texstr = maketexstring(lua_tostring(L,i));
     cur_cs = stringlookup(texstr);
     flushstr(texstr);
+    if (isundefinedcs(cur_cs)) {
+      lua_pushnil(L);
+      return 1;
+    }
     k = zgetequiv(cur_cs)-getscaledbase();
   } else {
     k = (int)luaL_checkinteger(L,i);
@@ -147,6 +233,10 @@ int getcount (lua_State *L) {
     texstr = maketexstring(lua_tostring(L,i));
     cur_cs = stringlookup(texstr);
     flushstr(texstr);
+    if (isundefinedcs(cur_cs)) {
+      lua_pushnil(L);
+      return 1;
+    }
     k = zgetequiv(cur_cs)-getcountbase();
   } else {
     k = (int)luaL_checkinteger(L,i);
@@ -198,6 +288,10 @@ int gettoks (lua_State *L) {
     texstr = maketexstring(lua_tostring(L,i));
     cur_cs = stringlookup(texstr);
     flushstr(texstr);
+    if (isundefinedcs(cur_cs)) {
+      lua_pushnil(L);
+      return 1;
+    }
     k = zgetequiv(cur_cs)-gettoksbase();
   } else {
     k = (int)luaL_checkinteger(L,i);
@@ -367,7 +461,7 @@ int gettex (lua_State *L) {
 
 
 static const struct luaL_reg texlib [] = {
-  {"print", poolprint},
+  {"print", luacprint},
   {"setdimen", setdimen},
   {"getdimen", getdimen},
   {"setcount", setcount},
@@ -385,7 +479,7 @@ static const struct luaL_reg texlib [] = {
 
 int luaopen_tex (lua_State *L) 
 {
-  luaL_openlib(L, "tex", texlib, 0);
+  luaL_register(L, "tex", texlib);
   make_table(L,"dimen","getdimen","setdimen");
   make_table(L,"count","getcount","setcount");
   make_table(L,"toks","gettoks","settoks");

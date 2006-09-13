@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060908' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060913' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -954,8 +954,8 @@ end;
 var ret,test:boolean;
   k:integer;
   fnam:str_number;
-begin if callback_defined(callback_id,'texio','open_read_file') then begin
-    test := run_callback(callback_id,'texio','open_read_file','S>bsf',
+begin if callback_defined('open_read_file') then begin
+    test := run_callback('open_read_file','S>bsf',
                          stringcast(name_of_file+1),address_of(ret),
                          address_of(fnam),address_of(f));
 	if test then begin
@@ -980,8 +980,8 @@ function lua_a_open_out(var f:alpha_file):boolean;
 var ret,test:boolean;
   k:integer;
   fnam:str_number;
-begin if callback_defined(callback_id,'texio','open_write_file') then begin
-    test := run_callback(callback_id,'texio','open_write_file','S>bsf',
+begin if callback_defined('open_write_file') then begin
+    test := run_callback('open_write_file','S>bsf',
 	                     stringcast(name_of_file+1),address_of(ret),address_of(fnam),address_of(f));
     if test then begin
 	  name_file_pointer := f;
@@ -1110,10 +1110,10 @@ var lua_result:boolean;
 	last_ptr:integer;
 	k:pool_pointer;
 begin
-  if callback_defined(callback_id,'texio','input_line') then begin
+  if callback_defined('input_line') then begin
     last:=first;
 	last_ptr := first;
-    lua_result := run_callback(callback_id,'texio','input_line','f>l',f, address_of(last_ptr));
+    lua_result := run_callback('input_line','f>l',f, address_of(last_ptr));
 	if (lua_result=true) then begin
 	  last := last_ptr;
 	  if last>max_buf_stack then max_buf_stack:=last; 
@@ -2127,11 +2127,11 @@ var c:ASCII_code; {what the user types}
 @!t:boolean;
 begin if history<error_message_issued then history:=error_message_issued;
 print_char("."); 
-if callback_defined(callback_id,'texio','show_error_hook') then begin
+if callback_defined('show_error_hook') then begin
   if name<string_offset then
-    t := run_callback(callback_id,'texio','show_error_hook','sdd>',last_error,name,line)
+    t := run_callback('show_error_hook','sdd>',last_error,name,line)
   else
-    t := run_callback(callback_id,'texio','show_error_hook','ssd>',last_error,name,line);
+    t := run_callback('show_error_hook','ssd>',last_error,name,line);
 end;
 show_context;
 if interaction=error_stop_mode then @<Get user's advice and |return|@>;
@@ -4979,7 +4979,7 @@ The ``expandable'' commands come first.
 @d expand_after=max_command+2 {special expansion ( \.{\\expandafter} )}
 @d no_expand=max_command+3 {special nonexpansion ( \.{\\noexpand} )}
 @d input=max_command+4 {input a source file ( \.{\\input}, \.{\\endinput} )}
-  {( or \.{\\scantokens} )}
+  {( or \.{\\scantokens} or \.{\\scantextokens} )}
 @d if_test=max_command+5 {conditional text ( \.{\\if}, \.{\\ifcase}, etc.~)}
 @d fi_or_else=max_command+6 {delimiters for conditionals ( \.{\\else}, etc.~)}
 @d cs_name=max_command+7 {make a control sequence from tokens ( \.{\\csname} )}
@@ -5868,7 +5868,7 @@ that will be defined later.
 @d local_broken_penalty_code=56 {local \.{\\brokenpenalty}}
 @d no_local_whatsits_code=57 {counts local whatsits}
 @d no_local_dirs_code=58
-@d level_local_dir_code=59 {TH: 60 is unused!}
+@d level_local_dir_code=59
 @d callback_id_code=60
 @d tex_int_pars=61 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
@@ -6714,6 +6714,10 @@ end;
 function get_eq_level(prim:integer):quarterword;
 begin
   get_eq_level := eq_level(prim);
+end;
+function is_undefined_cs(cs:integer):boolean;
+begin
+  is_undefined_cs := (cs=undefined_cs);
 end;
 function get_equiv(prim:integer):halfword;
 begin
@@ -7963,8 +7967,8 @@ are reading from the terminal; it is |n+1| if we are reading from
 input stream |n|, where |0<=n<=16|. (Input stream 16 stands for
 an invalid stream number; in such cases the input is actually from
 the terminal, under control of the procedure |read_toks|.)
-Finally |18<=name<=19| indicates that we are reading a pseudo file
-created by the \.{\\scantokens} command.
+Finally |18<=name<=20| indicates that we are reading a pseudo file
+created by the \.{\\scantokens} or \.{\\scantextokens} command.
 
 The |state| variable has one of three values, when we are scanning such
 files:
@@ -8248,7 +8252,7 @@ begin base_ptr:=input_ptr; input_stack[base_ptr]:=cur_input;
 nn:=-1; bottom_line:=false;
 loop@+begin cur_input:=input_stack[base_ptr]; {enter into the context}
   if (state<>token_list) then
-    if (name>19) or (base_ptr=0) then bottom_line:=true;
+    if (name>21) or (base_ptr=0) then bottom_line:=true;
   if (base_ptr=input_ptr)or bottom_line or(nn<error_context_lines) then
     @<Display the current context@>
   else if nn=error_context_lines then
@@ -8566,7 +8570,8 @@ is finished:
 
 @p procedure end_file_reading;
 begin first:=start; line:=line_stack[index];
-if (name=18)or(name=19) then pseudo_close else
+if (name>=18)and(name<=20) then pseudo_close else
+if name=21 then luacstring_close else
 if name>17 then a_close(cur_file); {forget it}
 pop_input; decr(in_open);
 end;
@@ -8593,7 +8598,7 @@ first:=buf_size; repeat buffer[first]:=0; decr(first); until first=0;
 scanner_status:=normal; warning_index:=null; first:=1;
 state:=new_line; start:=1; index:=0; line:=0; name:=0;
 current_ocp_lstack:=0; current_ocp_no:=0;
-force_eof:=false;
+force_eof:=false; luacstrings :=0;
 align_state:=1000000;@/
 if not init_terminal then goto final_end;
 limit:=last; first:=last+1; {|init_terminal| has set |loc| and |last|}
@@ -8743,7 +8748,8 @@ var k,l:0..buf_size; {an index into |buffer|}
 @!cat:0..15; {|cat_code(cur_chr)|, usually}
 @!c,@!cc,@!ccc,@!cccc:ASCII_code; {constituents of a possible expanded code}
 @!d:2..7; {number of excess characters in an expanded code}
-begin restart: cur_cs:=0;
+@!inhibit_eol:boolean; {a way to end a pseudo file without trailing space}
+begin restart: cur_cs:=0; inhibit_eol:=false;
 if state<>token_list then
 @<Input from external file, |goto restart| if no input found@>
 else @<Input from token list, |goto restart| if end of list or
@@ -9133,20 +9139,35 @@ by an \.{\\endinput} command.
 
 @<Glob...@>=
 @!force_eof:boolean; {should the next \.{\\input} be aborted early?}
+@!luacstrings:integer;
 
 @ @<Read next line of file into |buffer|, or
   |goto restart| if the file has ended@>=
 begin incr(line); first:=start;
 if not force_eof then
-  if name<=19 then
+  if name<=20 then
     begin if pseudo_input then {not end of file}
-      firm_up_the_line {this sets |limit|}
+      begin
+      firm_up_the_line; {this sets |limit|}
+	  if (name=19)and(info(pseudo_files)=null) then inhibit_eol:=true;
+      end
     else if (every_eof<>null)and not eof_seen[index] then
       begin limit:=first-1; eof_seen[index]:=true; {fake one empty line}
       begin_token_list(every_eof,every_eof_text); goto restart;
       end
     else force_eof:=true;
     end
+  else begin 
+  if name=21 then 
+    begin
+    if luacstring_input then { not end of strings }
+      begin
+      firm_up_the_line;
+      if luacstring_penultimate then inhibit_eol:=true;
+      end
+    else
+      force_eof:=true;
+    end   
   else
   begin if lua_input_ln(cur_file,true) then {not end of file}
     firm_up_the_line {this sets |limit|}
@@ -9156,20 +9177,27 @@ if not force_eof then
     end
   else force_eof:=true;
   end;
+  end;
 if force_eof then
   begin if tracing_nesting>0 then
     if (grp_stack[in_open]<>cur_boundary)or@|
-        (if_stack[in_open]<>cond_ptr) then file_warning;
-    {give warning for some unfinished groups and/or conditionals}
-  if name>=19 then
+        (if_stack[in_open]<>cond_ptr) then
+     if not ((name=19)or(name=21)) then 
+       file_warning; {give warning for some unfinished groups and/or conditionals}
+  if (name>21)or(name=20) then
   begin print_char(")"); decr(open_parens);
   update_terminal; {show user that file has been read}
   end;
   force_eof:=false;
-  end_file_reading; {resume previous level}
-  check_outer_validity; goto restart;
+  if not ((name=19)or(name=21)) then begin
+    end_file_reading; {resume previous level}
+    check_outer_validity; 
+    end 
+  else 
+    end_file_reading; {resume previous level}
+  goto restart;
   end;
-if end_line_char_inactive then decr(limit)
+if inhibit_eol or end_line_char_inactive then decr(limit)
 else  buffer[limit]:=end_line_char;
 first:=limit+1; loc:=start; {ready to read}
 end
@@ -11895,12 +11923,11 @@ lua_code:
     def_ref := save_def_ref;
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
-    b := pool_ptr;
+    b := luacstrings;
     luacall(i,(s-string_offset));
-	if pool_ptr>b then begin
-	  pseudo_from_string;
-    end;
-    flush_str(s);
+	flush_string;
+	if luacstrings>b then
+      pseudo_string_start;
     return;
   end;
 detokenized_lua_code:
@@ -39712,12 +39739,16 @@ primitive.
 @<Generate all \eTeX...@>=
 primitive("scantokens",input,2);
 @!@:scan_tokens_}{\.{\\scantokens} primitive@>
+primitive("scantextokens",input,3);
+@!@:scan_tex_tokens_}{\.{\\scantextokens} primitive@>
 
 @ @<Cases of |input| for |print_cmd_chr|@>=
 else if chr_code=2 then print_esc("scantokens")
+else if chr_code=3 then print_esc("scantextokens")
 
 @ @<Cases for |input|@>=
 else if cur_chr=2 then pseudo_start
+else if cur_chr=3 then begin pseudo_start; name := 19; end
 
 @ The global variable |pseudo_files| is used to maintain a stack of
 pseudo files.  The |info| field of each pseudo file points to a linked
@@ -39768,6 +39799,13 @@ flush_string;
 @<Initiate input from new pseudo file@>;
 end;
 
+procedure pseudo_string_start;
+begin 
+begin_file_reading; {set up |cur_file| and new level of input}
+line:=0; limit:=start; loc:=limit+1; {force line read}
+name:=21;
+end;
+
 @ @<Convert string |s| into a new pseudo file@>=
 str_pool[pool_ptr]:=si(" "); l:=str_start_macro(s);
 nl:=si(new_line_char);
@@ -39806,7 +39844,7 @@ line:=0; limit:=start; loc:=limit+1; {force line read}
 if tracing_scan_tokens>0 then
   begin if term_offset>max_print_line-3 then print_ln
   else if (term_offset>0)or(file_offset>0) then print_char(" ");
-  name:=19; print("( "); incr(open_parens); update_terminal;
+  name:=20; print("( "); incr(open_parens); update_terminal;
   end
 else name:=18
 
@@ -40112,7 +40150,8 @@ var p:pointer; {saved value of |save_ptr| or |cond_ptr|}
 @!l:quarterword; {saved value of |cur_level| or |if_limit|}
 @!c:quarterword; {saved value of |cur_group| or |cur_if|}
 @!i:integer; {saved value of |if_line|}
-begin p:=save_ptr; l:=cur_level; c:=cur_group; save_ptr:=cur_boundary;
+begin 
+p:=save_ptr; l:=cur_level; c:=cur_group; save_ptr:=cur_boundary;
 while grp_stack[in_open]<>save_ptr do
   begin decr(cur_level);
   print_nl("Warning: end of file when ");

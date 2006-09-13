@@ -6,27 +6,26 @@
 lua_State *Luas[65536];
 
 void
-make_table (lua_State *L, char *tab, char *getfunc, char*setfunc) {
-  /* make the table */
-  lua_pushstring(L,tab);
-  lua_newtable(L);
-  lua_settable(L, -3);
+make_table (lua_State *L, char *tab, char *getfunc, char *setfunc) {
+  /* make the table */            /* [{<tex>}] */
+  lua_pushstring(L,tab);          /* [{<tex>},"dimen"] */
+  lua_newtable(L);                /* [{<tex>},"dimen",{}] */
+  lua_settable(L, -3);            /* [{<tex>}] */
   /* fetch it back */
-  lua_pushstring(L,tab);
-  lua_gettable(L, -2); 
+  lua_pushstring(L,tab);          /* [{<tex>},"dimen"] */
+  lua_gettable(L, -2);            /* [{<tex>},{<dimen>}] */
   /* make the meta entries */
-  lua_pushstring(L, "__index");
-  lua_pushstring(L, getfunc); 
-  lua_gettable(L, -4); /* get tex.getdimen */
-  lua_settable(L, -3); /* tex.dimen.__index = tex.getdimen */
-  lua_pushstring(L, "__newindex");
-  lua_pushstring(L, setfunc); 
-  lua_gettable(L, -4); /* get tex.setdimen */
-  lua_settable(L, -3); /* tex.dimen.__newindex = tex.setdimen */
-  
-  lua_pushvalue(L, -1);   /* copy the table */
-  lua_setmetatable(L,-2); /* meta to itself */
-  lua_pop(L,1);  /* clean the stack */
+  luaL_newmetatable(L,tab);       /* [{<tex>},{<dimen>},{<dimen_m>}] */
+  lua_pushstring(L, "__index");   /* [{<tex>},{<dimen>},{<dimen_m>},"__index"] */
+  lua_pushstring(L, getfunc);     /* [{<tex>},{<dimen>},{<dimen_m>},"__index","getdimen"] */
+  lua_gettable(L, -5);            /* [{<tex>},{<dimen>},{<dimen_m>},"__index",<tex.getdimen>]  */
+  lua_settable(L, -3);            /* [{<tex>},{<dimen>},{<dimen_m>}]  */
+  lua_pushstring(L, "__newindex");/* [{<tex>},{<dimen>},{<dimen_m>},"__newindex"] */
+  lua_pushstring(L, setfunc);     /* [{<tex>},{<dimen>},{<dimen_m>},"__newindex","setdimen"] */
+  lua_gettable(L, -5);            /* [{<tex>},{<dimen>},{<dimen_m>},"__newindex",<tex.setdimen>]  */
+  lua_settable(L, -3);            /* [{<tex>},{<dimen>},{<dimen_m>}]  */ 
+  lua_setmetatable(L,-2);         /* [{<tex>},{<dimen>}] : assign the metatable */
+  lua_pop(L,1);                   /* [{<tex>}] : clean the stack */
 }
 
 static 
@@ -131,7 +130,7 @@ void fix_package_path (lua_State *L, char *key, char *ext, int doinit)
 }
 
 
-lua_State *
+void 
 luainterpreter (int n) {
   lua_State *L;
   L = luaL_newstate();
@@ -141,6 +140,7 @@ luainterpreter (int n) {
   luaopen_unicode(L);
   luaopen_texio(L);
   luaopen_kpse(L);
+  luaopen_callback(L);
   fix_package_path(L,"path","lua",1);
 #if defined(_WIN32)
   fix_package_path(L,"cpath","dll",0);
@@ -180,24 +180,27 @@ luainitialize (int luaid, int format) {
   char *fname = NULL;
   loadaction = malloc(120);
   if (loadaction==NULL)
-	return;	
+    return;	
   // TODO: make this an fstat, nicer
+  if(!callback_initialize())
+    exit(1);
   if (test=fopen("startup.lua","r")) {
-	fname = strdup("startup.lua");
-	fclose(test);
+    fname = strdup("startup.lua");
+    fclose(test);
   } else {
     fname = kpse_find_file ("startup.lua",kpse_texmfscripts_format,0);
   }
-  if (fname) {
-	if (strcmp(" (INITEX)",makecstring(format))==0) 
-	  snprintf(loadaction,120, "tex.formatname = nil; dofile (\"%s\")",fname);
-	else
-	  snprintf(loadaction,120, "tex.formatname = \"%s\"; dofile (\"%s\")",makecstring(format),fname);
-	luainterpreter (luaid);
-	if(luaL_loadbuffer(Luas[luaid],loadaction,strlen(loadaction),"line")||
-	   lua_pcall(Luas[luaid],0,0,0)) {
-	  fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[luaid],-1));
-	}
+  if (fname!=NULL) {
+    if (strcmp(" (INITEX)",makecstring(format))==0) 
+      snprintf(loadaction,120, "tex.formatname = nil; dofile (\"%s\")",fname);
+    else
+      snprintf(loadaction,120, "tex.formatname = \"%s\"; dofile (\"%s\")",makecstring(format),fname);
+    luainterpreter (luaid);
+    if(luaL_loadbuffer(Luas[luaid],loadaction,strlen(loadaction),"line")||
+       lua_pcall(Luas[luaid],0,0,0)) {
+      fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[luaid],-1));
+    }
+    free(fname);
   }
   free(loadaction);
 }
@@ -218,6 +221,10 @@ luatex_load_init (int s, LoadS *ls) {
   ls->s = (const char *)&(strpool[strstart[s]]);
   ls->size = strstart[s + 1] - strstart[s];
 }
+
+/*
+ * Should be more careful here, the pool may be full
+ */
 
 lua_State *
 luatex_error (lua_State * L, int is_fatal) {

@@ -40,6 +40,10 @@ $Id $
 @define procedure luacall();
 @define procedure closelua();
 
+@define function  luacstringinput;
+@define function  luacstringpenultimate;
+@define procedure luacstringclose;
+
 @define procedure luainitialize();
 
 { for callbacks }

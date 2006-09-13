@@ -31,10 +31,14 @@ extern lua_State *luatex_error (lua_State *L, int fatal);
 
 extern int luaopen_unicode (lua_State *L);
 
-extern int callbackdefined (int luaid, char *table,char *name);
+extern int callbackdefined (char *name);
 
-extern int runcallback (int luaid, char *table, char *name, char *values, ...);
+extern int runcallback (char *name, char *values, ...);
 
 extern void luainitialize (int luaid, int format);
 
 extern int luaopen_kpse (lua_State *L);
+
+extern int luaopen_callback (lua_State *L);
+
+extern int callback_initialize (void);
