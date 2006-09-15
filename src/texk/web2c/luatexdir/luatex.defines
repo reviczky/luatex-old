@@ -42,6 +42,7 @@ $Id $
 
 @define function  luacstringinput;
 @define function  luacstringpenultimate;
+@define function  luacstringdetokenized;
 @define procedure luacstringclose;
 
 @define procedure luainitialize();

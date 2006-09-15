@@ -35,7 +35,7 @@ extern int callbackdefined (char *name);
 
 extern int runcallback (char *name, char *values, ...);
 
-extern void luainitialize (int luaid, int format);
+extern void luainitialize (int luaid);
 
 extern int luaopen_kpse (lua_State *L);
 

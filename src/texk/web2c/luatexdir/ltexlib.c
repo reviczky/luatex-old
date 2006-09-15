@@ -3,72 +3,71 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-int 
-poolprint(lua_State * L) {
-  int i, j, k, n, len;
-  const char *st;
-  n = lua_gettop(L);
-  for (i = 1; i <= n; i++) {
-	if (!lua_isstring(L, i)) {
-	  lua_pushstring(L, "no string to print");
-	  lua_error(L);
-	}
-	st = lua_tostring(L, i);
-	len = lua_strlen(L, i);
-	if (len) {
-	  if (poolptr + len >= poolsize) {
-		lua_pushstring(L, "TeX pool full");
-		lua_error(L);
-	  } else {
-		for (j = 0, k = poolptr; j < len; j++, k++)
-		  strpool[k] = st[j];
-		poolptr += len;
-	  }
-	}
-  }
-  return 0;
-}
-
 typedef struct {
   char *text;
   void *next;
+  unsigned char detokenized;
 } rope;
 
-static rope luacstring_head = {NULL,NULL};
+static rope luacstring_head = {NULL,NULL,0};
 
 static rope *luacstring_rover = NULL;
 
+static int 
+int_luacprint(char *st, int detok) {
+  rope *rn;
+  luacstrings++; /* tex-side variable */
+  rn = (rope *)malloc(sizeof(rope));
+  rn->text = st;
+  rn->detokenized = detok;
+  rn->next = NULL;
+  luacstring_rover->next = rn;
+  luacstring_rover = rn;
+}
+
 int 
 luacprint(lua_State * L) {
-  int i, n, len;
+  int i, n;
   char *st;
-  rope *rn;
   n = lua_gettop(L);
-  //luacstring_rover = &luacstring_head;
   if (luacstring_rover == NULL)
     luacstring_rover = &luacstring_head;
-  //while (luacstring_rover->next != NULL)
-  //  luacstring_rover = luacstring_rover->next;
   for (i = 1; i <= n; i++) {
     if (!lua_isstring(L, i)) {
       lua_pushstring(L, "no string to print");
       lua_error(L);
     }
-    if(lua_strlen(L, i)) {
-      st = strdup(lua_tostring(L, i));
-      if (st) {
-	//
-	luacstrings++; /* tex-side variable */
-	rn = (rope *)malloc(sizeof(rope));
-	rn->text = st;
-	rn->next = NULL;
-	luacstring_rover->next = rn;
-        luacstring_rover = rn;
-      }
-    }
+    st = strdup(lua_tostring(L, i));
+    if (st)
+      int_luacprint(st,0);
   }
   return 0;
 }
+
+int 
+luacwrite(lua_State * L) {
+  int i, n;
+  char *st;
+  n = lua_gettop(L);
+  if (luacstring_rover == NULL)
+    luacstring_rover = &luacstring_head;
+  for (i = 1; i <= n; i++) {
+    if (!lua_isstring(L, i)) {
+      lua_pushstring(L, "no string to print");
+      lua_error(L);
+    }
+    st = strdup(lua_tostring(L, i));
+    if (st)
+      int_luacprint(st,1);
+  }
+  return 0;
+}
+
+boolean 
+luacstringdetokenized (void) {
+  return (luacstring_head.detokenized == 1);
+}
+
 
 boolean 
 luacstringpenultimate (void) {
@@ -93,9 +92,12 @@ luacstringinput (void) {
       buffer[last++] = *st++;
     while (last-1>ret && buffer[last-1] == ' ')
       last--;
+    if (luacstring_rover == t)
+      luacstring_rover = &luacstring_head;
     free(t->text);
+    luacstring_head.detokenized = t->detokenized;
     luacstring_head.next = t->next;
-    free(t);
+    free(t);    
     return 1;
   }
   return 0;
@@ -425,9 +427,41 @@ int settex (lua_State *L) {
   return 0;
 }
 
+char *
+get_something_internal (int cur_cmd, int cur_code) {
+  int texstr;
+  char *str;
+  int save_cur_val,save_cur_val_level;
+  save_cur_val = curval;
+  save_cur_val_level = curvallevel;
+  zscansomethingsimple(cur_cmd,cur_code);
+  texstr = thescannedresult();
+  curval = save_cur_val;
+  curvallevel = save_cur_val_level;  
+  str = makecstring(texstr);
+  flushstr(texstr);
+  return str;
+}
+
+char *
+get_convert (int cur_code) {
+  int texstr;
+  char *str = NULL;
+  texstr = theconvertstring(cur_code);
+  if (texstr) {
+    str = makecstring(texstr);
+    flushstr(texstr);
+  }
+  return str;
+}
+
+
+
+
 int gettex (lua_State *L) {
   char *st;
   int i,texstr;
+  char *str;
   int cur_cs, cur_cmd, cur_code;
   int save_cur_val,save_cur_val_level;
   i = lua_gettop(L);
@@ -439,14 +473,14 @@ int gettex (lua_State *L) {
     if (cur_cs) {
       cur_cmd = zgetprimeqtype(cur_cs);
       cur_code = zgetprimequiv(cur_cs);
-      save_cur_val = curval;
-      save_cur_val_level = curvallevel;
-      zscansomethingsimple(cur_cmd,cur_code);
-      texstr = thescannedresult();
-      curval = save_cur_val;
-      curvallevel = save_cur_val_level;
-      lua_pushstring(L,makecstring(texstr));
-      flushstr(texstr);
+      if (isconvert(cur_cmd))
+	str = get_convert(cur_code);
+      else 
+	str = get_something_internal(cur_cmd,cur_code);
+      if (str)
+	lua_pushstring(L,str);
+      else 
+	lua_pushnil(L);
       return 1;
     } else {
       lua_rawget(L,(i-1));
@@ -461,6 +495,7 @@ int gettex (lua_State *L) {
 
 
 static const struct luaL_reg texlib [] = {
+  {"write", luacwrite},
   {"print", luacprint},
   {"setdimen", setdimen},
   {"getdimen", getdimen},

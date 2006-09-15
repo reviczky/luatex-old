@@ -132,7 +132,7 @@ runcallback (char *name, char *values, ...) {
  ENDARGS:
   nres = strlen(values);
   if(lua_pcall(Luas[luaid],narg,nres,0) != 0) {
-    fprintf(stdout,"This went wrong: %s", lua_tostring(Luas[luaid],-1));
+    fprintf(stdout,"This went wrong: %s\n", lua_tostring(Luas[luaid],-1));
     goto EXIT;
   };
   nres = -nres;
@@ -184,7 +184,7 @@ runcallback (char *name, char *values, ...) {
       }
       break;
     default: 
-      fprintf(stdout,"invalid value type");
+      fprintf(stdout,"invalid return value type");
       goto EXIT;
     }
     nres++;
@@ -209,8 +209,11 @@ static int callback_register (lua_State *L) {
   if (i==NUM_CALLBACKS)
     goto EXIT;  /* undefined callbacks are never set */
   if (lua_isfunction(L,2)) {
+    lua_getglobal(L,"luaid");
+    if (!lua_isnumber(L,-1))
+      goto EXIT;
+    callback_list[i].lua_id = lua_tonumber(L,-1);
     callback_list[i].is_set = 1;
-    callback_list[i].lua_id = 0;
   } else {
     callback_list[i].is_set = 0;
   }

@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060913' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060915' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -2391,9 +2391,10 @@ a way to make |interrupt| nonzero using the \PASCAL\ debugger.
 @<Global...@>=
 @!interrupt:integer; {should \TeX\ pause for instructions?}
 @!OK_to_interrupt:boolean; {should interrupts be observed?}
+@!detokenized_line:boolean; {indicates this is a 'detokenized' input line }
 
 @ @<Set init...@>=
-interrupt:=0; OK_to_interrupt:=true;
+interrupt:=0; OK_to_interrupt:=true; detokenized_line:= false;
 
 @ When an interrupt has been detected, the program goes into its
 highest interaction level and lets the user have nearly the full flexibility of
@@ -5869,7 +5870,7 @@ that will be defined later.
 @d no_local_whatsits_code=57 {counts local whatsits}
 @d no_local_dirs_code=58
 @d level_local_dir_code=59
-@d callback_id_code=60
+@d luastartup_id_code=60
 @d tex_int_pars=61 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d dir_base=int_base+tex_int_pars
@@ -5993,7 +5994,7 @@ that will be defined later.
 @d right_hyphen_min==int_par(right_hyphen_min_code)
 @d holding_inserts==int_par(holding_inserts_code)
 @d error_context_lines==int_par(error_context_lines_code)
-@d callback_id==int_par(callback_id_code)
+@d luastartup_id==int_par(luastartup_id_code)
 @#
 @d pdf_adjust_spacing   == int_par(pdf_adjust_spacing_code)
 @d pdf_protrude_chars   == int_par(pdf_protrude_chars_code)
@@ -6094,7 +6095,7 @@ left_hyphen_min_code:print_esc("lefthyphenmin");
 right_hyphen_min_code:print_esc("righthyphenmin");
 holding_inserts_code:print_esc("holdinginserts");
 error_context_lines_code:print_esc("errorcontextlines");
-callback_id_code:print_esc("luacallback");
+luastartup_id_code:print_esc("luastartup");
 @#
 local_inter_line_penalty_code: print_esc("localinterlinepenalty");
 local_broken_penalty_code: print_esc("localbrokenpenalty");
@@ -6249,8 +6250,8 @@ primitive("holdinginserts",assign_int,int_base+holding_inserts_code);@/
 @!@:holding_inserts_}{\.{\\holdinginserts} primitive@>
 primitive("errorcontextlines",assign_int,int_base+error_context_lines_code);@/
 @!@:error_context_lines_}{\.{\\errorcontextlines} primitive@>
-primitive("luacallback",assign_int,int_base+callback_id_code);@/
-@!@:callback_id_}{\.{\\luacallback} primitive@>
+primitive("luastartup",assign_int,int_base+luastartup_id_code);@/
+@!@:luastartup_id_}{\.{\\luastartup} primitive@>
 primitive("pdfoutput",assign_int,int_base+pdf_output_code);@/
 @!@:pdf_output_}{\.{\\pdfoutput} primitive@>
 primitive("pdfcompresslevel",assign_int,int_base+pdf_compress_level_code);@/
@@ -8777,7 +8778,11 @@ if cur_cmd<=car_ret then if cur_cmd>=tab_mark then if align_state=0 then
 begin switch: if loc<=limit then {current line not yet finished}
   begin 
   cur_chr:=buffer_to_unichar(loc); unicode_loc(loc);
-  reswitch: cur_cmd:=get_cat_code(cur_chr);
+  reswitch: 
+	if detokenized_line then 
+	  if cur_chr=" " then cur_cmd:=10 else cur_cmd:=12
+    else
+       cur_cmd:=get_cat_code(cur_chr);
   @<Change state if necessary, and |goto switch| if the
     current character should be ignored,
     or |goto reswitch| if the current character
@@ -9144,6 +9149,7 @@ by an \.{\\endinput} command.
 @ @<Read next line of file into |buffer|, or
   |goto restart| if the file has ended@>=
 begin incr(line); first:=start;
+detokenized_line:=false;  
 if not force_eof then
   if name<=20 then
     begin if pseudo_input then {not end of file}
@@ -9164,6 +9170,10 @@ if not force_eof then
       begin
       firm_up_the_line;
       if luacstring_penultimate then inhibit_eol:=true;
+      if luacstring_detokenized then begin
+        inhibit_eol:=true;
+        detokenized_line:=true;
+        end;
       end
     else
       force_eof:=true;
@@ -11494,7 +11504,8 @@ such that |job_name_code| remains last.
 @d etex_code=5 {command code for \.{\\eTeXVersion}}
 @d omega_code=6 {command code for \.{\\OmegaVersion}}
 @d aleph_code=7 {command code for \.{\\AlephVersion}}
-@d pdftex_first_expand_code = 8 {base for \pdfTeX's command codes}
+@d format_name_code=8 {command code for \.{\\AlephVersion}}
+@d pdftex_first_expand_code = 9 {base for \pdfTeX's command codes}
 @d pdftex_revision_code     = pdftex_first_expand_code + 0 {command code for \.{\\pdftexrevision}}
 @d pdftex_banner_code       = pdftex_first_expand_code + 1 {command code for \.{\\pdftexbanner}}
 @d pdf_font_name_code       = pdftex_first_expand_code + 2 {command code for \.{\\pdffontname}}
@@ -11519,9 +11530,8 @@ such that |job_name_code| remains last.
 @d pdf_insert_ht_code       = pdftex_first_expand_code + 21 {command code for \.{\\pdfinsertht}}
 @d pdf_ximage_bbox_code     = pdftex_first_expand_code + 22 {command code for \.{\\pdfximagebbox}}
 @d lua_code                 = pdftex_first_expand_code + 23 {command code for \.{\\directlua}}
-@d detokenized_lua_code     = pdftex_first_expand_code + 24 {command code for \.{\\detokenizedlua}}
-@d lua_escape_string_code   = pdftex_first_expand_code + 25 {command code for \.{\\luaescapestring}}
-@d pdftex_convert_codes     = pdftex_first_expand_code + 26 {end of \pdfTeX's command codes}
+@d lua_escape_string_code   = pdftex_first_expand_code + 24 {command code for \.{\\luaescapestring}}
+@d pdftex_convert_codes     = pdftex_first_expand_code + 25 {end of \pdfTeX's command codes}
 @d job_name_code=pdftex_convert_codes {command code for \.{\\jobname}}
 
 @<Put each...@>=
@@ -11585,13 +11595,13 @@ primitive("pdfnormaldeviate",convert,normal_deviate_code);@/
 @!@:normal_deviate_}{\.{\\pdfnormaldeviate} primitive@>
 primitive("directlua",convert,lua_code);@/
 @!@:lua_}{\.{\\directlua} primitive@>
-primitive("detokenizedlua",convert,detokenized_lua_code);@/
-@!@:detokenized_lua_}{\.{\\detokenizedlua} primitive@>
 primitive("luaescapestring",convert,lua_escape_string_code);@/
 @!@:lua_}{\.{\\luaescapestring} primitive@>
 @#
 primitive("jobname",convert,job_name_code);@/
 @!@:job_name_}{\.{\\jobname} primitive@>
+primitive("formatname",convert,format_name_code);@/
+@!@:format_name_}{\.{\\formatname} primitive@>
 primitive("pdfinsertht",convert,pdf_insert_ht_code);@/
 @!@:pdf_insert_ht_}{\.{\\pdfinsertht} primitive@>
 primitive("pdfximagebbox",convert,pdf_ximage_bbox_code);@/
@@ -11631,7 +11641,6 @@ convert: case chr_code of
   pdf_insert_ht_code: print_esc("pdfinsertht");
   pdf_ximage_bbox_code:    print_esc("pdfximagebbox");
   lua_code:                print_esc("directlua");
-  detokenized_lua_code:    print_esc("detokenizedlua");
   lua_escape_string_code:  print_esc("luaescapestring");
   @/@<Cases of |convert| for |print_cmd_chr|@>@/
   othercases print_esc("jobname")
@@ -11927,31 +11936,8 @@ lua_code:
     luacall(i,(s-string_offset));
 	flush_string;
 	if luacstrings>b then
-      pseudo_string_start;
-    return;
-  end;
-detokenized_lua_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_def_ref := def_ref;
-    save_warning_index := warning_index;
-	scan_register_num;
-	i := cur_val;{|tokens_to_string| may trash |cur_val }
-    scan_pdf_ext_toks;
-	inhibit_par_tokens:=true;
-    s := tokens_to_string(def_ref);
-	inhibit_par_tokens:=false;
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    luacall(i,(s-string_offset));
-	if pool_ptr>b then begin
-      link(garbage) := str_toks(b);
-	  ins_list(link(temp_head));
-    end;
-    flush_str(s);
+	  if name<>21 then
+        pseudo_string_start;
     return;
   end;
 pdf_insert_ht_code: scan_register_num;
@@ -12048,9 +12034,42 @@ pdf_ximage_bbox_code: begin
     endcases;
     print("pt");
 end;
+format_name_code: print(format_name);
 job_name_code: print(job_name);
 @/@<Cases of `Print the result of command |c|'@>@/
 end {there are no other cases}
+
+@ 
+@p function is_convert(c:halfword):boolean;
+begin
+  is_convert:=(c=convert);
+end;
+
+function the_convert_string (c:halfword):str_number;
+var old_setting:0..max_selector; {saved |selector| setting}
+	is_known:boolean;
+begin
+  old_setting:=selector; 
+  selector:=new_string;
+  is_known:=true;
+  case c of
+  etex_code:            print(eTeX_version_string);
+  omega_code:           print(Omega_version_string);
+  aleph_code:           print(Aleph_version_string);
+  pdftex_revision_code: print(pdftex_revision);
+  pdftex_banner_code:   print(pdftex_banner);
+  normal_deviate_code:  print_int(norm_rand);
+  format_name_code:     print(format_name);
+  job_name_code:        print(job_name);
+@/@<Cases of `Print the result of command |c|'@>@/
+  othercases            is_known:=false
+  end;
+  if is_known then
+    the_convert_string := make_string
+  else
+    the_convert_string := 0;
+  selector:=old_setting;
+end;
 
 @ Now we can't postpone the difficulties any longer; we must bravely tackle
 |scan_toks|. This function returns a pointer to the tail of a new token
@@ -34715,9 +34734,11 @@ before \TeX's tables are loaded.
 
 @<Glob...@>=
 @!format_ident:str_number;
+@!format_name:str_number; {principal file name}
 
 @ @<Set init...@>=
 format_ident:=0;
+format_name:="";
 
 @ @<Initialize table entries...@>=
 format_ident:=" (INITEX)";
@@ -35178,12 +35199,13 @@ while j>0 do
 to prevent them from appearing again.
 
 @<Dump a couple more things and the closing check word@>=
-dump_int(interaction); dump_int(format_ident); dump_int(69069);
+dump_int(interaction); dump_int(format_ident); dump_int(format_name); dump_int(69069);
 tracing_stats:=0
 
 @ @<Undump a couple more things and the closing check word@>=
 undump(batch_mode)(error_stop_mode)(interaction);
 undump(0)(str_ptr)(format_ident);
+undump(0)(str_ptr)(format_name);
 undump_int(x);
 if (x<>69069)or eof(fmt_file) then goto bad_fmt
 
@@ -35192,10 +35214,12 @@ selector:=new_string;
 print(" (preloaded format="); print(job_name); print_char(" ");
 print_int(year); print_char(".");
 print_int(month); print_char("."); print_int(day); print_char(")");
+str_room(2);
+format_ident:=make_string;
+print(job_name);
+format_name:=make_string;
 if interaction=batch_mode then selector:=log_only
 else selector:=term_and_log;
-str_room(1);
-format_ident:=make_string;
 pack_job_name(format_extension);
 while not w_open_out(fmt_file) do
   prompt_file_name("format file name",format_extension);
@@ -35483,7 +35507,7 @@ random_seed :=(microseconds*1000)+(epochseconds mod 1000000);@/
 init_randoms(random_seed);@/
 @<Compute the magic offset@>;
 @<Initialize the print |selector|...@>;
-lua_initialize(callback_id,format_ident);
+lua_initialize(luastartup_id);
 if (loc<limit)and(get_cat_code(buffer[loc])<>escape) then start_input;
   {\.{\\input} assumed}
 @<DIR: Initialize |text_dir_ptr|@>;

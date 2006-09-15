@@ -147,6 +147,8 @@ luainterpreter (int n) {
 #else
   fix_package_path(L,"cpath","so",0);
 #endif
+  lua_pushinteger(L, n);
+  lua_setglobal(L, "luaid");
   Luas[n] = L;
 }
 
@@ -173,17 +175,14 @@ luacall(int n, int s) {
 }
 
 void
-luainitialize (int luaid, int format) {
+luainitialize (int luaid) {
   int error;
   char *loadaction;
   FILE *test;
   char *fname = NULL;
-  loadaction = malloc(120);
-  if (loadaction==NULL)
-    return;	
-  // TODO: make this an fstat, nicer
   if(!callback_initialize())
     exit(1);
+  // TODO: make this an fstat, nicer
   if (test=fopen("startup.lua","r")) {
     fname = strdup("startup.lua");
     fclose(test);
@@ -191,18 +190,12 @@ luainitialize (int luaid, int format) {
     fname = kpse_find_file ("startup.lua",kpse_texmfscripts_format,0);
   }
   if (fname!=NULL) {
-    if (strcmp(" (INITEX)",makecstring(format))==0) 
-      snprintf(loadaction,120, "tex.formatname = nil; dofile (\"%s\")",fname);
-    else
-      snprintf(loadaction,120, "tex.formatname = \"%s\"; dofile (\"%s\")",makecstring(format),fname);
     luainterpreter (luaid);
-    if(luaL_loadbuffer(Luas[luaid],loadaction,strlen(loadaction),"line")||
-       lua_pcall(Luas[luaid],0,0,0)) {
+    if(luaL_loadfile(Luas[luaid],fname)|| lua_pcall(Luas[luaid],0,0,0)) {
       fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[luaid],-1));
     }
     free(fname);
   }
-  free(loadaction);
 }
 
 
