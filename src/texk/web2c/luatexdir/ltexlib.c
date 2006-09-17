@@ -6,7 +6,7 @@
 typedef struct {
   char *text;
   void *next;
-  unsigned char detokenized;
+  unsigned char stringtype;
 } rope;
 
 static rope luacstring_head = {NULL,NULL,0};
@@ -19,7 +19,7 @@ int_luacprint(char *st, int detok) {
   luacstrings++; /* tex-side variable */
   rn = (rope *)malloc(sizeof(rope));
   rn->text = st;
-  rn->detokenized = detok;
+  rn->stringtype = detok;
   rn->next = NULL;
   luacstring_rover->next = rn;
   luacstring_rover = rn;
@@ -63,11 +63,36 @@ luacwrite(lua_State * L) {
   return 0;
 }
 
-boolean 
-luacstringdetokenized (void) {
-  return (luacstring_head.detokenized == 1);
+int 
+luacsprint(lua_State * L) {
+  int i, n;
+  char *st;
+  n = lua_gettop(L);
+  if (luacstring_rover == NULL)
+    luacstring_rover = &luacstring_head;
+  for (i = 1; i <= n; i++) {
+    if (!lua_isstring(L, i)) {
+      lua_pushstring(L, "no string to print");
+      lua_error(L);
+    }
+    st = strdup(lua_tostring(L, i));
+    if (st)
+      int_luacprint(st,2);
+  }
+  return 0;
 }
 
+
+
+boolean 
+luacstringdetokenized (void) {
+  return (luacstring_head.stringtype == 1);
+}
+
+boolean 
+luacstringsimple (void) {
+  return (luacstring_head.stringtype == 2);
+}
 
 boolean 
 luacstringpenultimate (void) {
@@ -95,7 +120,7 @@ luacstringinput (void) {
     if (luacstring_rover == t)
       luacstring_rover = &luacstring_head;
     free(t->text);
-    luacstring_head.detokenized = t->detokenized;
+    luacstring_head.stringtype = t->stringtype;
     luacstring_head.next = t->next;
     free(t);    
     return 1;
@@ -456,9 +481,8 @@ get_convert (int cur_code) {
 }
 
 
-
-
-int gettex (lua_State *L) {
+int
+gettex (lua_State *L) {
   char *st;
   int i,texstr;
   char *str;
@@ -495,8 +519,9 @@ int gettex (lua_State *L) {
 
 
 static const struct luaL_reg texlib [] = {
-  {"write", luacwrite},
-  {"print", luacprint},
+  {"write",    luacwrite},
+  {"print",    luacprint},
+  {"sprint",   luacsprint},
   {"setdimen", setdimen},
   {"getdimen", getdimen},
   {"setcount", setcount},

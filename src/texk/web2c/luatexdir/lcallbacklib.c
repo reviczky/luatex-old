@@ -8,7 +8,7 @@ static const char *const callbacknames[] = {
   "input_line",
   "open_write_file",
   "open_read_file",
-  "error_show_hook",
+  "show_error_hook",
   NULL };
 
 typedef struct {
@@ -84,12 +84,13 @@ runcallback (char *name, char *values, ...) {
   lua_pushcfunction(Luas[luaid],callback_find);
   lua_pushstring(Luas[luaid],name);
   if(lua_pcall(Luas[luaid],1,1,0) != 0) {
-    fprintf(stdout,"Missing callback_find: %s", lua_tostring(Luas[luaid],-1));
+    fprintf(stdout,"\nMissing callback_find: %s\n", lua_tostring(Luas[luaid],-1));
     lua_settop(Luas[luaid],stacktop);
     return 0;
-  };
+   };
   if (!lua_isfunction(Luas[luaid],-1)) {
-    fprintf(stdout,"Missin                : %s", lua_tostring(Luas[luaid],-1));
+    fprintf(stdout,"\nMissing callback      : %s\n", lua_tostring(Luas[luaid],-1));
+    return 0;
   }
   
   va_start(vl, values);
@@ -104,7 +105,7 @@ runcallback (char *name, char *values, ...) {
       luaL_getmetatable(Luas[luaid], LUA_TEXFILEHANDLE);
       lua_setmetatable(Luas[luaid], -2);
       break;
-    case CALLBACK_CHARNUM: /* C string */ 
+    case CALLBACK_CHARNUM: /* an ascii char! */ 
       s = malloc(2);
       snprintf(s,2,"%c",va_arg(vl, int));
       lua_pushstring(Luas[luaid], s);
@@ -214,6 +215,7 @@ static int callback_register (lua_State *L) {
       goto EXIT;
     callback_list[i].lua_id = lua_tonumber(L,-1);
     callback_list[i].is_set = 1;
+    lua_pop(L,1);
   } else {
     callback_list[i].is_set = 0;
   }

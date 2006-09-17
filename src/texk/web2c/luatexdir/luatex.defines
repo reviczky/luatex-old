@@ -43,6 +43,7 @@ $Id $
 @define function  luacstringinput;
 @define function  luacstringpenultimate;
 @define function  luacstringdetokenized;
+@define function  luacstringsimple;
 @define procedure luacstringclose;
 
 @define procedure luainitialize();
@@ -77,6 +78,9 @@ $Id $
 @define function getcatcode();
 @define procedure setcatcode();
 
+@define function validcatcodetable ();
+@define procedure copycatcodes ();
+@define procedure unsavecatcodes ();
 @define procedure unsavetextcodes ();
 @define procedure initializetextcodes;
 @define procedure dumptextcodes;

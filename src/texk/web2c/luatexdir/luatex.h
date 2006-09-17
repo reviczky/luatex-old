@@ -40,10 +40,14 @@ extern void     setuccode  (integer n, halfword v, quarterword grouplevel);
 extern halfword getuccode  (integer n);
 extern void     setsfcode  (integer n, halfword v, quarterword grouplevel);
 extern halfword getsfcode  (integer n);
-extern void     setcatcode (integer n, halfword v, quarterword grouplevel);
-extern halfword getcatcode (integer n);
+extern void     setcatcode (integer h, integer n, halfword v, quarterword grouplevel);
+extern halfword getcatcode (integer h, integer n);
 
 extern void unsavetextcodes (quarterword grouplevel);
+extern void unsavecatcodes (integer h,quarterword grouplevel);
+extern void copycatcodes (int from, int to);
+extern boolean validcatcodetable (int h);
+
 extern void initializetextcodes ();
 extern void dumptextcodes ();
 extern void undumptextcodes ();

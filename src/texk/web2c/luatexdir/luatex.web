@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060915' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060916' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -5707,16 +5707,17 @@ eqtb[lc_code_base] :=eqtb[cat_code_base];
 eqtb[uc_code_base] :=eqtb[cat_code_base];
 eqtb[sf_code_base] :=eqtb[cat_code_base];
 eqtb[math_code_base]:=eqtb[cat_code_base];@/
-set_cat_code(carriage_return,car_ret,level_one);
-set_cat_code(" ",spacer,level_one);
-set_cat_code("\",escape,level_one);
-set_cat_code("%",comment,level_one);
-set_cat_code(invalid_code,invalid_char,level_one);
-set_cat_code(null_code,ignore,level_one);@/
+cat_code_table:=0;
+set_cat_code(cat_code_table,carriage_return,car_ret,level_one);
+set_cat_code(cat_code_table," ",spacer,level_one);
+set_cat_code(cat_code_table,"\",escape,level_one);
+set_cat_code(cat_code_table,"%",comment,level_one);
+set_cat_code(cat_code_table,invalid_code,invalid_char,level_one);
+set_cat_code(cat_code_table,null_code,ignore,level_one);@/
 for k:="0" to "9" do set_math_code(k,(hi(k+var_code)),level_one);@/
 for k:="A" to "Z" do begin 
-  set_cat_code(k,letter,level_one); 
-  set_cat_code(k+"a"-"A",letter,level_one);@/
+  set_cat_code(cat_code_table,k,letter,level_one); 
+  set_cat_code(cat_code_table,k+"a"-"A",letter,level_one);@/
   set_math_code(k,(hi(k+var_code+@"10000)),level_one);
   set_math_code(k+32,(hi(k+32+var_code+@"10000)),level_one);@/
   set_lc_code(k,k+32,level_one); set_lc_code(k+32,k+32,level_one);@/
@@ -5871,7 +5872,8 @@ that will be defined later.
 @d no_local_dirs_code=58
 @d level_local_dir_code=59
 @d luastartup_id_code=60
-@d tex_int_pars=61 {total number of \.{\\TeX} + Aleph integer parameters}
+@d cat_code_table_code=61
+@d tex_int_pars=62 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d dir_base=int_base+tex_int_pars
 @d page_direction_code=0
@@ -5995,6 +5997,7 @@ that will be defined later.
 @d holding_inserts==int_par(holding_inserts_code)
 @d error_context_lines==int_par(error_context_lines_code)
 @d luastartup_id==int_par(luastartup_id_code)
+@d cat_code_table==int_par(cat_code_table_code)
 @#
 @d pdf_adjust_spacing   == int_par(pdf_adjust_spacing_code)
 @d pdf_protrude_chars   == int_par(pdf_protrude_chars_code)
@@ -6096,6 +6099,7 @@ right_hyphen_min_code:print_esc("righthyphenmin");
 holding_inserts_code:print_esc("holdinginserts");
 error_context_lines_code:print_esc("errorcontextlines");
 luastartup_id_code:print_esc("luastartup");
+cat_code_table_code:print_esc("catcodetable");
 @#
 local_inter_line_penalty_code: print_esc("localinterlinepenalty");
 local_broken_penalty_code: print_esc("localbrokenpenalty");
@@ -6252,6 +6256,8 @@ primitive("errorcontextlines",assign_int,int_base+error_context_lines_code);@/
 @!@:error_context_lines_}{\.{\\errorcontextlines} primitive@>
 primitive("luastartup",assign_int,int_base+luastartup_id_code);@/
 @!@:luastartup_id_}{\.{\\luastartup} primitive@>
+primitive("catcodetable",assign_int,int_base+cat_code_table_code);@/
+@!@:cat_code_table_}{\.{\\catcodetable} primitive@>
 primitive("pdfoutput",assign_int,int_base+pdf_output_code);@/
 @!@:pdf_output_}{\.{\\pdfoutput} primitive@>
 primitive("pdfcompresslevel",assign_int,int_base+pdf_compress_level_code);@/
@@ -6950,7 +6956,7 @@ else if (text(p)<0)or(text(p)>=str_ptr) then print_esc("NONEXISTENT.")
 else  begin 
   print_esc(text(p));
   if single_letter(text(p)) then begin
-   	if get_cat_code(pool_to_unichar(str_start_macro(text(p))))=letter then 
+   	if get_cat_code(cat_code_table,pool_to_unichar(str_start_macro(text(p))))=letter then 
       do_nothing;
     end
   else
@@ -7481,6 +7487,7 @@ var p:pointer; {position to be restored}
 @!a:boolean; {have we already processed an \.{\\aftergroup} ?}
 begin a:=false;
 unsave_math_codes(cur_level);
+unsave_cat_codes (cat_code_table,cur_level);
 unsave_text_codes(cur_level);
 if cur_level>level_one then
   begin decr(cur_level);
@@ -8782,7 +8789,7 @@ begin switch: if loc<=limit then {current line not yet finished}
 	if detokenized_line then 
 	  if cur_chr=" " then cur_cmd:=10 else cur_cmd:=12
     else
-       cur_cmd:=get_cat_code(cur_chr);
+       cur_cmd:=get_cat_code(cat_code_table,cur_chr);
   @<Change state if necessary, and |goto switch| if the
     current character should be ignored,
     or |goto reswitch| if the current character
@@ -8793,7 +8800,7 @@ else  begin
   begin
      pop_input; goto restart;
   end;
-  state:=new_line;
+  if name<>21 then state:=new_line;
   @<Move to next line of file,
     or |goto restart| if there is no next line,
     or |return| if a \.{\\read} line has finished@>;
@@ -8954,7 +8961,7 @@ buffer and the process is repeated, slowly but surely.
 
 @<Scan a control...@>=
 begin if loc>limit then cur_cs:=null_cs {|state| is irrelevant in this case}
-else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cur_chr);
+else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cat_code_table,cur_chr);
   unicode_loc(k);
   if cat=letter then state:=skip_blanks
   else if cat=spacer then state:=skip_blanks
@@ -8973,7 +8980,7 @@ if cur_cmd>=outer_call then check_outer_validity;
 end
 
 @ Whenever we reach the following piece of code, we will have
-|cur_chr=buffer[k-1]| and |k<=limit+1| and |cat=get_cat_code(cur_chr)|. If an
+|cur_chr=buffer[k-1]| and |k<=limit+1| and |cat=get_cat_code(cat_code_table,cur_chr)|. If an
 expanded code like \.{\^\^A} or \.{\^\^df} appears in |buffer[(k-1)..(k+1)]|
 or |buffer[(k-1)..(k+2)]|, we
 will store the corresponding code in |buffer[k-1]| and shift the rest of
@@ -9040,7 +9047,7 @@ begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
 end
 
 @ @<Scan ahead in the buffer...@>=
-begin repeat cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cur_chr); unicode_loc(k);
+begin repeat cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cat_code_table,cur_chr); unicode_loc(k);
 until (cat<>letter)or(k>limit);
 @<If an expanded...@>;
 if cat<>letter then begin
@@ -9112,7 +9119,7 @@ There is one more branch.
 @<Move to next line of file, or |goto restart|...@>=
 if name>17 then @<Read next line of file into |buffer|, or
   |goto restart| if the file has ended@>
-else  begin if not terminal_input then {\.{\\read} line has ended}
+else begin if not terminal_input then {\.{\\read} line has ended}
     begin cur_cmd:=0; cur_chr:=0; return;
     end;
   if input_ptr>0 then {text was inserted during error recovery}
@@ -9169,7 +9176,8 @@ if not force_eof then
     if luacstring_input then { not end of strings }
       begin
       firm_up_the_line;
-      if luacstring_penultimate then inhibit_eol:=true;
+      if (luacstring_penultimate)or(luacstring_simple) then inhibit_eol:=true;
+      if not luacstring_simple then state:=new_line;
       if luacstring_detokenized then begin
         inhibit_eol:=true;
         detokenized_line:=true;
@@ -10252,7 +10260,7 @@ else if m=sf_code_base then begin
   scanned_result(cur_val1)(int_val);
   end
 else if m=cat_code_base then begin
-  cur_val1:=get_cat_code(cur_val);
+  cur_val1:=get_cat_code(cat_code_table,cur_val);
   scanned_result(cur_val1)(int_val);
   end
 else if m<math_code_base then scanned_result(equiv(m+cur_val))(int_val)
@@ -33517,7 +33525,7 @@ since the following routines test for the \.{\\global} prefix as follows.
 @d define_sf_code(#)==if global 
    then set_sf_code(#,level_one)@+else set_sf_code(#,cur_level)
 @d define_cat_code(#)==if global 
-   then set_cat_code(#,level_one)@+else set_cat_code(#,cur_level)
+   then set_cat_code(cat_code_table,#,level_one)@+else set_cat_code(cat_code_table,#,cur_level)
 
 @<Adjust \(f)for the setting of \.{\\globaldefs}@>=
 if global_defs<>0 then
@@ -33763,7 +33771,12 @@ end
 
 @<Assignments@>=
 assign_int: begin p:=cur_chr; scan_optional_equals; scan_int;
-  word_define(p,cur_val);
+	if p=(int_base+cat_code_table_code) then begin
+	  if valid_catcode_table(cur_val) then
+           word_define(p,cur_val);		
+	end
+	else
+	  word_define(p,cur_val);
 {If we are defining subparagraph penalty levels while we are
 in hmode, then we put out a whatsit immediately, otherwise
 we leave it alone.  This mechanism might not be sufficiently
@@ -35508,7 +35521,7 @@ init_randoms(random_seed);@/
 @<Compute the magic offset@>;
 @<Initialize the print |selector|...@>;
 lua_initialize(luastartup_id);
-if (loc<limit)and(get_cat_code(buffer[loc])<>escape) then start_input;
+if (loc<limit)and(get_cat_code(cat_code_table,buffer[loc])<>escape) then start_input;
   {\.{\\input} assumed}
 @<DIR: Initialize |text_dir_ptr|@>;
 end
@@ -35756,7 +35769,8 @@ stays the same.
 @d pdf_glyph_to_unicode_code   == pdftex_first_extension_code + 30
 @d late_lua_code               == pdftex_first_extension_code + 31
 @d close_lua_code              == pdftex_first_extension_code + 32
-@d pdftex_last_extension_code  == pdftex_first_extension_code + 32
+@d copy_cat_code_table_code    == pdftex_first_extension_code + 33
+@d pdftex_last_extension_code  == pdftex_first_extension_code + 33
 
 @<Put each...@>=
 primitive("openout",extension,open_node);@/
@@ -35834,6 +35848,8 @@ primitive("pdfmapline",extension,pdf_map_line_code);@/
 @!@:pdf_map_line_}{\.{\\pdfmapline} primitive@>
 primitive("pdftrailer",extension,pdf_trailer_code);@/
 @!@:pdf_trailer_}{\.{\\pdftrailer} primitive@>
+primitive("copycatcodetable",extension,copy_cat_code_table_code);@/
+@!@:copy_cat_code_table_}{\.{\\copycatcodetable} primitive@>
 primitive("pdfresettimer",extension,reset_timer_code);@/
 @!@:reset_timer_}{\.{\\pdfresettimer} primitive@>
 primitive("pdfsetrandomseed",extension,set_random_seed_code);@/
@@ -35889,7 +35905,8 @@ extension: case chr_code of
   pdf_trailer_code: print_esc("pdftrailer");
   pdf_xform_code: print_esc("pdfxform");
   pdf_ximage_code: print_esc("pdfximage");
-  reset_timer_code: print_esc("pdfresettimer");
+  reset_timer_code: print_esc("pdfresettimer"); 
+  copy_cat_code_table_code: print_esc("copycatcodetable");
   set_random_seed_code: print_esc("pdfsetrandomseed");
   pdf_glyph_to_unicode_code: print_esc("pdfglyphtounicode");
   late_lua_code: print_esc("latelua");
@@ -35944,6 +35961,7 @@ begin case cur_chr of
   pdf_xform_code: @<Implement \.{\\pdfxform}@>;
   pdf_ximage_code: @<Implement \.{\\pdfximage}@>;
   reset_timer_code: @<Implement \.{\\pdfresettimer}@>;
+  copy_cat_code_table_code: @<Implement \.{\\copycatcodetable}@>;
   set_random_seed_code: @<Implement \.{\\pdfsetrandomseed}@>;
   pdf_glyph_to_unicode_code: @<Implement \.{\\pdfglyphtounicode}@>;
   late_lua_code: @<Implement \.{\\latelua}@>;
@@ -37073,6 +37091,12 @@ begin
   if cur_val<0 then negate(cur_val);
   random_seed := cur_val;
   init_randoms(random_seed);
+end
+
+@  @<Implement \.{\\copycatcodetable}@>=
+begin
+  scan_int;
+  copy_cat_codes(cat_code_table,cur_val);
 end
 
 @ @<Implement \.{\\pdfresettimer}@>=
