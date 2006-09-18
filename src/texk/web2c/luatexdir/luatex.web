@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060916' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060918' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -5708,16 +5708,9 @@ eqtb[uc_code_base] :=eqtb[cat_code_base];
 eqtb[sf_code_base] :=eqtb[cat_code_base];
 eqtb[math_code_base]:=eqtb[cat_code_base];@/
 cat_code_table:=0;
-set_cat_code(cat_code_table,carriage_return,car_ret,level_one);
-set_cat_code(cat_code_table," ",spacer,level_one);
-set_cat_code(cat_code_table,"\",escape,level_one);
-set_cat_code(cat_code_table,"%",comment,level_one);
-set_cat_code(cat_code_table,invalid_code,invalid_char,level_one);
-set_cat_code(cat_code_table,null_code,ignore,level_one);@/
+initex_cat_codes(0);
 for k:="0" to "9" do set_math_code(k,(hi(k+var_code)),level_one);@/
 for k:="A" to "Z" do begin 
-  set_cat_code(cat_code_table,k,letter,level_one); 
-  set_cat_code(cat_code_table,k+"a"-"A",letter,level_one);@/
   set_math_code(k,(hi(k+var_code+@"10000)),level_one);
   set_math_code(k+32,(hi(k+32+var_code+@"10000)),level_one);@/
   set_lc_code(k,k+32,level_one); set_lc_code(k+32,k+32,level_one);@/
@@ -32645,7 +32638,8 @@ else  begin p:=new_noad; math_type(nucleus(p)):=math_char;
     begin if fam_in_range then fam(nucleus(p)):=cur_fam;
     type(p):=ord_noad;
     end
-  else  type(p):=ord_noad+(c div @"1000000);
+  else
+    type(p):=ord_noad+(c div @"1000000);
   link(tail):=p; tail:=p;
   end;
 end;
@@ -33773,7 +33767,13 @@ end
 assign_int: begin p:=cur_chr; scan_optional_equals; scan_int;
 	if p=(int_base+cat_code_table_code) then begin
 	  if valid_catcode_table(cur_val) then
-           word_define(p,cur_val);		
+           word_define(p,cur_val)
+       else begin
+	     print_err("Invalid \catcode table");
+	     help2("You can only switch to a \catcode table that is initialized")
+           ("using \savecatcodetable or \initcatcodetable, or to table 0");
+	     error;
+         end;
 	end
 	else
 	  word_define(p,cur_val);
@@ -35769,8 +35769,9 @@ stays the same.
 @d pdf_glyph_to_unicode_code   == pdftex_first_extension_code + 30
 @d late_lua_code               == pdftex_first_extension_code + 31
 @d close_lua_code              == pdftex_first_extension_code + 32
-@d copy_cat_code_table_code    == pdftex_first_extension_code + 33
-@d pdftex_last_extension_code  == pdftex_first_extension_code + 33
+@d save_cat_code_table_code    == pdftex_first_extension_code + 33
+@d init_cat_code_table_code    == pdftex_first_extension_code + 34
+@d pdftex_last_extension_code  == pdftex_first_extension_code + 34
 
 @<Put each...@>=
 primitive("openout",extension,open_node);@/
@@ -35848,8 +35849,10 @@ primitive("pdfmapline",extension,pdf_map_line_code);@/
 @!@:pdf_map_line_}{\.{\\pdfmapline} primitive@>
 primitive("pdftrailer",extension,pdf_trailer_code);@/
 @!@:pdf_trailer_}{\.{\\pdftrailer} primitive@>
-primitive("copycatcodetable",extension,copy_cat_code_table_code);@/
-@!@:copy_cat_code_table_}{\.{\\copycatcodetable} primitive@>
+primitive("savecatcodetable",extension,save_cat_code_table_code);@/
+@!@:save_cat_code_table_}{\.{\\savecatcodetable} primitive@>
+primitive("initcatcodetable",extension,init_cat_code_table_code);@/
+@!@:init_cat_code_table_}{\.{\\initcatcodetable} primitive@>
 primitive("pdfresettimer",extension,reset_timer_code);@/
 @!@:reset_timer_}{\.{\\pdfresettimer} primitive@>
 primitive("pdfsetrandomseed",extension,set_random_seed_code);@/
@@ -35906,7 +35909,8 @@ extension: case chr_code of
   pdf_xform_code: print_esc("pdfxform");
   pdf_ximage_code: print_esc("pdfximage");
   reset_timer_code: print_esc("pdfresettimer"); 
-  copy_cat_code_table_code: print_esc("copycatcodetable");
+  save_cat_code_table_code: print_esc("savecatcodetable");
+  init_cat_code_table_code: print_esc("initcatcodetable");
   set_random_seed_code: print_esc("pdfsetrandomseed");
   pdf_glyph_to_unicode_code: print_esc("pdfglyphtounicode");
   late_lua_code: print_esc("latelua");
@@ -35961,7 +35965,8 @@ begin case cur_chr of
   pdf_xform_code: @<Implement \.{\\pdfxform}@>;
   pdf_ximage_code: @<Implement \.{\\pdfximage}@>;
   reset_timer_code: @<Implement \.{\\pdfresettimer}@>;
-  copy_cat_code_table_code: @<Implement \.{\\copycatcodetable}@>;
+  save_cat_code_table_code: @<Implement \.{\\savecatcodetable}@>;
+  init_cat_code_table_code: @<Implement \.{\\initcatcodetable}@>;
   set_random_seed_code: @<Implement \.{\\pdfsetrandomseed}@>;
   pdf_glyph_to_unicode_code: @<Implement \.{\\pdfglyphtounicode}@>;
   late_lua_code: @<Implement \.{\\latelua}@>;
@@ -37093,10 +37098,40 @@ begin
   init_randoms(random_seed);
 end
 
-@  @<Implement \.{\\copycatcodetable}@>=
+@ @<Implement \.{\\savecatcodetable}@>=
 begin
   scan_int;
-  copy_cat_codes(cat_code_table,cur_val);
+  if (cur_val<0)or(cur_val>@"FFFFFFF) then begin
+	print_err("Invalid \catcode table");
+	help1("All \catcode table ids must be between 0 and 0xFFFFFFF");
+	error;
+    end 
+  else begin if cur_val=cat_code_table then begin
+      print_err("Invalid \catcode table");
+  	  help1("You cannot overwrite the current \catcode table");
+      error;
+      end
+    else
+      copy_cat_codes(cat_code_table,cur_val);
+    end;
+end
+
+@ @<Implement \.{\\initcatcodetable}@>=
+begin
+  scan_int;
+  if (cur_val<0)or(cur_val>@"FFFFFFF) then begin
+	print_err("Invalid \catcode table");
+	help1("All \catcode table ids must be between 0 and 0xFFFFFFF");
+	error;
+    end 
+  else begin if cur_val=cat_code_table then begin
+    print_err("Invalid \catcode table");
+  	help1("You cannot overwrite the current \catcode table");
+	error;
+    end
+  else
+    initex_cat_codes(cur_val);
+    end;
 end
 
 @ @<Implement \.{\\pdfresettimer}@>=

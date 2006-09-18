@@ -80,6 +80,7 @@ $Id $
 
 @define function validcatcodetable ();
 @define procedure copycatcodes ();
+@define procedure initexcatcodes ();
 @define procedure unsavecatcodes ();
 @define procedure unsavetextcodes ();
 @define procedure initializetextcodes;

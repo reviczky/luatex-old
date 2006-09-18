@@ -3,9 +3,9 @@
 #define MIDPART 128
 #define LOWPART 128
 
-#define Mxmalloc_array(a,b)  malloc(b*sizeof(a))
-#define Mxrealloc_array(a,b,c)  realloc(a,c*sizeof(b))
-#define Mxfree(a) free(a)
+#define Mxmalloc_array(a,b)  xmalloc(b*sizeof(a))
+#define Mxrealloc_array(a,b,c)  xrealloc(a,c*sizeof(b))
+#define Mxfree(a) free(a); a=NULL
 
 typedef unsigned int  sa_tree_item;
 
@@ -30,9 +30,10 @@ typedef sa_tree_head *sa_tree;
 extern sa_tree_item get_sa_item     (sa_tree head, integer n) ;
 extern void         set_sa_item     (sa_tree head, integer n, sa_tree_item v, integer gl) ;
 
-extern sa_tree      new_sa_tree     (integer size, integer dflt);
+extern sa_tree      new_sa_tree     (integer size, sa_tree_item dflt);
 
 extern sa_tree      copy_sa_tree     (sa_tree head);
+extern void         destroy_sa_tree  (sa_tree head);
 
 extern void         dump_sa_tree    (sa_tree a);
 extern sa_tree      undump_sa_tree  (void) ;

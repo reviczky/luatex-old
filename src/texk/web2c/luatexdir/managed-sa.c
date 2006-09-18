@@ -10,7 +10,9 @@ store_sa_stack (sa_tree a, integer n, integer v, integer gl) {
   st.code  = n;
   st.value = v;
   st.level = gl;
-  if ((a->ptr+1)==a->size) {
+  if (a->stack == NULL) {
+    a->stack = Mxmalloc_array(sa_stack_item,a->size);
+  } else if (((a->ptr)+1)>=a->size) {
     a->size += a->step;
     a->stack = Mxrealloc_array(a->stack,sa_stack_item,a->size);
   }
@@ -21,6 +23,8 @@ store_sa_stack (sa_tree a, integer n, integer v, integer gl) {
 static void
 skip_in_stack (sa_tree a, integer n) {
   int p = a->ptr;
+  if (a->stack == NULL)
+	return;
   while (p>0) {
     if (a->stack[p].code == n && a->stack[p].level > 0) {
       a->stack[p].level  = -(a->stack[p].level);
@@ -81,6 +85,92 @@ rawset_sa_item (sa_tree head, integer n, integer v) {
 
 
 void
+destroy_sa_tree (sa_tree a) {
+  unsigned char h,m,l;
+  if (a == NULL)
+    return;
+  if (a->tree != NULL) {
+    for (h=0; h<HIGHPART;h++ ) {
+      if (a->tree[h] != NULL) {
+		for (m=0; m<MIDPART; m++ ) {
+		  if (a->tree[h][m] != NULL) {
+			Mxfree(a->tree[h][m]);
+		  }
+		}
+		Mxfree(a->tree[h]);
+	  }
+	}
+	Mxfree(a->tree);
+  }
+  if (a->stack != NULL) {
+	Mxfree(a->stack);
+  }
+  Mxfree(a);
+}
+
+
+sa_tree
+copy_sa_tree(sa_tree b) {
+  unsigned char h,m,l;
+  sa_tree a = (sa_tree)Mxmalloc_array(sa_tree_head,1);
+  a->step  = b->step;
+  a->size  = b->size;
+  a->dflt  = b->dflt;
+  a->stack = NULL;
+  a->ptr   = 0;
+  a->tree = NULL;
+  if (b->tree !=NULL) {
+	a->tree = (sa_tree_item ***)Mxmalloc_array(void *,HIGHPART);
+	for (h=0; h<HIGHPART;h++ ) {  
+	  if (b->tree[h] != NULL) {
+		a->tree[h]=(sa_tree_item **)Mxmalloc_array(void *,MIDPART);
+		for (m=0; m<MIDPART; m++ )  { 
+		  if (b->tree[h][m]!=NULL) { 
+			a->tree[h][m]=Mxmalloc_array(sa_tree_item,LOWPART);
+			for (l=0; l<LOWPART; l++)  { 
+			  a->tree[h][m][l] =  b->tree[h][m][l] ;
+			} 
+		  } else {
+			a->tree[h][m] = NULL; 
+		  }   
+		}  
+	  } else { 
+		a->tree[h]= NULL; 
+	  } 
+	}
+  }
+  return a;
+}
+
+
+sa_tree
+new_sa_tree (integer size, integer dflt) {
+  sa_tree a  = (sa_tree)Mxmalloc_array(sa_tree_head,1);
+  a->dflt    = dflt;
+  a->stack   = NULL;
+  a->tree    = NULL;
+  a->size    = size;
+  a->step    = size;
+  a->ptr     = 0;
+  return a;
+}
+
+void
+restore_sa_stack (sa_tree head, integer gl) {
+  sa_stack_item st;
+  if (head->stack == NULL)
+	return;
+  while (head->ptr>0 && abs(head->stack[head->ptr].level)>=gl) {
+	st = head->stack[head->ptr];
+	if (st.level>0) {
+	  rawset_sa_item (head, st.code, st.value);
+	}
+	(head->ptr)--;
+  }
+}
+
+
+void
 dump_sa_tree (sa_tree a) {
   boolean f;
   unsigned int x;
@@ -109,7 +199,6 @@ dump_sa_tree (sa_tree a) {
     }
   }
 }
-
 
 
 sa_tree
@@ -145,58 +234,4 @@ undump_sa_tree(void) {
   return a;
 }
 
-
-sa_tree
-copy_sa_tree(sa_tree b) {
-  unsigned char h,m,l;
-  sa_tree a = (sa_tree)Mxmalloc_array(sa_tree_head,1);
-  a->step  = b->step;
-  a->size  = b->size;
-  a->dflt  = b->dflt;
-  a->stack = Mxmalloc_array(sa_stack_item,a->step);
-  a->ptr   = 0;
-  a->tree = (sa_tree_item ***)Mxmalloc_array(void *,HIGHPART);
-  for (h=0; h<HIGHPART;h++ ) {  
-    if (b->tree[h] != NULL) {
-      a->tree[h]=(sa_tree_item **)Mxmalloc_array(void *,MIDPART);
-      for (m=0; m<MIDPART; m++ )  { 
-        if (b->tree[h][m]!=NULL) { 
-	  a->tree[h][m]=Mxmalloc_array(sa_tree_item,LOWPART);
-	  for (l=0; l<LOWPART; l++)  { 
-	    a->tree[h][m][l] =  b->tree[h][m][l] ;
-	  } 
-	} else {
-	  a->tree[h][m] = NULL; 
-	}   
-      }  
-    } else { 
-      a->tree[h]= NULL; 
-    } 
-  }
-  return a;
-}
-
-
-sa_tree
-new_sa_tree (integer size, integer dflt) {
-  sa_tree sa  = (sa_tree)Mxmalloc_array(sa_tree_head,1);
-  sa->dflt    = dflt;
-  sa->stack   = Mxmalloc_array(sa_stack_item,size);
-  sa->tree    = NULL;
-  sa->size    = size;
-  sa->step    = size;
-  sa->ptr     = 0;
-  return sa;
-}
-
-void
-restore_sa_stack (sa_tree head, integer gl) {
-  while (head->ptr>=0 && abs(head->stack[head->ptr].level)>=gl) {
-    if (head->stack[head->ptr].level>0) {
-      rawset_sa_item (head, head->stack[head->ptr].code, head->stack[head->ptr].value);
-    }
-    head->ptr--;
-  }
-  
-}
 

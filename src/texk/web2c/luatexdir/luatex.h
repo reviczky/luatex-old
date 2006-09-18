@@ -46,11 +46,19 @@ extern halfword getcatcode (integer h, integer n);
 extern void unsavetextcodes (quarterword grouplevel);
 extern void unsavecatcodes (integer h,quarterword grouplevel);
 extern void copycatcodes (int from, int to);
+extern void initexcatcodes (int h);
 extern boolean validcatcodetable (int h);
 
 extern void initializetextcodes ();
 extern void dumptextcodes ();
 extern void undumptextcodes ();
+
+typedef enum {
+  escape, left_brace, right_brace, math_shift, 
+  tab_mark, car_ret, mac_param, sup_mark, 
+  sub_mark, ignore, spacer, letter, 
+  other_char, active_char, comment, invalid_char } cat_codes;
+
 
 
 /* this is needed for delcodes */ 
