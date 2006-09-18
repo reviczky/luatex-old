@@ -144,7 +144,7 @@ copy_sa_tree(sa_tree b) {
 
 
 sa_tree
-new_sa_tree (integer size, integer dflt) {
+new_sa_tree (integer size, sa_tree_item dflt) {
   sa_tree a  = (sa_tree)Mxmalloc_array(sa_tree_head,1);
   a->dflt    = dflt;
   a->stack   = NULL;
