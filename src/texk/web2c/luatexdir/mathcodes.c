@@ -67,11 +67,9 @@ getmathcode (integer n) {
   unsigned int ret;
   ret = get_sa_item(mathcode_head,n);
   if (ret==MATHCODEDEFAULT) { 
-	fprintf(stderr,"\\mathcode%d=%d\n",n,n);
-	return (halfword)n; 
+    return (halfword)n; 
   } else { 
-	fprintf(stderr,"\\mathcode%d=%d\n",n,ret);
-	return (halfword)ret;
+    return (halfword)ret;
   }
 }
 
