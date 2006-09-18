@@ -33065,7 +33065,7 @@ else  begin p:=new_noad; type(p):=t;
     begin type(p):=right_noad; subtype(p):=middle_noad;
     end;
   if t=left_noad then q:=p
-  else  begin p:=fin_mlist(p);
+  else  begin q:=fin_mlist(p);
     @<DIR: |unsave| math@>; {end of |math_left_group|}
     end;
   if t<>right_noad then
