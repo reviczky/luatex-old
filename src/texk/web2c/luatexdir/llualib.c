@@ -4,82 +4,116 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
+#define LOAD_BUF_SIZE (10 * 1024)
+
 typedef struct {
-  int    size;
-  void * data;
+  unsigned char* buf;
+  int size;
+  int done;
 } bytecode;
 
 static bytecode *lua_bytecode_registers = NULL;
 static int lua_bytecode_max = -1;
 
 void dumpluacregisters (void) {
-  int k;
+  int k,n;
+  bytecode b;
   dumpint(lua_bytecode_max);
   if (lua_bytecode_registers != NULL) {
-	for (k=0;k<lua_bytecode_max;k++) {
-	  if (lua_bytecode_registers[k].size!=0) {
-		dumpint(k);
-		dumpint(lua_bytecode_registers[k].size);
-		dumpthings(lua_bytecode_registers[k].data,k);
- 	  }
-	}
+    n = 0;
+    for (k=0;k<=lua_bytecode_max;k++) {
+      if (lua_bytecode_registers[k].size != 0)
+	n++;
+    }
+    dumpint(n);
+    for (k=0;k<=lua_bytecode_max;k++) {
+      b = lua_bytecode_registers[k];
+      if (b.size != 0) {
+	dumpint(k);
+	dumpint(b.size);
+	fprintf(stderr,"*%d,%d* ",k,b.size);
+	do_zdump ((char *)b.buf,1,(b.size), DUMP_FILE);
+      }
+    }
   }
 }
 
 void undumpluacregisters (void) {
-  int k;
+  int k,i,n;
+  bytecode b;
   undumpint(lua_bytecode_max);
-  if (lua_bytecode_max>0) {
-	lua_bytecode_registers = xmalloc(sizeof(void *)*lua_bytecode_max);
-	for (k=0;k<lua_bytecode_max;k++) {
-	  if (lua_bytecode_registers[k].size!=0) {
-		undumpint(k);
-		undumpint(lua_bytecode_registers[k].size);
-		undumpthings(lua_bytecode_registers[k].data,k);
-	  }
-	}
+  if (lua_bytecode_max>=0) {
+    lua_bytecode_registers = xmalloc(sizeof(bytecode)*(lua_bytecode_max+1));
+    for (i=0;i<=lua_bytecode_max;i++) {
+      lua_bytecode_registers[i].done = 0;
+      lua_bytecode_registers[i].size = 0;
+      lua_bytecode_registers[i].buf = NULL;
+    }
+    undumpint(n);
+    for (i=0;i<n;i++) {
+      undumpint(k);
+      undumpint(b.size);
+      fprintf(stderr,"*%d,%d* ",k,b.size);
+      b.buf=xmalloc(LOAD_BUF_SIZE);
+      memset(b.buf, 0, LOAD_BUF_SIZE);
+      do_zundump ((char *)b.buf,1, b.size, DUMP_FILE);
+      lua_bytecode_registers[k].size = b.size;
+      lua_bytecode_registers[k].buf = b.buf;
+    }
   }
 }
 
-static int writer(lua_State* L, const void *p, size_t size, void *u) {
-  //  UNUSED(L);
-  bytecode *x;
-  void *buffer;
-  x = (bytecode *)u;
-  if (x->size != 0) {
-	buffer =xrealloc(x->data,(x->size)+size);
-	memcpy(buffer,x->data,x->size);
-	memcpy(buffer+(x->size),p,size);
-  } else {
-	buffer = xmalloc(size);
-	memcpy(buffer,p,size);
+
+int writer(lua_State* L, const void* b, size_t size, void* B) {
+  bytecode* buf = (bytecode*)B;
+  unsigned char *r;
+  if(!(LOAD_BUF_SIZE - buf->size >= size)) {
+    return 1;
   }
-  x->data = buffer;
-  x->size += size;
+  memcpy(buf->buf+buf->size, b, size);
+  buf->size += size;
+  if (0) {
+    fprintf(stderr,"+size=%d\n",buf->size);
+    r = buf->buf;
+    while ((r - buf->buf ) <= buf->size) {
+      fprintf(stderr,"%x",*r++);
+    }
+  }
   return 0;
 }
 
-static const char * reader (lua_State *L, void *u, size_t *size) {
-  // UNUSED(L);
-  bytecode *x;
-  x = (bytecode *)u;
-  if (x->size>0) {
-	*size = (x->size);
-	return (const char *)x->data;
-  } else {
-	return NULL;
+const char* reader(lua_State* L, void* ud, size_t* size) {
+  bytecode* buf = (bytecode*)ud;
+  unsigned char *r;
+  if (buf->done == buf->size) {
+    *size = 0;
+    buf->done = 0;
+    return NULL;
   }
+  *size = buf->size;
+  buf->done = buf->size;
+  if (0) {
+    fprintf(stderr,"-size=%d\n",*size);
+    r = buf->buf;
+    while ((r - buf->buf ) <= buf->size) {
+      fprintf(stderr,"%x",*r++);
+    }
+  }
+  return (const char*)buf->buf;
 }
 
 int get_bytecode (lua_State *L) {
   int i,j,k;
   k = (int)luaL_checkinteger(L,-1);
   if (k<0) {
-	lua_pushnil(L);
-  } else if (k<=lua_bytecode_max && lua_bytecode_registers[k].size != 0) {
-	lua_load(L,reader,(void *)(lua_bytecode_registers+k),"bytecode");
+    lua_pushnil(L);
+  } else if (k<=lua_bytecode_max && lua_bytecode_registers[k].buf != NULL) {
+    if(lua_load(L,reader,(void *)(lua_bytecode_registers+k),"bytecode")) {
+      lua_error(L);
+      lua_pushnil(L);
+    }
   } else {
-	lua_pushnil(L);
+    lua_pushnil(L);
   }
   return 1;
 }
@@ -88,26 +122,29 @@ int set_bytecode (lua_State *L) {
   int i,j,k;
   k = (int)luaL_checkinteger(L,-2);
   if (k<0) {
-	lua_pushstring(L, "negative values not allowed");
-	lua_error(L);
+    lua_pushstring(L, "negative values not allowed");
+    lua_error(L);
   }
   if (lua_type(L,-1) != LUA_TFUNCTION){
-	lua_pushstring(L, "unsupported type");
-	lua_error(L);
+    lua_pushstring(L, "unsupported type");
+    lua_error(L);
   }
   if (k>lua_bytecode_max) {
-	lua_bytecode_registers = xrealloc(lua_bytecode_registers,sizeof(bytecode)*(k+1));
-	for (i=(lua_bytecode_max+1);i<=k;i++) {
-	  lua_bytecode_registers[i].data=NULL;
-	  lua_bytecode_registers[i].size=0;
-	}
-	lua_bytecode_max = k;
+    lua_bytecode_registers = xrealloc(lua_bytecode_registers,sizeof(bytecode)*(k+1));
+    for (i=(lua_bytecode_max+1);i<=k;i++) {
+      lua_bytecode_registers[i].buf=NULL;
+      lua_bytecode_registers[i].size=0;
+      lua_bytecode_registers[i].done=0;
+    }
+    lua_bytecode_max = k;
   }
-  if (lua_bytecode_registers[k].size!=0) {
-	xfree(lua_bytecode_registers[k].data);
-	lua_bytecode_registers[k].size=0;
-	lua_bytecode_registers[k].data=NULL;
+  if (lua_bytecode_registers[k].buf != NULL) {
+    xfree(lua_bytecode_registers[k].buf);
+    lua_bytecode_registers[k].buf == NULL;
   }
+  lua_bytecode_registers[k].buf=xmalloc(LOAD_BUF_SIZE);
+  memset(lua_bytecode_registers[k].buf, 0, LOAD_BUF_SIZE);
+  //
   lua_dump(L,writer,(void *)(lua_bytecode_registers+k));
   lua_pop(L,1);
   return 0;
