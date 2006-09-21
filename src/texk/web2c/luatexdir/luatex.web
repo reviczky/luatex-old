@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060918' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060920' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -950,20 +950,22 @@ end;
 
 @ Add callback check
 
-@p function lua_a_open_in(var f:alpha_file):boolean;
+@p function lua_a_open_in(var f:alpha_file; n:quarterword):boolean;
 var ret,test:boolean;
   k:integer;
   fnam:str_number;
 begin if callback_defined('open_read_file') then begin
-    test := run_callback('open_read_file','S>bsf',
-                         stringcast(name_of_file+1),address_of(ret),
+    test := run_callback('open_read_file','dS>bsf',
+                         n,stringcast(name_of_file+1),address_of(ret),
                          address_of(fnam),address_of(f));
 	if test then begin
 	  name_file_pointer := f;
-	  {for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	  libc_free (name_of_file);
+	  name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
+	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
 	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-	  name_length := length(fnam);}
-	  { flush_string;}
+	  name_length := length(fnam);
+	  flush_string;
       lua_a_open_in := ret;
 	  end
 	else begin
@@ -976,18 +978,21 @@ begin if callback_defined('open_read_file') then begin
   end;
 end;
 @#
-function lua_a_open_out(var f:alpha_file):boolean;
+function lua_a_open_out(var f:alpha_file; n:quarterword):boolean;
 var ret,test:boolean;
   k:integer;
   fnam:str_number;
 begin if callback_defined('open_write_file') then begin
-    test := run_callback('open_write_file','S>bsf',
-	                     stringcast(name_of_file+1),address_of(ret),address_of(fnam),address_of(f));
+    test := run_callback('open_write_file','dS>bsf',
+	                     n,stringcast(name_of_file+1),address_of(ret),address_of(fnam),address_of(f));
     if test then begin
 	  name_file_pointer := f;
-	  {for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	  libc_free (name_of_file);
+	  name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
+	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
 	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-	  name_length := length(fnam);}
+	  name_length := length(fnam);
+	  flush_string;
       lua_a_open_out := ret;
       end
     else begin
@@ -2392,9 +2397,12 @@ a way to make |interrupt| nonzero using the \PASCAL\ debugger.
 @!interrupt:integer; {should \TeX\ pause for instructions?}
 @!OK_to_interrupt:boolean; {should interrupts be observed?}
 @!detokenized_line:boolean; {indicates this is a 'detokenized' input line }
+@!line_catcode_table:integer; {the used catcode table for input lines}
+@!local_catcode_table:boolean; {the used catcode table for input lines}
 
 @ @<Set init...@>=
-interrupt:=0; OK_to_interrupt:=true; detokenized_line:= false;
+interrupt:=0; OK_to_interrupt:=true; detokenized_line:=false;
+line_catcode_table:=0; local_catcode_table:=false;
 
 @ When an interrupt has been detected, the program goes into its
 highest interaction level and lets the user have nearly the full flexibility of
@@ -6929,7 +6937,7 @@ might be invoked with invalid data, so it is ``extra robust.'' The
 individual characters must be printed one at a time using |print|, since
 they may be unprintable.
 
-@d single_letter(#)==(length(#)=1)or(length(#)>4)or
+@d single_letter(#)==(length(#)=1)or
    ((length(#)=4)and(str_pool[str_start_macro(#)]>=@"F0))or
    ((length(#)=3)and(str_pool[str_start_macro(#)]>=@"E0))or
    ((length(#)=2)and(str_pool[str_start_macro(#)]>=@"C0))
@@ -6949,7 +6957,9 @@ else if (text(p)<0)or(text(p)>=str_ptr) then print_esc("NONEXISTENT.")
 else  begin 
   print_esc(text(p));
   if single_letter(text(p)) then begin
-   	if get_cat_code(cat_code_table,pool_to_unichar(str_start_macro(text(p))))=letter then 
+   	if get_cat_code(cat_code_table,pool_to_unichar(str_start_macro(text(p))))=letter then
+      print_char(" ")
+    else
       do_nothing;
     end
   else
@@ -8750,6 +8760,7 @@ var k,l:0..buf_size; {an index into |buffer|}
 @!c,@!cc,@!ccc,@!cccc:ASCII_code; {constituents of a possible expanded code}
 @!d:2..7; {number of excess characters in an expanded code}
 @!inhibit_eol:boolean; {a way to end a pseudo file without trailing space}
+@!tab:integer; {a category table}
 begin restart: cur_cs:=0; inhibit_eol:=false;
 if state<>token_list then
 @<Input from external file, |goto restart| if no input found@>
@@ -8773,6 +8784,10 @@ if cur_cmd<=car_ret then if cur_cmd>=tab_mark then if align_state=0 then
 @d unicode_loc(#)==if buffer[#]>=@"F0 then #:=#+4 else if buffer[#]>=@"E0 
      then #:=#+3 else if buffer[#]>=@"C0 then #:=#+2 else incr(#)
 
+@d do_get_cat_code(#)==if local_catcode_table then 
+         #:=get_cat_code(line_catcode_table,cur_chr) 
+         else #:=get_cat_code(cat_code_table,cur_chr)
+
 @<Input from external file, |goto restart| if no input found@>=
 @^inner loop@>
 begin switch: if loc<=limit then {current line not yet finished}
@@ -8781,8 +8796,18 @@ begin switch: if loc<=limit then {current line not yet finished}
   reswitch: 
 	if detokenized_line then 
 	  if cur_chr=" " then cur_cmd:=10 else cur_cmd:=12
-    else
-       cur_cmd:=get_cat_code(cat_code_table,cur_chr);
+    else 
+      do_get_cat_code(cur_cmd);
+    if false then begin
+      begin_diagnostic;
+      print("(tab="); print_int(cat_code_table);
+      if not local_catcode_table then print_char('*');
+	  print(",loc="); print_int(line_catcode_table);
+      if local_catcode_table then print_char('*');
+	  print(",cmd="); print_int(cur_cmd);
+      print(",chr="); print_int(cur_chr);
+	  print(") "); end_diagnostic(false);
+      end;
   @<Change state if necessary, and |goto switch| if the
     current character should be ignored,
     or |goto reswitch| if the current character
@@ -8954,7 +8979,8 @@ buffer and the process is repeated, slowly but surely.
 
 @<Scan a control...@>=
 begin if loc>limit then cur_cs:=null_cs {|state| is irrelevant in this case}
-else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cat_code_table,cur_chr);
+else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k); 
+  do_get_cat_code(cat);
   unicode_loc(k);
   if cat=letter then state:=skip_blanks
   else if cat=spacer then state:=skip_blanks
@@ -9040,7 +9066,7 @@ begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
 end
 
 @ @<Scan ahead in the buffer...@>=
-begin repeat cur_chr:=buffer_to_unichar(k); cat:=get_cat_code(cat_code_table,cur_chr); unicode_loc(k);
+begin repeat cur_chr:=buffer_to_unichar(k); do_get_cat_code(cat); unicode_loc(k);
 until (cat<>letter)or(k>limit);
 @<If an expanded...@>;
 if cat<>letter then begin
@@ -9110,6 +9136,8 @@ There is one more branch.
 @d end_line_char_inactive == (end_line_char<0)or(end_line_char>biggest_char)
 
 @<Move to next line of file, or |goto restart|...@>=
+detokenized_line:=false;  
+local_catcode_table:=false;  
 if name>17 then @<Read next line of file into |buffer|, or
   |goto restart| if the file has ended@>
 else begin if not terminal_input then {\.{\\read} line has ended}
@@ -9149,7 +9177,6 @@ by an \.{\\endinput} command.
 @ @<Read next line of file into |buffer|, or
   |goto restart| if the file has ended@>=
 begin incr(line); first:=start;
-detokenized_line:=false;  
 if not force_eof then
   if name<=20 then
     begin if pseudo_input then {not end of file}
@@ -9174,7 +9201,16 @@ if not force_eof then
       if luacstring_detokenized then begin
         inhibit_eol:=true;
         detokenized_line:=true;
-        end;
+        end
+      else begin
+        if not luacstring_defaultcattable then begin
+	      tab:=luacstring_cattable;
+          if valid_catcode_table(tab) then begin
+             local_catcode_table:=true;
+	       	 line_catcode_table:=tab;
+             end;
+          end;
+	    end;
       end
     else
       force_eof:=true;
@@ -12287,9 +12323,10 @@ must be told not to start with |get|.
 @^system dependencies@>
 
 @<Input the first line of |read_file[m]|@>=
-if lua_input_ln(read_file[m],false) then read_open[m]:=normal
+begin if lua_input_ln(read_file[m],false) then read_open[m]:=normal
 else  begin a_close(read_file[m]); read_open[m]:=closed;
-  end
+  end;
+end
 
 @ An empty line is appended at the end of a |read_file|.
 @^empty line at end of file@>
@@ -13140,7 +13177,7 @@ begin old_setting:=selector;
 if job_name=0 then job_name:="texput";
 @.texput@>
 pack_job_name(".log");
-while not lua_a_open_out(log_file) do @<Try to get a different log file name@>;
+while not lua_a_open_out(log_file,0) do @<Try to get a different log file name@>;
 log_file := name_file_pointer;
 log_name:=a_make_name_string(log_file);
 selector:=log_only; log_opened:=true;
@@ -13196,10 +13233,10 @@ begin scan_file_name; {set |cur_name| to desired file name}
 if cur_ext="" then cur_ext:=".tex";
 pack_cur_name;
 loop@+  begin begin_file_reading; {set up |cur_file| and new level of input}
-  if lua_a_open_in(cur_file) then goto done;
+  if lua_a_open_in(cur_file,0) then goto done;
   if cur_area="" then
     begin pack_file_name(cur_name,TEX_area,cur_ext);
-    if lua_a_open_in(cur_file) then goto done;
+    if lua_a_open_in(cur_file,0) then goto done;
     end;
   end_file_reading; {remove the level that didn't work}
   prompt_file_name("input file name",".tex");
@@ -33766,8 +33803,10 @@ end
 @<Assignments@>=
 assign_int: begin p:=cur_chr; scan_optional_equals; scan_int;
 	if p=(int_base+cat_code_table_code) then begin
-	  if valid_catcode_table(cur_val) then
-           word_define(p,cur_val)
+	  if valid_catcode_table(cur_val) then begin
+	     if cur_val<>cat_code_table then
+           word_define(p,cur_val);
+         end
        else begin
 	     print_err("Invalid \catcode table");
 	     help2("You can only switch to a \catcode table that is initialized")
@@ -34494,7 +34533,7 @@ if c<>0 then
   begin scan_optional_equals; scan_file_name;
   if cur_ext="" then cur_ext:=".tex";
   pack_cur_name;
-  if lua_a_open_in(read_file[n]) then begin
+  if lua_a_open_in(read_file[n],(n+1)) then begin
      read_file[n]:= name_file_pointer;
      read_open[n]:=just_open;
      end;
@@ -34776,6 +34815,7 @@ begin @<If dumping is not allowed, abort@>;
 @<Dump the ocp list information@>;
 @<Dump the hyphenation tables@>;
 @<Dump a couple more things and the closing check word@>;
+@<Dump the lua bytecodes@>;
 @<Close the format file@>;
 end;
 tini
@@ -34808,6 +34848,7 @@ begin @<Undump constants for consistency check@>;
 @<Undump the ocp list information@>;
 @<Undump the hyphenation tables@>;
 @<Undump a couple more things and the closing check word@>;
+@<Undump the lua bytecodes@>;
 load_fmt_file:=true; return; {it worked!}
 bad_fmt: wake_up_terminal;
   wterm_ln('(Fatal format file error; I''m stymied)');
@@ -35207,6 +35248,14 @@ while j>0 do
   j:=j-x; op_start[k]:=qo(j);
   end;
 @!init trie_not_ready:=false @+tini
+
+@ This is done in C
+
+@<Dump the lua bytecodes@>=
+dump_luac_registers;
+
+@ @<Undump the lua bytecodes@>=
+undump_luac_registers;
 
 @ We have already printed a lot of statistics, so we set |tracing_stats:=0|
 to prevent them from appearing again.
@@ -37900,7 +37949,7 @@ if not doing_leaders then
       cur_ext:=open_ext(p);
       if cur_ext="" then cur_ext:=".tex";
       pack_cur_name;
-      while not lua_a_open_out(write_file[j]) do
+      while not lua_a_open_out(write_file[j],(j+1)) do
         prompt_file_name("output file name",".tex");
       write_file[j]:= name_file_pointer;
       write_open[j]:=true;

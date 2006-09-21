@@ -82,6 +82,14 @@ static FILE **newfile (lua_State *L) {
   return pf;
 }
 
+static int io_open (lua_State *L) {
+  const char *filename = luaL_checkstring(L, 1);
+  const char *mode = luaL_optstring(L, 2, "r");
+  FILE **pf = newfile(L);
+  *pf = fopen(filename, mode);
+  return (*pf == NULL) ? pushresult(L, 0, filename) : 1;
+}
+
 static int io_fclose (lua_State *L) {
   FILE **p = topfile(L);
   int ok = (fclose(*p) == 0);
@@ -245,6 +253,7 @@ static const struct luaL_reg texflib [] = {
 static const struct luaL_reg texiolib [] = {
   {"write", texio_print},
   {"write_nl", texio_printnl},
+  {"open", io_open},
   {"close", io_fclose},
   {"read", f_read},
   {"seek", f_seek},

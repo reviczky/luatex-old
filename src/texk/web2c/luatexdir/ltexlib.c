@@ -6,42 +6,31 @@
 typedef struct {
   char *text;
   void *next;
-  unsigned char stringtype;
+  unsigned char partial;
+  int cattable;
 } rope;
 
-static rope luacstring_head = {NULL,NULL,0};
+#define  PARTIAL_LINE       1
+#define  FULL_LINE          0
+
+#define  NO_CAT_TABLE      -2
+#define  DEFAULT_CAT_TABLE -1
+
+static rope luacstring_head = {NULL,NULL,FULL_LINE, DEFAULT_CAT_TABLE};
 
 static rope *luacstring_rover = NULL;
 
 static int 
-int_luacprint(char *st, int detok) {
+int_luacprint(char *st, int partial, int cattable) {
   rope *rn;
   luacstrings++; /* tex-side variable */
-  rn = (rope *)malloc(sizeof(rope));
-  rn->text = st;
-  rn->stringtype = detok;
+  rn = (rope *)xmalloc(sizeof(rope));
+  rn->text      = st;
+  rn->partial  = partial;
+  rn->cattable = cattable;
   rn->next = NULL;
   luacstring_rover->next = rn;
   luacstring_rover = rn;
-}
-
-int 
-luacprint(lua_State * L) {
-  int i, n;
-  char *st;
-  n = lua_gettop(L);
-  if (luacstring_rover == NULL)
-    luacstring_rover = &luacstring_head;
-  for (i = 1; i <= n; i++) {
-    if (!lua_isstring(L, i)) {
-      lua_pushstring(L, "no string to print");
-      lua_error(L);
-    }
-    st = strdup(lua_tostring(L, i));
-    if (st)
-      int_luacprint(st,0);
-  }
-  return 0;
 }
 
 int 
@@ -58,7 +47,32 @@ luacwrite(lua_State * L) {
     }
     st = strdup(lua_tostring(L, i));
     if (st)
-      int_luacprint(st,1);
+      int_luacprint(st,FULL_LINE,NO_CAT_TABLE);
+  }
+  return 0;
+}
+
+int 
+luacprint(lua_State * L) {
+  int i, n;
+  char *st;
+  int cattable = DEFAULT_CAT_TABLE;
+  int startstrings = 1;
+  n = lua_gettop(L);
+  if (lua_type(L,1)==LUA_TNUMBER && n>1) {
+    cattable = lua_tonumber(L, 1);
+    startstrings = 2;
+  }
+  if (luacstring_rover == NULL)
+    luacstring_rover = &luacstring_head;
+  for (i = startstrings; i <= n; i++) {
+    if (!lua_isstring(L, i)) {
+      lua_pushstring(L, "no string to print");
+      lua_error(L);
+    }
+    st = strdup(lua_tostring(L, i));
+    if (st)
+      int_luacprint(st,FULL_LINE,cattable);
   }
   return 0;
 }
@@ -67,31 +81,48 @@ int
 luacsprint(lua_State * L) {
   int i, n;
   char *st;
+  int cattable = DEFAULT_CAT_TABLE;
+  int startstrings = 1;
   n = lua_gettop(L);
+  if (lua_type(L,1)==LUA_TNUMBER && n>1) {
+    cattable = lua_tonumber(L, 1);
+    startstrings = 2;
+  }
   if (luacstring_rover == NULL)
     luacstring_rover = &luacstring_head;
-  for (i = 1; i <= n; i++) {
+  for (i = startstrings; i <= n; i++) {
     if (!lua_isstring(L, i)) {
       lua_pushstring(L, "no string to print");
       lua_error(L);
     }
     st = strdup(lua_tostring(L, i));
     if (st)
-      int_luacprint(st,2);
+      int_luacprint(st,PARTIAL_LINE,cattable);
   }
   return 0;
 }
 
 
-
 boolean 
 luacstringdetokenized (void) {
-  return (luacstring_head.stringtype == 1);
+  return (luacstring_head.cattable == NO_CAT_TABLE);
 }
+
+boolean
+luacstringdefaultcattable (void) {
+  return (luacstring_head.cattable == DEFAULT_CAT_TABLE);
+}
+
+
+integer
+luacstringcattable (void) {
+  return (integer)luacstring_head.cattable;
+}
+
 
 boolean 
 luacstringsimple (void) {
-  return (luacstring_head.stringtype == 2);
+  return (luacstring_head.partial == PARTIAL_LINE);
 }
 
 boolean 
@@ -115,13 +146,16 @@ luacstringinput (void) {
     check_buf (last + len,bufsize);
     while (len-->0)
       buffer[last++] = *st++;
-    while (last-1>ret && buffer[last-1] == ' ')
-      last--;
+    if (!t->partial) {
+      while (last-1>ret && buffer[last-1] == ' ')
+	last--;
+    }
     if (luacstring_rover == t)
       luacstring_rover = &luacstring_head;
     free(t->text);
-    luacstring_head.stringtype = t->stringtype;
-    luacstring_head.next = t->next;
+    luacstring_head.partial  = t->partial;
+    luacstring_head.cattable = t->cattable;
+    luacstring_head.next     = t->next;
     free(t);    
     return 1;
   }

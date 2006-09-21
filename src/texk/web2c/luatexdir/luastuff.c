@@ -5,6 +5,8 @@
 
 lua_State *Luas[65536];
 
+static char *startup_filename = NULL;
+
 void
 make_table (lua_State *L, char *tab, char *getfunc, char *setfunc) {
   /* make the table */            /* [{<tex>}] */
@@ -141,14 +143,13 @@ luainterpreter (int n) {
   luaopen_texio(L);
   luaopen_kpse(L);
   luaopen_callback(L);
+  luaopen_lua(L,n,startup_filename);
   fix_package_path(L,"path","lua",1);
 #if defined(_WIN32)
   fix_package_path(L,"cpath","dll",0);
 #else
   fix_package_path(L,"cpath","so",0);
 #endif
-  lua_pushinteger(L, n);
-  lua_setglobal(L, "luaid");
   Luas[n] = L;
 }
 
@@ -179,22 +180,21 @@ luainitialize (int luaid) {
   int error;
   char *loadaction;
   FILE *test;
-  char *fname = NULL;
   if(!callback_initialize())
     exit(1);
   // TODO: make this an fstat, nicer
   if (test=fopen("startup.lua","r")) {
-    fname = strdup("startup.lua");
+    startup_filename = strdup("startup.lua");
     fclose(test);
   } else {
-    fname = kpse_find_file ("startup.lua",kpse_texmfscripts_format,0);
+    startup_filename = kpse_find_file ("startup.lua",kpse_texmfscripts_format,0);
   }
-  if (fname!=NULL) {
+  if (startup_filename!=NULL) {
     luainterpreter (luaid);
-    if(luaL_loadfile(Luas[luaid],fname)|| lua_pcall(Luas[luaid],0,0,0)) {
+    if(luaL_loadfile(Luas[luaid],startup_filename)|| lua_pcall(Luas[luaid],0,0,0)) {
       fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[luaid],-1));
     }
-    free(fname);
+    //    free(fname);
   }
 }
 

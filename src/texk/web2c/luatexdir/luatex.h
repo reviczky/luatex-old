@@ -47,6 +47,7 @@ extern void unsavetextcodes (quarterword grouplevel);
 extern void unsavecatcodes (integer h,quarterword grouplevel);
 extern void copycatcodes (int from, int to);
 extern void initexcatcodes (int h);
+extern void clearcatcodestack (integer h);
 extern boolean validcatcodetable (int h);
 
 extern void initializetextcodes ();

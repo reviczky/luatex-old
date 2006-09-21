@@ -155,11 +155,16 @@ halfword getcatcode (integer h, integer n) {
 }
 
 void unsavecatcodes (integer h, quarterword gl) {
+  int k;
   check_catcode_sizes(h);
-  if (catcode_heads[h] == NULL) {
-    catcode_heads[h] = new_sa_tree(CATCODESTACK,CATCODEDEFAULT);
+  for (k=0;k<=catcode_max;k++) {
+    if (catcode_heads[k] != NULL)
+      restore_sa_stack(catcode_heads[k],gl);
   }
-  restore_sa_stack(catcode_heads[h],gl);
+}
+
+void clearcatcodestack(integer h) {
+  clear_sa_stack(catcode_heads[h]);
 }
 
 static void initializecatcodes (void) {

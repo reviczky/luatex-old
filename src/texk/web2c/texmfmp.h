@@ -179,9 +179,6 @@ extern void setupboundvariable P3H(integer *, const_string, integer);
 #define ofmopenin(f)	open_input (&(f), kpse_ofm_format, FOPEN_RBIN_MODE)
 #define bopenout(f)	open_output (&(f), FOPEN_WBIN_MODE)
 #define bclose		aclose
-#define wopenin(f)	open_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
-#define wopenout	bopenout
-#define wclose		aclose
 
 /* Used in tex.ch (section 1338) to get a core dump in debugging mode.  */
 #ifdef unix
@@ -204,11 +201,34 @@ extern void paintrow (/*screenrow, pixelcolor, transspec, screencol*/);
 #endif
 #endif /* MF */
 
+
+#ifdef luaTeX
 /* (Un)dumping.  These are called from the change file.  */
+#define	dumpthings(base, len) \
+  do_zdump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
+#define	undumpthings(base, len) \
+  do_zundump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
+/* We define the routines to do the actual work in texmf.c.  */
+#define wopenin(f)	zopen_w_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
+#define wopenout(f)	zopen_w_output (&(f), FOPEN_WBIN_MODE)
+#define wclose		zwclose
+extern boolean zopen_w_input P3H(FILE **, int, const_string fopen_mode);
+extern boolean zopen_w_output P2H(FILE **, const_string fopen_mode);
+extern void do_zdump P4H(char *, int, int, FILE *);
+extern void do_zundump P4H(char *, int, int, FILE *);
+extern void zwclose P1H(FILE *);
+#else
 #define	dumpthings(base, len) \
   do_dump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
 #define	undumpthings(base, len) \
   do_undump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
+/* We define the routines to do the actual work in texmf.c.  */
+extern void do_dump P4H(char *, int, int, FILE *);
+extern void do_undump P4H(char *, int, int, FILE *);
+#define wopenin(f)	open_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
+#define wopenout	bopenout
+#define wclose		aclose
+#endif
 
 /* Like do_undump, but check each value against LOW and HIGH.  The
    slowdown isn't significant, and this improves the chances of
@@ -244,9 +264,6 @@ extern void paintrow (/*screenrow, pixelcolor, transspec, screencol*/);
     }									\
   } while (0)
 
-/* We define the routines to do the actual work in texmf.c.  */
-extern void do_dump P4H(char *, int, int, FILE *);
-extern void do_undump P4H(char *, int, int, FILE *);
 
 /* Use the above for all the other dumping and undumping.  */
 #define generic_dump(x) dumpthings (x, 1)

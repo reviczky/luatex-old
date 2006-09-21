@@ -2,6 +2,7 @@
 
 #include "luatex-api.h"
 #include <ptexlib.h>
+#include <zlib.h>
 
 /* do this aleph stuff here, for now */
 
@@ -263,4 +264,61 @@ runexternalocp P1C(string, external_ocp_name)
 end_of_while:
   remove(in_file_name);
   remove(out_file_name);
+}
+
+/* Read and write dump files through zlib */
+
+static int totalout = 0;
+static int totalin = 0;
+
+void
+do_zdump (char *p,  int item_size,  int nitems, FILE *out_file)
+{
+  int err;
+  //  fprintf(stderr,"*%dx%d->%d",item_size,nitems,totalout);
+  //  totalout += item_size*nitems;
+  if (gzwrite ((gzFile)out_file,(void *)p, item_size*nitems) != item_size*nitems)
+    {
+      fprintf (stderr, "! Could not write %d %d-byte item(s): %s.\n",
+               nitems, item_size, gzerror((gzFile)out_file,&err));
+      uexit (1);
+    }
+}
+
+void
+do_zundump (char *p,  int item_size,  int nitems, FILE *in_file)
+{
+  int err;
+  //totalin += item_size*nitems;
+  //  fprintf(stderr,"*%dx%d->%d",item_size,nitems,totalin);
+  if (gzread ((gzFile)in_file,(void *)p, item_size*nitems) <= 0) 
+	{
+	  fprintf (stderr, "Could not undump %d %d-byte item(s): %s.\n",
+			   nitems, item_size, gzerror((gzFile)in_file,&err));
+	  uexit (1);
+	}
+}
+
+boolean 
+zopen_w_input (FILE **f, int format, const_string fopen_mode) {
+  int res = open_input(f,format,fopen_mode);
+  if (res) {
+	*f = (FILE *)gzdopen(fileno(*f),"rb3");
+  }
+  return res;
+}
+
+boolean 
+zopen_w_output (FILE **f, const_string fopen_mode) {
+  int res =  open_output(f,fopen_mode);
+  if (res) {
+	*f = (FILE *)gzdopen(fileno(*f),"wb3");
+  }
+  return res;
+}
+
+void 
+zwclose (FILE *f) { 
+  //  fprintf (stderr, "Uncompressed sizes: in=%d,out=%d\n",totalin,totalout);
+  gzclose((gzFile)f); 
 }

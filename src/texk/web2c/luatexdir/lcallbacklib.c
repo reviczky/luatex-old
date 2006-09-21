@@ -111,15 +111,15 @@ runcallback (char *name, char *values, ...) {
       lua_pushstring(Luas[luaid], s);
       break;
     case CALLBACK_STRING: /* C string */ 
-      s = va_arg(vl, char *);
-      lua_pushstring(Luas[luaid], strdup(s));
+      s = strdup(va_arg(vl, char *));
+      lua_pushstring(Luas[luaid], s);
       break;
     case CALLBACK_INTEGER: /* int */ 
       lua_pushnumber(Luas[luaid], va_arg(vl, int));
       break;
     case CALLBACK_STRNUMBER: /* TeX string */ 
       s = makecstring(va_arg(vl, int));
-      lua_pushstring(Luas[luaid], strdup(s));
+      lua_pushstring(Luas[luaid], s);
       break;
     case CALLBACK_BOOLEAN: /* boolean */ 
       lua_pushboolean(Luas[luaid], va_arg(vl, int));
@@ -229,7 +229,7 @@ static int callback_register (lua_State *L) {
 
 
 static const struct luaL_reg callbacklib [] = {
-  {"find",    callback_find},
+  //  {"find",    callback_find},
   {"register",callback_register},
   {NULL, NULL}  /* sentinel */
 };

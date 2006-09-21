@@ -83,6 +83,15 @@ rawset_sa_item (sa_tree head, integer n, integer v) {
   head->tree[h][m][l] = v;
 }
 
+void
+clear_sa_stack (sa_tree a) {
+  if (a->stack != NULL) {
+	Mxfree(a->stack);
+  }
+  a->stack = NULL;
+  a->ptr   = 0;
+  a->size  = a->step;
+}
 
 void
 destroy_sa_tree (sa_tree a) {

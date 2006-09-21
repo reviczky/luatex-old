@@ -43,6 +43,8 @@ $Id $
 @define function  luacstringinput;
 @define function  luacstringpenultimate;
 @define function  luacstringdetokenized;
+@define function  luacstringcattable;
+@define function  luacstringdefaultcattable;
 @define function  luacstringsimple;
 @define procedure luacstringclose;
 
@@ -79,6 +81,7 @@ $Id $
 @define procedure setcatcode();
 
 @define function validcatcodetable ();
+@define procedure clearcatcodestack ();
 @define procedure copycatcodes ();
 @define procedure initexcatcodes ();
 @define procedure unsavecatcodes ();
@@ -87,6 +90,8 @@ $Id $
 @define procedure dumptextcodes;
 @define procedure undumptextcodes;
 
+@define procedure dumpluacregisters;
+@define procedure undumpluacregisters;
 
 { bits and pieces from aleph }
 

@@ -1624,10 +1624,10 @@ begin scan_file_name; {set |cur_name| to desired file name}
 if cur_ext="" then cur_ext:=".tex";
 pack_cur_name;
 loop@+  begin begin_file_reading; {set up |cur_file| and new level of input}
-  if lua_a_open_in(cur_file) then goto done;
+  if lua_a_open_in(cur_file,0) then goto done;
   if cur_area="" then
     begin pack_file_name(cur_name,TEX_area,cur_ext);
-    if lua_a_open_in(cur_file) then goto done;
+    if lua_a_open_in(cur_file,0) then goto done;
     end;
 @y
 var temp_str: str_number;
@@ -1638,7 +1638,7 @@ loop@+begin
   tex_input_type := 1; {Tell |open_input| we are \.{\\input}.}
   {Kpathsea tries all the various ways to get the file.}
   if open_in_name_ok(stringcast(name_of_file+1))
-     and lua_a_open_in(cur_file) then
+     and lua_a_open_in(cur_file,0) then
     goto done;
 @z
 
@@ -1666,18 +1666,6 @@ if name=str_ptr-1 then {we can try to conserve string pool space now}
   begin job_name:=cur_name; open_log_file;
 @y
   begin job_name:=get_job_name(cur_name); open_log_file;
-@z
-
-@x
-if term_offset+length(name)>max_print_line-2 then print_ln
-else if (term_offset>0)or(file_offset>0) then print_char(" ");
-print_char("("); incr(open_parens); slow_print(name); update_terminal;
-@y
-if term_offset+length(full_source_filename_stack[in_open])>max_print_line-2
-then print_ln
-else if (term_offset>0)or(file_offset>0) then print_char(" ");
-print_char("("); incr(open_parens);
-slow_print(full_source_filename_stack[in_open]); update_terminal;
 @z
 
 @x
@@ -2463,12 +2451,12 @@ else kpse_make_tex_discard_errors := 0;
 @x
   if cur_ext="" then cur_ext:=".tex";
   pack_cur_name;
-  if lua_a_open_in(read_file[n]) then begin
+  if lua_a_open_in(read_file[n],(n+1)) then begin
 @y
   pack_cur_name;
   tex_input_type:=0; {Tell |open_input| we are \.{\\openin}.}
   if open_in_name_ok(stringcast(name_of_file+1))
-     and lua_a_open_in(read_file[n]) then begin
+     and lua_a_open_in(read_file[n],(n+1)) then begin
 @z
 
 @x
@@ -2861,13 +2849,15 @@ undump_size(0)(active_mem_size)('active start point')(active_min_ptr);
 undump_size(0)(active_mem_size)('active mem size')(active_max_ptr);
 for k:=0 to active_max_ptr-1 do undump_wd(active_info[k]);
 @y
-dump_things(active_info[0], active_max_ptr);
+if active_max_ptr>0 then
+  dump_things(active_info[0], active_max_ptr);
 print_ln; print_int(active_max_ptr); print(" words of active ocps");
 
 @ @<Undump the active ocp information@>=
 undump_size(0)(active_mem_size)('active start point')(active_min_ptr);
 undump_size(0)(active_mem_size)('active mem size')(active_max_ptr);
-undump_things(active_info[0], active_max_ptr);
+if active_max_ptr>0 then
+  undump_things(active_info[0], active_max_ptr);
 @z
 
 @x
@@ -2957,9 +2947,11 @@ dump_things(trie_trl[0], trie_max+1);
 dump_things(trie_tro[0], trie_max+1);
 dump_things(trie_trc[0], trie_max+1);
 dump_int(trie_op_ptr);
-dump_things(hyf_distance[1], trie_op_ptr);
-dump_things(hyf_num[1], trie_op_ptr);
-dump_things(hyf_next[1], trie_op_ptr);
+if trie_op_ptr>0 then begin
+  dump_things(hyf_distance[1], trie_op_ptr);
+  dump_things(hyf_num[1], trie_op_ptr);
+  dump_things(hyf_next[1], trie_op_ptr);
+  end;
 @z
 
 @x
@@ -3035,7 +3027,7 @@ if interaction_option<>unspecified_mode then interaction:=interaction_option;
 @x
 if (x<>69069)or eof(fmt_file) then goto bad_fmt
 @y
-if (x<>69069)or feof(fmt_file) then goto bad_fmt
+if x<>69069 then goto bad_fmt
 @z
 
 @x
@@ -3414,13 +3406,13 @@ var j:small_number; {write stream number}
 @z
 
 @x
-      while not lua_a_open_out(write_file[j]) do
+      while not lua_a_open_out(write_file[j],(j+1)) do
         prompt_file_name("output file name",".tex");
       write_file[j]:= name_file_pointer;
       write_open[j]:=true;
 @y
       while not open_out_name_ok(stringcast(name_of_file+1))
-            or not lua_a_open_out(write_file[j]) do
+            or not lua_a_open_out(write_file[j],(j+1)) do
         prompt_file_name("output file name",".tex");
       write_file[j]:= name_file_pointer;
       write_open[j]:=true;

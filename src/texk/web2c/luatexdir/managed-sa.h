@@ -39,3 +39,4 @@ extern void         dump_sa_tree    (sa_tree a);
 extern sa_tree      undump_sa_tree  (void) ;
 
 extern void         restore_sa_stack  (sa_tree a, integer gl);
+extern void         clear_sa_stack    (sa_tree a);
