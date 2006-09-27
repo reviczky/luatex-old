@@ -1,0 +1,1428 @@
+
+\environment luatexref-env
+
+\def\hex{"}
+
+\def\todo#1{{\bf\red <TODO: #1>}}
+
+\starttext
+\TitlePage{Snapshot 2006-09-27}
+
+\title{Contents}
+
+\placecontent[criterium=text]
+
+\chapter{Introduction}
+
+
+\startframedtext[framecolor=red,width=\hsize]
+\red 
+This book will eventually become the reference manual of \LUATEX. At
+the moment, it simply reports the behavior of the executable
+matching the snapshot date in the title page.
+
+\blank
+
+Features may come and go. The current version of \LUATEX\ is not meant
+for production and users cannot depend on functionality staying the
+same.
+
+\blank
+
+Nothing in the API is considered stable just yet. This manual
+therefore simply reflects the current state of the executable. {\bs 
+Absolutely nothing\/} on the following pages is set in stone. When the
+need arises, anything can (and will) be changed without prior notice.
+
+\blank
+
+\bf If you are unhappy with this situation, wait for the public beta's.
+\stopframedtext
+
+\blank[2*line]
+
+\LUATEX\ consists of a number of interrelated but (still) distinguishable
+ parts:
+\startitemize
+\item \PDFTEX\ version 1.40  (currently in beta)
+\item \ALEPH\ RC4 (from the \TEXLIVE\ repository)
+\item Functionality of \ETEX\ 2.2
+\item Lua 5.1
+\item Dedicated lua libraries
+\item Various \TeX\ extensions
+\item Compiled source code to glue it all together
+\stopitemize
+
+\LUATEX\ has two separate identities:
+
+\startitemize[n]
+\item When \type{\pdfoutput} is set to one, \LUATEX\ behaves like \PDFTEX,
+with the addition of (8-bit) OTP processing.  In this mode, fonts are
+limited to 256 characters, and hyphenation is only available for 8-bit
+font encodings. Attempts to use the \ALEPH\ direction commands will
+generate erroneous output.
+
+\item When \type{\pdfoutput} is zero, \LUATEX\ behaves like \ALEPH\ with the
+addition of the micro-typography features. In this mode, fonts can have
+65536 characters, and the whole Unicode base plane can be hyphenated
+(assuming a proper font encoding). The \PDFTEX\ commands that are not
+specific to the PDF output format should work.
+\stopitemize
+
+In either mode, I/O translation processes, tcx files, enctex, cannot
+be used. The encoding items are superseded by a \LUA-based solution
+(\type{input_line} callbacks).
+
+
+\chapter{Basic \TEX\ enhancements}
+
+\section{Unicode support}
+
+Text input and output is now considered to be Unicode text, so
+characters can use the full range of Unicode ($2^{20}+2^{16} =
+\hex10FFFF = 1114111$). 
+
+For now, it only makes sense to use values above the base plane (\hex
+FFFF) for \type{\mathcode} and \type{\catcode} assignments, since the
+fonts as well as the hyphenation patterns are still limited to at the
+most 16-bit values, so the other command will not know what to do with
+those high values.
+
+Many primitives are affected by this. For instance,
+\type{\char} now accepts values between 0 and 1114111. This should not
+be a problem for well-behaved input files, but it could create
+incompatibilities for input that would have generated an error when
+processed by older \TEX-based engines.
+
+\starttable[|l|l|l|l|]
+\NC Primitive           \NC Bits    \NC Hex    \NC Range                 \NC \FR
+\NC \type{\char}        \NC 21      \NC \hex10FFFF \NC ($2^{20}+2^{16}$)      \NC\NR
+\NC \type{\chardef}     \NC 21=21   \NC \hex10FFFF=\hex10FFFF   \NC ($2^{20}+2^{16}$) = ($2^{20}+2^{16}$)     \NC\NR
+\NC \type{\lccode}      \NC 21=21   \NC \hex10FFFF=\hex10FFFF   \NC ($2^{20}+2^{16}$) = ($2^{20}+2^{16}$)\NC\NR
+\NC \type{\uccode}      \NC 21=21   \NC \hex10FFFF=\hex10FFFF   \NC ($2^{20}+2^{16}$) = ($2^{20}+2^{16}$)\NC\NR
+\NC \type{\sfcode}      \NC 21=15   \NC \hex10FFFF=\hex7FFF   \NC ($2^{20}+2^{16}$) = ($2^{15}$)\NC\NR
+\NC \type{\catcode}     \NC 21=4    \NC \hex10FFFF=\hex F    \NC ($2^{20}+2^{16}$) = ($2^4$)\NC\NR
+\NC \type{\mathchardef} \NC 21=15   \NC \hex10FFFF=15   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{8}*2^{4}$) \NC\NR
+\NC \type{\mathcode}    \NC 21=15   \NC \hex10FFFF=\hex8000   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{8}*2^{4}$) \NC\NR
+\NC \type{\delcode}     \NC 21=27   \NC \hex10FFFF=\hex7FFFFFF   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{4}*2^{8}*2^{4}*2^{8}$)\NC\NR 
+\stoptable
+
+As far as the core engine is aware, all input and output to text files
+is UTF-8 encoded. Input files can be preprocessed using the
+\callback{input_line} callback. This will be explained in a later chapter.
+
+Output to the terminal uses \type{^^} notation for the lower control
+range, with the exception of \type{^^I}, \type{^^J} and  \type{^^M}.
+These are considered `safe' and therefore printed as-is.
+
+No normalization of the Unicode input takes place yet, but that will
+happen eventually.
+
+\section{Wide math characters}
+
+Text is now extended up to the full Unicode range, but math mode deals
+mostly with glyphs in fonts directly, and fonts tend to be 16-bit at
+maximum.
+
+Therefore, the math primitives from \ALEPH\ are kept mostly as-is,
+except for the ones that convert from input to math commands. The
+extended commands (with the `\type{o}' prefix) accept 16-bit glyph
+indices in one of 256 possible families. The traditional \TEX\
+primitives are unchanged, their arguments are upscaled internally.
+
+\starttable[|l|l|l|l|]
+\NC Primitive           \NC Bits    \NC Hex    \NC Range                 \NC \FR
+\NC \type{\mathchar}    \NC 15      \NC \hex7FFF   \NC ($2^{3}*2^{8}*2^{4}$)  \NC\NR
+\NC \type{\delimiter}   \NC 27      \NC \hex7FFFFFF      \NC ($2^{3}*2^{4}*2^{8}*2^{4}*2^{8}$)\NC\NR
+\NC \type{\omathchar}   \NC 27      \NC \hex7FFFFFF\NC ($2^{3}*2^{16}*2^{8}$)  \NC\NR
+\NC \type{\odelimiter}  \NC 27+24   \NC \hex7FFFFFF+\hex FFFFFF   \NC ($2^{3}*2^{8}*2^{16}$)+($2^{8}*2^{16}$)\NC\NR
+\NC \type{\omathchardef}\NC 21=27   \NC \hex10FFFF=27   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{16}*2^{8}$)\NC\NR
+\NC \type{\omathcode}   \NC 21=27   \NC \hex10FFFF=\hex8000000   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{16}*2^{8}$) \NC\NR
+\NC \type{\odelcode}    \NC 21=27+24\NC \hex10FFFF=\hex7FFFFFF+ \NC($2^{20}+2^{16}$) = ($2^{3}*2^{8}*2^{16}$)+ \NC\NR
+\NC                     \NC         \NC \hphantom{\hex10FFFF= }\hex FFFFFF\NC \hphantom{($2^{20}+2^{16}$) = } ($2^{8}*2^{16}$)\NC\LR
+\stoptable
+
+\section{Extended register tables}
+
+All registers can be \type{<16-bit number>}, as in \ALEPH. The
+affected commands are:
+
+\startcolumns
+\starttyping
+\count
+\dimen
+\skip
+\muskip
+\marks
+\toks
+\countdef
+\dimendef
+\skipdef
+\muskipdef
+\toksdef
+\box
+\unhbox
+\unvbox
+\copy
+\unhcopy
+\unvcopy
+\wd
+\ht
+\dp
+\setbox
+\vsplit
+\stoptyping
+\stopcolumns
+
+\section{Lua related primitives}
+
+In order to merge lua code with \TEX\ input, a few new primitives are
+needed. \LUATEX\ has support for 65536 separate lua interpreter
+states. States are automatically created based on the integer argument
+to the primitives \primitive{directlua} and \primitive{latelua}.
+States are never closed, except when a fatal (out of memory) error
+occurs, at which point \LUATEX\ will exit anyway.
+
+\subsection{\primitive{directlua}}
+
+The primitive \primitive{directlua} is used to execute lua code.
+The syntax is
+\startsyntax
+  \directlua <16-bit number> <general text>
+\stopsyntax
+
+The \syntax{<general text>} is fed into the lua interpreter state
+indicated by the \syntax{<16-bit number>}. If the state does not exist
+yet, then it will be initialized automatically.
+
+This command is expandable. 
+
+\subsection{\primitive{latelua}}
+
+\primitive{latelua} stores lua code in a whatsit that will be processed 
+inside the output routine. It is very similar to \type{\pdfliteral}.
+
+Any output it produces should go straight to the PDF file, but at the
+moment it is broken (there is no way to generate the desired output)
+\startsyntax
+  \latelua ["direct"|"page"] <16-bit number> <general text>
+\stopsyntax
+
+\subsection{\primitive{luaescapestring}}
+
+This primitive converts a \TEX\ token string so that it can be safely
+used as the contents of a \LUA\ string: embedded backslashes, double
+quotes and single quotes are escaped by prepending an extra token
+consisting of a backslash with catcode 12.
+\startsyntax
+  \luaescapestring <general text>
+\stopsyntax
+
+
+
+\subsection{\primitive{luastartup}} 
+
+This integer register can be set inside the format file to specify the
+lua instance number (state) in which a possible run-time \type{startup.lua}
+script is executed (initex always uses the state 0)
+\startsyntax
+  \luastartup <16-bit number>
+\stopsyntax
+
+\section{New \ETEX\ primitives}
+
+\subsection{\primitive{clearmarks}}
+
+This primitive clears a marks class completely, resetting all three
+connected mark texts to empty.
+\startsyntax
+      \clearmarks <16-bit number>
+\stopsyntax
+
+\subsection{\primitive{formatname}}
+
+\primitive{formatname}'s syntax is identical to \type{\jobname}. 
+
+In initex, the expansion is empty. Otherwise, the expansion is the
+value that \type{\jobname} had during the initex run that dumped the
+currently loaded format.
+
+\subsection{\primitive{scantextokens}}
+
+The syntax of \primitive{scantextokens} is identical to \type{\scantokens}. 
+
+This is a slightly adapted version of \ETEX's \type{\scantokens}. The 
+differences are:
+
+\startitemize
+\item The last (and usually only) line does not have a
+      \type{\endlinechar} appended
+\item \type{\scantextokens} never raises an EOF error,
+      and it does not execute \type{\everyeof} tokens.
+\item The `while end of file' tests are not executed, allowing
+      the expansion to end on a different grouping level or while a
+      conditional is still incomplete
+\stopitemize
+
+
+\subsection{Catcode tables}
+
+Catcode tables are a new feature that allows you to switch to a
+predefined catcode regime in a single statement. You can have a
+practically unlimited number of different tables (at this moment up to
+268,435,456. The limit depends on an array allocation).
+
+The subsystem is backward compatible: if you never use the following
+commands, your document will not notice any difference in behavior
+compared to traditional \TEX.
+
+The contents of each catcode table is independent of any other
+catcode tables, and their contents is stored and retrieved from the
+format file. 
+
+\subsubsection{\primitive{catcodetable}}
+\startsyntax
+  \catcodetable <28-bit number>
+\stopsyntax
+
+The \primitive{catcodetable} switches to a different catcode table.
+Such a table has to be previously created using one of the two
+primitives below, or it has to be zero (table zero is initialized by
+initex)
+
+\subsubsection{\primitive{initcatcodetable}}
+\startsyntax
+  \initcatcodetable <28-bit number>
+\stopsyntax
+
+The \primitive{initcatcodetable} creates a new table with catcodes
+identical to those defined by initex:
+
+\starttable[|l|l|l|]
+\NC \type{^^M}~(<return>) \NC \type{car_ret}     \NC5 \NC\NR
+\NC \type{ }~(space)      \NC \type{spacer}      \NC10\NC\NR
+\NC \type{\\}             \NC \type{escape}      \NC0 \NC\NR
+\NC \type{%}              \NC \type{comment}     \NC14\NC\NR
+\NC \type{^^?}~(<delete>) \NC \type{invalid_char}\NC15\NC\NR
+\NC \type{^^@}~(<null>)   \NC \type{ignore}      \NC9 \NC\NR
+\NC \type{a}--\type{z}    \NC \type{letter}      \NC11\NC\NR
+\NC \type{A}--\type{Z}    \NC \type{letter}      \NC11\NC\NR
+\NC everything else       \NC \type{other}       \NC12\NC\NR
+\stoptable
+
+The new catcode table is allocated globally: it will not go away after
+the current group has ended. If the supplied number is the currently
+active table, an error is raised.
+
+\subsubsection{\primitive{savecatcodetable}}
+\startsyntax
+  \savecatcodetable <28-bit number>
+\stopsyntax
+
+\primitive{savecatcodetable} copies the current set of catcodes to a
+new table with the requested number. The definitions in this new table
+are all treated as if they were made in the outermost level.
+
+The new table is allocated globally: it will not go away after the
+current group has ended. If the supplied number is the currently
+active table, an error is raised.
+
+\chapter {Lua general}
+
+\section{Initialization}
+
+Whenever the \LUATEX\ executable starts, it uses kpathsea to search for
+a file of type `texmfscript' that is named
+\starttyping
+     startup.lua
+\stoptyping
+
+If such a file exists, it is loaded in the lua state zero
+(for initex) or the one pointed to by \primitive{luastartup}
+(for non-initex).
+
+This loading happens right before the first text input file needs to
+be opened, after format loading, but before the \type{\everyjob}
+tokens are executed.
+
+\section{Lua search paths}
+
+The default lua file search paths are adjusted to co\"operate with
+a typical \TEX\ installation. 
+
+The search path for lua script files (\type{package.path}) now
+contains the following items, that are tried in order:
+\startitemize[n]
+\item the local directory:
+\starttyping
+      ./?.lua
+\stoptyping
+
+\item the items from the expansion of kpathsea's \$TEXMFSCRIPTS variable,
+      but only the parts that contain `lua' as a sub-path:
+\starttyping
+      $TEXMFSCRIPTS<lua>/?.lua
+      $TEXMFSCRIPTS<lua>/?/init.lua
+\stoptyping
+ 
+\item the \$SELFAUTOPARENT sibling directory named `lib'.
+\starttyping
+      $SELFAUTOPARENT/lib/lua/5.1/?.lua
+      $SELFAUTOPARENT/lib/lua/5.1/?/init.lua
+\stoptyping
+
+\stopitemize
+
+
+Because dynamic libraries are by definition system-dependent, the
+search path for dynamic libraries (\type{package.cpath}) has only
+
+\startitemize[n]
+\item the local directory
+\starttyping
+      ./?.so
+\stoptyping
+
+\item and the \$SELFAUTOPARENT sibling directory named `lib'
+\starttyping
+      $SELFAUTOPARENT/lib/lua/5.1/?.so
+\stoptyping % $
+\stopitemize
+
+
+\chapter{Lua Libraries}
+
+The interfacing between \TEX\ and \LUA\ is facilitated by a set of
+\LUA\ modules.
+
+\section{The \lualib{tex} library}
+
+The \lualib{tex} table contains a large list of virtual internal \TEX\
+parameters that are partially writable.
+
+The designation `virtual' means that these items are not properly
+defined in Lua, but are only frontends that are handled by a metatable
+that operates on the actual \TEX\ values. As a result, most of the lua
+table operators (like \type{pairs} and \type{#}) do not work on such
+items.
+
+
+
+At the moment, it is possible to access almost every parameter
+that has these characteristics:
+\startitemize
+\item You can use it after \type{\the} 
+\item It is a single token. 
+\stopitemize
+This excludes parameters that need extra arguments, like
+\type{\the\scriptfont}.
+
+The subset comprising simple integer and dimension registers are
+writable as well as readable (stuff like \type{\tracingcommands} and
+\type{\parindent}).
+
+\subsection{Integer parameters}
+
+The integer parameters accept and return lua numbers.
+
+Read-write:
+
+\startcolumns
+\starttyping
+tex.adjdemerits
+tex.binoppenalty
+tex.brokenpenalty
+tex.catcodetable
+tex.clubpenalty
+tex.day
+tex.defaulthyphenchar
+tex.defaultskewchar
+tex.delimiterfactor
+tex.displaywidowpenalty
+tex.doublehyphendemerits
+tex.endlinechar
+tex.errorcontextlines
+tex.escapechar
+tex.exhyphenpenalty
+tex.fam
+tex.finalhyphendemerits
+tex.floatingpenalty
+tex.globaldefs
+tex.hangafter
+tex.hbadness
+tex.holdinginserts
+tex.hyphenpenalty
+tex.interlinepenalty
+tex.language
+tex.lastlinefit
+tex.lefthyphenmin
+tex.linepenalty
+tex.localbrokenpenalty
+tex.localinterlinepenalty
+tex.looseness
+tex.luastartup
+tex.mag
+tex.maxdeadcycles
+tex.month
+tex.newlinechar
+tex.outputpenalty
+tex.pausing
+tex.pdfadjustinterwordglue
+tex.pdfadjustspacing
+tex.pdfappendkern
+tex.pdfcompresslevel
+tex.pdfdecimaldigits
+tex.pdfforcepagebox
+tex.pdfgamma
+tex.pdfgentounicode
+tex.pdfimageapplygamma
+tex.pdfimagegamma
+tex.pdfimagehicolor
+tex.pdfimageresolution
+tex.pdfinclusionerrorlevel
+tex.pdfminorversion
+tex.pdfmovechars
+tex.pdfobjcompresslevel
+tex.pdfoptionalwaysusepdfpagebox
+tex.pdfoptionpdfinclusionerrorlevel
+tex.pdfoptionpdfminorversion
+tex.pdfoutput
+tex.pdfpagebox
+tex.pdfpkresolution
+tex.pdfprependkern
+tex.pdfprotrudechars
+tex.pdftracingfonts
+tex.pdfuniqueresname
+tex.postdisplaypenalty
+tex.predisplaydirection
+tex.predisplaypenalty
+tex.pretolerance
+tex.relpenalty
+tex.righthyphenmin
+tex.savinghyphcodes
+tex.savingvdiscards
+tex.showboxbreadth
+tex.showboxdepth
+tex.time
+tex.tolerance
+tex.tracingassigns
+tex.tracingcommands
+tex.tracinggroups
+tex.tracingifs
+tex.tracinglostchars
+tex.tracingmacros
+tex.tracingnesting
+tex.tracingonline
+tex.tracingoutput
+tex.tracingpages
+tex.tracingparagraphs
+tex.tracingrestores
+tex.tracingscantokens
+tex.tracingstats
+tex.uchyph
+tex.vbadness
+tex.widowpenalty
+tex.year
+\stoptyping
+\stopcolumns
+
+Read-only:
+
+\startcolumns
+\starttyping
+tex.deadcycles
+tex.insertpenalties
+tex.parshape
+tex.prevgraf
+tex.spacefactor
+\stoptyping
+\stopcolumns
+
+
+\subsection{Dimension parameters}
+
+The dimension parameters accept lua numbers (signifying scaled points)
+or strings (with included dimension). The result is always a string.
+
+Read-write:
+
+\startcolumns
+\starttyping
+tex.boxmaxdepth
+tex.delimitershortfall
+tex.displayindent
+tex.displaywidth
+tex.emergencystretch
+tex.hangindent
+tex.hfuzz
+tex.hoffset
+tex.hsize
+tex.lineskiplimit
+tex.mathsurround
+tex.maxdepth
+tex.nulldelimiterspace
+tex.overfullrule
+tex.pagebottomoffset
+tex.pageheight
+tex.pagerightoffset
+tex.pagewidth
+tex.parindent
+tex.pdfdestmargin
+tex.pdfeachlinedepth
+tex.pdfeachlineheight
+tex.pdffirstlineheight
+tex.pdfhorigin
+tex.pdflastlinedepth
+tex.pdflinkmargin
+tex.pdfpageheight
+tex.pdfpagewidth
+tex.pdfpxdimen
+tex.pdfthreadmargin
+tex.pdfvorigin
+tex.predisplaysize
+tex.scriptspace
+tex.splitmaxdepth
+tex.vfuzz
+tex.voffset
+tex.vsize
+\stoptyping
+\stopcolumns
+
+Read-only:
+
+\startcolumns
+\starttyping
+tex.pagedepth
+tex.pagefilllstretch
+tex.pagefillstretch
+tex.pagefilstretch
+tex.pagegoal
+tex.pageshrink
+tex.pagestretch
+tex.pagetotal
+tex.prevdepth
+\stoptyping
+\stopcolumns
+
+\subsection{Direction parameters}
+
+All direction parameters are read-only and return a lua string
+
+\startcolumns
+\starttyping
+tex.bodydir
+tex.mathdir
+tex.pagedir
+tex.pardir
+tex.textdir
+\stoptyping
+\stopcolumns
+
+\subsection{Glue parameters} 
+
+All glue parameters are read-only and return a lua string
+
+\startcolumns
+\starttyping
+tex.abovedisplayshortskip
+tex.abovedisplayskip
+tex.baselineskip
+tex.belowdisplayshortskip
+tex.belowdisplayskip
+tex.leftskip
+tex.lineskip
+tex.parfillskip
+tex.parskip
+tex.rightskip
+tex.spaceskip
+tex.splittopskip
+tex.tabskip
+tex.topskip
+tex.xspaceskip
+\stoptyping
+\stopcolumns
+
+\subsection{Muglue parameters}
+
+All muglue parameters are read-only and return a lua string
+
+\starttyping
+tex.medmuskip
+tex.thickmuskip
+tex.thinmuskip
+\stoptyping
+
+\subsection{Tokenlist parameters}
+
+All tokenlist parameters are read-only and return a lua string
+
+\startcolumns
+\starttyping
+tex.errhelp
+tex.everycr
+tex.everydisplay
+tex.everyeof
+tex.everyhbox
+tex.everyjob
+tex.everymath
+tex.everypar
+tex.everyvbox
+tex.output
+tex.pdfpageattr
+tex.pdfpageresources
+tex.pdfpagesattr
+tex.pdfpkmode
+\stoptyping
+\stopcolumns
+
+\subsection{Convert commands}
+
+The supported commands at this moment are:
+
+\startcolumns
+\starttyping
+tex.AlephVersion
+tex.Alephrevision
+tex.OmegaVersion
+tex.Omegarevision
+tex.eTeXVersion
+tex.eTeXrevision
+tex.formatname
+tex.jobname
+tex.pdfnormaldeviate
+tex.pdftexbanner
+tex.pdftexrevision
+\stoptyping
+\stopcolumns
+
+All `convert' commands are read-only and return a lua string
+
+This list looks haphazard, but it really is not. These are all the
+cases of the `convert' internal command that do not require an
+argument. 
+
+\subsection{Count, dimension and token registers}
+
+\TeX's counters (\type{\count}), dimensions (\type{\dimen}) and token
+(\type{\toks}) registers can be accessed and written to using three
+virtual sub-tables of the \type{tex} table:
+
+\starttyping
+    tex.count
+    tex.dimen
+    tex.toks
+\stoptyping
+
+It is possible to use the names of relevant \type{\countdef},
+\type{\dimendef}, or \type{\toksdef} control sequences as indices 
+to these tables:
+
+\starttyping
+    tex.count.scratchcounter = 0
+    enormous = tex.dimen["maxdimen"]
+\stoptyping
+
+In this case, luatex looks up the value for you on the fly. You have
+to use a valid \type{\countdef} (or \type{\dimendef}, or
+\type{\toksdef}), anything else will generate an error 
+(the goal is to eventually also allow \type{<chardef tokens>} and
+even macros that expand into a number)
+
+The count registers accept and return lua numbers.
+
+The dimension registers accept lua numbers (in scaled points)
+or strings (with included dimension). The result is always a number
+in scaled points.
+
+The token registers accept and return lua strings. Lua strings are
+converted to token lists using \type{\the\toks} style expansion.
+
+As an alternative to array addressing, there are also accessor
+functions defined:
+
+\startfunctioncall
+  tex.setdimen(number n, string s)
+  tex.setdimen(string s, string s)
+  tex.setdimen(number n, number n)
+  tex.setdimen(string s, number n)
+  number n = tex.getdimen(number n)
+  number n = tex.getdimen(string s)
+
+  tex.setcount(number n, number n)
+  tex.setcount(string s, number n)
+  number n = tex.getcount(number n)
+  number n = tex.getcount(string s)
+
+  tex.settoks (number n, string s)
+  tex.settoks (string s, string s)
+  string s = tex.gettoks (number n)
+  string s = tex.gettoks (string s)
+\stopfunctioncall
+
+\subsection{Box register size information}
+
+The current dimensions of \type{\box} registers can be read and
+altered using three other virtual sub-tables :
+
+\starttyping
+    tex.wd
+    tex.ht
+    tex.dp
+\stoptyping
+
+These are indexed strictly by number.
+
+The box size registers accept lua numbers (in scaled points)
+or strings (with included dimension). The result is always a number
+in scaled points.
+
+
+As an alternative to array addressing, there are also accessor
+functions defined:
+
+\startfunctioncall
+  tex.setboxwd(number n, string s)
+  tex.setboxwd(number n, number n)
+  number n = tex.getboxwd(number n)
+
+  tex.setboxht(number n, string s)
+  tex.setboxht(number n, number n)
+  number n = tex.getboxht(number n)
+
+  tex.setboxdp(number n, string s)
+  tex.setboxdp(number n, number n)
+  number n = tex.getboxdp(number n)
+\stopfunctioncall
+
+
+\subsection{Print functions}
+
+The \type{tex} table also contains the three print functions that
+are the major interface from lua scripting to \TEX. 
+
+The arguments to these three functions are all stored in an in-memory
+virtual file that is fed to the \TEX\ scanner as the result of the
+expansion of \type{\directlua}.
+
+The total amount of returnable text from a \type{\directlua} command
+is only limited by available system RAM. However, each separate
+printed string has to fit completely in \TEX's input buffer.
+
+\subsubsection{\function{tex.print}}
+
+\startfunctioncall
+   tex.print(<string s>, ...)
+   tex.print(<number n>, <string s>, ...)
+\stopfunctioncall
+
+Each string argument is treated by \TEX\ as a separate input line.
+
+The optional parameter can be used to print the strings using the
+catcode regime defined by \type{\catcodetable} $n$. If $n$ is not
+a valid catcode table, then it is ignored, and the currently
+active catcode regime is used instead.
+
+The very last string of the very last \type{tex.print()} command in a
+\type{\directlua} will not have the \type{\endlinechar} appended, all 
+others do.
+
+\subsubsection{\function{tex.sprint}}
+
+\startfunctioncall
+   tex.sprint(<string s>, ...)
+   tex.sprint(<number n>, <string s>, ...)
+\stopfunctioncall
+
+Each string argument is treated by \TEX\ as a special kind of input line
+that makes it suitable for use as a partial line input mechanism:
+
+\startitemize
+\item \TEX\ does not switch to the `new line' state, so 
+   that leading spaces are not ignored
+\item no \type{\endlinechar} is inserted
+\item trailing spaces are not removed
+\stopitemize
+
+\subsubsection{\function{tex.write}}
+
+\startfunctioncall
+   tex.write(<string s>, ...)
+\stopfunctioncall
+
+Each string argument is treated by \TEX\ as a special kind of input
+line that makes is suitable for use as a quick way to dump
+information:
+
+\startitemize
+\item all catcodes on that line are either `space' (for " ") or
+     `character' (for all others).
+\item there is no \type{\endlinechar} appended.
+\stopitemize
+
+
+\section{The \lualib{texio} library}
+
+This library takes care of the low-level I/O interface.
+
+\subsection{Printing functions}
+
+\subsubsection{\function{texio.write}}
+
+\startfunctioncall
+  texio.write(string s)
+\stopfunctioncall
+
+Writes the string to the same location(s) \TEX\ writes to at this
+moment. So if \type{\batchmode} is on, it writes only to the log,
+inside a \type{\write}, it prints to the current write file, etc.
+
+A read||write interface to \TEX's internal file selector will be
+added soon.
+
+\subsubsection{\function{tex.write\_nl}}
+
+\startfunctioncall
+  texio.write_nl(string s)
+\stopfunctioncall
+
+Like \function{texio.write}, but always writes starts a new line
+first. You can use an empty string if you only want to move to the
+next line.
+
+\subsection{File functions}
+
+The texio library has its own (partial) set of I/O commands, because
+the \LUATEX\ internals cannot deal directly with the standard file
+handles that are returned by io.open. 
+
+Except for this slightly different file type, the syntaxes are 
+identical to their cousins from the standard I/O library. The list of
+implemented functions is:
+
+\startfunctioncall
+     texio.open()
+     texio.read()
+     texio.seek()
+     texio.setvbuf()
+     texio.close()
+     <tex_file>:read()
+     <tex_file>:seek()
+     <tex_file>:setvbuf()
+     <tex_file>:close()
+\stopfunctioncall
+
+
+\section{The \lualib{pdf} library}
+
+This table contains the current \type{h} en \type{v} values that
+define the location on the output page. The values can be queried 
+and set using scaled points as units.
+
+\starttyping
+    pdf.v
+    pdf.h
+\stoptyping   
+
+The associated function calls are
+
+\startfunctioncall
+     pdf.setv(number n)
+     number n = pdf.getv()
+     pdf.seth(number n)
+     number n = pdf.geth()
+\stopfunctioncall
+
+\section{The \lualib{callback} library}
+
+This library has a single function that is used to register callbacks.
+
+\startfunctioncall
+   callback.register(string <callback name>,function <callback_func>)
+   callback.register(string <callback name>,nil)
+\stopfunctioncall
+
+where the \syntax{<callback name>} is a predefined callback name, see
+below.
+
+\LUATEX\ internalizes the callback function in such a way that
+it does not matter if you redefine a function accidentally.
+
+Callback assignments are always global. You can use the special value
+`nil' instead of a function for clearing the callback.
+
+\subsection{Recognized callbacks}
+
+\subsubsection{\callback{open\_read\_file}}
+
+You callback function should have the following conventions:
+
+\starttyping
+   boolean success, string actual_name, tex_file filep = 
+        function (number <id_number>, string <asked_name>)
+\stoptyping
+
+Arguments:
+\startitemize
+\sym{id\_number}   
+
+zero for the log or \type{\input} files or TeX's \type{\read} number
+incremented by one (\type{\read}0 becomes 1).
+
+\sym{asked\_name}
+
+the user||supplied filename, as found by \type{\input} or \type{\openin}
+\stopitemize
+
+Return values:
+\startitemize
+\sym{success} 
+
+return false when the file cannot be found or there is
+another error, true otherwise. If you return false, the remaining two
+return values are never looked at.
+
+\sym{actual\_name} 
+
+the true filename used. Make sure you include the
+extension. 
+
+\sym{filep}  
+
+the file object returned by texio.open()
+\stopitemize
+
+\subsubsection{\callback{open\_write\_file}}
+
+Your callback function should have the same conventions as for
+\callback{open_read_file}.
+
+\subsubsection{\callback{input\_line}}
+
+From the next input line onwards, \LUATEX\ will run this function
+whenever it needs a new input line from a physical file.
+
+\startfunctioncall
+string line = function (texio_file f) 
+\stopfunctioncall
+
+Your function will receive a file handle as argument, and should
+return either a string or `nil'. The value `nil' signals that the end
+of file has occurred, and will make \TEX\ close the file handle.  Do
+not close the file handle yourself!
+
+\subsubsection{\callback{show\_error\_hook}}
+       
+\startfunctioncall
+     function (string message, string indicator,  number lineno)
+     function (string message, number indicator,  number lineno)
+\stopfunctioncall
+
+This callback is run from inside the \TEX\ error function, and the idea
+is to allow you to do some extra reporting on top of what \TEX\ already
+does (none of the normal actions are removed).
+
+\startitemize
+\sym{message} 
+
+is the formal error message \TEX\ has given to the user
+(the line after the "! ")
+
+\sym{indicator} 
+
+is either a filename (when it is a string) or a location indicator (a
+number) that can means lots of different things like a token list id
+or a \type{\read} number.
+
+\sym{lineno}  
+
+is the current line number
+\stopitemize
+
+This is an investigative item only, only for 'testing the water'.
+
+The final goal is the total replacement of \TEX's error handling
+routines, but that needs lots of adjustments in the web source because
+\TEX\ deals with errors in a somewhat haphazard fashion.
+
+\section{The \lualib{lua} library}
+
+This library contains three read-only  items:
+
+\subsection{Variables}
+
+\starttyping
+     number n = lua.id
+\stoptyping
+the id number of the instance
+
+
+\starttyping
+     string s = lua.version
+\stoptyping 
+a luatex version identifier string (currently \type{"0.1"})
+
+\starttyping
+     string s = lua.startupfile
+\stoptyping
+the full filename of the used \type{startup.lua}, or `nil' if there
+was no startup file.
+
+\subsection{Lua bytecode registers}
+
+Lua registers can be used to communicate lua functions across lua
+states. The accepted values for assignments are functions and
+nil. Likewise, the retrieved value is either a function or nil.
+
+\starttyping
+     lua.bytecode[n] = function () .. end
+     lua.bytecode[n]()
+\stoptyping
+
+The contents of the \type{lua.bytecode} array is stored inside the format
+file as actual lua bytecode, so it can also be used to preload lua code.
+
+The associated function calls are
+
+\startfunctioncall
+     function f = lua.getbytecode(number n)
+     lua.setbytecode(number n, function f)
+\stopfunctioncall
+
+
+\section{The \lualib{kpse} library}
+
+\subsection{\function{kpse.find\_file}}
+
+The most important function in the library is find\_file:
+
+\startfunctioncall
+ string f = kpse.find_file(string filename)
+ string f = kpse.find_file(string filename, string ftype)
+ string f = kpse.find_file(string filename, boolean mustexist)
+ string f = kpse.find_file(string filename, string ftype, boolean mustexist)
+\stopfunctioncall
+
+
+Arguments:
+\startitemize
+\sym{filename} 
+
+the name of the file you want to find, with or without extension.
+
+\sym{type} 
+
+maps to the '-format' argument of \type{kpsewhich}.  The supported
+values are:
+
+\startcolumns
+\starttyping
+"gf"
+"pk"
+"bitmap font"
+"tfm" 
+"afm" 
+"base" 
+"bib" 
+"bst" 
+"cnf"
+"ls-R"
+"fmt"
+"map"
+"mem"
+"mf" 
+"mfpool" 
+"mft" 
+"mp" 
+"mppool" 
+"MetaPost support"
+"ocp"
+"ofm" 
+"opl"
+"otp"
+"ovf"
+"ovp"
+"graphic/figure"
+"tex"
+"TeX system documentation"
+"texpool"
+"TeX system sources"
+"PostScript header"
+"Troff fonts"
+"type1 fonts" 
+"vf"
+"dvips config"
+"ist"
+"truetype fonts"
+"type42 fonts"
+"web2c files"
+"other text files"
+"other binary files"
+"misc fonts"
+"web"
+"cweb"
+"enc files"
+"cmap files"
+"subfont definition files"
+"opentype fonts"
+"pdftex config"
+"lig files"
+"texmfscripts"
+\stoptyping
+\stopcolumns
+
+The default type is \type{"tex"}.
+
+\sym{mustexist} 
+
+is similar to kpsewhich's '-must-exist', and the default is `false'.
+If you specify `true' (or a non-zero integer), then the kpse library
+will search the disk as well as the ls-R databases.
+\stopitemize
+
+\subsection{\function{kpse.expand\_path}}
+
+Like kpsewhich's  `-expand-path':
+
+\startfunctioncall
+     string r = kpse.expand_path(string s)
+\stopfunctioncall
+
+\subsection{\function{kpse.expand\_var}}
+
+Like kpsewhich's  `-expand-var':
+
+\startfunctioncall
+     string r = kpse.expand_var(string s)
+\stopfunctioncall
+
+
+\subsection{\function{kpse.expand\_braces}}
+
+Like kpsewhich's  `-expand-braces':
+
+\startfunctioncall
+     string r = kpse.expand_braces(string s)
+\stopfunctioncall
+
+
+\chapter{Modifications}
+
+Besides the expected changes caused by new functionality, there are a
+number of not-so-expected changes. These are sometimes a side-effect
+of a new (conflicting) feature, or, more often than not, a change
+necessary to clean up the internal interfaces.
+
+
+\section{Changes from \TEX\ 3.141592}
+
+\startitemize
+
+\item There is no pool file, all strings are embedded during compilation.
+
+\item "plus 1 fillll" does not generate an error. The extra `l' is
+simply typeset.
+
+\stopitemize
+
+
+\section{Changes from \ETEX\ 2.2}
+
+\startitemize
+\item The \ETEX\ functionality is always present and enabled
+   (but see below about \TEXXET), so the prepended asterisk or
+   \type{-etex} switch for initex is not needed. 
+
+\item \TEXXET\ is not present, so the primitives
+\starttyping
+    \TeXXeTstate
+    \beginR
+    \beginL
+    \endR
+    \endL
+\stoptyping
+   are missing
+
+\stopitemize
+
+\section{Changes from \PDFTEX\ 1.40}
+
+\startitemize
+\item The experimental regular expression match operations are removed,
+    so the primitives
+\starttyping
+    \pdfmatch
+    \pdflastmatch
+\stoptyping
+   are missing. 
+
+\item A few other experimental primitives are provided without the
+      extra  `pdf' prefix, so they are simply called:
+\starttyping
+    \primitive
+    \ifprimitive
+    \ifabsnum
+    \ifabsdim
+\stoptyping
+
+\stopitemize
+
+\section{Changes from \ALEPH\ RC4}
+
+\startitemize
+\item The input translations from \ALEPH\ are not implemented, the
+   related primitives are not available
+
+\starttyping
+    \DefaultInputMode
+    \noDefaultInputMode
+    \noInputMode
+    \InputMode
+    \DefaultOutputMode
+    \noDefaultOutputMode
+    \noOutputMode
+    \OutputMode
+    \DefaultInputTranslation
+    \noDefaultInputTranslation
+    \noInputTranslation
+    \InputTranslation
+    \DefaultOutputTranslation
+    \noDefaultOutputTranslation
+    \noOutputTranslation
+    \OutputTranslation
+\stoptyping
+
+\item A small series of bounds checking fixes to \type{\ocp} and 
+   \type{\ocplist} has been added to prevent the system from crashing
+   due to array indexes running out of bounds.
+
+\item The \type{\hoffset} bug when \type{\pagedir TRT}  is fixed,
+removing the need for an explicit fix to \type{\hoffset}
+
+\item A bug causing \type{\fam} to fail for family numbers above
+    15 is fixed.
+
+\item Some bits of \ALEPH\ assumed \type{0} and \type{null} were identical.
+This resulted for instance in a bug that sometimes caused an eternal
+loop when trying to \type{\show} a box.
+
+\item A fair amount of minor bugs are fixed as well, most of these
+related to \type{\tracingcommands} output.
+
+\stopitemize
+
+\section{Changes from standard \WEBC}
+
+\startitemize
+
+\item There is no mltex 
+
+\item There is no enctex
+
+\item The following command-line switches are silently ignored:
+\starttyping
+  -8bit
+  -translate-file=TCXNAME
+  -mltex
+  -enc
+  -etex
+\stoptyping
+
+\stopitemize
+
+\chapter{Implementation notes}
+
+\subsection{Primitives overlap}
+
+The primitives
+\starttyping
+      \pdfpagewidth and \pagewidth,
+      \pdfpageheight and \pageheight,
+      \fontcharwd and \charwd,
+      \fontcharht and \charht,
+      \fontchardp and \chardp,
+      \fontcharic and \charic,
+\stoptyping
+are all aliases of each other.
+
+\subsection{Sparse arrays}
+
+The \type{\mathcode}, \type{\delcode}, \type{\catcode},
+\type{\sfcode}, \type{\lccode} and \type{\uccode} tables are now
+sparse arrays that are implemented in C. They are no longer part of
+the \TEX\ ``equivalence table'' and because each had 1.1 million
+entries with a few memory words each, this makes a major difference
+in memory usage.
+
+These assignments do not yet show up when using the etex tracing
+routines \type{\tracingassigns} and \type{\tracingrestores} (code
+simply not written yet)
+
+A side-effect of the current implementation is that \type{\global} is
+now more expensive in terms of processing than non-global assignments.
+
+See \type{mathcodes.c} and \type{textcodes.c} if you are interested in
+the gory details.
+
+\subsection{Simple single-character csnames}
+
+Single-character commands are no longer treated special in the
+internals, they are stored in the hash just like the multiletter
+csnames. 
+
+The code that displays control sequences explicitly checks if
+the length is one when it has to decide whether or not to add a
+trailing space.
+
+\subsection{Compressed format}
+
+The format is passed through zlib, allowing it to shrink to roughly a
+third of the size it would have had in uncompressed form. This takes a
+bit more CPU cycles but much less disk I/O, so it should still be
+faster. 
+
+The chosen compression factor is fairly low, equivalent to \type{gzip -3}.
+
+\chapter{Known bugs}
+
+\startitemize
+\item Under some conditions, the {\bf autoexpand} font feature can crash the
+executable.
+
+\item {\bf Hyphenation} can only deal with the Base Multilingual Plane (BMP)
+
+\item There are (sometimes?) UTF-8 encoded UTF-8 bytes in the
+pseudo-buffer lines that are shown during error()
+
+\stopitemize
+
+\chapter{TODO}
+
+On top of the `normal' extensions that are planned, there are some
+more specific small feature requests .
+
+\startitemize
+
+\item Low-level support is still missing but needed to escape from the UTF-8
+regime when dealing with \type{\special} and \type{\pdfliteral}.
+
+\item Implement the \TEX\ primitive \type{\dimension}, cf. \type{\number}
+
+\item Change the lua table type{tex.dimen} to accept and return float
+values instead of strings
+
+\item Do something about \type{\withoutpt} and/or a new register type \type{\real}?
+
+\item Implement the \TEX\ primitive \type{\htdp}?
+
+\item Do boxes with dual baselines.
+
+\item A way to (re?)calculate the width of a  \type{\vbox}, taking only
+the natural width of the included items into account.
+
+\item Link in  \type{luazip}
+\stopitemize
+
+
+\stoptext
+
+
