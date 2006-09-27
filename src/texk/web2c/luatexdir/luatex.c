@@ -275,6 +275,8 @@ void
 do_zdump (char *p,  int item_size,  int nitems, FILE *out_file)
 {
   int err;
+  if (nitems==0)
+	return;
   //  fprintf(stderr,"*%dx%d->%d",item_size,nitems,totalout);
   //  totalout += item_size*nitems;
   if (gzwrite ((gzFile)out_file,(void *)p, item_size*nitems) != item_size*nitems)
@@ -289,6 +291,8 @@ void
 do_zundump (char *p,  int item_size,  int nitems, FILE *in_file)
 {
   int err;
+  if (nitems==0)
+	return;
   //totalin += item_size*nitems;
   //  fprintf(stderr,"*%dx%d->%d",item_size,nitems,totalin);
   if (gzread ((gzFile)in_file,(void *)p, item_size*nitems) <= 0) 

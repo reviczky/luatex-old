@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060922' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060927' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -1662,10 +1662,13 @@ end; {|tally| is not affected}
 using the |xchr| array to map it into an external character compatible with
 |lua_input_ln|. All printing comes through |print_ln| or |print_char|.
 
-{TH: TODO: fix term offset in ^^ form}
-
-@d wterm_char(#)==begin if (#>=@"20) or (#=@"0A) or (#=@"0D) or (#=@"09) then wterm(xchr[#])
-                 else begin wterm('^'); wterm('^'); wterm(xchr[#+64]);  end; end
+@d wterm_char(#)==begin if (#>=@"20)or(#=@"0A)or(#=@"0D)or(#=@"09) then wterm(xchr[#])
+                  else begin if term_offset+2>=max_print_line then begin
+                     wterm_cr; term_offset:=0;
+                     end;
+                     incr(term_offset); wterm('^'); incr(term_offset); wterm('^'); 
+                     wterm(xchr[#+64]);  
+                 end; end
 
 
 @<Basic print...@>=
@@ -9186,7 +9189,8 @@ if not force_eof then
       end
     else if (every_eof<>null)and not eof_seen[index] then
       begin limit:=first-1; eof_seen[index]:=true; {fake one empty line}
-      begin_token_list(every_eof,every_eof_text); goto restart;
+      if name<>19 then begin_token_list(every_eof,every_eof_text); 
+      goto restart;
       end
     else force_eof:=true;
     end
@@ -10254,7 +10258,7 @@ set_prev_graf: @<Fetch the |prev_graf|@>;
 set_page_int:@<Fetch the |dead_cycles| or the |insert_penalties|@>;
 set_page_dimen: @<Fetch something on the |page_so_far|@>;
 set_shape: @<Fetch the |par_shape| size@>;
-char_given,math_given,omath_given: scanned_result(m)(int_val);
+char_given,math_given,omath_given: scanned_result(m)(int_val); {TH: TODO, doesnt work}
 othercases @<Complain that \.{\\the} can't do this; give zero result@>
 endcases;@/
 exit:end;
@@ -11701,11 +11705,14 @@ p, q: pointer;
 @!b:pool_pointer; {base of temporary string}
 @!s: str_number; {first temp string}
 @!t: str_number; {second temp string}
-begin c:=cur_chr; @<Scan the argument for command |c|@>;
+@!u: str_number; {third temp string}
+begin c:=cur_chr;
+@<Scan the argument for command |c|@>;
 old_setting:=selector; selector:=new_string; b:=pool_ptr;
 @<Print the result of command |c|@>;
 selector:=old_setting; link(garbage):=str_toks(b); ins_list(link(temp_head));
-exit:end;
+exit:
+end;
 
 @ @<Scan the argument for command |c|@>=
 case c of
@@ -11940,6 +11947,9 @@ uniform_deviate_code:     scan_int;
 normal_deviate_code:      do_nothing;
 lua_escape_string_code:
   begin
+	u:=0;
+    { check if a string is already being built}
+    if str_start_macro(str_ptr)<pool_ptr then u:=make_string;
     save_scanner_status := scanner_status;
     save_def_ref := def_ref;
     save_warning_index := warning_index;
@@ -11952,10 +11962,14 @@ lua_escape_string_code:
     link(garbage) := lua_str_toks(str_start_macro(s));
 	ins_list(link(temp_head));
     flush_str(s);
+	if u<>0 then begin decr(str_ptr); u:=0; end; 
     return;
   end;
 lua_code:
   begin
+	u:=0;
+    { check if a string is already being built}
+    if str_start_macro(str_ptr)<pool_ptr then u:=make_string;
     save_scanner_status := scanner_status;
     save_def_ref := def_ref;
     save_warning_index := warning_index;
@@ -11972,6 +11986,7 @@ lua_code:
     b := luacstrings;
     luacall(i,(s-string_offset));
 	flush_string;
+	if u<>0 then begin decr(str_ptr); u:=0; end; 
 	if luacstrings>b then
 	  if name<>21 then
         pseudo_string_start;

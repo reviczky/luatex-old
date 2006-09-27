@@ -166,12 +166,12 @@ luacall(int n, int s) {
   snprintf(lua_id,12,"luas[%d]",n);
   i = lua_load(Luas[n], getS, &ls, lua_id);
   if (i != 0) {
-	Luas[n] = luatex_error(Luas[n],(i == LUA_ERRSYNTAX ? 0 : 1));
+    Luas[n] = luatex_error(Luas[n],(i == LUA_ERRSYNTAX ? 0 : 1));
   } else {
-	i = lua_pcall(Luas[n], 0, 0, 0);
-	if (i != 0) {
-	  Luas[n] = luatex_error(Luas[n],(i == LUA_ERRRUN ? 0 : 1));
-	}	 
+    i = lua_pcall(Luas[n], 0, 0, 0);
+    if (i != 0) {
+      Luas[n] = luatex_error(Luas[n],(i == LUA_ERRRUN ? 0 : 1));
+    }	 
   }
 }
 
@@ -215,34 +215,42 @@ luatex_load_init (int s, LoadS *ls) {
   ls->size = strstart[s + 1] - strstart[s];
 }
 
-/*
- * Should be more careful here, the pool may be full
- */
-
 lua_State *
 luatex_error (lua_State * L, int is_fatal) {
   int i,j;
   size_t len;
   char *err;
-  poolpointer b;
+  strnumber s;
   const char *luaerr = lua_tostring(L, -1);
   err = (char *)xmalloc(128);
   len = snprintf(err,128,"%s",luaerr);
   if (is_fatal>0) {
-	luafatalerror(maketexstring(err));
-	/* never reached */
-	xfree (err);
-	lua_close(L);
-	return (lua_State *)NULL;
+    /* Normally a memory error from lua. 
+       The pool may overflow during the maketexstring(), but we 
+       are crashing anyway so we may as well abort on the pool size */
+    s = maketexstring(err);
+    luafatalerror(s);
+    /* never reached */
+    xfree (err);
+    lua_close(L);
+    return (lua_State *)NULL;
   } else {
-	/* running maketexstring() at this point is a bit tricky
-      because we also perform our I/O though the pool: we have
-      to do a rollback immediately after the error */
-	b = poolptr;
-	luanormerror(maketexstring(err));
-	strptr--; poolptr=b;
-	xfree (err);
-	return L;
+    /* Here, the pool could be full already, but we can possibly escape from that 
+     * condition, since the lua chunk thatr caused the error is the current string.
+     */
+    s = strptr-0x200000;
+    //    fprintf(stderr,"poolinfo: %d: %d,%d out of %d\n",s,poolptr,strstart[(s-1)],poolsize);
+    poolptr = strstart[(s-1)];
+    strstart[s] = poolptr;
+    if (poolptr+len>=poolsize) {
+      luanormerror(' ');
+    } else {
+      s = maketexstring(err);
+      luanormerror(s);
+      flushstr(s);
+    }
+    xfree (err);
+    return L;
   }
 }
 
