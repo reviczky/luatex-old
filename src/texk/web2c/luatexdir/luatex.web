@@ -954,57 +954,51 @@ end;
 var ret,test:boolean;
   k:integer;
   fnam:str_number;
-begin if callback_defined('open_read_file') then begin
-    test := run_callback('open_read_file','dS>bsf',
-                         n,stringcast(name_of_file+1),address_of(ret),
-                         address_of(fnam),address_of(f));
-	if test then begin
-	  name_file_pointer := f;
-	  libc_free (name_of_file);
-	  name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
-	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
-	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-	  name_length := length(fnam);
-	  flush_string;
-      lua_a_open_in := ret;
-	  end
-	else begin
-	  name_file_pointer := 0;
-      lua_a_open_in := test;
-      end;
-  end else begin
-     lua_a_open_in := a_open_in(f);
-     name_file_pointer := f;
-  end;
-end;
-@#
-function lua_a_open_out(var f:alpha_file; n:quarterword):boolean;
-var ret,test:boolean;
-  k:integer;
-  fnam:str_number;
-begin if callback_defined('open_write_file') then begin
-    test := run_callback('open_write_file','dS>bsf',
-	                     n,stringcast(name_of_file+1),address_of(ret),address_of(fnam),address_of(f));
-    if test then begin
-	  name_file_pointer := f;
-	  libc_free (name_of_file);
-	  name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
-	  for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
-	    name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-	  name_length := length(fnam);
-	  flush_string;
-      lua_a_open_out := ret;
+  fp:^char;
+begin 
+  fp:=0;
+  if n=0 then
+     set_input_file_callback_id(index,fp)
+  else 
+     set_read_file_callback_id((n-1),fp);
+  if callback_defined('open_read_file') then begin
+    fp := stringcast(run_and_save_callback('open_read_file','dS>bs',
+                         n,stringcast(name_of_file+1),
+                         address_of(ret),address_of(fnam)));
+	if fp<>0 then begin
+      if ret then begin
+        libc_free (name_of_file);
+	    name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
+	    for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	      name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
+	    name_length := length(fnam);
+	    flush_string;
+        lua_a_open_in := ret;
+  	    if n=0 then
+          set_input_file_callback_id(index,stringcast(fp))
+        else 
+          set_read_file_callback_id((n-1),stringcast(fp));
+	    end
+      else begin
+        lua_a_open_in := a_open_in(f);
+        name_file_pointer := f;
+        end
       end
     else begin
+      lua_a_open_in := false;
 	  name_file_pointer := 0;
-      lua_a_open_out := test;
       end;
-  end else begin
-   lua_a_open_out := a_open_out(f);
-   name_file_pointer := f;
-   end;
+    end
+  else begin
+     lua_a_open_in := a_open_in(f);
+     name_file_pointer := f;
+    end;
 end;
-
+function lua_a_open_out(var f:alpha_file; n:quarterword):boolean;
+begin
+  lua_a_open_out := a_open_out(f);
+  name_file_pointer := f;
+end;
 
 @ Files can be closed with the \ph\ routine `|close(f)|', which
 @^system dependencies@>
@@ -1027,6 +1021,35 @@ end;
 procedure w_close(var f:word_file); {close a word file}
 begin close(f);
 end;
+
+
+@
+ 
+@p procedure lua_a_close_in(var f:alpha_file; n:quarterword); {close a text file}
+var ret:boolean;
+    callback_id:^char;
+begin
+if n=0 then
+  callback_id:=stringcast(get_input_file_callback_id(index))
+else
+  callback_id:=stringcast(get_read_file_callback_id(n-1));
+if callback_id<>0 then begin
+  ret:=run_saved_callback(callback_id,'close','>b');
+  {destroy_saved_callback(callback_id);}
+  if n=0 then
+    set_input_file_callback_id(index,0)
+  else
+    set_read_file_callback_id((n-1),0);
+  end
+else
+  a_close(f);
+end;
+@#
+procedure lua_a_close_out(var f:alpha_file); {close a text file}
+begin
+  a_close(f);
+end;
+
 
 @ Binary input and output are done with \PASCAL's ordinary |get| and |put|
 procedures, so we don't have to make any other special arrangements for
@@ -1110,15 +1133,20 @@ else  begin last_nonblank:=first;
   end;
 end;
 
-function lua_input_ln(var f:alpha_file;@!bypass_eoln:boolean):boolean;
+function lua_input_ln(var f:alpha_file;n:quarterword;@!bypass_eoln:boolean):boolean;
 var lua_result:boolean;
 	last_ptr:integer;
 	k:pool_pointer;
+    callback_id:^char;
 begin
-  if callback_defined('input_line') then begin
+if n=0 then
+  callback_id:=stringcast(get_input_file_callback_id(index))
+else 
+  callback_id:=stringcast(get_read_file_callback_id(n-1));
+if callback_id<>0 then begin
     last:=first;
 	last_ptr := first;
-    lua_result := run_callback('input_line','f>l',f, address_of(last_ptr));
+    lua_result := run_saved_callback(callback_id,'reader','>l', address_of(last_ptr));
 	if (lua_result=true) then begin
 	  last := last_ptr;
 	  if last>max_buf_stack then max_buf_stack:=last; 
@@ -8044,8 +8072,6 @@ by analogy with |line_stack|.
 @!in_open : 0..max_in_open; {the number of lines in the buffer, less one}
 @!open_parens : 0..max_in_open; {the number of open text files}
 @!input_file : array[1..max_in_open] of alpha_file;
-@!input_file_mode : array[1..max_in_open] of halfword;
-@!input_file_translation : array[1..max_in_open] of halfword;
 @!line : integer; {current line number in the current source file}
 @!line_stack : array[1..max_in_open] of integer;
 
@@ -8586,7 +8612,7 @@ is finished:
 begin first:=start; line:=line_stack[index];
 if (name>=18)and(name<=20) then pseudo_close else
 if name=21 then luacstring_close else
-if name>17 then a_close(cur_file); {forget it}
+if name>17 then lua_a_close_in(cur_file,0); {forget it}
 pop_input; decr(in_open);
 end;
 
@@ -9220,7 +9246,7 @@ if not force_eof then
       force_eof:=true;
     end   
   else
-  begin if lua_input_ln(cur_file,true) then {not end of file}
+  begin if lua_input_ln(cur_file,0,true) then {not end of file}
     firm_up_the_line {this sets |limit|}
   else if (every_eof<>null)and not eof_seen[index] then
     begin limit:=first-1; eof_seen[index]:=true; {fake one empty line}
@@ -12276,7 +12302,9 @@ and |normal| if it is open and ready to read the next line.
 @!read_open:array[0..16] of normal..closed; {state of |read_file[n]|}
 
 @ @<Set init...@>=
-for k:=0 to 16 do read_open[k]:=closed;
+for k:=0 to 16 do begin 
+    read_open[k]:=closed;
+end;
 
 @ The |read_toks| procedure constructs a token list like that for any
 macro definition, and makes |cur_val| point to it. Parameter |r| points
@@ -12338,8 +12366,8 @@ must be told not to start with |get|.
 @^system dependencies@>
 
 @<Input the first line of |read_file[m]|@>=
-begin if lua_input_ln(read_file[m],false) then read_open[m]:=normal
-else  begin a_close(read_file[m]); read_open[m]:=closed;
+begin if lua_input_ln(read_file[m],(m+1),false) then read_open[m]:=normal
+else  begin lua_a_close_in(read_file[m],(m+1)); read_open[m]:=closed;
   end;
 end
 
@@ -12347,8 +12375,8 @@ end
 @^empty line at end of file@>
 
 @<Input the next line of |read_file[m]|@>=
-begin if not lua_input_ln(read_file[m],true) then
-  begin a_close(read_file[m]); read_open[m]:=closed;
+begin if not lua_input_ln(read_file[m],(m+1),true) then
+  begin lua_a_close_in(read_file[m],(m+1)); read_open[m]:=closed;
   if align_state<>1000000 then
     begin runaway;
     print_err("File ended within "); print_esc("read");
@@ -13281,7 +13309,7 @@ contain a single blank line.
 
 @<Read the first line...@>=
 begin line:=1;
-if lua_input_ln(cur_file,false) then do_nothing;
+if lua_input_ln(cur_file,0,false) then do_nothing;
 firm_up_the_line;
 if end_line_char_inactive then decr(limit)
 else  buffer[limit]:=end_line_char;
@@ -13835,10 +13863,14 @@ convenient way to deal with erroneous situations.
 
 @<Glob...@>=
 @!null_character:four_quarters; {nonexistent character information}
+@!tfm_buffer:^real_eight_bits; {byte buffer for tfm files}
+@!tfm_size:integer; {total size of the tfm file}
+@!tfm_byte:integer; {index into |tfm_buffer|}
 
 @ @<Set init...@>=
 null_character.b0:=min_quarterword; null_character.b1:=min_quarterword;
 null_character.b2:=min_quarterword; null_character.b3:=min_quarterword;
+tfm_buffer:=0; tfm_size:=0; tfm_byte:=0;
 
 @ Here are some macros that help process ligatures and kerns.
 We write |char_kern(f)(j)| to find the amount of kerning specified by
@@ -13915,6 +13947,7 @@ information is stored; |null_font| is returned in this case.
 label done,bad_tfm,not_found;
 var k:font_index; {index into |font_info|}
 @!file_opened:boolean; {was |tfm_file| successfully opened?}
+@!res:boolean; {was the callback successful?}
 @!lf,@!lh,@!bc,@!ec,@!nw,@!nh,@!nd,@!ni,@!nl,@!nk,@!ne,@!np:halfword;
   {sizes of subfiles}
 @!font_dir:halfword;
@@ -13942,7 +13975,7 @@ begin g:=null_font;@/
   malformed; if there's no room for this font, say so and |goto
   done|; otherwise |incr(font_ptr)| and |goto done|@>;
 bad_tfm: @<Report that the font won't be loaded@>;
-done: if file_opened then b_close(tfm_file);
+done:
 read_font_info:=g;
 end;
 
@@ -13990,8 +14023,22 @@ error
 file_opened:=false;
 if aire="" then pack_file_name(nom,TEX_font_area,".ofm")
 else pack_file_name(nom,aire,".ofm");
-if not b_open_in(tfm_file) then abort;
-file_opened:=true
+if tfm_buffer<>0 then libc_free(tfm_buffer);
+tfm_byte:=0; tfm_buffer:=0; tfm_size:=0;
+if callback_defined('read_font_file') then begin
+   res := run_callback('read_font_file','S>bSd',stringcast(name_of_file+1),
+          address_of(file_opened), address_of(tfm_buffer),address_of(tfm_size));
+  if not res then abort;
+  if not file_opened then abort; 
+  if not tfm_size>0 then abort; 
+  end
+else begin
+  if not ofm_open_in(tfm_file) then abort;
+  file_opened:=true; { for the error message }
+  res := read_tfm_file(tfm_file,address_of(tfm_buffer),address_of(tfm_size));
+  b_close(tfm_file);
+  if not res then abort;
+end
 
 @ Note: A malformed \.{TFM} file might be shorter than it claims to be;
 thus |eof(tfm_file)| might be true when |read_font_info| refers to
@@ -14001,8 +14048,8 @@ for example by defining |fget| to be `\ignorespaces|begin get(tfm_file);|
 |if eof(tfm_file) then abort; end|\unskip'.
 @^system dependencies@>
 
-@d fget==get(tfm_file)
-@d fbyte==tfm_file^
+@d fget==incr(tfm_byte)
+@d fbyte==tfm_buffer[tfm_byte]
 @d read_sixteen(#)==begin #:=fbyte;
   if #>127 then abort;
   fget; #:=#*@'400+fbyte;
@@ -14442,7 +14489,7 @@ begin for k:=1 to np do
       (sw*@'20)+(fbyte div@'20);
     end
   else store_scaled(font_info(f)(param_base(f)+k-1).sc);
-if eof(tfm_file) then abort;
+if tfm_byte<tfm_size-1 then abort;
 for k:=np+1 to 7 do font_info(f)(param_base(f)+k-1).sc:=0;
 end
 
@@ -14744,6 +14791,12 @@ the ocp.
 
 @<Glob...@>=
 @!ocp_ptr:internal_ocp_number; {largest internal ocp number in use}
+@!ocp_buffer:^real_eight_bits; {byte buffer for ocp files}
+@!ocp_size:integer; {total size of the ocp file}
+@!ocp_cur:integer; {index into |ocp_buffer|}
+
+@ @<Set init...@>=
+ocp_buffer:=0; ocp_size:=0; ocp_cur:=0;
 
 @ Besides the arrays just enumerated, we have two directory arrays that
 make it easy to get at the individual entries in |ocp_info|.
@@ -14852,6 +14905,7 @@ information is stored; |null_ocp| is returned in this case.
 label done,bad_ocp,not_found;
 var 
 @!file_opened:boolean; {was |ocp_file| successfully opened?}
+@!res:boolean;
 @!f:internal_ocp_number; {the new ocp's number}
 @!g:internal_ocp_number; {the number to return}
 @!ocpword:integer;
@@ -14868,7 +14922,7 @@ begin g:=null_ocp;@/
   malformed; if there's no room for this ocp, say so and |goto
   done|; otherwise |incr(ocp_ptr)| and |goto done|@>;
 bad_ocp: @<Report that the ocp won't be loaded@>;
-done: if file_opened then b_close(ocp_file);
+done: 
 ocp_name(f):=nom; ocp_area(f):=aire;
 read_ocp_info:=g;
 end;
@@ -14922,8 +14976,24 @@ end
 @ @<Open |ocp_file| for input@>=
 file_opened:=false;
 pack_file_name(nom,aire,".ocp");
-if not b_open_in(ocp_file) then ocp_abort("opening file");
-file_opened:=true
+if ocp_buffer<>0 then libc_free(ocp_buffer);
+ocp_cur:=0; ocp_buffer:=0; ocp_size:=0;
+if callback_defined('read_ocp_file') then begin
+  res := run_callback('read_ocp_file','S>bSd',stringcast(name_of_file+1),
+          address_of(file_opened), address_of(ocp_buffer),address_of(ocp_size));
+  if not res         then ocp_abort("callback error");
+  if not file_opened then ocp_abort("opening file");
+  if not ocp_size    then ocp_abort("checking size");
+  end
+else begin
+  if not ocp_open_in(ocp_file) then ocp_abort("opening file");
+  file_opened:=true;
+  res := read_ocp_file(ocp_file,address_of(ocp_buffer),address_of(ocp_size));
+  b_close(ocp_file);
+  if not ocp_size then ocp_abort("checking size");
+  if not res      then ocp_abort("reading file");
+end
+
 
 @ Note: A malformed \.{OCP} file might be shorter than it claims to be;
 thus |eof(ocp_file)| might be true when |read_ocp_info| refers to
@@ -14936,8 +15006,8 @@ for example by defining |ocpget| to be `\ignorespaces|begin get(ocp_file);|
 @d add_to_ocp_info(#)==begin ocp_tables[f,ocpmem_run_ptr]:=#;
   incr(ocpmem_run_ptr);
   end
-@d ocpget==get(ocp_file)
-@d ocpbyte==ocp_file^
+@d ocpget==incr(ocp_cur)
+@d ocpbyte==ocp_buffer[ocp_cur]
 @d ocp_read(#)==begin ocpword:=ocpbyte;
   if ocpword>127 then ocp_abort("checking first octet");
   ocpget; ocpword:=ocpword*@'400+ocpbyte;
@@ -19720,7 +19790,7 @@ last_tokens_string := 0;
 @d vf_id = 202 {identifies \.{VF} files}
 
 @#
-@d vf_byte == getc(vf_file) {get a byte from\.{VF} file}
+@d vf_byte == next_vf_byte {get a byte from\.{VF} file}
 @d vf_packet(#) == vf_packet_start[vf_packet_base[#] + vf_packet_end
 @d vf_packet_end(#) == #]
 
@@ -19764,9 +19834,13 @@ processing with an error message}
 @!vf_z: integer; {multiplier}
 @!vf_alpha: integer; {correction for negative values}
 @!vf_beta: 1..16; {divisor}
+@!vf_buffer:^real_eight_bits; {byte buffer for tfm files}
+@!vf_size:integer; {total size of the tfm file}
+@!vf_cur:integer; {index into |tfm_buffer|}
+
 
 @ @<Set init...@>=
-vf_nf := 0;
+vf_nf := 0; vf_buffer:=0; vf_size:=0; vf_cur:=0;
 
 @ The |do_vf| procedure attempts to read the \.{VF} file for a font, and sets
 |pdf_font_type| to |real_font_type| if the \.{VF} file could not be found
@@ -19859,6 +19933,8 @@ var cmd, k, n: integer;
     stack_level: vf_stack_index;
     save_vf_nf: internal_font_number;
     f: internal_font_number;
+    file_read:boolean; {was |vf_file| successfully read?}
+    res:boolean; {was the callback successful?}
 
 begin
     f := tmp_f;
@@ -19875,7 +19951,6 @@ begin
     end;
     if cmd <> post then
         bad_vf("POST command expected");
-    b_close(vf_file);
     pdf_font_type[f] := virtual_font_type;
     return;
 vf_error:
@@ -19885,14 +19960,30 @@ vf_error:
     print(vf_err_str);
     print(", virtual font will be ignored");
     print_ln;
-    b_close(vf_file);
     update_terminal;
 end;
 
 @ @<Open |vf_file|, return if not found@>=
 pack_file_name(font_name(f), "", ".vf");
-if not vf_b_open_in(vf_file) then
-    return
+if vf_buffer<>0 then libc_free(vf_buffer);
+vf_cur:=0; vf_buffer:=0; vf_size:=0;
+if callback_defined('read_vf_file') then begin
+  file_read := false;
+  res := run_callback('read_vf_file','S>bSd',stringcast(name_of_file+1),
+          address_of(file_read), address_of(vf_buffer),address_of(vf_size));
+  if not res then return;
+  if not file_read then return; 
+  if not vf_size then return; 
+  end
+else begin
+  if not vf_b_open_in(vf_file) then
+    return;
+  res := read_vf_file(vf_file,address_of(vf_buffer),address_of(vf_size));
+  b_close(vf_file);
+  if not vf_size then return; 
+  if not res then return;
+end
+
 
 @ @<Process the preamble@>=
 if vf_byte <> pre then
@@ -20980,6 +21071,11 @@ end
 procedure pdf_write_obj(n: integer); {write a raw PDF object}
 var s: str_number;
     f: byte_file;
+    data_size:integer; {total size of the data file}
+    data_cur:integer; {index into |data_buffer|}
+    data_buffer:^real_eight_bits; {byte buffer for data files}
+    file_opened:boolean;
+	res:boolean;
 begin
     s := tokens_to_string(obj_obj_data(n));
     delete_toks(obj_obj_data(n));
@@ -20994,18 +21090,30 @@ begin
     else
         pdf_begin_obj(n, 1);
     if obj_obj_is_file(n) > 0 then begin
-        cur_name := s;
-        cur_area := "";
-        cur_ext := "";
-        pack_cur_name;
-        if not tex_b_openin(f) then
-            pdf_error("ext5", "cannot open file for embedding");
+        data_size:=0; data_cur:=0; data_buffer:=0;
+        pack_file_name(s,"","");
+        if callback_defined('read_data_file') then begin
+          file_opened := false;
+          res := run_callback('read_data_file','S>bSd',stringcast(name_of_file+1),
+                  address_of(file_opened), address_of(data_buffer),address_of(data_size));
+          if not file_opened then pdf_error("ext5", "cannot open file for embedding");
+          end
+        else begin
+          if not tex_b_open_in(f) then 
+             pdf_error("ext5", "cannot open file for embedding");
+          res := read_data_file(f,address_of(data_buffer),address_of(data_size));
+          b_close(f);
+        end;
+        if not data_size then pdf_error("ext5", "empty file for embedding");
+        if not res       then pdf_error("ext5", "error reading file for embedding");
         print("<<");
         print(s);
-        while not eof(f) do
-            pdf_out(getc(f));
+        while data_cur<data_size do begin
+            pdf_out(data_buffer[data_cur]);
+            incr(data_cur);
+            end;
+	    if data_buffer<>0 then libc_free(data_buffer);
         print(">>");
-        b_close(f);
     end
     else if obj_obj_is_stream(n) > 0 then
         pdf_print(s)
@@ -34542,7 +34650,7 @@ var c:0..1; {1 for \.{\\openin}, 0 for \.{\\closein}}
 @!n:0..15; {stream number}
 begin c:=cur_chr; scan_four_bit_int; n:=cur_val;
 if read_open[n]<>closed then
-  begin a_close(read_file[n]); read_open[n]:=closed;
+  begin lua_a_close_in(read_file[n],(n+1)); read_open[n]:=closed;
   end;
 if c<>0 then
   begin scan_optional_equals; scan_file_name;
@@ -35450,7 +35558,7 @@ else begin
     @<Finish the \.{DVI} file@>;
 end;
 if log_opened then
-  begin wlog_cr; a_close(log_file); selector:=selector-2;
+  begin wlog_cr; lua_a_close_out(log_file); selector:=selector-2;
   if selector=term_only then
     begin print_nl("Transcript written on ");
 @.Transcript written...@>
@@ -35470,7 +35578,7 @@ if log_opened then
 @.Here is how much...@>
   wlog(' ',str_ptr-init_str_ptr:1,' string');
   if str_ptr<>init_str_ptr+1 then wlog('s');
-  wlog_ln(' out of ', max_strings-init_str_ptr:1);@/
+  wlog_ln(' out of ', max_strings-init_str_ptr+string_offset:1);@/
   wlog_ln(' ',pool_ptr-init_pool_ptr:1,' string characters out of ',
     pool_size-init_pool_ptr:1);@/
   wlog_ln(' ',lo_mem_max-mem_min+mem_end-hi_mem_min+2:1,@|
@@ -37957,7 +38065,7 @@ implementations, due to machine-dependent rounding in the glue calculations.)
 if not doing_leaders then
   begin j:=write_stream(p);
   if subtype(p)=write_node then write_out(p)
-  else  begin if write_open[j] then a_close(write_file[j]);
+  else  begin if write_open[j] then lua_a_close_out(write_file[j]);
     if subtype(p)=close_node then write_open[j]:=false
     else if j<16 then
       begin cur_name:=open_name(p); cur_area:=open_area(p);
@@ -38043,7 +38151,7 @@ else begin new_whatsit(language_node,small_node_size);
   end
 
 @ @<Finish the extensions@>=
-for k:=0 to 15 do if write_open[k] then a_close(write_file[k])
+for k:=0 to 15 do if write_open[k] then lua_a_close_out(write_file[k])
 
 @ 
 @d local_pen_inter(#)==mem[#+1].int {\.{\\localinterlinepenalty}}

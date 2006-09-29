@@ -326,3 +326,26 @@ zwclose (FILE *f) {
   //  fprintf (stderr, "Uncompressed sizes: in=%d,out=%d\n",totalin,totalout);
   gzclose((gzFile)f); 
 }
+
+/* the caller sets tfm_buffer=NULL and tfm_size=0 */
+
+int
+readbinfile (FILE *f, unsigned char **tfm_buffer, integer *tfm_size) {
+  void *buf;
+  int size;
+  if (fseek(f, 0, SEEK_END)==0) {
+    size = ftell(f);
+    if (size>0) {
+      buf = xmalloc(size); 
+      if(fseek(f, 0, SEEK_SET)==0) {
+	if(fread((void *)buf,size,1,f)==1) {
+	  *tfm_buffer=(unsigned char *)buf;
+	  *tfm_size=(integer)size;
+	  return 1;
+	} 
+      }
+    }
+  } /* seek failed, or zero-sized file */
+  return 0;
+}
+

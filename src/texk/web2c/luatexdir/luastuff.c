@@ -137,9 +137,10 @@ luainterpreter (int n) {
   lua_State *L;
   L = luaL_newstate();
   luaL_openlibs(L);
+  luaopen_unicode(L);
+  luaopen_zip(L);
   luaopen_pdf(L);
   luaopen_tex(L);
-  luaopen_unicode(L);
   luaopen_texio(L);
   luaopen_kpse(L);
   luaopen_callback(L);

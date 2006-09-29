@@ -17,7 +17,6 @@ LDZLIB = @LDZLIB@
 $(ZLIBDIR)/libz.a: $(ZLIBSRCDIR)
 	cd $(ZLIBDIR) && $(MAKE) $(common_makeargs) libz.a
 
-
 # libpng
 
 LIBPNGDIR=../../libs/libpng
@@ -104,18 +103,37 @@ $(LIBLUADEP):
 	mkdir -p $(LIBLUADIR) && cd $(LIBLUADIR) && cp -f $(LIBLUASRCDIR)/* . && $(MAKE) $(luatarget)
 
 # slnunicode
-SLNUNICODEDIR=../../libs/slnunicode-0.9.1
+SLNUNICODEDIR=../../libs/slnunicode
 SLNUNICODESRCDIR=$(srcdir)/$(SLNUNICODEDIR)
 SLNUNICODEDEP=$(SLNUNICODEDIR)/slnunico.o
 $(SLNUNICODEDEP): $(SLNUNICODEDIR)/slnunico.c $(SLNUNICODEDIR)/slnudata.c
 	mkdir -p $(SLNUNICODEDIR) && cd $(SLNUNICODEDIR) && cp -f $(SLNUNICODESRCDIR)/* . && $(CC) -I$(LIBLUADIR) -o slnunico.o -c slnunico.c
 
+# zziplib
 
+ZZIPLIBDIR=../../libs/zziplib
+ZZIPLIBSRCDIR=$(srcdir)/$(ZZIPLIBDIR)
+ZZIPLIBDEP = $(ZZIPLIBDIR)/zzip/.libs/libzzip.a
+
+$(ZZIPLIBDEP): $(ZZIPLIBSRCDIR)
+	mkdir -p $(ZZIPLIBDIR) && cd $(ZZIPLIBDIR) && cp -a $(ZZIPLIBSRCDIR)/* . && cd $(ZZIPLIBDIR)/zzip && $(MAKE) $(common_makeargs) libzzip.la
+
+# luazip
+
+LUAZIPDIR=../../libs/luazip
+LUAZIPSRCDIR=$(srcdir)/$(LUAZIPDIR)
+LUAZIPDEP=$(LUAZIPDIR)/src/luazip.o
+LUAZIPINC=-I../../lua51 -I../../zziplib
+
+$(LUAZIPDEP): $(LUAZIPDIR)/src/luazip.c
+	mkdir -p $(LUAZIPDIR) && cd $(LUAZIPDIR) && cp -a $(LUAZIPSRCDIR)/* . && cd src && $(CC) $(LUAZIPINC) -o luazip.o -c luazip.c
 
 # Convenience variables.
 
-luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) $(LIBLUADEP) $(SLNUNICODEDEP)
-luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) $(LIBLUADEP) $(SLNUNICODEDEP)
+luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) \
+              $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP)
+luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) \
+                $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 

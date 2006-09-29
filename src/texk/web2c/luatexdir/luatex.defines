@@ -52,8 +52,17 @@ $Id $
 
 { for callbacks }
 
-@define function runcallback();
-@define function callbackdefined();
+@define function  runcallback();
+@define function  runandsavecallback();
+@define function  runsavedcallback();
+@define procedure destroysavedcallback();
+@define function  callbackdefined();
+
+@define procedure initfilecallbackids();
+@define procedure setinputfilecallbackid ();
+@define procedure setreadfilecallbackid ();
+@define function  getinputfilecallbackid ();
+@define function  getreadfilecallbackid ();
 
 { bits for extended char code access }
 
@@ -103,8 +112,13 @@ $Id $
 @define procedure dumpfonttable ();
 @define procedure undumpfonttable ();
 
+@define function readtfmfile();
+@define function nextvfbyte;
+@define function readvffile();
+@define function readocpfile();
+@define function readdatafile();
+
 @define var ocptables;
-@define var ocptemp;
 
 @define procedure allocateocptable ();
 @define procedure dumpocptable ();

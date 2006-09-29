@@ -61,13 +61,19 @@ typedef enum {
   other_char, active_char, comment, invalid_char } cat_codes;
 
 
-
-/* this is needed for delcodes */ 
-
 extern memoryword **fonttables;
 extern void allocatefonttable();
 extern void dumpfonttable();
 extern void undumpfonttable();
+
+extern int readbinfile(FILE *f, unsigned char **b, integer *s);
+
+#define readtfmfile  readbinfile
+#define readvffile   readbinfile
+#define readocpfile  readbinfile
+#define readdatafile readbinfile
+
+#define nextvfbyte() vfbuffer[vfcur++]
 
 extern int **ocptables;
 extern int ocptemp;

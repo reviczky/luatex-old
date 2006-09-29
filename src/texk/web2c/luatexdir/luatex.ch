@@ -315,6 +315,12 @@ end;
 @z
 
 @x
+        lua_a_open_in := a_open_in(f);
+@y
+        lua_a_open_in := a_open_in(f,kpse_tex_format);
+@z
+
+@x
      lua_a_open_in := a_open_in(f);
 @y
      lua_a_open_in := a_open_in(f,kpse_tex_format);
@@ -1071,14 +1077,10 @@ if (hash_offset<0)or(hash_offset>hash_base) then bad:=42;
 
 @x
 @!input_file : array[1..max_in_open] of alpha_file;
-@!input_file_mode : array[1..max_in_open] of halfword;
-@!input_file_translation : array[1..max_in_open] of halfword;
 @!line : integer; {current line number in the current source file}
 @!line_stack : array[1..max_in_open] of integer;
 @y
 @!input_file : ^alpha_file;
-@!input_file_mode : ^halfword;
-@!input_file_translation : ^halfword;
 @!line : integer; {current line number in the current source file}
 @!line_stack : ^integer;
 @!source_filename_stack : ^str_number;
@@ -1687,40 +1689,10 @@ if name=str_ptr-1 then {we can conserve string pool space now}
 @x
 if aire="" then pack_file_name(nom,TEX_font_area,".ofm")
 else pack_file_name(nom,aire,".ofm");
-if not b_open_in(tfm_file) then abort;
 @y
 {|kpse_find_file| will append the |".ofm"| or |".tfm"|, 
  and avoid searching the disk before the font alias files as well.}
 pack_file_name(nom,aire,"");
-if not ofm_open_in(tfm_file) then abort;
-@z
-
-@x
-@d fget==get(tfm_file)
-@d fbyte==tfm_file^
-@y
-@d fget==tfm_temp:=getc(tfm_file)
-@d fbyte==tfm_temp
-@z
-
-@x
-if eof(tfm_file) then abort;
-@y
-if feof(tfm_file) then abort;
-@z
-
-@x
-if not b_open_in(ocp_file) then ocp_abort("opening file");
-@y
-if not ocp_open_in(ocp_file) then ocp_abort("opening file");
-@z
-
-@x
-@d ocpget==get(ocp_file)
-@d ocpbyte==ocp_file^
-@y
-@d ocpget==ocp_temp:=getc(ocp_file)
-@d ocpbyte==ocp_temp
 @z
 
 @x
@@ -3126,8 +3098,7 @@ begin @!{|start_here|}
   save_stack:=xmalloc_array (memory_word, save_size);
   input_stack:=xmalloc_array (in_state_record, stack_size);
   input_file:=xmalloc_array (alpha_file, max_in_open);
-  input_file_mode:=xmalloc_array (halfword, max_in_open);
-  input_file_translation:=xmalloc_array (halfword, max_in_open);
+  init_file_callback_ids(max_in_open);
   line_stack:=xmalloc_array (integer, max_in_open);
   eof_seen:=xmalloc_array (boolean, max_in_open);
   grp_stack:=xmalloc_array (save_pointer, max_in_open);

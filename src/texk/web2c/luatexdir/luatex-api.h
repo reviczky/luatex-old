@@ -30,10 +30,22 @@ extern void luatex_load_init (int s, LoadS *ls);
 extern lua_State *luatex_error (lua_State *L, int fatal);
 
 extern int luaopen_unicode (lua_State *L);
+extern int luaopen_zip (lua_State *L);
 
 extern int callbackdefined (char *name);
 
 extern int runcallback (char *name, char *values, ...);
+extern int runsavedcallback (char *idstring, char *name, char *values, ...);
+extern unsigned char *runandsavecallback (char *name, char *values, ...);
+extern void destroysavedcallback (char *idstring);
+
+/* all of this because web2c doesn't understand arrays to pointers */
+
+extern void initfilecallbackids (int max);
+extern void setinputfilecallbackid (int n, unsigned char *val) ;
+extern void setreadfilecallbackid (int n, unsigned char *val) ;
+extern unsigned char *getinputfilecallbackid (int n);
+extern unsigned char *getreadfilecallbackid (int n);
 
 extern void luainitialize (int luaid);
 
