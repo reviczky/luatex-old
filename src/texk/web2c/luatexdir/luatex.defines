@@ -48,7 +48,7 @@ $Id $
 @define function  luacstringsimple;
 @define procedure luacstringclose;
 
-@define procedure luainitialize();
+@define procedure luainitialize;
 
 { for callbacks }
 
@@ -57,6 +57,7 @@ $Id $
 @define function  runsavedcallback();
 @define procedure destroysavedcallback();
 @define function  callbackdefined();
+@define function  callbackluaid();
 
 @define procedure initfilecallbackids();
 @define procedure setinputfilecallbackid ();

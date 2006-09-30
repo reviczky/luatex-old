@@ -143,7 +143,8 @@ luainterpreter (int n) {
   luaopen_tex(L);
   luaopen_texio(L);
   luaopen_kpse(L);
-  luaopen_callback(L);
+  if (n==0)
+    luaopen_callback(L);
   luaopen_lua(L,n,startup_filename);
   fix_package_path(L,"path","lua",1);
 #if defined(_WIN32)
@@ -177,7 +178,7 @@ luacall(int n, int s) {
 }
 
 void
-luainitialize (int luaid) {
+luainitialize (void) {
   int error;
   char *loadaction;
   FILE *test;
@@ -190,10 +191,10 @@ luainitialize (int luaid) {
   } else {
     startup_filename = kpse_find_file ("startup.lua",kpse_texmfscripts_format,0);
   }
+  luainterpreter (0);
   if (startup_filename!=NULL) {
-    luainterpreter (luaid);
-    if(luaL_loadfile(Luas[luaid],startup_filename)|| lua_pcall(Luas[luaid],0,0,0)) {
-      fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[luaid],-1));
+    if(luaL_loadfile(Luas[0],startup_filename)|| lua_pcall(Luas[0],0,0,0)) {
+      fprintf(stdout,"Error in config file loading: %s", lua_tostring(Luas[0],-1));
     }
     //    free(fname);
   }
@@ -203,7 +204,7 @@ luainitialize (int luaid) {
 
 void 
 closelua(int n) {
-  if (Luas[n] != NULL) {
+  if (n!=0 && Luas[n] != NULL) {
     lua_close(Luas[n]);
     Luas[n] = NULL;
   }
@@ -237,7 +238,7 @@ luatex_error (lua_State * L, int is_fatal) {
     return (lua_State *)NULL;
   } else {
     /* Here, the pool could be full already, but we can possibly escape from that 
-     * condition, since the lua chunk thatr caused the error is the current string.
+     * condition, since the lua chunk that caused the error is the current string.
      */
     s = strptr-0x200000;
     //    fprintf(stderr,"poolinfo: %d: %d,%d out of %d\n",s,poolptr,strstart[(s-1)],poolsize);

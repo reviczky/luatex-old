@@ -2,10 +2,10 @@
 prefix=/programs
 exec_prefix=${prefix}
 bindir=${exec_prefix}/bin
-libdir=/home/taco/luatex-dev/luatex/src/libs/zziplib/zzip/.libs
+libdir=/home/taco/luatex/luatex/src/libs/zziplib/zzip/.libs
 datadir=${prefix}/share
 sysconfdir=${sbindir}
-includedir=/home/taco/luatex-dev/luatex/src/libs/zziplib/.
+includedir=/home/taco/luatex/luatex/src/libs/zziplib/.
 package=zziplib
 suffix=
 
@@ -14,4 +14,4 @@ Description: ZZipLib - libZ-based ZIP-access Library
 Version: 0.13.47
 Requires: zzip-zlib-config
 Libs: -L${libdir}  -lzzip
-Cflags: -I${includedir} 
+Cflags: -I${includedir} -I/home/taco/luatex/luatex/src/libs/zziplib/../zlib

@@ -44,7 +44,7 @@ available_tags=" CXX"
 
 # ### BEGIN LIBTOOL CONFIG
 
-# Libtool was configured on host glenlivet.elvenkind.com:
+# Libtool was configured on host hal.chatalicious.net:
 
 # Shell to use when invoking shell scripts.
 SHELL="/bin/sh"
@@ -328,7 +328,7 @@ link_all_deplibs=unknown
 sys_lib_search_path_spec=" /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/ /usr/mingw32/lib/gcc/mingw32/3.4.5/ /usr/lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/"
 
 # Run-time system search path for libraries
-sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/Adobe/Acrobat7.0/Reader/intellinux/lib /usr/lib/graphviz /usr/lib/nvidia /usr/X11R6/lib /usr/lib/qt3/lib "
+sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/lib/qt3/lib /usr/X11R6/lib "
 
 # Fix the shell variable $srcfile for the compiler.
 fix_srcfile_path=""
@@ -6852,7 +6852,7 @@ build_old_libs=`case $build_libtool_libs in yes) $echo no;; *) $echo yes;; esac`
 # End:
 # ### BEGIN LIBTOOL TAG CONFIG: CXX
 
-# Libtool was configured on host glenlivet.elvenkind.com:
+# Libtool was configured on host hal.chatalicious.net:
 
 # Shell to use when invoking shell scripts.
 SHELL="/bin/sh"
@@ -7133,7 +7133,7 @@ link_all_deplibs=unknown
 sys_lib_search_path_spec=" /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/ /usr/mingw32/lib/gcc/mingw32/3.4.5/ /usr/lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/"
 
 # Run-time system search path for libraries
-sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/Adobe/Acrobat7.0/Reader/intellinux/lib /usr/lib/graphviz /usr/lib/nvidia /usr/X11R6/lib /usr/lib/qt3/lib "
+sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/lib/qt3/lib /usr/X11R6/lib "
 
 # Fix the shell variable $srcfile for the compiler.
 fix_srcfile_path=""

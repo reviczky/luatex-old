@@ -6,7 +6,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2006-09-27}
+\TitlePage{Snapshot 2006-09-30}
 
 \title{Contents}
 
@@ -71,7 +71,7 @@ specific to the PDF output format should work.
 
 In either mode, I/O translation processes, tcx files, enctex, cannot
 be used. The encoding items are superseded by a \LUA-based solution
-(\type{input_line} callbacks).
+(\type{reader} callbacks).
 
 
 \chapter{Basic \TEX\ enhancements}
@@ -80,7 +80,7 @@ be used. The encoding items are superseded by a \LUA-based solution
 
 Text input and output is now considered to be Unicode text, so
 characters can use the full range of Unicode ($2^{20}+2^{16} =
-\hex10FFFF = 1114111$). 
+\hbox{\hex10FFFF} = 1114111$). 
 
 For now, it only makes sense to use values above the base plane (\hex
 FFFF) for \type{\mathcode} and \type{\catcode} assignments, since the
@@ -102,14 +102,14 @@ processed by older \TEX-based engines.
 \NC \type{\uccode}      \NC 21=21   \NC \hex10FFFF=\hex10FFFF   \NC ($2^{20}+2^{16}$) = ($2^{20}+2^{16}$)\NC\NR
 \NC \type{\sfcode}      \NC 21=15   \NC \hex10FFFF=\hex7FFF   \NC ($2^{20}+2^{16}$) = ($2^{15}$)\NC\NR
 \NC \type{\catcode}     \NC 21=4    \NC \hex10FFFF=\hex F    \NC ($2^{20}+2^{16}$) = ($2^4$)\NC\NR
-\NC \type{\mathchardef} \NC 21=15   \NC \hex10FFFF=15   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{8}*2^{4}$) \NC\NR
+\NC \type{\mathchardef} \NC 21=15   \NC \hex10FFFF=\hex8000   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{8}*2^{4}$) \NC\NR
 \NC \type{\mathcode}    \NC 21=15   \NC \hex10FFFF=\hex8000   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{8}*2^{4}$) \NC\NR
 \NC \type{\delcode}     \NC 21=27   \NC \hex10FFFF=\hex7FFFFFF   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{4}*2^{8}*2^{4}*2^{8}$)\NC\NR 
 \stoptable
 
 As far as the core engine is aware, all input and output to text files
 is UTF-8 encoded. Input files can be preprocessed using the
-\callback{input_line} callback. This will be explained in a later chapter.
+\callback{reader} callback. This will be explained in a later chapter.
 
 Output to the terminal uses \type{^^} notation for the lower control
 range, with the exception of \type{^^I}, \type{^^J} and  \type{^^M}.
@@ -136,7 +136,7 @@ primitives are unchanged, their arguments are upscaled internally.
 \NC \type{\delimiter}   \NC 27      \NC \hex7FFFFFF      \NC ($2^{3}*2^{4}*2^{8}*2^{4}*2^{8}$)\NC\NR
 \NC \type{\omathchar}   \NC 27      \NC \hex7FFFFFF\NC ($2^{3}*2^{16}*2^{8}$)  \NC\NR
 \NC \type{\odelimiter}  \NC 27+24   \NC \hex7FFFFFF+\hex FFFFFF   \NC ($2^{3}*2^{8}*2^{16}$)+($2^{8}*2^{16}$)\NC\NR
-\NC \type{\omathchardef}\NC 21=27   \NC \hex10FFFF=27   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{16}*2^{8}$)\NC\NR
+\NC \type{\omathchardef}\NC 21=27   \NC \hex10FFFF=\hex8000000   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{16}*2^{8}$)\NC\NR
 \NC \type{\omathcode}   \NC 21=27   \NC \hex10FFFF=\hex8000000   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{16}*2^{8}$) \NC\NR
 \NC \type{\odelcode}    \NC 21=27+24\NC \hex10FFFF=\hex7FFFFFF+ \NC($2^{20}+2^{16}$) = ($2^{3}*2^{8}*2^{16}$)+ \NC\NR
 \NC                     \NC         \NC \hphantom{\hex10FFFF= }\hex FFFFFF\NC \hphantom{($2^{20}+2^{16}$) = } ($2^{8}*2^{16}$)\NC\LR
@@ -180,8 +180,6 @@ In order to merge lua code with \TEX\ input, a few new primitives are
 needed. \LUATEX\ has support for 65536 separate lua interpreter
 states. States are automatically created based on the integer argument
 to the primitives \primitive{directlua} and \primitive{latelua}.
-States are never closed, except when a fatal (out of memory) error
-occurs, at which point \LUATEX\ will exit anyway.
 
 \subsection{\primitive{directlua}}
 
@@ -219,15 +217,20 @@ consisting of a backslash with catcode 12.
 \stopsyntax
 
 
+\subsection{\primitive{luaclose}} 
 
-\subsection{\primitive{luastartup}} 
+This primitive allows you to close a lua state, freeing all of its
+used memory.
 
-This integer register can be set inside the format file to specify the
-lua instance number (state) in which a possible run-time \type{startup.lua}
-script is executed (initex always uses the state 0)
 \startsyntax
-  \luastartup <16-bit number>
+  \luaclose <16-bit number>
 \stopsyntax
+
+You cannot close lua state zero (0), any attempt to do so will be
+silently ignored.
+
+States are only closed automatically when a fatal (out of memory)
+error occurs, but at that point \LUATEX\ will exit anyway.
 
 \section{New \ETEX\ primitives}
 
@@ -337,9 +340,7 @@ a file of type `texmfscript' that is named
      startup.lua
 \stoptyping
 
-If such a file exists, it is loaded in the lua state zero
-(for initex) or the one pointed to by \primitive{luastartup}
-(for non-initex).
+If such a file exists, it is loaded in the lua state zero (0).
 
 This loading happens right before the first text input file needs to
 be opened, after format loading, but before the \type{\everyjob}
@@ -460,7 +461,6 @@ tex.linepenalty
 tex.localbrokenpenalty
 tex.localinterlinepenalty
 tex.looseness
-tex.luastartup
 tex.mag
 tex.maxdeadcycles
 tex.month
@@ -889,29 +889,6 @@ Like \function{texio.write}, but always writes starts a new line
 first. You can use an empty string if you only want to move to the
 next line.
 
-\subsection{File functions}
-
-The texio library has its own (partial) set of I/O commands, because
-the \LUATEX\ internals cannot deal directly with the standard file
-handles that are returned by io.open. 
-
-Except for this slightly different file type, the syntaxes are 
-identical to their cousins from the standard I/O library. The list of
-implemented functions is:
-
-\startfunctioncall
-     texio.open()
-     texio.read()
-     texio.seek()
-     texio.setvbuf()
-     texio.close()
-     <tex_file>:read()
-     <tex_file>:seek()
-     <tex_file>:setvbuf()
-     <tex_file>:close()
-\stopfunctioncall
-
-
 \section{The \lualib{pdf} library}
 
 This table contains the current \type{h} en \type{v} values that
@@ -936,6 +913,8 @@ The associated function calls are
 
 This library has a single function that is used to register callbacks.
 
+The \lualib{callback} library is only available in lua state zero (0).
+
 \startfunctioncall
    callback.register(string <callback name>,function <callback_func>)
    callback.register(string <callback name>,nil)
@@ -956,10 +935,11 @@ Callback assignments are always global. You can use the special value
 
 You callback function should have the following conventions:
 
-\starttyping
-   boolean success, string actual_name, tex_file filep = 
-        function (number <id_number>, string <asked_name>)
-\stoptyping
+\startfunctioncall
+   function (number <id_number>, string <asked_name>)
+      return boolean <success>, string <actual_name>, table <env>
+   end
+\stopfunctioncall
 
 Arguments:
 \startitemize
@@ -983,38 +963,101 @@ return values are never looked at.
 
 \sym{actual\_name} 
 
-the true filename used. Make sure you include the
-extension. 
+the filename used. For the very first file that is read in by \TEX,
+you have to make sure you return an \type{actual_name} that has an
+extension and that is suitable for use as \type{jobname}.
 
-\sym{filep}  
+\sym{env}  
 
-the file object returned by texio.open()
+this is a table containing one required and one optional callback
+functions for this file. The required field is `\callback{reader}' and
+the associated function will be called once for each new line to be
+read, the optional one is `\callback{close}' that will be called once
+when \LUATEX\ is done with the file.
+
+Neither function will receive an argument, so you should set you a
+proper closure for them.
 \stopitemize
 
-\subsubsection{\callback{open\_write\_file}}
+\subsubsubsection{\callback{reader}}
 
-Your callback function should have the same conventions as for
-\callback{open_read_file}.
-
-\subsubsection{\callback{input\_line}}
-
-From the next input line onwards, \LUATEX\ will run this function
-whenever it needs a new input line from a physical file.
+\LUATEX\ will run this function whenever it needs a new input line 
+from the file.
 
 \startfunctioncall
-string line = function (texio_file f) 
+  function ()
+    return string <line>
+  end
 \stopfunctioncall
 
-Your function will receive a file handle as argument, and should
-return either a string or `nil'. The value `nil' signals that the end
-of file has occurred, and will make \TEX\ close the file handle.  Do
-not close the file handle yourself!
+Your function should return either a string or `nil'. The value `nil'
+signals that the end of file has occurred, and will make \TEX\ call
+the optional `\callback{close}' function next.
+
+\subsubsubsection{\callback{close}}
+
+\LUATEX\ will optionally run this function when it needs to close the file.
+
+\startfunctioncall
+  function ()
+    return
+  end
+\stopfunctioncall
+
+Your function should not return any value.
+
+\subsubsection{\callback{read\_font\_file}}
+
+This function is called when \TEX\ needs to read a \type{ofm} or
+\type{tfm} file.
+
+\startfunctioncall
+     function (string <name>)
+        return boolean <success>, string <data>, number <data_size>
+     end
+\stopfunctioncall
+
+\startitemize
+\sym{success} 
+
+return false when the file cannot be found.
+
+\sym{data} 
+
+the bytes comprising the file. 
+
+\sym{data\_size} 
+
+the length of the \type{data}, in bytes.
+\stopitemize
+
+return an empty string and zero if the file was found but there was a
+reading problem.
+
+\subsubsection{\callback{read\_vf\_file}}
+
+Like \callback{read_font_file}, but for virtual fonts.
+
+
+\subsubsection{\callback{read\_ocp\_file}}
+
+Like \callback{read_font_file}, but for ocp files.
+
+
+\subsubsection{\callback{read\_data\_file}}
+
+Like \callback{read_font_file}, but for embedded files (\type{\pdfobj file "..."}).
+
 
 \subsubsection{\callback{show\_error\_hook}}
        
 \startfunctioncall
-     function (string message, string indicator,  number lineno)
-     function (string message, number indicator,  number lineno)
+     function (string <message>, string <indicator>,  number <lineno>)
+        return
+     end
+     function (string <message>, number <indicator>,  number <lineno>)
+        return
+     end
 \stopfunctioncall
 
 This callback is run from inside the \TEX\ error function, and the idea

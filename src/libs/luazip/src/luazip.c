@@ -466,7 +466,7 @@ static const luaL_reg ziplib[] = {
   {"open", zip_open},
   {"close", zip_close},
   {"type", zip_type},
-  /*   {"files", io_files}, */
+  /* {"files", io_files},*/
   {"openfile", zip_openfile},
   {NULL, NULL}
 };
@@ -475,7 +475,7 @@ static const luaL_reg flib[] = {
   {"open", f_open},
   {"close", zip_close},
   {"files", f_files},
-  /* {"__gc", zip_gc}, */
+  {"__gc", zip_gc},
   {"__tostring", zip_tostring},
   {NULL, NULL}
 };
@@ -485,7 +485,7 @@ static const luaL_reg fflib[] = {
   {"close", ff_close},
   {"seek", ff_seek},
   {"lines", ff_lines},
-  /* {"__gc", ff_gc}, */
+  {"__gc", ff_gc},
   {"__tostring", ff_tostring},
 /*  {"flush", ff_flush},
   {"write", ff_write},*/

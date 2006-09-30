@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20060927' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20060930' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -954,18 +954,20 @@ end;
 var ret,test:boolean;
   k:integer;
   fnam:str_number;
-  fp:^char;
+  fp:integer;
+  callback_id:integer;
 begin 
   fp:=0;
   if n=0 then
      set_input_file_callback_id(index,fp)
   else 
      set_read_file_callback_id((n-1),fp);
-  if callback_defined('open_read_file') then begin
-    fp := stringcast(run_and_save_callback('open_read_file','dS>bs',
+  callback_id:=callback_defined('open_read_file');
+  if callback_id >0 then begin
+    fp := run_and_save_callback(callback_id,'dS->bs',
                          n,stringcast(name_of_file+1),
-                         address_of(ret),address_of(fnam)));
-	if fp<>0 then begin
+                         address_of(ret),address_of(fnam));
+    if fp>0 then begin
       if ret then begin
         libc_free (name_of_file);
 	    name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
@@ -974,11 +976,11 @@ begin
 	    name_length := length(fnam);
 	    flush_string;
         lua_a_open_in := ret;
-  	    if n=0 then
-          set_input_file_callback_id(index,stringcast(fp))
+  	if n=0 then
+          set_input_file_callback_id(index,fp)
         else 
-          set_read_file_callback_id((n-1),stringcast(fp));
-	    end
+          set_read_file_callback_id((n-1),fp);
+        end
       else begin
         lua_a_open_in := a_open_in(f);
         name_file_pointer := f;
@@ -1027,15 +1029,15 @@ end;
  
 @p procedure lua_a_close_in(var f:alpha_file; n:quarterword); {close a text file}
 var ret:boolean;
-    callback_id:^char;
+    callback_id:integer;
 begin
 if n=0 then
-  callback_id:=stringcast(get_input_file_callback_id(index))
+  callback_id:=get_input_file_callback_id(index)
 else
-  callback_id:=stringcast(get_read_file_callback_id(n-1));
-if callback_id<>0 then begin
-  ret:=run_saved_callback(callback_id,'close','>b');
-  {destroy_saved_callback(callback_id);}
+  callback_id:=get_read_file_callback_id(n-1);
+if callback_id>0 then begin
+  ret:=run_saved_callback(callback_id,'close','->');
+  destroy_saved_callback(callback_id);
   if n=0 then
     set_input_file_callback_id(index,0)
   else
@@ -1137,16 +1139,16 @@ function lua_input_ln(var f:alpha_file;n:quarterword;@!bypass_eoln:boolean):bool
 var lua_result:boolean;
 	last_ptr:integer;
 	k:pool_pointer;
-    callback_id:^char;
+    callback_id:integer;
 begin
 if n=0 then
-  callback_id:=stringcast(get_input_file_callback_id(index))
+  callback_id:=get_input_file_callback_id(index)
 else 
-  callback_id:=stringcast(get_read_file_callback_id(n-1));
-if callback_id<>0 then begin
+  callback_id:=get_read_file_callback_id(n-1);
+if callback_id>0 then begin
     last:=first;
 	last_ptr := first;
-    lua_result := run_saved_callback(callback_id,'reader','>l', address_of(last_ptr));
+    	lua_result := run_saved_callback(callback_id,'reader','->l', address_of(last_ptr));
 	if (lua_result=true) then begin
 	  last := last_ptr;
 	  if last>max_buf_stack then max_buf_stack:=last; 
@@ -2158,16 +2160,18 @@ end;
 procedure error; {completes the job of error reporting}
 label continue,exit;
 var c:ASCII_code; {what the user types}
+callback_id:integer;
 @!s1,@!s2,@!s3,@!s4:integer;
   {used to save global variables when deleting tokens}
 @!t:boolean;
 begin if history<error_message_issued then history:=error_message_issued;
 print_char("."); 
-if callback_defined('show_error_hook') then begin
+callback_id := callback_defined('show_error_hook') ;
+if callback_id>0 then begin
   if name<string_offset then
-    t := run_callback('show_error_hook','sdd>',last_error,name,line)
+    t := run_callback(callback_id,'sdd>',last_error,name,line)
   else
-    t := run_callback('show_error_hook','ssd>',last_error,name,line);
+    t := run_callback(callback_id,'ssd>',last_error,name,line);
 end;
 show_context;
 if interaction=error_stop_mode then @<Get user's advice and |return|@>;
@@ -13948,6 +13952,7 @@ label done,bad_tfm,not_found;
 var k:font_index; {index into |font_info|}
 @!file_opened:boolean; {was |tfm_file| successfully opened?}
 @!res:boolean; {was the callback successful?}
+@!callback_id:integer;
 @!lf,@!lh,@!bc,@!ec,@!nw,@!nh,@!nd,@!ni,@!nl,@!nk,@!ne,@!np:halfword;
   {sizes of subfiles}
 @!font_dir:halfword;
@@ -14025,8 +14030,9 @@ if aire="" then pack_file_name(nom,TEX_font_area,".ofm")
 else pack_file_name(nom,aire,".ofm");
 if tfm_buffer<>0 then libc_free(tfm_buffer);
 tfm_byte:=0; tfm_buffer:=0; tfm_size:=0;
-if callback_defined('read_font_file') then begin
-   res := run_callback('read_font_file','S>bSd',stringcast(name_of_file+1),
+callback_id:=callback_defined('read_font_file');
+if callback_id>0 then begin
+   res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
           address_of(file_opened), address_of(tfm_buffer),address_of(tfm_size));
   if not res then abort;
   if not file_opened then abort; 
@@ -14906,6 +14912,7 @@ label done,bad_ocp,not_found;
 var 
 @!file_opened:boolean; {was |ocp_file| successfully opened?}
 @!res:boolean;
+@!callback_id:integer;
 @!f:internal_ocp_number; {the new ocp's number}
 @!g:internal_ocp_number; {the number to return}
 @!ocpword:integer;
@@ -14978,8 +14985,9 @@ file_opened:=false;
 pack_file_name(nom,aire,".ocp");
 if ocp_buffer<>0 then libc_free(ocp_buffer);
 ocp_cur:=0; ocp_buffer:=0; ocp_size:=0;
-if callback_defined('read_ocp_file') then begin
-  res := run_callback('read_ocp_file','S>bSd',stringcast(name_of_file+1),
+callback_id:=callback_defined('read_ocp_file');
+if callback_id>0 then begin
+  res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
           address_of(file_opened), address_of(ocp_buffer),address_of(ocp_size));
   if not res         then ocp_abort("callback error");
   if not file_opened then ocp_abort("opening file");
@@ -19935,7 +19943,7 @@ var cmd, k, n: integer;
     f: internal_font_number;
     file_read:boolean; {was |vf_file| successfully read?}
     res:boolean; {was the callback successful?}
-
+    callback_id:integer;
 begin
     f := tmp_f;
     pdf_font_type[f] := real_font_type;
@@ -19967,9 +19975,10 @@ end;
 pack_file_name(font_name(f), "", ".vf");
 if vf_buffer<>0 then libc_free(vf_buffer);
 vf_cur:=0; vf_buffer:=0; vf_size:=0;
-if callback_defined('read_vf_file') then begin
+callback_id:=callback_defined('read_vf_file');
+if callback_id>0 then begin
   file_read := false;
-  res := run_callback('read_vf_file','S>bSd',stringcast(name_of_file+1),
+  res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
           address_of(file_read), address_of(vf_buffer),address_of(vf_size));
   if not res then return;
   if not file_read then return; 
@@ -21075,7 +21084,8 @@ var s: str_number;
     data_cur:integer; {index into |data_buffer|}
     data_buffer:^real_eight_bits; {byte buffer for data files}
     file_opened:boolean;
-	res:boolean;
+    res:boolean;
+    callback_id:integer;
 begin
     s := tokens_to_string(obj_obj_data(n));
     delete_toks(obj_obj_data(n));
@@ -21092,9 +21102,10 @@ begin
     if obj_obj_is_file(n) > 0 then begin
         data_size:=0; data_cur:=0; data_buffer:=0;
         pack_file_name(s,"","");
-        if callback_defined('read_data_file') then begin
+	callback_id:=callback_defined('read_data_file');
+        if callback_id>0 then begin
           file_opened := false;
-          res := run_callback('read_data_file','S>bSd',stringcast(name_of_file+1),
+          res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
                   address_of(file_opened), address_of(data_buffer),address_of(data_size));
           if not file_opened then pdf_error("ext5", "cannot open file for embedding");
           end
@@ -35692,7 +35703,7 @@ random_seed :=(microseconds*1000)+(epochseconds mod 1000000);@/
 init_randoms(random_seed);@/
 @<Compute the magic offset@>;
 @<Initialize the print |selector|...@>;
-lua_initialize(luastartup_id);
+lua_initialize;
 if (loc<limit)and(get_cat_code(cat_code_table,buffer[loc])<>escape) then start_input;
   {\.{\\input} assumed}
 @<DIR: Initialize |text_dir_ptr|@>;

@@ -16,8 +16,9 @@ static const char *const callbacknames[] = {
 
 typedef struct {
   int is_set;
-  int lua_id;
 } callback_info;
+
+static int callback_callbacks_id = 0;
 
 #define NUM_CALLBACKS 7
 
@@ -44,11 +45,7 @@ callback_name_to_id (char *name) {
 int
 callbackdefined (char *name) {  
   int i;
-  for (i=0; callbacknames[i]; i++)
-    if (strcmp(callbacknames[i], name) == 0)
-      break;
-  if (i==NUM_CALLBACKS)
-    return 0;  /* undefined callbacks are never set */
+  i = callback_name_to_id(name);
   return callback_list[i].is_set;
 }
 
@@ -70,52 +67,27 @@ callbackdefined (char *name) {
  */
 
 int 
-runsavedcallback (char *idstring, char *name, char *values, ...) {
+runsavedcallback (int r, char *name, char *values, ...) {
   va_list args;
   int ret;
-  int i;
-  int luaid,r;
-  char *luaname;
   int stacktop;
-  /* split idstring in luaid and luaname */
-  luaname = idstring;
-  luaid=0; r=0;
-  while(isdigit(*luaname)) {
-    luaid = luaid*10;
-    luaid += (*luaname-'0');
-    luaname++;
-  }
-  luaname++; /* the ! */
-  if (Luas[luaid] == NULL)
-    return 0;
-  stacktop = lua_gettop(Luas[luaid]);  
+  stacktop = lua_gettop(Luas[0]);  
   va_start(args,values);
-  ret = do_run_callback(0,luaid, luaname, name,values,args);
+  lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,r);
+  lua_getfield(Luas[0],-1,name);
+  if (lua_isnil(Luas[0],-1)) {
+    ret = 1;
+  } else {
+    ret = do_run_callback(0,values,args);
+  }
   va_end(args);
-  lua_settop(Luas[luaid],stacktop);
+  lua_settop(Luas[0],stacktop);
   return ret;
 }
 
 void
-destroysavedcallback (char *l) {
-  int luaid,r;
-  char *idstring;
-  idstring = l;
-  while(isdigit(*idstring)) {
-    luaid = luaid*10;
-    luaid += (*idstring-'0');
-    idstring++;
-  }
-  if (Luas[luaid] == NULL)
-    return;
-  idstring++; /* the ! */
-  r=0;
-  while(isdigit(*idstring)) {
-    r = r*10;
-    r += (*idstring-'0');
-    idstring++;
-  }
-  luaL_unref(Luas[luaid],LUA_REGISTRYINDEX,r);
+destroysavedcallback (int i) {
+  luaL_unref(Luas[0],LUA_REGISTRYINDEX,i);
 }
 
 /* 
@@ -127,72 +99,56 @@ destroysavedcallback (char *l) {
  * 
  */
 
-unsigned char *
-runandsavecallback (char *name, char *values, ...) {
+int
+runandsavecallback (int i, char *values, ...) {
   va_list args;
-  int r,i;
+  int r;
   char *ret;
-  int luaid;
   int stacktop;
-  i = callback_name_to_id(name);
-  if(i>0) {
-    if (callback_list[i].is_set) {
-      luaid = callback_list[i].lua_id;
-      if (Luas[luaid] == NULL)
-	return (unsigned char *)0;
-      stacktop = lua_gettop(Luas[luaid]);
-      va_start(args,values);
-      r=do_run_callback(1,luaid,"callbacks", name,values,args);
-      va_end(args);
-      if (r==0) {
-	lua_settop(Luas[luaid],stacktop);
-	return (unsigned char *)0;
-      }
+  if(i>0 && callback_list[i].is_set) {
+    stacktop = lua_gettop(Luas[0]);
+    va_start(args,values);
+    lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,callback_callbacks_id);
+    lua_getfield(Luas[0],-1,callbacknames[i]);
+    r=do_run_callback(1,values,args);
+    va_end(args);
+    if (r>0) {
       /* do something to save the ret table here; */
-      if(lua_istable(Luas[luaid],-1)) {
-	r = luaL_ref(Luas[luaid],LUA_REGISTRYINDEX);
-
-	ret = (char *)xmalloc(30);
-	snprintf(ret,30,"%d!%d",luaid,r);
-
-	return (unsigned char *)ret;
+      if(lua_istable(Luas[0],-1)) {
+	r = luaL_ref(Luas[0],LUA_REGISTRYINDEX);
+	lua_settop(Luas[0],stacktop);
+	return r;
       } else {
 	fprintf(stderr,"NOT A CALLBACK\n");
       }
     }
-  }
-  return (unsigned char *)0;
-}
-
-
-int
-runcallback (char *name, char *values, ...) {
-  va_list args;
-  int ret;
-  int luaid;
-  int i;
-  int stacktop;
-  i=callback_name_to_id(name);
-  if (i>0) {
-    if (callback_list[i].is_set) {
-      luaid = callback_list[i].lua_id;
-      if (Luas[luaid] == NULL)
-	return 0;
-      stacktop = lua_gettop(Luas[luaid]);
-      va_start(args,values);
-      ret = do_run_callback(0,luaid, "callbacks", name,values,args);
-      va_end(args);
-      lua_settop(Luas[luaid],stacktop);
-      return ret;
-    }
+    lua_settop(Luas[0],stacktop);
   }
   return 0;
 }
 
 
 int
-do_run_callback (int special, int luaid, char *tabname, char *name, char *values, va_list vl) {
-  int retval;
+runcallback (int i, char *values, ...) {
+  va_list args;
+  int ret;
+  int stacktop;
+  if (i>0 && callback_list[i].is_set) {
+    stacktop = lua_gettop(Luas[0]);
+    va_start(args,values);
+    lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,callback_callbacks_id);
+    lua_getfield(Luas[0],-1,callbacknames[i]);
+    ret = do_run_callback(0,values,args);
+    va_end(args);
+    lua_settop(Luas[0],stacktop);
+    return ret;
+  }
+  return 0;
+}
+
+
+int
+do_run_callback (int special, char *values, va_list vl) {
   int ret, len;
   int narg,nres;
   FILE **readfile;
@@ -200,56 +156,47 @@ do_run_callback (int special, int luaid, char *tabname, char *name, char *values
   char *ss = NULL;
   int *bufloc;
   int i,r;
-  retval = 0;
-  /* find the callback */
-  if (strcmp(tabname,"callbacks")==0)
-    lua_getfield(Luas[luaid],LUA_REGISTRYINDEX,tabname);
-  else {
-    r=0;
-    s =tabname;
-    while(isdigit(*s)) {
-      r=r*10;
-      r+=*s-'0';
-      s++;
-    }
-    lua_rawgeti(Luas[luaid],LUA_REGISTRYINDEX,r);
-  }
-  if (!lua_istable(Luas[luaid],-1)) {
+  int retval = 0;
+  lua_State *L;
+  L = Luas[0];
+  if (!lua_istable(L,-2)) {
     fprintf(stderr,"\nNOT A TABLE\n");
   }
-  lua_getfield(Luas[luaid],-1,name);
-  if (!lua_isfunction(Luas[luaid],-1)) {
-    fprintf(stdout,"\nMissing callback      : %s\n", lua_tostring(Luas[luaid],-1));
+  if (!lua_isfunction(L,-1)) {
+    fprintf(stdout,"\nMissing callback      : %s\n", lua_tostring(L,-1));
     return 0;
   }
   //  va_start(vl, values);
   for (narg = 0; *values; narg++) {
-    luaL_checkstack(Luas[luaid],1,"out of stack space");
+    luaL_checkstack(L,1,"out of stack space");
     switch (*values++) {
     case CALLBACK_FILE: /* FILE * */ 
-      readfile = (FILE **)lua_newuserdata(Luas[luaid], sizeof(FILE *));
+      readfile = (FILE **)lua_newuserdata(L, sizeof(FILE *));
       *readfile = va_arg(vl, FILE *); 
-      luaL_getmetatable(Luas[luaid], LUA_TEXFILEHANDLE);
-      lua_setmetatable(Luas[luaid], -2);
+      luaL_getmetatable(L, LUA_TEXFILEHANDLE);
+      lua_setmetatable(L, -2);
       break;
     case CALLBACK_CHARNUM: /* an ascii char! */ 
       s = malloc(2);
       snprintf(s,2,"%c",va_arg(vl, int));
-      lua_pushstring(Luas[luaid], s);
+      lua_pushstring(L, s);
       break;
     case CALLBACK_STRING: /* C string */ 
       s = strdup(va_arg(vl, char *));
-      lua_pushstring(Luas[luaid], s);
+      lua_pushstring(L, s);
       break;
     case CALLBACK_INTEGER: /* int */ 
-      lua_pushnumber(Luas[luaid], va_arg(vl, int));
+      lua_pushnumber(L, va_arg(vl, int));
       break;
     case CALLBACK_STRNUMBER: /* TeX string */ 
       s = makecstring(va_arg(vl, int));
-      lua_pushstring(Luas[luaid], s);
+      lua_pushstring(L, s);
       break;
     case CALLBACK_BOOLEAN: /* boolean */ 
-      lua_pushboolean(Luas[luaid], va_arg(vl, int));
+      lua_pushboolean(L, va_arg(vl, int));
+      break;
+    case '-': 
+      narg--;
       break;
     case '>': 
       goto ENDARGS;
@@ -261,35 +208,39 @@ do_run_callback (int special, int luaid, char *tabname, char *name, char *values
   nres = strlen(values);
   if (special) 
     nres++;
-  if(lua_pcall(Luas[luaid],narg,nres,0) != 0) {
-    fprintf(stdout,"This went wrong: %s\n", lua_tostring(Luas[luaid],-1));
+  if(lua_pcall(L,narg,nres,0) != 0) {
+    fprintf(stdout,"This went wrong: %s\n", lua_tostring(L,-1));
     goto EXIT;
   };
+  if (nres==0) {
+    retval=1;
+    goto EXIT;
+  }
   nres = -nres;
   while (*values) {
     switch (*values++) {
     case CALLBACK_BOOLEAN: 
-      if (!lua_isboolean(Luas[luaid],nres))
+      if (!lua_isboolean(L,nres))
 	goto EXIT;
-      int b = lua_toboolean(Luas[luaid],nres);
+      int b = lua_toboolean(L,nres);
       *va_arg(vl, int *) = b;
       break;
     case CALLBACK_INTEGER: 
-      if (!lua_isnumber(Luas[luaid],nres))
+      if (!lua_isnumber(L,nres))
 	goto EXIT;
-      b = lua_tonumber(Luas[luaid],nres);
+      b = lua_tonumber(L,nres);
       *va_arg(vl, int *) = b;
       break;
     case CALLBACK_FILE: 
-            readfile = (FILE **)lua_touserdata(Luas[luaid], nres);
+            readfile = (FILE **)lua_touserdata(L, nres);
       if (readfile == NULL)
       	goto EXIT;
       *va_arg(vl, FILE **) = *readfile;
       break;
     case CALLBACK_LINE:  /* TeX line */
-      if (!lua_isstring(Luas[luaid],nres))
+      if (!lua_isstring(L,nres))
 	goto EXIT;
-      ss = (char *)lua_tostring(Luas[luaid],nres);
+      ss = (char *)lua_tostring(L,nres);
       if (ss!=NULL) {
 	s = strdup(ss);
 	bufloc = va_arg(vl, int *);
@@ -303,24 +254,22 @@ do_run_callback (int special, int luaid, char *tabname, char *name, char *values
       }
       break;
     case CALLBACK_STRNUMBER:  /* TeX string */
-      if (!lua_isstring(Luas[luaid],nres))
+      if (!lua_isstring(L,nres))
 	goto EXIT;
-      s = (char *)lua_tostring(Luas[luaid],nres);
+      s = (char *)lua_tostring(L,nres);
       if (s==NULL) 
 	*va_arg(vl, int *) = -1;
       else {
-	//puts(s);
 	*va_arg(vl, int *) = maketexstring(strdup(s));
       }
       break;
     case CALLBACK_STRING:  /* C string aka buffer */
-      if (!lua_isstring(Luas[luaid],nres))
+      if (!lua_isstring(L,nres))
 	goto EXIT;
-      s = (char *)lua_tolstring(Luas[luaid],nres,(size_t *)&len);
+      s = (char *)lua_tolstring(L,nres,(size_t *)&len);
       if (s==NULL || len == 0) 
 	*va_arg(vl, int *) = 0;
       else {
-	//puts(s);
 	ss = xmalloc((len-1));
         (void)memcpy(ss,s,(len-1));
 	*va_arg(vl, char **) = ss;
@@ -339,35 +288,25 @@ do_run_callback (int special, int luaid, char *tabname, char *name, char *values
 
 static int callback_register (lua_State *L) {
   int i;
-  const char *st;
   if (!lua_isstring(L,1))
     goto EXIT;
   if ((!lua_isfunction(L,2)) && !lua_isnil(L,2))
     goto EXIT;
-  st = lua_tostring(L,1);
-  for (i=0; callbacknames[i]; i++)
-    if (strcmp(callbacknames[i], st) == 0)
-      break;
-  if (i==NUM_CALLBACKS)
+  i = callback_name_to_id((char *)lua_tostring(L,1));
+  if (i==0)
     goto EXIT;  /* undefined callbacks are never set */
   if (lua_isfunction(L,2)) {
-    lua_getglobal(L,"lua");
-    lua_getfield(L,-1,"id");
-    if (!lua_isnumber(L,-1)) {
-      lua_pop(L,2);
-      goto EXIT;
-    }
-    callback_list[i].lua_id = lua_tonumber(L,-1);
     callback_list[i].is_set = 1;
-    lua_pop(L,2);
   } else {
     callback_list[i].is_set = 0;
   }
-  lua_getfield(L,LUA_REGISTRYINDEX,"callbacks"); /* 3=table, 2=fucntion 1=name */
+  lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
+  //lua_getfield(L,LUA_REGISTRYINDEX,"callbacks"); /* 3=table, 2=fucntion 1=name */
   lua_pushvalue(L,1);
   lua_pushvalue(L,2);
   lua_settable(L,-3);
-  lua_setfield(L,LUA_REGISTRYINDEX,"callbacks");
+  lua_rawseti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
+  //  lua_setfield(L,LUA_REGISTRYINDEX,"callbacks");
   lua_pop(L,2);
   return 0;
  EXIT:
@@ -389,43 +328,43 @@ int luaopen_callback (lua_State *L)
   //  lua_replace(L, LUA_REGISTRYINDEX);
   luaL_register(L, "callback", callbacklib);
   lua_newtable(L);
-  lua_setfield(L,LUA_REGISTRYINDEX,"callbacks");
+  callback_callbacks_id = luaL_ref(L,LUA_REGISTRYINDEX);
   return 1;
 }
 
 /* this is how we know there is a pending callback */
 
-unsigned char **input_file_callback_ids = NULL;
-unsigned char **read_file_callback_ids = NULL;
+int *input_file_callback_ids = NULL;
+int *read_file_callback_ids = NULL;
 
 void 
 initfilecallbackids (int max) {
   int k;
-  input_file_callback_ids = (unsigned char **)xmalloc(sizeof(unsigned char *)*(max+1));
-  read_file_callback_ids  = (unsigned char **)xmalloc(sizeof(unsigned char *)*(max+1));
+  input_file_callback_ids = (int *)xmalloc(sizeof(int)*(max+1));
+  read_file_callback_ids  = (int *)xmalloc(sizeof(int)*(max+1));
   for (k=0;k<=max;k++) {
-    input_file_callback_ids[k]= NULL;
-    read_file_callback_ids[k]= NULL;
+    input_file_callback_ids[k]= 0;
+    read_file_callback_ids[k]= 0;
   }
 }
 
-unsigned char*
+int
 getinputfilecallbackid (int n) {  
   return input_file_callback_ids[n]; 
 }
 
 void 
-setinputfilecallbackid (int n, unsigned char *val) {
+setinputfilecallbackid (int n, int val) {
   input_file_callback_ids[n]=val; 
 }
 
-unsigned char *
+int
 getreadfilecallbackid (int n) {
   return read_file_callback_ids[n]; 
 }
 
 void 
-setreadfilecallbackid (int n, unsigned char *val) {
+setreadfilecallbackid (int n, int val) {
   read_file_callback_ids[n]=val; 
 }
 

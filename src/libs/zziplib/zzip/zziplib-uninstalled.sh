@@ -2,10 +2,10 @@
 prefix="/programs"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
-libdir="/home/taco/luatex-dev/luatex/src/libs/zziplib/zzip/.libs"
+libdir="/home/taco/luatex/luatex/src/libs/zziplib/zzip/.libs"
 datadir="${prefix}/share"
 sysconfdir="${sbindir}"
-includedir="/home/taco/luatex-dev/luatex/src/libs/zziplib/."
+includedir="/home/taco/luatex/luatex/src/libs/zziplib/."
 package="zziplib"
 suffix=""
 
@@ -15,7 +15,7 @@ for option; do case "$option" in --list-all|--name) echo  "zziplib"
 ;; --requires) echo pkg-config zzip-zlib-config "zzip-zlib-config"
 ;; --libs) echo -L${libdir} "" "-lzzip"
        pkg-config zzip-zlib-config
-;; --cflags) echo -I${includedir} ""
+;; --cflags) echo -I${includedir} "-I/home/taco/luatex/luatex/src/libs/zziplib/../zlib"
        pkg-config zzip-zlib-config
 ;; --variable=*) eval echo '$'`echo $option | sed -e 's/.*=//'`
 ;; --uninstalled) exit 0 

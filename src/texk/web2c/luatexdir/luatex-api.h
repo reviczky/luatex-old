@@ -34,20 +34,18 @@ extern int luaopen_zip (lua_State *L);
 
 extern int callbackdefined (char *name);
 
-extern int runcallback (char *name, char *values, ...);
-extern int runsavedcallback (char *idstring, char *name, char *values, ...);
-extern unsigned char *runandsavecallback (char *name, char *values, ...);
-extern void destroysavedcallback (char *idstring);
+extern int  runcallback          (int i, char *values, ...);
+extern int  runsavedcallback     (int i, char *name, char *values, ...);
+extern int  runandsavecallback   (int i, char *values, ...);
+extern void destroysavedcallback (int i);
 
-/* all of this because web2c doesn't understand arrays to pointers */
+extern void initfilecallbackids    (int max);
+extern void setinputfilecallbackid (int n, int i) ;
+extern void setreadfilecallbackid  (int n, int i) ;
+extern int  getinputfilecallbackid (int n);
+extern int  getreadfilecallbackid  (int n);
 
-extern void initfilecallbackids (int max);
-extern void setinputfilecallbackid (int n, unsigned char *val) ;
-extern void setreadfilecallbackid (int n, unsigned char *val) ;
-extern unsigned char *getinputfilecallbackid (int n);
-extern unsigned char *getreadfilecallbackid (int n);
-
-extern void luainitialize (int luaid);
+extern void luainitialize (void);
 
 extern int luaopen_kpse (lua_State *L);
 
