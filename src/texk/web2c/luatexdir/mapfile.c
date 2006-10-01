@@ -26,6 +26,7 @@ $Id: mapfile.c,v 1.20 2005/10/16 17:41:51 hahe Exp hahe $
 #include <kpathsea/c-auto.h>
 #include <kpathsea/c-memstr.h>
 #include <string.h>
+#include "luatex-api.h"
 
 static const char perforce_id[] =
     "$Id: mapfile.c,v 1.20 2005/10/16 17:41:51 hahe Exp hahe $";
@@ -34,11 +35,17 @@ static const char perforce_id[] =
 
 static FILE *fm_file;
 
+static unsigned char *fm_buffer = NULL;
+static integer fm_size = 0;
+static integer fm_curbyte = 0;
+
 #define fm_open()       \
     open_input (&fm_file, kpse_fontmap_format, FOPEN_RBIN_MODE)
+#define fm_read_file()  \
+    readbinfile(fm_file,&fm_buffer,&fm_size)
 #define fm_close()      xfclose(fm_file, cur_file_name)
-#define fm_getchar()    xgetc(fm_file)
-#define fm_eof()        feof(fm_file)
+#define fm_getchar()    fm_buffer[fm_curbyte++]
+#define fm_eof()        (fm_curbyte>fm_size)
 
 enum _mode { FM_DUPIGNORE, FM_REPLACE, FM_DELETE };
 enum _ltype { MAPFILE, MAPLINE };
@@ -436,7 +443,7 @@ static void fm_scan_line ()
             c = fm_getchar ();
             append_char_to_buf (c, p, fm_line, FM_BUF_SIZE);
         }
-        while (c != 10);
+        while (c != 10 && !fm_eof());
         *(--p) = '\0';
         r = fm_line;
         break;
@@ -573,6 +580,8 @@ static void fm_scan_line ()
 
 void fm_read_info ()
 {
+    int callback_id;
+    int file_opened = 0;
     if (tfm_tree == NULL)
         create_avl_trees ();
     if (mitem->line == NULL)    /* nothing to do */
@@ -581,9 +590,38 @@ void fm_read_info ()
     switch (mitem->type) {
     case MAPFILE:
         set_cur_file_name (mitem->line);
-        if (!fm_open ()) {
+	if (fm_buffer!=NULL) {
+	  xfree(fm_buffer);
+	  fm_buffer=NULL;
+	}
+	fm_curbyte=0;
+	fm_size=0;
+        callback_id=callbackdefined("read_map_file");
+        if (callback_id>0) {
+	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+                          &file_opened, &fm_buffer,&fm_size)) {
+	    if(file_opened) {
+	      if (fm_size>0) {
+		cur_file_name = (char *) nameoffile + 1;
+		tex_printf ("{%s", cur_file_name);
+		while (!fm_eof ()) {
+		  fm_scan_line ();
+		  mitem->lineno++;
+		}
+		tex_printf ("}");
+		fm_file = NULL;
+	      }
+	    } else {
+	      pdftex_warn ("cannot open font map file");
+	    }
+	  } else {
             pdftex_warn ("cannot open font map file");
-        } else {
+	  }
+	} else {
+	  if (!fm_open ()) {
+            pdftex_warn ("cannot open font map file");
+	  } else {
+            fm_read_file();
             cur_file_name = (char *) nameoffile + 1;
             tex_printf ("{%s", cur_file_name);
             while (!fm_eof ()) {
@@ -593,7 +631,8 @@ void fm_read_info ()
             fm_close ();
             tex_printf ("}");
             fm_file = NULL;
-        }
+	  }
+	}
         break;
     case MAPLINE:
         cur_file_name = NULL;   /* makes pdftex_warn() shorter */
@@ -708,17 +747,29 @@ ff_entry *check_ff_exist (fm_entry * fm)
     ff_entry *ff;
     ff_entry tmp;
     void **aa;
-
+    int callback_id;
+    char *filepath=NULL;
     assert (fm->ff_name != NULL);
     tmp.ff_name = fm->ff_name;
     ff = (ff_entry *) avl_find (ff_tree, &tmp);
     if (ff == NULL) {           /* not yet in database */
         ff = new_ff_entry ();
         ff->ff_name = xstrdup (fm->ff_name);
-        if (is_truetype (fm))
-            ff->ff_path = kpse_find_file (fm->ff_name, kpse_truetype_format, 0);
-        else
-            ff->ff_path = kpse_find_file (fm->ff_name, kpse_type1_format, 0);
+	if (is_truetype (fm)) {
+	    callback_id=callbackdefined("find_truetype_file");
+	    if (callback_id>0 && runcallback(callback_id,"S->S",fm->ff_name,&filepath)) {
+	      ff->ff_path = filepath;
+	    } else {
+	      ff->ff_path = kpse_find_file (fm->ff_name, kpse_truetype_format, 0);
+	    }
+	} else {
+	    callback_id=callbackdefined("find_type1_file");
+	    if (callback_id>0 && runcallback(callback_id,"S->S",fm->ff_name,&filepath)) {
+	      ff->ff_path = filepath;
+	    } else {
+	      ff->ff_path = kpse_find_file (fm->ff_name, kpse_type1_format, 0);
+	    }
+	}
         aa = avl_probe (ff_tree, ff);
         assert (aa != NULL);
     }
