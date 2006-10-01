@@ -274,6 +274,8 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
 {
     char *dest = NULL;
     integer img = new_image_entry ();
+    char *imagename;
+    int callback_id;
     img_colorspace_ref (img) = colorspace;
 
     /* need to allocate new string as makecstring's buffer is 
@@ -281,11 +283,18 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
     if (page_name != 0)
         dest = xstrdup (makecstring (page_name));
     cur_file_name = makecfilename (s);
-    img_name (img) = kpse_find_file (cur_file_name, kpse_tex_format, true);
+    
+    callback_id=callbackdefined("find_image_file");
+    if (callback_id>0 && runcallback(callback_id,"S->S",cur_file_name,&imagename)) {
+      img_name (img) = imagename;
+    } else {
+      img_name (img) = kpse_find_file (cur_file_name, kpse_tex_format, true);
+    }
     if (img_name (img) == NULL)
-        pdftex_fail ("cannot find image file");
+      pdftex_fail ("cannot find image file");
     /* kpse_find_file perhaps changed the file name */
     cur_file_name = img_name (img);
+
     /* type checks */
     checktypebyheader (img);
     checktypebyextension (img);
