@@ -11,6 +11,10 @@ static const char *const callbacknames[] = {
   "read_vf_file",
   "read_data_file",
   "read_font_file",
+  "read_map_file",
+  "find_truetype_file",
+  "find_type1_file",
+  "find_image_file",
   "show_error_hook",
   NULL };
 
@@ -20,7 +24,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 7
+#define NUM_CALLBACKS 11
 
 static callback_info *callback_list;
 
@@ -269,15 +273,21 @@ do_run_callback (int special, char *values, va_list vl) {
       break;
     case CALLBACK_STRING:  /* C string aka buffer */
       if (!lua_isstring(L,nres)) {
-	fprintf(stderr,"Expected a string for (S), not: %s\n", lua_typename(L,lua_type(L,nres)));
-	goto EXIT;
+	if (!lua_isnil(L,nres)) {
+	  fprintf(stderr,"Expected a string for (S), not: %s\n", lua_typename(L,lua_type(L,nres)));
+	  goto EXIT;
+	}
       }
-      s = (char *)lua_tolstring(L,nres,(size_t *)&len);
+      if (lua_isstring(L,nres))
+	s = (char *)lua_tolstring(L,nres,(size_t *)&len);
+      else
+	s = NULL;
       if (s==NULL || len == 0) 
 	*va_arg(vl, int *) = 0;
       else {
-	ss = xmalloc((len-1));
-        (void)memcpy(ss,s,(len-1));
+	ss = xmalloc(len+1);
+	*(ss+len)=0;
+        (void)memcpy(ss,s,len);
 	*va_arg(vl, char **) = ss;
       }
       break;
