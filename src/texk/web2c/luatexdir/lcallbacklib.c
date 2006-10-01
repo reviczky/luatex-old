@@ -46,10 +46,11 @@ int
 callbackdefined (char *name) {  
   int i;
   i = callback_name_to_id(name);
-  return callback_list[i].is_set;
+  if (callback_list[i].is_set)
+    return i;
+  return 0;
 }
 
-#define CALLBACK_FILE           'f'
 #define CALLBACK_BOOLEAN        'b'
 #define CALLBACK_INTEGER        'd'
 #define CALLBACK_LINE           'l'
@@ -73,6 +74,7 @@ runsavedcallback (int r, char *name, char *values, ...) {
   int stacktop;
   stacktop = lua_gettop(Luas[0]);  
   va_start(args,values);
+  luaL_checkstack(Luas[0],2,"out of stack space");
   lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,r);
   lua_getfield(Luas[0],-1,name);
   if (lua_isnil(Luas[0],-1)) {
@@ -105,24 +107,27 @@ runandsavecallback (int i, char *values, ...) {
   int r;
   char *ret;
   int stacktop;
+  lua_State *L;
+  L = Luas[0];
   if(i>0 && callback_list[i].is_set) {
-    stacktop = lua_gettop(Luas[0]);
+    stacktop = lua_gettop(L);
     va_start(args,values);
-    lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,callback_callbacks_id);
-    lua_getfield(Luas[0],-1,callbacknames[i]);
+    luaL_checkstack(L,2,"out of stack space");
+    lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
+    lua_getfield(L,-1,callbacknames[i]);
     r=do_run_callback(1,values,args);
     va_end(args);
     if (r>0) {
       /* do something to save the ret table here; */
-      if(lua_istable(Luas[0],-1)) {
-	r = luaL_ref(Luas[0],LUA_REGISTRYINDEX);
-	lua_settop(Luas[0],stacktop);
+      if(lua_istable(L,-1)) {
+	r = luaL_ref(L,LUA_REGISTRYINDEX);
+	lua_settop(L,stacktop);
 	return r;
       } else {
-	fprintf(stderr,"NOT A CALLBACK\n");
+	fprintf(stderr,"Expected a table, not: %s\n", lua_typename(L,lua_type(L,-1)));
       }
     }
-    lua_settop(Luas[0],stacktop);
+    lua_settop(L,stacktop);
   }
   return 0;
 }
@@ -136,6 +141,7 @@ runcallback (int i, char *values, ...) {
   if (i>0 && callback_list[i].is_set) {
     stacktop = lua_gettop(Luas[0]);
     va_start(args,values);
+    luaL_checkstack(Luas[0],2,"out of stack space");
     lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,callback_callbacks_id);
     lua_getfield(Luas[0],-1,callbacknames[i]);
     ret = do_run_callback(0,values,args);
@@ -160,22 +166,17 @@ do_run_callback (int special, char *values, va_list vl) {
   lua_State *L;
   L = Luas[0];
   if (!lua_istable(L,-2)) {
-    fprintf(stderr,"\nNOT A TABLE\n");
+    fprintf(stderr,"Expected a table, not: %s\n", lua_typename(L,lua_type(L,-2)));
+    return 0;
   }
   if (!lua_isfunction(L,-1)) {
-    fprintf(stdout,"\nMissing callback      : %s\n", lua_tostring(L,-1));
+    fprintf(stderr,"Expected a function, not: %s\n", lua_typename(L,lua_type(L,-1)));
     return 0;
   }
   //  va_start(vl, values);
   for (narg = 0; *values; narg++) {
     luaL_checkstack(L,1,"out of stack space");
     switch (*values++) {
-    case CALLBACK_FILE: /* FILE * */ 
-      readfile = (FILE **)lua_newuserdata(L, sizeof(FILE *));
-      *readfile = va_arg(vl, FILE *); 
-      luaL_getmetatable(L, LUA_TEXFILEHANDLE);
-      lua_setmetatable(L, -2);
-      break;
     case CALLBACK_CHARNUM: /* an ascii char! */ 
       s = malloc(2);
       snprintf(s,2,"%c",va_arg(vl, int));
@@ -220,26 +221,27 @@ do_run_callback (int special, char *values, va_list vl) {
   while (*values) {
     switch (*values++) {
     case CALLBACK_BOOLEAN: 
-      if (!lua_isboolean(L,nres))
+      if (!lua_isboolean(L,nres)) {
+	fprintf(stderr,"Expected a boolean, not: %s\n", lua_typename(L,lua_type(L,nres)));
 	goto EXIT;
+      }
       int b = lua_toboolean(L,nres);
       *va_arg(vl, int *) = b;
       break;
     case CALLBACK_INTEGER: 
-      if (!lua_isnumber(L,nres))
+      if (!lua_isnumber(L,nres)) {
+	fprintf(stderr,"Expected a number, not: %s\n", lua_typename(L,lua_type(L,nres)));
 	goto EXIT;
+      }
       b = lua_tonumber(L,nres);
       *va_arg(vl, int *) = b;
       break;
-    case CALLBACK_FILE: 
-            readfile = (FILE **)lua_touserdata(L, nres);
-      if (readfile == NULL)
-      	goto EXIT;
-      *va_arg(vl, FILE **) = *readfile;
-      break;
     case CALLBACK_LINE:  /* TeX line */
-      if (!lua_isstring(L,nres))
+      if (!lua_isstring(L,nres)) {
+	if (!lua_isnil(L,nres))
+	  fprintf(stderr,"Expected a string for (l), not: %s\n", lua_typename(L,lua_type(L,nres))); 
 	goto EXIT;
+      }
       ss = (char *)lua_tostring(L,nres);
       if (ss!=NULL) {
 	s = strdup(ss);
@@ -254,8 +256,10 @@ do_run_callback (int special, char *values, va_list vl) {
       }
       break;
     case CALLBACK_STRNUMBER:  /* TeX string */
-      if (!lua_isstring(L,nres))
+      if (!lua_isstring(L,nres)) {
+	fprintf(stderr,"Expected a string for (s), not: %s\n", lua_typename(L,lua_type(L,nres)));
 	goto EXIT;
+      }
       s = (char *)lua_tostring(L,nres);
       if (s==NULL) 
 	*va_arg(vl, int *) = -1;
@@ -264,8 +268,10 @@ do_run_callback (int special, char *values, va_list vl) {
       }
       break;
     case CALLBACK_STRING:  /* C string aka buffer */
-      if (!lua_isstring(L,nres))
+      if (!lua_isstring(L,nres)) {
+	fprintf(stderr,"Expected a string for (S), not: %s\n", lua_typename(L,lua_type(L,nres)));
 	goto EXIT;
+      }
       s = (char *)lua_tolstring(L,nres,(size_t *)&len);
       if (s==NULL || len == 0) 
 	*va_arg(vl, int *) = 0;
@@ -300,6 +306,7 @@ static int callback_register (lua_State *L) {
   } else {
     callback_list[i].is_set = 0;
   }
+  luaL_checkstack(L,3,"out of stack space");
   lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
   //lua_getfield(L,LUA_REGISTRYINDEX,"callbacks"); /* 3=table, 2=fucntion 1=name */
   lua_pushvalue(L,1);
@@ -327,6 +334,7 @@ int luaopen_callback (lua_State *L)
   //  lua_newtable(L);
   //  lua_replace(L, LUA_REGISTRYINDEX);
   luaL_register(L, "callback", callbacklib);
+  luaL_checkstack(L,1,"out of stack space");
   lua_newtable(L);
   callback_callbacks_id = luaL_ref(L,LUA_REGISTRYINDEX);
   return 1;
