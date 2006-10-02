@@ -2,26 +2,26 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Define to 1 if you have the <byteswap.h> header file. */
-/* #undef HAVE_BYTESWAP_H */
+#define HAVE_BYTESWAP_H 1
 
 /* Define to 1 if you have the <direct.h> header file. */
-#define HAVE_DIRECT_H 1
+/* #undef HAVE_DIRECT_H */
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
 #define HAVE_DIRENT_H 1
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
-/* #undef HAVE_DLFCN_H */
+#define HAVE_DLFCN_H 1
 
 /* Define to 1 if you have the <fnmatch.h> header file. */
-/* #undef HAVE_FNMATCH_H */
+#define HAVE_FNMATCH_H 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
 /* Define to 1 if you have the <io.h> header file. */
-#define HAVE_IO_H 1
+/* #undef HAVE_IO_H */
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
@@ -45,7 +45,7 @@
 #define HAVE_STRING_H 1
 
 /* Define to 1 if you have the `strndup' function. */
-/* #undef HAVE_STRNDUP */
+#define HAVE_STRNDUP 1
 
 /* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
    */
@@ -55,7 +55,7 @@
 /* #undef HAVE_SYS_INT_TYPES_H */
 
 /* Define to 1 if you have the <sys/mman.h> header file. */
-/* #undef HAVE_SYS_MMAN_H */
+#define HAVE_SYS_MMAN_H 1
 
 /* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'.
    */
@@ -74,20 +74,20 @@
 #define HAVE_UNISTD_H 1
 
 /* Define to 1 if you have the <winbase.h> header file. */
-#define HAVE_WINBASE_H 1
+/* #undef HAVE_WINBASE_H */
 
 /* Define to 1 if you have the <windows.h> header file. */
-#define HAVE_WINDOWS_H 1
+/* #undef HAVE_WINDOWS_H */
 
 /* Define to 1 if you have the <winnt.h> header file. */
-#define HAVE_WINNT_H 1
+/* #undef HAVE_WINNT_H */
 
 /* Define to 1 if you have the <zlib.h> header file. */
 #define HAVE_ZLIB_H 1
 
 /* whether the system defaults to 32bit off_t but can do 64bit when requested
    */
-/* #undef LARGEFILE_SENSITIVE */
+#define LARGEFILE_SENSITIVE 1
 
 /* Name of package */
 #define PACKAGE "zziplib"
@@ -127,13 +127,13 @@
 /* #undef WORDS_BIGENDIAN */
 
 /* Number of bits in a file offset, on hosts where this is settable. */
-/* #undef _FILE_OFFSET_BITS */
+#define _FILE_OFFSET_BITS 64
 
 /* Define for large files, on AIX-style hosts. */
 /* #undef _LARGE_FILES */
 
 /* Define to `long long' if <sys/types.h> does not define. */
-/* #undef __int64 */
+#define __int64 long long
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */
@@ -145,7 +145,7 @@
 #endif
 
 /* Define to `_zzip_off_t' if <sys/types.h> does not define. */
-/* #undef off64_t */
+#define off64_t _zzip_off_t
 
 /* Define to `long' if <sys/types.h> does not define. */
 /* #undef off_t */

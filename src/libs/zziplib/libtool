@@ -44,7 +44,7 @@ available_tags=" CXX"
 
 # ### BEGIN LIBTOOL CONFIG
 
-# Libtool was configured on host hal.chatalicious.net:
+# Libtool was configured on host glenlivet.elvenkind.com:
 
 # Shell to use when invoking shell scripts.
 SHELL="/bin/sh"
@@ -65,14 +65,14 @@ allow_libtool_libs_with_static_runtimes=no
 fast_install=needless
 
 # The host system.
-host_alias=i386-linux
-host=i386-pc-linux
+host_alias=
+host=i686-pc-linux
 host_os=linux
 
 # The build system.
-build_alias=i386-mingw32
-build=i386-pc-mingw32
-build_os=mingw32
+build_alias=
+build=i686-pc-linux
+build_os=linux
 
 # An echo program that does not interpret backslashes.
 echo="echo"
@@ -97,13 +97,13 @@ with_gcc=yes
 EGREP="grep -E"
 
 # The linker used to build libraries.
-LD="/usr/mingw32/mingw32/bin/ld"
+LD="/usr/bin/ld"
 
 # Whether we need hard or soft links.
 LN_S="ln -s"
 
 # A BSD-compatible nm program.
-NM="nm"
+NM="/usr/bin/nm -B"
 
 # A symbol stripping program
 STRIP="strip"
@@ -143,11 +143,11 @@ shrext_cmds='.so'
 exeext=""
 
 # Additional compiler flags for building library objects.
-pic_flag=" -DPIC"
+pic_flag=" -fPIC -DPIC"
 pic_mode=default
 
 # What is the maximum length of a command?
-max_cmd_len=8192
+max_cmd_len=32768
 
 # Does compiler simultaneously support -c and -o options?
 compiler_c_o="yes"
@@ -171,7 +171,7 @@ dlopen_self=unknown
 dlopen_self_static=unknown
 
 # Compiler flag to prevent dynamic linking.
-link_static_flag="-static"
+link_static_flag=""
 
 # Compiler flag to turn off builtin functions.
 no_builtin_flag=" -fno-builtin"
@@ -266,7 +266,7 @@ finish_cmds="PATH=\\\"\\\$PATH:/sbin\\\" ldconfig -n \$libdir"
 finish_eval=""
 
 # Take the output of nm and produce a listing of raw symbols and C names.
-global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*_\\([_A-Za-z][_A-Za-z0-9]*\\)\\{0,1\\}\$/\\1 _\\2 \\2/p'"
+global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2 \\2/p'"
 
 # Transform the output of nm in a proper C declaration
 global_symbol_to_cdecl="sed -n -e 's/^. .* \\(.*\\)\$/extern int \\1;/p'"
@@ -325,10 +325,10 @@ variables_saved_for_relink="PATH LD_LIBRARY_PATH LD_RUN_PATH GCC_EXEC_PREFIX COM
 link_all_deplibs=unknown
 
 # Compile-time system search path for libraries
-sys_lib_search_path_spec=" /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/ /usr/mingw32/lib/gcc/mingw32/3.4.5/ /usr/lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/"
+sys_lib_search_path_spec=" /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../../i586-mandriva-linux-gnu/lib/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../../i586-mandriva-linux-gnu/lib/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../ /lib/i586-mandriva-linux-gnu/4.0.1/ /lib/ /usr/lib/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/"
 
 # Run-time system search path for libraries
-sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/lib/qt3/lib /usr/X11R6/lib "
+sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/Adobe/Acrobat7.0/Reader/intellinux/lib /usr/lib/graphviz /usr/lib/nvidia /usr/X11R6/lib /usr/lib/qt3/lib "
 
 # Fix the shell variable $srcfile for the compiler.
 fix_srcfile_path=""
@@ -6852,7 +6852,7 @@ build_old_libs=`case $build_libtool_libs in yes) $echo no;; *) $echo yes;; esac`
 # End:
 # ### BEGIN LIBTOOL TAG CONFIG: CXX
 
-# Libtool was configured on host hal.chatalicious.net:
+# Libtool was configured on host glenlivet.elvenkind.com:
 
 # Shell to use when invoking shell scripts.
 SHELL="/bin/sh"
@@ -6873,14 +6873,14 @@ allow_libtool_libs_with_static_runtimes=no
 fast_install=needless
 
 # The host system.
-host_alias=i386-linux
-host=i386-pc-linux
+host_alias=
+host=i686-pc-linux
 host_os=linux
 
 # The build system.
-build_alias=i386-mingw32
-build=i386-pc-mingw32
-build_os=mingw32
+build_alias=
+build=i686-pc-linux
+build_os=linux
 
 # An echo program that does not interpret backslashes.
 echo="echo"
@@ -6905,13 +6905,13 @@ with_gcc=yes
 EGREP="grep -E"
 
 # The linker used to build libraries.
-LD="/usr/mingw32/mingw32/bin/ld"
+LD="/usr/bin/ld"
 
 # Whether we need hard or soft links.
 LN_S="ln -s"
 
 # A BSD-compatible nm program.
-NM="nm"
+NM="/usr/bin/nm -B"
 
 # A symbol stripping program
 STRIP="strip"
@@ -6951,11 +6951,11 @@ shrext_cmds='.so'
 exeext=""
 
 # Additional compiler flags for building library objects.
-pic_flag=" -DPIC"
+pic_flag=" -fPIC -DPIC"
 pic_mode=default
 
 # What is the maximum length of a command?
-max_cmd_len=8192
+max_cmd_len=32768
 
 # Does compiler simultaneously support -c and -o options?
 compiler_c_o="yes"
@@ -6979,7 +6979,7 @@ dlopen_self=unknown
 dlopen_self_static=unknown
 
 # Compiler flag to prevent dynamic linking.
-link_static_flag="-static"
+link_static_flag=""
 
 # Compiler flag to turn off builtin functions.
 no_builtin_flag=" -fno-builtin"
@@ -7034,11 +7034,11 @@ striplib="strip --strip-unneeded"
 
 # Dependencies to place before the objects being linked to create a
 # shared library.
-predep_objects="/usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/dllcrt2.o /usr/mingw32/lib/gcc/mingw32/3.4.5/crtbegin.o"
+predep_objects="/usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../crti.o /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/crtbeginS.o"
 
 # Dependencies to place after the objects being linked to create a
 # shared library.
-postdep_objects="/usr/mingw32/lib/gcc/mingw32/3.4.5/crtend.o"
+postdep_objects="/usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/crtendS.o /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../crtn.o"
 
 # Dependencies to place before the objects being linked to create a
 # shared library.
@@ -7046,11 +7046,11 @@ predeps=""
 
 # Dependencies to place after the objects being linked to create a
 # shared library.
-postdeps="-lstdc++ -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -luser32 -lkernel32 -ladvapi32 -lshell32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt"
+postdeps="-lstdc++ -lm -lgcc_s -lc -lgcc_s"
 
 # The library search path used internally by the compiler when linking
 # a shared library.
-compiler_lib_search_path="-L/usr/mingw32/lib/gcc/mingw32/3.4.5 -L/usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib"
+compiler_lib_search_path="-L/usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1 -L/usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1 -L/usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../.."
 
 # Method to check whether dependent libraries are shared objects.
 deplibs_check_method="pass_all"
@@ -7071,7 +7071,7 @@ finish_cmds="PATH=\\\"\\\$PATH:/sbin\\\" ldconfig -n \$libdir"
 finish_eval=""
 
 # Take the output of nm and produce a listing of raw symbols and C names.
-global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*_\\([_A-Za-z][_A-Za-z0-9]*\\)\\{0,1\\}\$/\\1 _\\2 \\2/p'"
+global_symbol_pipe="sed -n -e 's/^.*[ 	]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[ 	][ 	]*\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2 \\2/p'"
 
 # Transform the output of nm in a proper C declaration
 global_symbol_to_cdecl="sed -n -e 's/^. .* \\(.*\\)\$/extern int \\1;/p'"
@@ -7130,10 +7130,10 @@ variables_saved_for_relink="PATH LD_LIBRARY_PATH LD_RUN_PATH GCC_EXEC_PREFIX COM
 link_all_deplibs=unknown
 
 # Compile-time system search path for libraries
-sys_lib_search_path_spec=" /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/ /usr/mingw32/lib/gcc/mingw32/3.4.5/ /usr/lib/gcc/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/mingw32/bin/../lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/mingw32/3.4.5/ /usr/mingw32/lib/gcc/mingw32/3.4.5/../../../../mingw32/lib/"
+sys_lib_search_path_spec=" /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../../i586-mandriva-linux-gnu/lib/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../../i586-mandriva-linux-gnu/lib/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../i586-mandriva-linux-gnu/4.0.1/ /usr/lib/gcc/i586-mandriva-linux-gnu/4.0.1/../../../ /lib/i586-mandriva-linux-gnu/4.0.1/ /lib/ /usr/lib/i586-mandriva-linux-gnu/4.0.1/ /usr/lib/"
 
 # Run-time system search path for libraries
-sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/lib/qt3/lib /usr/X11R6/lib "
+sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/Adobe/Acrobat7.0/Reader/intellinux/lib /usr/lib/graphviz /usr/lib/nvidia /usr/X11R6/lib /usr/lib/qt3/lib "
 
 # Fix the shell variable $srcfile for the compiler.
 fix_srcfile_path=""
