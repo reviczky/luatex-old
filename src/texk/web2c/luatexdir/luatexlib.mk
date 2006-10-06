@@ -111,12 +111,19 @@ $(SLNUNICODEDEP): $(SLNUNICODEDIR)/slnunico.c $(SLNUNICODEDIR)/slnudata.c
 
 # zziplib
 
+zzipretarget=
+
+ifeq ($(target),i386-mingw32)
+  zzipretarget=--target=$(target) --build=$(target) --host=$(host)
+endif
+
+
 ZZIPLIBDIR=../../libs/zziplib
 ZZIPLIBSRCDIR=$(srcdir)/$(ZZIPLIBDIR)
 ZZIPLIBDEP = $(ZZIPLIBDIR)/zzip/.libs/libzzip.a
 
 $(ZZIPLIBDEP): $(ZZIPLIBSRCDIR)
-	mkdir -p $(ZZIPLIBDIR) && cd $(ZZIPLIBDIR) && cp -a $(ZZIPLIBSRCDIR)/* . && cd $(ZZIPLIBDIR)/zzip && $(MAKE) $(common_makeargs) libzzip.la
+	mkdir -p $(ZZIPLIBDIR) && cd $(ZZIPLIBDIR) && cp -a $(ZZIPLIBSRCDIR)/* . && env CPPFLAGS=-I$(ZLIBSRCDIR) ./configure --disable-builddir --disable-shared $(zzipretarget) && cd $(ZZIPLIBDIR)/zzip && $(MAKE) $(common_makeargs) libzzip.la
 
 # luazip
 

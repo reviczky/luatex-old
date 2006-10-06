@@ -60,13 +60,6 @@ cd build
             --without-tth       \
             --without-xdvik     \
             || exit 1 
-(cd ../src/libs/zziplib; env CPPFLAGS=-I`pwd`/../zlib  ./configure \
-            --disable-builddir       \
-            --disable-shared         \
-            --target=i386-mingw32    \
-            --build=i386-mingw32     \
-            --host=i386-linux        \
-           ) || exit 1
 # make the binaries
 (cd texk/web2c/web2c; $MAKE) || exit 1
 (cd texk/web2c; $MAKE ../kpathsea/libkpathsea.la) || exit 1
