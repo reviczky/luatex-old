@@ -293,6 +293,33 @@ static int read_line (lua_State *L, FILE *f) {
   }
 }
 
+/* this new version does not care wether the file has 
+   line endings using an 'alien' convention */
+
+static int new_read_line (lua_State *L, FILE *f) {
+  luaL_Buffer b;
+  int c, d;
+  luaL_buffinit(L, &b);
+  while (1) {
+    c = fgetc(f);
+    if (c == EOF) {
+      luaL_pushresult(&b);  /* close buffer */
+      return (lua_strlen(L, -1) > 0);  /* check whether read something */      
+    } else if (c == '\n') {
+      break;
+    } else if (c == '\r') {
+      d = fgetc(f);
+      if (d != EOF && d != '\n')
+	ungetc(d,f);
+      break;
+    } else {
+      luaL_addchar(&b,c);
+    }
+  }
+  luaL_pushresult(&b);  /* close buffer */
+  return 1;
+}
+
 
 static int read_chars (lua_State *L, FILE *f, size_t n) {
   size_t rlen;  /* how much to read */
@@ -337,7 +364,7 @@ static int g_read (lua_State *L, FILE *f, int first) {
             success = read_number(L, f);
             break;
           case 'l':  /* line */
-            success = read_line(L, f);
+            success = new_read_line(L, f);
             break;
           case 'a':  /* file */
             read_chars(L, f, ~((size_t)0));  /* read MAX_SIZE_T chars */
@@ -367,7 +394,6 @@ static int io_read (lua_State *L) {
 static int f_read (lua_State *L) {
   return g_read(L, tofile(L), 2);
 }
-
 
 static int io_readline (lua_State *L) {
   FILE *f = *(FILE **)lua_touserdata(L, lua_upvalueindex(1));
