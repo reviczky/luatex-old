@@ -12,6 +12,11 @@ static const char *const callbacknames[] = {
   "read_data_file",
   "read_font_file",
   "read_map_file",
+  "read_enc_file",
+  "read_type1_file",
+  "read_truetype_file",
+  "read_opentype_file",
+  "find_read_file",
   "find_truetype_file",
   "find_type1_file",
   "find_image_file",
@@ -24,7 +29,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 11
+#define NUM_CALLBACKS 16
 
 static callback_info *callback_list;
 
@@ -127,6 +132,9 @@ runandsavecallback (int i, char *values, ...) {
 	r = luaL_ref(L,LUA_REGISTRYINDEX);
 	lua_settop(L,stacktop);
 	return r;
+      } else if (lua_isnil(L,-1)) {
+	lua_settop(L,stacktop);
+	return 0;
       } else {
 	fprintf(stderr,"Expected a table, not: %s\n", lua_typename(L,lua_type(L,-1)));
       }

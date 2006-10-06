@@ -315,15 +315,9 @@ end;
 @z
 
 @x
-        lua_a_open_in := a_open_in(f);
+    lua_a_open_in := a_open_in(f);
 @y
-        lua_a_open_in := a_open_in(f,kpse_tex_format);
-@z
-
-@x
-     lua_a_open_in := a_open_in(f);
-@y
-     lua_a_open_in := a_open_in(f,kpse_tex_format);
+    lua_a_open_in := a_open_in(f,kpse_tex_format);
 @z
 
 

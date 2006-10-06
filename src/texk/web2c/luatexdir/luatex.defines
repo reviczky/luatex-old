@@ -46,7 +46,8 @@ $Id $
 @define function  luacstringcattable;
 @define function  luacstringdefaultcattable;
 @define function  luacstringsimple;
-@define procedure luacstringclose;
+@define procedure luacstringclose();
+@define procedure luacstringstart();
 
 @define procedure luainitialize;
 

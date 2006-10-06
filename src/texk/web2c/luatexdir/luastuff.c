@@ -131,12 +131,43 @@ void fix_package_path (lua_State *L, char *key, char *ext, int doinit)
   }
 }
 
+extern char **environ;
+
+void find_env (lua_State *L){
+  char *envitem;
+  char *envkey;
+  char **envpointer;
+  envpointer = environ;
+  lua_getglobal(L,"os");
+  if (envpointer!=NULL && lua_istable(L,-1)) {
+    luaL_checkstack(L,2,"out of stack space");
+    lua_pushstring(L,"env"); 
+    lua_newtable(L); 
+    while (*envpointer) {
+      luaL_checkstack(L,2,"out of stack space");
+      envitem = strdup(*envpointer);
+      envkey=envitem;
+      while (*envitem != '=') {
+	envitem++;
+      }
+      *envitem=0;
+      envitem++;
+      lua_pushstring(L,envkey);
+      lua_pushstring(L,envitem);
+      lua_rawset(L,-3);
+      envpointer++;
+    }
+    lua_rawset(L,-3);
+  }
+  lua_pop(L,1);
+}
 
 void 
 luainterpreter (int n) {
   lua_State *L;
   L = luaL_newstate();
   luaL_openlibs(L);
+  find_env(L);
   luaopen_unicode(L);
   luaopen_zip(L);
   luaopen_pdf(L);

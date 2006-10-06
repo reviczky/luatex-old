@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20061002' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20061004' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -508,13 +508,13 @@ emphasize this distinction.
 @d hyph_size=307 {another prime; the number of \.{\\hyphenation} exceptions}
 @d ocp_base=0 {smallest internal ocp number; must not be less
   than |min_quarterword|}
-@d ocp_biggest=65535 {the real biggest ocp}
+@d ocp_biggest=5535 {the real biggest ocp}
 @d number_ocps=ocp_biggest-ocp_base+1
 @d ocp_list_base=0 {smallest internal ocp list number; must not be less
   than |min_quarterword|}
-@d ocp_list_biggest=65535 {the real biggest ocp list}
+@d ocp_list_biggest=5535 {the real biggest ocp list}
 @d number_ocp_lists=ocp_list_biggest-ocp_list_base+1
-@d max_active_ocp_lists=65536
+@d max_active_ocp_lists=5536
 @d biggest_reg=65535 {the largest allowed register number; must be |<=max_quarterword|}
 @d number_regs=65536 {|biggest_reg+1|}
 @d biggest_mark=65535 {the largest allowed marks class; must be |<=max_quarterword|}
@@ -526,7 +526,7 @@ emphasize this distinction.
 @d special_char=1114113 {2097153} {|biggest_char+2|}
 @d number_chars=1114112 {2097152} {|biggest_char+1|}
 @d string_offset=2097152
-@d font_biggest=65535 {the real biggest font}
+@d font_biggest=5535 {the real biggest font}
 @d number_fonts=font_biggest-font_base+2
 @d number_math_fonts=768
 @d math_font_biggest=767
@@ -954,37 +954,36 @@ end;
 var ret,test:boolean;
   k:integer;
   fnam:str_number;
-  fp:integer;
+  stored_callback_id:integer;
   callback_id:integer;
 begin 
-  fp:=0;
   if n=0 then
-     set_input_file_callback_id(index,fp)
+     set_input_file_callback_id(index,0)
   else 
-     set_read_file_callback_id((n-1),fp);
+     set_read_file_callback_id((n-1),0);
+  callback_id:=callback_defined('find_read_file');
+  if callback_id >0 then begin
+	test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),
+                       address_of(fnam));
+	if (test)and(fnam<>0) then begin
+	   libc_free (name_of_file);
+	   name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
+	   for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+	     name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
+       name_of_file[length(fnam)+1]:=0;
+	   name_length := length(fnam);
+	   flush_string;
+	   end;
+    end;
   callback_id:=callback_defined('open_read_file');
   if callback_id >0 then begin
-    fp := run_and_save_callback(callback_id,'dS->bs',
-                         n,stringcast(name_of_file+1),
-                         address_of(ret),address_of(fnam));
-    if fp>0 then begin
-      if ret then begin
-        libc_free (name_of_file);
-	    name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
-	    for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
-	      name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-	    name_length := length(fnam);
-	    flush_string;
-        lua_a_open_in := ret;
-  	if n=0 then
-          set_input_file_callback_id(index,fp)
+    stored_callback_id := run_and_save_callback(callback_id,'S->',stringcast(name_of_file+1));
+    if stored_callback_id>0 then begin
+      lua_a_open_in := true;
+      if n=0 then
+          set_input_file_callback_id(index,stored_callback_id)
         else 
-          set_read_file_callback_id((n-1),fp);
-        end
-      else begin
-        lua_a_open_in := a_open_in(f);
-        name_file_pointer := f;
-        end
+          set_read_file_callback_id((n-1),stored_callback_id);
       end
     else begin
       lua_a_open_in := false;
@@ -992,8 +991,8 @@ begin
       end;
     end
   else begin
-     lua_a_open_in := a_open_in(f);
-     name_file_pointer := f;
+    lua_a_open_in := a_open_in(f);
+    name_file_pointer := f;
     end;
 end;
 function lua_a_open_out(var f:alpha_file; n:quarterword):boolean;
@@ -8615,7 +8614,7 @@ is finished:
 @p procedure end_file_reading;
 begin first:=start; line:=line_stack[index];
 if (name>=18)and(name<=20) then pseudo_close else
-if name=21 then luacstring_close else
+if name=21 then luacstring_close(index) else
 if name>17 then lua_a_close_in(cur_file,0); {forget it}
 pop_input; decr(in_open);
 end;
@@ -12013,13 +12012,12 @@ lua_code:
     def_ref := save_def_ref;
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
-    b := luacstrings;
+    luacstrings:=0;
     luacall(i,(s-string_offset));
 	flush_string;
 	if u<>0 then begin decr(str_ptr); u:=0; end; 
-	if luacstrings>b then
-	  if name<>21 then
-        pseudo_string_start;
+	if luacstrings>0 then
+	  lua_string_start;
     return;
   end;
 pdf_insert_ht_code: scan_register_num;
@@ -40065,11 +40063,11 @@ flush_string;
 @<Initiate input from new pseudo file@>;
 end;
 
-procedure pseudo_string_start;
+procedure lua_string_start;
 begin 
 begin_file_reading; {set up |cur_file| and new level of input}
 line:=0; limit:=start; loc:=limit+1; {force line read}
-name:=21;
+name:=21; luacstring_start(index);
 end;
 
 @ @<Convert string |s| into a new pseudo file@>=

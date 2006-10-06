@@ -34,13 +34,21 @@ static const char perforce_id[] =
 #define ttf_offset      fb_offset
 #define ttf_seek_outbuf fb_seek
 
-#define INFILE ttf_file
+// #define INFILE ttf_file
+
+static unsigned char *ttf_buffer = NULL;
+static integer ttf_size = 0;
+static integer ttf_curbyte = 0;
 
 #define ttf_open()      \
     open_input(&ttf_file, kpse_truetype_format, FOPEN_RBIN_MODE)
-#define ttf_close()     xfclose(ttf_file, cur_file_name)
-#define ttf_getchar()   xgetc(ttf_file)
-#define ttf_eof()       feof(ttf_file)
+#define otf_open()      \
+    open_input(&ttf_file, kpse_type1_format, FOPEN_RBIN_MODE)
+#define ttf_read_file()  \
+    readbinfile(ttf_file,&ttf_buffer,&ttf_size)
+#define ttf_getchar()    ttf_buffer[ttf_curbyte++]
+#define ttf_eof()        (ttf_curbyte>ttf_size)
+
 
 typedef struct {
     TTF_LONG offset;
@@ -203,10 +211,11 @@ static long ttf_getnum (int s)
     long i = 0;
     int c;
     while (s > 0) {
-        if ((c = ttf_getchar ()) < 0)
-            pdftex_fail ("unexpected EOF");
-        i = (i << 8) + c;
-        s--;
+	  if (ttf_eof())
+		pdftex_fail ("unexpected EOF");
+	  c = ttf_getchar ();
+	  i = (i << 8) + c;
+	  s--;
     }
     return i;
 }
@@ -243,13 +252,15 @@ static dirtab_entry *ttf_name_lookup (const char *s, boolean required)
 static dirtab_entry *ttf_seek_tab (const char *name, TTF_LONG offset)
 {
     dirtab_entry *tab = ttf_name_lookup (name, true);
-    xfseek (INFILE, tab->offset + offset, SEEK_SET, cur_file_name);
+    //xfseek (INFILE, tab->offset + offset, SEEK_SET, cur_file_name);
+	ttf_curbyte = tab->offset + offset;
     return tab;
 }
 
 static void ttf_seek_off (TTF_LONG offset)
 {
-    xfseek (INFILE, offset, SEEK_SET, cur_file_name);
+	ttf_curbyte = offset;
+    //xfseek (INFILE, offset, SEEK_SET, cur_file_name);
 }
 
 static void ttf_copy_encoding (void)
@@ -462,7 +473,8 @@ static void ttf_read_post (void)
         nnames = get_ushort (); /* some fonts have this value different from nglyphs */
         for (glyph = glyph_tab; glyph - glyph_tab < nnames; glyph++)
             glyph->name_index = get_ushort ();
-        length = tab->length - (xftell (INFILE, cur_file_name) - tab->offset);
+        //length = tab->length - (xftell (INFILE, cur_file_name) - tab->offset);
+        length = tab->length - (ttf_curbyte - tab->offset);
         glyph_name_buf = xtalloc (length, char);
         for (p = glyph_name_buf; p - glyph_name_buf < length;) {
             for (k = get_byte (); k > 0; k--)
@@ -546,7 +558,8 @@ static ttf_cmap_entry *ttf_read_cmap (char *ttf_name, int pid, int eid,
     /* not found, have to read it */
     ttf_seek_tab ("cmap", TTF_USHORT_SIZE);     /* skip the table vesrion number (=0) */
     ncmapsubtabs = get_ushort ();
-    cmap_offset = xftell (INFILE, cur_file_name) - 2 * TTF_USHORT_SIZE;
+	//    cmap_offset = xftell (INFILE, cur_file_name) - 2 * TTF_USHORT_SIZE;
+	cmap_offset = ttf_curbyte - 2 * TTF_USHORT_SIZE;
     cmap_tab = xtalloc (ncmapsubtabs, cmap_entry);
     for (i = 0; i < ncmapsubtabs; ++i) {
         tmp_pid = get_ushort ();
@@ -1281,15 +1294,30 @@ static void ttf_copy_font (void)
 
 void writettf ()
 {
+  int callback_id;
+  int file_opened = 0;
     set_cur_file_name (fm_cur->ff_name);
     if (is_subsetted (fm_cur) && !is_reencoded (fm_cur) && !is_subfont (fm_cur)) {
         pdftex_warn ("Subset TrueType must be a reencoded or a subfont");
         cur_file_name = NULL;
         return;
     }
-    if (!ttf_open ()) {
+	ttf_curbyte=0;
+	ttf_size=0;
+	callback_id=callbackdefined("read_truetype_file");
+	if (callback_id>0) {
+	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+					 &file_opened, &ttf_buffer,&ttf_size) &&
+		 file_opened && ttf_size>0) {
+	  } else {
+		pdftex_fail ("cannot open TrueType font file for reading");
+	  }
+	} else {
+	  if (!ttf_open ()) {
         pdftex_fail ("cannot open TrueType font file for reading");
-    }
+	  }
+	  ttf_read_file();
+	}
     cur_file_name = (char *) nameoffile + 1;
     if (!is_included (fm_cur))
         tex_printf ("{%s", cur_file_name);
@@ -1323,7 +1351,6 @@ void writettf ()
     xfree (glyph_name_buf);
     xfree (name_tab);
     xfree (name_buf);
-    ttf_close ();
     if (!is_included (fm_cur))
         tex_printf ("}");
     else if (is_subsetted (fm_cur))
@@ -1335,12 +1362,28 @@ void writettf ()
 
 void writeotf ()
 {
+    int callback_id;
+    int file_opened = 0;
     dirtab_entry *tab;
     long i;
     set_cur_file_name (fm_cur->ff_name);
-    if (!open_input (&ttf_file, kpse_type1_format, FOPEN_RBIN_MODE)) {
+	ttf_curbyte=0;
+	ttf_size=0;
+	callback_id=callbackdefined("read_opentype_file");
+	if (callback_id>0) {
+	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+					 &file_opened, &ttf_buffer,&ttf_size) &&
+		 file_opened && ttf_size>0) {
+	  } else {
         pdftex_fail ("cannot open OpenType font file for reading");
-    }
+	  }
+	} else {
+	  if (!otf_open ()) {
+        pdftex_fail ("cannot open OpenType font file for reading");
+	  }
+	  ttf_read_file();
+	}
+
     cur_file_name = (char *) nameoffile + 1;
     tex_printf ("<<%s", cur_file_name);
     fontfile_found = true;
@@ -1361,7 +1404,7 @@ void writeotf ()
     for (i = tab->length; i > 0; i--)
         copy_char ();
     xfree (dir_tab);
-    ttf_close ();
+	//    ttf_close ();
     tex_printf (">>");
     cur_file_name = NULL;
 }

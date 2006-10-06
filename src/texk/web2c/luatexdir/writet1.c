@@ -24,13 +24,8 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writet1.c#25 $
 static const char perforce_id[] =
     "$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writet1.c#25 $";
 
-#ifdef pdfTeX                   /* writet1 used with pdfeTeX */
 #  include "ptexlib.h"
 #  define t1_log(s)           tex_printf(s)
-#  define t1_open()           \
-    open_input(&t1_file, kpse_type1_format, FOPEN_RBIN_MODE)
-#  define enc_open()          \
-    open_input(&enc_file, kpse_enc_format, FOPEN_RBIN_MODE)
 #  define external_enc()      (fm_cur->encoding)->glyph_names
 #  define full_file_name()    (char*)nameoffile + 1
 #  define get_length1()       t1_length1 = t1_offset() - t1_save_offset
@@ -55,84 +50,31 @@ static integer t1_save_offset;
 static integer t1_fontname_offset;
 extern char *fb_array;
 
-#else                           /* writet1 used with dvips */
-#  include "sysexits.h"
-#  include "dvips.h"
-#  include "ptexmac.h"
-#  undef  fm_extend
-#  define fm_extend(f)        0
-#  undef  fm_slant
-#  define fm_slant(f)         0
-#  undef  is_reencoded
-#  define is_reencoded(f)     (cur_enc_name != NULL)
-#  undef  is_subsetted
-#  define is_subsetted(f)     true
-#  undef  is_included
-#  define is_included(f)      true
-#  undef  set_cur_file_name
-#  define set_cur_file_name(s)    cur_file_name = s
-#  define t1_open()           \
-    ((t1_file = search(headerpath, cur_file_name, FOPEN_RBIN_MODE)) != NULL)
-#  define enc_open()          \
-    ((enc_file = search(encpath, cur_file_name, FOPEN_RBIN_MODE)) != NULL)
-#  define external_enc()      ext_glyph_names
-#  define full_file_name()    cur_file_name
-#  define get_length1()
-#  define get_length2()
-#  define get_length3()
-#  define is_used_char(c)     (grid[c] == 1)
-#  define out_eexec_char      t1_outhex
-#  define save_offset()
-#  define end_last_eexec_line()       \
-    hexline_length = HEXLINE_WIDTH; \
-    end_hexline();                  \
-    t1_eexec_encrypt = false
-#  define t1_log(s)
-#  define t1_scan_only()
-#  define t1_include()
-#  define t1_putchar(c)       fputc(c, bitfile)
-#  define t1_scan_keys()
-#  define embed_all_glyphs(tex_font)  false
-#  undef pdfmovechars
-#  ifdef SHIFTLOWCHARS
-extern char errbuf[];
-extern Boolean shiftlowchars;
-#    define pdfmovechars shiftlowchars
-#    define t1_char(c)          T1Char(c)
-#  else                         /* SHIFTLOWCHARS */
-#    define t1_char(c)          c
-#    define pdfmovechars 0
-#  endif                        /* SHIFTLOWCHARS */
-#  define extra_charset()     dvips_extra_charset
-#  define make_subset_tag(a, b)
-#  define update_subset_tag()
-#  define fixedcontent        true
-
-static char *dvips_extra_charset;
-extern FILE *bitfile;
-extern FILE *search ();
-static char *cur_file_name;
-static char *cur_enc_name;
-static unsigned char *grid;
-static char *ext_glyph_names[256];
-static char print_buf[PRINTF_BUF_SIZE];
-static int hexline_length;
-static const char notdef[] = ".notdef";
-static size_t last_ptr_index;
-#endif                          /* pdfTeX */
-
 #include <kpathsea/c-vararg.h>
 #include <kpathsea/c-proto.h>
 #include <string.h>
+#include "luatex-api.h"
 
-#define t1_getchar()    getc(t1_file)
-#define t1_ungetchar(c) ungetc(c, t1_file)
-#define t1_eof()        feof(t1_file)
-#define t1_close()      xfclose(t1_file, cur_file_name)
+static unsigned char *t1_buffer = NULL;
+static integer t1_size = 0;
+static integer t1_curbyte = 0;
 
-#define enc_getchar()   getc(enc_file)
-#define enc_eof()       feof(enc_file)
-#define enc_close()     xfclose(enc_file, cur_file_name)
+#define t1_read_file()  \
+    readbinfile(t1_file,&t1_buffer,&t1_size)
+#define t1_getchar()    t1_buffer[t1_curbyte++]
+#define t1_ungetchar(c) t1_curbyte--
+#define t1_eof()        (t1_curbyte>t1_size)
+
+static unsigned char *enc_buffer = NULL;
+static integer enc_size = 0;
+static integer enc_curbyte = 0;
+
+#define enc_open()          \
+    open_input(&enc_file, kpse_enc_format, FOPEN_RBIN_MODE)
+#define enc_read_file()  \
+    readbinfile(enc_file,&enc_buffer,&enc_size)
+#define enc_getchar()    enc_buffer[enc_curbyte++]
+#define enc_eof()        (enc_curbyte>enc_size)
 
 #define valid_code(c)   (c >= 0 && c < 256)
 
@@ -291,58 +233,6 @@ static FILE *enc_file;
 #define t1_end_eexec()      t1_suffix("mark currentfile closefile")
 #define t1_cleartomark()    t1_prefix("cleartomark")
 
-#ifndef pdfTeX
-static void pdftex_fail (char *fmt, ...)
-{
-    va_list args;
-    va_start (args, fmt);
-    fputs ("\nError: module writet1", stderr);
-    if (cur_file_name)
-        fprintf (stderr, " (file %s)", cur_file_name);
-    fputs (": ", stderr);
-    vsprintf (print_buf, fmt, args);
-    fputs (print_buf, stderr);
-    fputs
-        ("\n ==> Fatal error occurred, the output PS file is not finished!\n",
-         stderr);
-    va_end (args);
-    exit (EX_SOFTWARE);
-}
-
-static void pdftex_warn (char *fmt, ...)
-{
-    va_list args;
-    va_start (args, fmt);
-    fputs ("\nWarning: module writet1 of dvips", stderr);
-    if (cur_file_name)
-        fprintf (stderr, " (file %s)", cur_file_name);
-    fputs (": ", stderr);
-    vsprintf (print_buf, fmt, args);
-    fputs (print_buf, stderr);
-    fputs ("\n", stderr);
-    va_end (args);
-}
-
-#  define HEXLINE_WIDTH 64
-
-static void end_hexline ()
-{
-    if (hexline_length == HEXLINE_WIDTH) {
-        fputs ("\n", bitfile);
-        hexline_length = 0;
-    }
-}
-
-static void t1_outhex (byte b)
-{
-    static char *hexdigits = "0123456789ABCDEF";
-    t1_putchar (hexdigits[b / 16]);
-    t1_putchar (hexdigits[b % 16]);
-    hexline_length += 2;
-    end_hexline ();
-}
-#endif                          /* pdfTeX */
-
 
 static void enc_getline (void)
 {
@@ -356,7 +246,7 @@ static void enc_getline (void)
         c = enc_getchar ();
         append_char_to_buf (c, p, enc_line, ENC_BUF_SIZE);
     }
-    while (c != 10);
+    while (c != 10 && !enc_eof());
     append_eol (p, enc_line, ENC_BUF_SIZE);
     if (p - enc_line < 2 || *enc_line == '%')
         goto restart;
@@ -364,13 +254,30 @@ static void enc_getline (void)
 
 void load_enc (char *enc_name, char **glyph_names)
 {
+    int callback_id = 0;
+    int file_opened = 0;
     char buf[ENC_BUF_SIZE], *p, *r;
     int names_count;
     set_cur_file_name (enc_name);
-    if (!enc_open ()) {
+	callback_id=callbackdefined("read_enc_file");
+	enc_curbyte=0;
+	enc_size=0;
+	if (callback_id>0) {
+	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+					 &file_opened, &enc_buffer,&enc_size)) {
+	    if((!file_opened) || enc_size==0) {
+		  pdftex_warn ("cannot open encoding file for reading");
+		  cur_file_name = NULL;
+		  return;
+		}
+	  }
+	} else {
+	  if (!enc_open ()) {
         pdftex_warn ("cannot open encoding file for reading");
         cur_file_name = NULL;
         return;
+	  }
+	  enc_read_file();
     }
     t1_log ("{");
     t1_log (cur_file_name = full_file_name ());
@@ -409,7 +316,6 @@ void load_enc (char *enc_name, char **glyph_names)
         r = enc_line;
     }
   done:
-    enc_close ();
     t1_log ("}");
     cur_file_name = NULL;
 }
@@ -634,7 +540,6 @@ static void t1_init_params (const char *open_name_prefix)
 static void t1_close_font_file (const char *close_name_suffix)
 {
     t1_log (close_name_suffix);
-    t1_close ();
     cur_file_name = NULL;
 }
 
@@ -695,7 +600,6 @@ static void t1_stop_eexec (void)
     t1_in_eexec = 2;
 }
 
-#ifdef pdfTeX
 /* macros for various transforms; currently only slant and extend are used */
 #  define do_xshift(x,a) {x[4]+=a;}
 #  define do_yshift(x,a) {x[5]+=a;}
@@ -866,8 +770,6 @@ static void t1_scan_keys (void)
     key->value = t1_scan_num (p, 0);
 }
 
-#endif                          /* pdfTeX */
-
 static void t1_scan_param (void)
 {
     static const char *lenIV = "/lenIV";
@@ -1029,13 +931,31 @@ static void t1_check_end (void)
         t1_putline ();
 }
 
-#ifdef pdfTeX
 static boolean t1_open_fontfile (const char *open_name_prefix)
 {
+    int callback_id = 0;
+    int file_opened = 0;
     ff_entry *ff;
     ff = check_ff_exist (fm_cur);
-    if (ff->ff_path != NULL)
+	t1_curbyte = 0;
+	t1_size = 0;
+    if (ff->ff_path != NULL) {
+	  callback_id=callbackdefined("read_type1_file");
+	  if (callback_id>0) {
+		if(runcallback(callback_id,"S->bSd",ff->ff_path,
+					   &file_opened, &t1_buffer,&t1_size) 
+		   && file_opened && t1_size>0) {
+		  cur_file_name = ff->ff_path;
+		} else {
+		  set_cur_file_name (fm_cur->ff_name);
+		  pdftex_warn ("cannot open Type 1 font file for reading");
+		  return false;
+		}
+	  } else {
         t1_file = xfopen (cur_file_name = ff->ff_path, FOPEN_RBIN_MODE);
+		readbinfile(t1_file,&t1_buffer,&t1_size);
+	  }
+	}
     else {
         set_cur_file_name (fm_cur->ff_name);
         pdftex_warn ("cannot open Type 1 font file for reading");
@@ -1093,18 +1013,6 @@ static void t1_include (void)
     }
     get_length3 ();
 }
-
-#else                           /* not pdfTeX */
-static boolean t1_open_fontfile (char *open_name_prefix)
-{
-    if (!t1_open ()) {
-        (void) sprintf (errbuf, "! Couldn't find font file %s", cur_file_name);
-        error (errbuf);
-    }
-    t1_init_params (open_name_prefix);
-    return true;
-}
-#endif                          /* pdfTeX */
 
 #define check_subr(subr) \
     if (subr >= subr_size || subr < 0) \
@@ -1736,7 +1644,6 @@ static void t1_subset_end (void)
 void writet1 (void)
 {
     read_encoding_only = false;
-#ifdef pdfTeX
     t1_save_offset = 0;
     if (strcasecmp (strend (fm_fontfile (fm_cur)) - 4, ".otf") == 0) {
         if (!is_included (fm_cur) || is_subsetted (fm_cur))
@@ -1745,7 +1652,6 @@ void writet1 (void)
         is_otf_font = true;
         return;
     }
-#endif
     if (!is_included (fm_cur)) {        /* scan parameters from font file */
         if (!t1_open_fontfile ("{"))
             return;
@@ -1779,38 +1685,3 @@ void t1_free ()
     xfree (t1_buf_array);
 }
 
-#ifndef pdfTeX
-boolean t1_subset (char *fontfile, char *encfile, unsigned char *g)
-{
-    int i;
-    cur_enc_name = encfile;
-    for (i = 0; i < 256; i++)
-        ext_glyph_names[i] = (char *) notdef;
-    if (cur_enc_name != NULL)
-        load_enc (cur_enc_name, ext_glyph_names);
-    grid = g;
-    cur_file_name = fontfile;
-    hexline_length = 0;
-    writet1 ();
-    for (i = 0; i < 256; i++)
-        if (ext_glyph_names[i] != notdef)
-            free (ext_glyph_names[i]);
-    return 1;                   /* note:  there *is* no unsuccessful return */
-}
-
-boolean t1_subset_2 (char *fontfile, unsigned char *g, char *extraGlyphs)
-{
-    int i;
-    for (i = 0; i < 256; i++)
-        ext_glyph_names[i] = (char *) notdef;
-    grid = g;
-    cur_file_name = fontfile;
-    hexline_length = 0;
-    dvips_extra_charset = extraGlyphs;
-    writet1 ();
-    for (i = 0; i < 256; i++)
-        if (ext_glyph_names[i] != notdef)
-            free (ext_glyph_names[i]);
-    return 1;                   /* note:  there *is* no unsuccessful return */
-}
-#endif                          /* not pdfTeX */

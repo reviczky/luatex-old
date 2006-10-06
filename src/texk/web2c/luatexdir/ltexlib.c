@@ -10,124 +10,99 @@ typedef struct {
   int cattable;
 } rope;
 
+typedef struct {
+  rope *head;
+  rope *tail;
+} spindle;
+
 #define  PARTIAL_LINE       1
 #define  FULL_LINE          0
 
 #define  NO_CAT_TABLE      -2
 #define  DEFAULT_CAT_TABLE -1
 
-static rope luacstring_head = {NULL,NULL,FULL_LINE, DEFAULT_CAT_TABLE};
+#define  write_spindle spindles[spindle_index]
+#define  read_spindle  spindles[(spindle_index-1)]
 
-static rope *luacstring_rover = NULL;
+static int      spindle_size  = 0;
+static spindle *spindles      = NULL;
+static int      spindle_index = 0;
+
 
 static int 
-int_luacprint(char *st, int partial, int cattable) {
+do_luacprint (lua_State * L, int partial, int deftable) {
+  int i, n;
+  char *st;
+  int cattable = deftable;
+  int startstrings = 1;
   rope *rn;
-  luacstrings++; /* tex-side variable */
-  rn = (rope *)xmalloc(sizeof(rope));
-  rn->text      = st;
-  rn->partial  = partial;
-  rn->cattable = cattable;
-  rn->next = NULL;
-  luacstring_rover->next = rn;
-  luacstring_rover = rn;
-}
-
-int 
-luacwrite(lua_State * L) {
-  int i, n;
-  char *st;
   n = lua_gettop(L);
-  if (luacstring_rover == NULL)
-    luacstring_rover = &luacstring_head;
-  for (i = 1; i <= n; i++) {
-    if (!lua_isstring(L, i)) {
-      lua_pushstring(L, "no string to print");
-      lua_error(L);
+  if (cattable != NO_CAT_TABLE) {
+    if (lua_type(L,1)==LUA_TNUMBER && n>1) {
+      cattable = lua_tonumber(L, 1);
+      startstrings = 2;
     }
-    st = strdup(lua_tostring(L, i));
-    if (st)
-      int_luacprint(st,FULL_LINE,NO_CAT_TABLE);
   }
-  return 0;
-}
-
-int 
-luacprint(lua_State * L) {
-  int i, n;
-  char *st;
-  int cattable = DEFAULT_CAT_TABLE;
-  int startstrings = 1;
-  n = lua_gettop(L);
-  if (lua_type(L,1)==LUA_TNUMBER && n>1) {
-    cattable = lua_tonumber(L, 1);
-    startstrings = 2;
-  }
-  if (luacstring_rover == NULL)
-    luacstring_rover = &luacstring_head;
   for (i = startstrings; i <= n; i++) {
     if (!lua_isstring(L, i)) {
       lua_pushstring(L, "no string to print");
       lua_error(L);
     }
     st = strdup(lua_tostring(L, i));
-    if (st)
-      int_luacprint(st,FULL_LINE,cattable);
-  }
-  return 0;
-}
-
-int 
-luacsprint(lua_State * L) {
-  int i, n;
-  char *st;
-  int cattable = DEFAULT_CAT_TABLE;
-  int startstrings = 1;
-  n = lua_gettop(L);
-  if (lua_type(L,1)==LUA_TNUMBER && n>1) {
-    cattable = lua_tonumber(L, 1);
-    startstrings = 2;
-  }
-  if (luacstring_rover == NULL)
-    luacstring_rover = &luacstring_head;
-  for (i = startstrings; i <= n; i++) {
-    if (!lua_isstring(L, i)) {
-      lua_pushstring(L, "no string to print");
-      lua_error(L);
+    if (st) {
+      // fprintf(stderr,"W[%d]:=%s\n",spindle_index,st);
+      luacstrings++; 
+      rn = (rope *)xmalloc(sizeof(rope));
+      rn->text      = st;
+      rn->partial  = partial;
+      rn->cattable = cattable;
+      rn->next = NULL;
+      if (write_spindle.head == NULL) {
+	write_spindle.head  = rn;
+      } else {
+	write_spindle.tail->next  = rn;
+      }
+      write_spindle.tail = rn;
     }
-    st = strdup(lua_tostring(L, i));
-    if (st)
-      int_luacprint(st,PARTIAL_LINE,cattable);
   }
   return 0;
 }
 
+int luacwrite(lua_State * L) {
+  return do_luacprint(L,FULL_LINE,NO_CAT_TABLE);
+}
+
+int luacprint(lua_State * L) {
+  return do_luacprint(L,FULL_LINE,DEFAULT_CAT_TABLE);
+}
+
+int luacsprint(lua_State * L) {
+  return do_luacprint(L,PARTIAL_LINE,DEFAULT_CAT_TABLE);
+}
 
 boolean 
 luacstringdetokenized (void) {
-  return (luacstring_head.cattable == NO_CAT_TABLE);
+  return (read_spindle.tail->cattable == NO_CAT_TABLE);
 }
 
 boolean
 luacstringdefaultcattable (void) {
-  return (luacstring_head.cattable == DEFAULT_CAT_TABLE);
+  return (read_spindle.tail->cattable == DEFAULT_CAT_TABLE);
 }
-
 
 integer
 luacstringcattable (void) {
-  return (integer)luacstring_head.cattable;
+  return (integer)read_spindle.tail->cattable;
 }
-
 
 boolean 
 luacstringsimple (void) {
-  return (luacstring_head.partial == PARTIAL_LINE);
+  return (read_spindle.tail->partial == PARTIAL_LINE);
 }
 
 boolean 
 luacstringpenultimate (void) {
-  return (luacstring_head.next == NULL);
+  return (read_spindle.tail->next == NULL);
 }
 
 boolean 
@@ -135,10 +110,10 @@ luacstringinput (void) {
   char *st;
   rope *t;
   int ret,len;
-  if (luacstring_head.next != NULL) {
-    luacstrings--; /* tex-side variable */
-    t = luacstring_head.next;
+  t = read_spindle.head;
+  if (t != NULL && t->text != NULL) {
     st = t->text;
+    //    fprintf(stderr,"R[%d]:=%s\n",(spindle_index-1),st);
     /* put that thing in the buffer */
     last = first;
     ret = last;
@@ -150,26 +125,49 @@ luacstringinput (void) {
       while (last-1>ret && buffer[last-1] == ' ')
 	last--;
     }
-    if (luacstring_rover == t)
-      luacstring_rover = &luacstring_head;
-    free(t->text);
-    luacstring_head.partial  = t->partial;
-    luacstring_head.cattable = t->cattable;
-    luacstring_head.next     = t->next;
-    free(t);    
+    /* shift */
+    if (read_spindle.tail!=NULL) {
+      free(read_spindle.tail);
+    } 
+    read_spindle.tail = t;
+    free (t->text);
+    t->text = NULL;
+    read_spindle.head = t->next;
     return 1;
   }
   return 0;
 }
 
+/* open for reading, and make a new one for writing */
 void 
-luacstringclose (void) {
-  if (luacstring_head.next != NULL) {
-    free(luacstring_head.next);
-    luacstring_head.next = NULL;
+luacstringstart (int n) {
+  //  fprintf(stderr,"O[%d]\n",spindle_index);
+  spindles[spindle_index].tail = NULL;
+  spindle_index++;
+  if(spindle_size == spindle_index) {
+    /* add a new one */
+    spindles = xrealloc(spindles,sizeof(spindle)*(spindle_size+1));
+    spindles[spindle_index].head = NULL;
+    spindles[spindle_index].tail = NULL;
+    spindle_size++;
   }
-  luacstring_rover = NULL;
 }
+
+/* close for reading */
+
+void 
+luacstringclose (int n) {
+  if (read_spindle.head != NULL) {
+    if (read_spindle.head->text != NULL) 
+      free(read_spindle.head->text);
+    free(read_spindle.head);
+    read_spindle.head = NULL;
+    read_spindle.tail = NULL;
+  }
+  spindle_index--;
+  //  fprintf(stderr,"C[%d]\n",spindle_index);
+}
+
 
 
 /* local (static) versions */
@@ -590,6 +588,12 @@ int luaopen_tex (lua_State *L)
   lua_pushcfunction(L, settex); 
   lua_settable(L, -3);
   lua_setmetatable(L,-2); /* meta to itself */
+  /* initialize the I/O stack: */
+  spindles = xmalloc(sizeof(spindle));
+  spindle_index = 0;
+  spindles[0].head = NULL;
+  spindles[0].tail = NULL;
+  spindle_size = 1;
   return 1;
 }
 
