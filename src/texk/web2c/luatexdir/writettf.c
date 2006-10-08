@@ -46,6 +46,7 @@ static integer ttf_curbyte = 0;
     open_input(&ttf_file, kpse_type1_format, FOPEN_RBIN_MODE)
 #define ttf_read_file()  \
     readbinfile(ttf_file,&ttf_buffer,&ttf_size)
+#define ttf_close()      xfclose(ttf_file,cur_file_name)
 #define ttf_getchar()    ttf_buffer[ttf_curbyte++]
 #define ttf_eof()        (ttf_curbyte>ttf_size)
 
@@ -1317,6 +1318,7 @@ void writettf ()
         pdftex_fail ("cannot open TrueType font file for reading");
 	  }
 	  ttf_read_file();
+	  ttf_close();
 	}
     cur_file_name = (char *) nameoffile + 1;
     if (!is_included (fm_cur))
@@ -1382,6 +1384,7 @@ void writeotf ()
         pdftex_fail ("cannot open OpenType font file for reading");
 	  }
 	  ttf_read_file();
+	  ttf_close();
 	}
 
     cur_file_name = (char *) nameoffile + 1;

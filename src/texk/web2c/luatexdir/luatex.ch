@@ -315,13 +315,6 @@ end;
 @z
 
 @x
-    lua_a_open_in := a_open_in(f);
-@y
-    lua_a_open_in := a_open_in(f,kpse_tex_format);
-@z
-
-
-@x
 @ Files can be closed with the \ph\ routine `|close(f)|', which
 @^system dependencies@>
 should be used when all input or output with respect to |f| has been completed.
@@ -1616,29 +1609,6 @@ end
 @z
 
 @x
-begin scan_file_name; {set |cur_name| to desired file name}
-if cur_ext="" then cur_ext:=".tex";
-pack_cur_name;
-loop@+  begin begin_file_reading; {set up |cur_file| and new level of input}
-  if lua_a_open_in(cur_file,0) then goto done;
-  if cur_area="" then
-    begin pack_file_name(cur_name,TEX_area,cur_ext);
-    if lua_a_open_in(cur_file,0) then goto done;
-    end;
-@y
-var temp_str: str_number;
-begin scan_file_name; {set |cur_name| to desired file name}
-pack_cur_name;
-loop@+begin
-  begin_file_reading; {set up |cur_file| and new level of input}
-  tex_input_type := 1; {Tell |open_input| we are \.{\\input}.}
-  {Kpathsea tries all the various ways to get the file.}
-  if open_in_name_ok(stringcast(name_of_file+1))
-     and lua_a_open_in(cur_file,0) then
-    goto done;
-@z
-
-@x
   prompt_file_name("input file name",".tex");
 @y
   prompt_file_name("input file name","");
@@ -2412,17 +2382,6 @@ interaction:=cur_chr;
 if interaction = batch_mode
 then kpse_make_tex_discard_errors := 1
 else kpse_make_tex_discard_errors := 0;
-@z
-
-@x
-  if cur_ext="" then cur_ext:=".tex";
-  pack_cur_name;
-  if lua_a_open_in(read_file[n],(n+1)) then begin
-@y
-  pack_cur_name;
-  tex_input_type:=0; {Tell |open_input| we are \.{\\openin}.}
-  if open_in_name_ok(stringcast(name_of_file+1))
-     and lua_a_open_in(read_file[n],(n+1)) then begin
 @z
 
 @x

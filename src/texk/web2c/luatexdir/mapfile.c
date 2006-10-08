@@ -757,14 +757,16 @@ ff_entry *check_ff_exist (fm_entry * fm)
         ff->ff_name = xstrdup (fm->ff_name);
 	if (is_truetype (fm)) {
 	    callback_id=callbackdefined("find_truetype_file");
-	    if (callback_id>0 && runcallback(callback_id,"S->S",fm->ff_name,&filepath)) {
+	    if (callback_id>0) {
+	      runcallback(callback_id,"S->S",fm->ff_name,&filepath);
 	      ff->ff_path = filepath;
 	    } else {
 	      ff->ff_path = kpse_find_file (fm->ff_name, kpse_truetype_format, 0);
 	    }
 	} else {
 	    callback_id=callbackdefined("find_type1_file");
-	    if (callback_id>0 && runcallback(callback_id,"S->S",fm->ff_name,&filepath)) {
+	    if (callback_id>0) {
+	      runcallback(callback_id,"S->S",fm->ff_name,&filepath);
 	      ff->ff_path = filepath;
 	    } else {
 	      ff->ff_path = kpse_find_file (fm->ff_name, kpse_type1_format, 0);

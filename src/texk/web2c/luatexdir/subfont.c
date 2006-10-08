@@ -23,11 +23,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 static struct avl_table *sfd_tree = NULL;
 
+static unsigned char *sfd_buffer = NULL;
+static integer sfd_size = 0;
+static integer sfd_curbyte = 0;
+
 #define SFD_BUF_SIZE    SMALL_BUF_SIZE
-#define sfd_getchar()   getc(sfd_file)
-#define sfd_eof()       feof(sfd_file)
+
 #define sfd_close()     xfclose(sfd_file, cur_file_name)
 #define sfd_open()      open_input(&sfd_file, kpse_sfd_format, FOPEN_RBIN_MODE)
+
+#define sfd_read_file() readbinfile(sfd_file,&sfd_buffer,&sfd_size)
+#define sfd_getchar()   sfd_buffer[sfd_curbyte++]
+#define sfd_eof()      (sfd_curbyte>sfd_size)
+
+
 static FILE *sfd_file;
 static char sfd_line[SFD_BUF_SIZE];
 
@@ -94,7 +103,7 @@ static void sfd_getline (boolean expect_eof)
     do {
         c = sfd_getchar ();
         append_char_to_buf (c, p, sfd_line, SFD_BUF_SIZE);
-    } while (c != 10);
+    } while (c != 10 && !sfd_eof());
     append_eol (p, sfd_line, SFD_BUF_SIZE);
     if (p - sfd_line < 2 || *sfd_line == '#')
         goto restart;
@@ -108,6 +117,8 @@ static sfd_entry *read_sfd (char *sfd_name)
     char buf[SMALL_BUF_SIZE], *p;
     long int i, j, k;
     int n;
+    int callback_id=0;
+    int file_opened=0;
     /* check whether this sfd has been read */
     tmp_sfd.name = sfd_name;
     if (sfd_tree == NULL) {
@@ -118,10 +129,24 @@ static sfd_entry *read_sfd (char *sfd_name)
     if (sfd != NULL)
         return sfd;
     set_cur_file_name (sfd_name);
-    if (!sfd_open ()) {
-        pdftex_warn ("cannot open SFD file for reading");
-        cur_file_name = NULL;
-        return NULL;
+    if (sfd_buffer!=NULL) {
+      xfree(sfd_buffer);
+      sfd_buffer=NULL;
+    }
+    sfd_curbyte=0;
+    sfd_size=0;
+    callback_id=callbackdefined("read_sfd_file");
+    if (callback_id>0) {
+      if(! (runcallback(callback_id,"S->bSd",cur_file_name,
+		       &file_opened, &sfd_buffer,&sfd_size) &&
+	    file_opened && 
+	    sfd_size>0 ) ) {
+	pdftex_warn ("cannot open SFD file for reading");
+	cur_file_name = NULL;
+	return NULL;      
+      }
+      sfd_read_file();
+      sfd_close();
     }
     tex_printf ("{");
     tex_printf (cur_file_name);
@@ -164,7 +189,6 @@ static sfd_entry *read_sfd (char *sfd_name)
                 sf->charcodes[k++] = i;
         }
     }
-    sfd_close ();
     tex_printf ("}");
     aa = avl_probe (sfd_tree, sfd);
     assert (aa != NULL);

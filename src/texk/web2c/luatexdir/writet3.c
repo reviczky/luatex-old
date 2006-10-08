@@ -44,13 +44,22 @@ static float t3_font_scale;
 static integer t3_b0, t3_b1, t3_b2, t3_b3;
 static boolean is_pk_font;
 
+static unsigned char *t3_buffer  = NULL;
+static integer        t3_size    = 0;
+static integer        t3_curbyte = 0;
+
+
 #define t3_open()       \
     open_input(&t3_file, kpse_miscfonts_format, FOPEN_RBIN_MODE)
-#define t3_close()      xfclose(t3_file, cur_file_name)
-#define t3_getchar()    xgetc(t3_file)
-#define t3_eof()        feof(t3_file)
+#define t3_read_file() readbinfile(t3_file,&t3_buffer,&t3_size)
+#define t3_close()     xfclose(t3_file, cur_file_name)
+#define t3_getchar()   t3_buffer[t3_curbyte++]
+#define t3_eof()      (t3_curbyte>t3_size)
+
 #define t3_prefix(s)    (!strncmp(t3_line_array, s, strlen(s)))
 #define t3_putchar(c)   pdfout(c)
+
+
 
 #define t3_check_eof()                                     \
     if (t3_eof())                                          \
@@ -187,21 +196,50 @@ static boolean writepk (internalfontnumber f)
     chardesc cd;
     boolean is_null_glyph, check_preamble;
     integer dpi;
-    dpi =
+    int callback_id=0;
+    int file_opened=0;
+    int mallocsize=0;
+    if (t3_buffer!=NULL) {
+      xfree(t3_buffer);
+      t3_buffer=NULL;
+    }
+    t3_curbyte=0;
+    t3_size=0;
+    callback_id=callbackdefined("read_pk_file");
+    if (callback_id>0) {
+      dpi = round (fixedpkresolution *
+		   (((float) pdffontsize[f]) / getfontdsize(f)));
+      /* <base>.dpi/<fontname>.<tdpi>pk */
+      cur_file_name = makecstring (getfontname(f));
+      mallocsize = strlen(cur_file_name)+24+9;
+      name = xmalloc(mallocsize);
+      snprintf(name,mallocsize,"%ddpi/%s.%dpk",fixedpkresolution,cur_file_name,dpi);
+      if(! ( runcallback(callback_id,"S->bSd",name, &file_opened, &t3_buffer,&t3_size) &&
+	     file_opened && 
+	     t3_size>0 ) ) {
+	pdftex_warn ("Font %s at %i not found", cur_file_name, (int)dpi);
+	cur_file_name = NULL;
+	return false;
+      }
+    } else {
+      dpi =
         kpse_magstep_fix (round
                           (fixedpkresolution *
                            (((float) pdffontsize[f]) / getfontdsize(f))),
                           fixedpkresolution, NULL);
-    cur_file_name = makecstring (getfontname(f));
-    name = kpse_find_pk (cur_file_name, (unsigned) dpi, &font_ret);
-    if (name == NULL ||
+      cur_file_name = makecstring (getfontname(f));
+      name = kpse_find_pk (cur_file_name, (unsigned) dpi, &font_ret);
+      if (name == NULL ||
         !FILESTRCASEEQ (cur_file_name, font_ret.name) ||
         !kpse_bitmap_tolerance ((float) font_ret.dpi, (float) dpi)) {
         pdftex_warn ("Font %s at %i not found", cur_file_name, (int) dpi);
         cur_file_name = NULL;
         return false;
+      }
+      t3_file = xfopen (name, FOPEN_RBIN_MODE);
+      t3_read_file();
+      t3_close();
     }
-    t3_file = xfopen (name, FOPEN_RBIN_MODE);
     t3_image_used = true;
     is_pk_font = true;
     tex_printf (" <%s", (char *) name);
@@ -272,6 +310,8 @@ void writet3 (int objnum, internalfontnumber f)
     int first_char, last_char;
     integer pk_font_scale;
     boolean is_notdef;
+    int callback_id=0;
+    int file_opened=0;
     t3_glyph_num = 0;
     t3_image_used = false;
     for (i = 0; i < 256; i++) {
@@ -281,13 +321,37 @@ void writet3 (int objnum, internalfontnumber f)
     packfilename (getfontname(f), getnullstr (), maketexstring (".pgc"));
     cur_file_name = makecstring (makenamestring ());
     is_pk_font = false;
-    if (!t3_open ()) {
+
+    if (t3_buffer!=NULL) {
+      xfree(t3_buffer);
+      t3_buffer=NULL;
+    }
+    t3_curbyte=0;
+    t3_size=0;
+    callback_id=callbackdefined("read_miscfonts_file");
+    if (callback_id>0) {
+      if(! ( runcallback(callback_id,"S->bSd",cur_file_name,
+			 &file_opened, &t3_buffer,&t3_size) &&
+	     file_opened && 
+	     t3_size>0 ) ) {
+	if (writepk (f))
+	  goto write_font_dict;
+	else {
+	  cur_file_name = NULL;
+	  return;      
+	}
+      }
+    } else {
+      if (!t3_open ()) {
         if (writepk (f))
             goto write_font_dict;
         else {
             cur_file_name = NULL;
             return;
         }
+      }
+      t3_read_file();
+      t3_close();
     }
     tex_printf ("<%s", nameoffile + 1);
     t3_getline ();
@@ -381,7 +445,6 @@ void writet3 (int objnum, internalfontnumber f)
         if (t3_char_procs[i] != 0)
             pdf_printf ("/a%i %i 0 R\n", (int) i, (int) t3_char_procs[i]);
     pdfenddict ();
-    t3_close ();
     tex_printf (">");
     cur_file_name = NULL;
 }

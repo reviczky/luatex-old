@@ -61,6 +61,7 @@ static integer t1_curbyte = 0;
 
 #define t1_read_file()  \
     readbinfile(t1_file,&t1_buffer,&t1_size)
+#define t1_close()      xfclose(t1_file,cur_file_name)
 #define t1_getchar()    t1_buffer[t1_curbyte++]
 #define t1_ungetchar(c) t1_curbyte--
 #define t1_eof()        (t1_curbyte>t1_size)
@@ -73,6 +74,7 @@ static integer enc_curbyte = 0;
     open_input(&enc_file, kpse_enc_format, FOPEN_RBIN_MODE)
 #define enc_read_file()  \
     readbinfile(enc_file,&enc_buffer,&enc_size)
+#define enc_close()       xfclose(enc_file,cur_file_name)
 #define enc_getchar()    enc_buffer[enc_curbyte++]
 #define enc_eof()        (enc_curbyte>enc_size)
 
@@ -278,6 +280,7 @@ void load_enc (char *enc_name, char **glyph_names)
         return;
 	  }
 	  enc_read_file();
+	  enc_close();
     }
     t1_log ("{");
     t1_log (cur_file_name = full_file_name ());
@@ -952,8 +955,9 @@ static boolean t1_open_fontfile (const char *open_name_prefix)
 		  return false;
 		}
 	  } else {
-        t1_file = xfopen (cur_file_name = ff->ff_path, FOPEN_RBIN_MODE);
-		readbinfile(t1_file,&t1_buffer,&t1_size);
+	    t1_file = xfopen (cur_file_name = ff->ff_path, FOPEN_RBIN_MODE);
+            t1_read_file();
+	    t1_close();
 	  }
 	}
     else {
