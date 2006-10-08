@@ -1293,13 +1293,23 @@ simply typeset.
 \section{Changes from \PDFTEX\ 1.40}
 
 \startitemize
-\item The experimental regular expression match operations are removed,
-    so the primitives
+\item A number of `utility functions' is removed:
 \starttyping
-    \pdfmatch
+    \pdfelapsedtime
+    \pdfescapehex
+    \pdfescapename
+    \pdfescapestring
+    \pdffiledump
+    \pdffilemoddate
+    \pdffilesize
     \pdflastmatch
+    \pdfmatch
+    \pdfmdfivesum
+    \pdfresettimer
+    \pdfshellescape
+    \pdfstrcmp
+    \pdfunescapehex
 \stoptyping
-   are missing. 
 
 \item A few other experimental primitives are provided without the
       extra  `pdf' prefix, so they are simply called:
