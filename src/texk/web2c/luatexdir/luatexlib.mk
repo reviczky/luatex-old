@@ -121,9 +121,10 @@ endif
 ZZIPLIBDIR=../../libs/zziplib
 ZZIPLIBSRCDIR=$(srcdir)/$(ZZIPLIBDIR)
 ZZIPLIBDEP = $(ZZIPLIBDIR)/zzip/.libs/libzzip.a
+ZIPZIPINC = -I$(ZLIBSRCDIR)
 
 $(ZZIPLIBDEP): $(ZZIPLIBSRCDIR)
-	mkdir -p $(ZZIPLIBDIR) && cd $(ZZIPLIBDIR) && cp -a $(ZZIPLIBSRCDIR)/* . && env CPPFLAGS=-I$(ZLIBSRCDIR) ./configure --disable-builddir --disable-shared $(zzipretarget) && cd $(ZZIPLIBDIR)/zzip && $(MAKE) $(common_makeargs) libzzip.la
+	mkdir -p $(ZZIPLIBDIR) && cd $(ZZIPLIBDIR) && cp -a $(ZZIPLIBSRCDIR)/* . && env CPPFLAGS=$(ZIPZIPINC) ./configure --disable-builddir --disable-shared $(zzipretarget) && cd $(ZZIPLIBDIR)/zzip && $(MAKE) $(common_makeargs) libzzip.la
 
 # luazip
 
