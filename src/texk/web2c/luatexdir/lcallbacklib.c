@@ -16,6 +16,9 @@ static const char *const callbacknames[] = {
   "read_type1_file",
   "read_truetype_file",
   "read_opentype_file",
+  "read_sfd_file",
+  "read_miscfonts_file",
+  "read_pk_file",
   "find_read_file",
   "find_truetype_file",
   "find_type1_file",
@@ -29,7 +32,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 16
+#define NUM_CALLBACKS 19
 
 static callback_info *callback_list;
 
@@ -269,12 +272,17 @@ do_run_callback (int special, char *values, va_list vl) {
       break;
     case CALLBACK_STRNUMBER:  /* TeX string */
       if (!lua_isstring(L,nres)) {
-	fprintf(stderr,"Expected a string for (s), not: %s\n", lua_typename(L,lua_type(L,nres)));
-	goto EXIT;
+	if (!lua_isnil(L,nres)) {
+	  fprintf(stderr,"Expected a string for (s), not: %s\n", lua_typename(L,lua_type(L,nres)));
+	  goto EXIT;
+	}
       }
-      s = (char *)lua_tostring(L,nres);
-      if (s==NULL) 
-	*va_arg(vl, int *) = -1;
+      if (lua_isstring(L,nres))
+	s = (char *)lua_tolstring(L,nres,(size_t *)&len);
+      else
+	s = NULL;
+      if (s==NULL || len == 0) 
+	*va_arg(vl, int *) = 0;
       else {
 	*va_arg(vl, int *) = maketexstring(strdup(s));
       }
