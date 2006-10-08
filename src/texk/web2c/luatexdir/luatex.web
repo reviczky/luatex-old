@@ -957,42 +957,60 @@ var ret,test:boolean;
   stored_callback_id:integer;
   callback_id:integer;
 begin 
-  if n=0 then
-     set_input_file_callback_id(index,0)
-  else 
-     set_read_file_callback_id((n-1),0);
-  callback_id:=callback_defined('find_read_file');
-  if callback_id >0 then begin
-	test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),
-                       address_of(fnam));
-	if (test)and(fnam<>0) then begin
-	   libc_free (name_of_file);
-	   name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
-	   for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
-	     name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-       name_of_file[length(fnam)+1]:=0;
-	   name_length := length(fnam);
-	   flush_string;
-	   end;
+  if n=0 then begin
+    tex_input_type := 1; {Tell |open_input| we are \.{\\input}.}
+    set_input_file_callback_id(index,0);
+    end
+  else begin
+    tex_input_type:=0; 
+    set_read_file_callback_id((n-1),0);
     end;
-  callback_id:=callback_defined('open_read_file');
-  if callback_id >0 then begin
-    stored_callback_id := run_and_save_callback(callback_id,'S->',stringcast(name_of_file+1));
-    if stored_callback_id>0 then begin
-      lua_a_open_in := true;
-      if n=0 then
-          set_input_file_callback_id(index,stored_callback_id)
-        else 
-          set_read_file_callback_id((n-1),stored_callback_id);
+  callback_id:=callback_defined('find_read_file');
+  if callback_id>0 then begin
+    fnam:=0;
+    test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),address_of(fnam));
+    if (test)and(fnam<>0) then begin
+      @<Fixup |name_of_file| after callback@>;
+      callback_id:=callback_defined('open_read_file');
+      if callback_id >0 then begin
+        stored_callback_id := run_and_save_callback(callback_id,'S->',stringcast(name_of_file+1));
+        if stored_callback_id>0 then begin
+          lua_a_open_in := true;
+          if n=0 then
+            set_input_file_callback_id(index,stored_callback_id)
+          else 
+            set_read_file_callback_id((n-1),stored_callback_id);
+          end
+        else begin {read failed}
+          lua_a_open_in := false;
+	  name_file_pointer := 0;
+          end;
+        end
+      else begin {no read callback}
+	if open_in_name_ok(stringcast(name_of_file+1)) then begin
+          lua_a_open_in := a_open_in(f,kpse_tex_format);
+          name_file_pointer := f;
+          end
+        else begin
+          lua_a_open_in := false;
+          name_file_pointer := 0;
+          end;
+        end;
+      end
+    else begin {file not found}
+      lua_a_open_in := false;
+      name_file_pointer := 0;
+      end;
+    end
+  else begin {no find callback}
+    if open_in_name_ok(stringcast(name_of_file+1)) then begin
+      lua_a_open_in := a_open_in(f,kpse_tex_format);
+      name_file_pointer := f;
       end
     else begin
       lua_a_open_in := false;
-	  name_file_pointer := 0;
+      name_file_pointer := 0;
       end;
-    end
-  else begin
-    lua_a_open_in := a_open_in(f);
-    name_file_pointer := f;
     end;
 end;
 function lua_a_open_out(var f:alpha_file; n:quarterword):boolean;
@@ -1000,6 +1018,16 @@ begin
   lua_a_open_out := a_open_out(f);
   name_file_pointer := f;
 end;
+
+@ 
+@<Fixup |name_of_file| after callback@>=
+libc_free (name_of_file);
+name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
+for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
+  name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
+name_of_file[length(fnam)+1]:=0;
+name_length := length(fnam);
+flush_string
 
 @ Files can be closed with the \ph\ routine `|close(f)|', which
 @^system dependencies@>
@@ -10384,11 +10412,9 @@ the codes for its extensions: |eTeX_version_code|, \dots\ .
 @d pdf_last_y_pos_code        = pdftex_first_rint_code + 7 {code for \.{\\pdflastypos}}
 @d pdf_retval_code            = pdftex_first_rint_code + 8 {global multi-purpose return value}
 @d pdf_last_ximage_colordepth_code = pdftex_first_rint_code + 9 {code for \.{\\pdflastximagecolordepth}}
-@d elapsed_time_code          = pdftex_first_rint_code + 10 {code for \.{\\pdfelapsedtime}}
-@d pdf_shell_escape_code      = pdftex_first_rint_code + 11 {code for \.{\\pdfshellescape}}
-@d random_seed_code           = pdftex_first_rint_code + 12 {code for \.{\\pdfrandomseed}}
-@d pdf_last_link_code         = pdftex_first_rint_code + 13 {code for \.{\\pdflastlink}}
-@d pdftex_last_item_codes     = pdftex_first_rint_code + 13 {end of \pdfTeX's command codes}
+@d random_seed_code           = pdftex_first_rint_code + 10 {code for \.{\\pdfrandomseed}}
+@d pdf_last_link_code         = pdftex_first_rint_code + 11 {code for \.{\\pdflastlink}}
+@d pdftex_last_item_codes     = pdftex_first_rint_code + 11 {end of \pdfTeX's command codes}
 @#
 @d Aleph_int=pdftex_last_item_codes+1 {first of \Aleph\ codes for integers}
 @d Aleph_int_num=5 {number of \Aleph\ integers}
@@ -10443,10 +10469,6 @@ primitive("pdfretval",last_item,pdf_retval_code);@/
 @!@:pdf_retval_}{\.{\\pdfretval} primitive@>
 primitive("pdflastximagecolordepth",last_item,pdf_last_ximage_colordepth_code);@/
 @!@:pdf_last_ximage_colordepth_}{\.{\\pdflastximagecolordepth} primitive@>
-primitive("pdfelapsedtime",last_item,elapsed_time_code);
-@!@:elapsed_time_}{\.{\\pdfelapsedtime} primitive@>
-primitive("pdfshellescape",last_item,pdf_shell_escape_code);
-@!@:pdf_shell_escape_}{\.{\\pdfshellescape} primitive@>
 primitive("pdfrandomseed",last_item,random_seed_code);
 @!@:random_seed_}{\.{\\pdfrandomseed} primitive@>
 primitive("pdflastlink",last_item,pdf_last_link_code);@/
@@ -10477,8 +10499,6 @@ last_item: case chr_code of
   pdf_last_y_pos_code:  print_esc("pdflastypos");
   pdf_retval_code:      print_esc("pdfretval");
   pdf_last_ximage_colordepth_code: print_esc("pdflastximagecolordepth");
-  elapsed_time_code: print_esc("pdfelapsedtime");
-  pdf_shell_escape_code: print_esc("pdfshellescape");
   random_seed_code:     print_esc("pdfrandomseed");
   pdf_last_link_code:   print_esc("pdflastlink");
   othercases print_esc("badness")
@@ -10570,13 +10590,7 @@ if m>=input_line_no_code then
   pdf_last_y_pos_code:  cur_val := pdf_last_y_pos;
   pdf_retval_code:      cur_val := pdf_retval;
   pdf_last_ximage_colordepth_code: cur_val := pdf_last_ximage_colordepth;
-  elapsed_time_code: cur_val := get_microinterval;
   random_seed_code:  cur_val := random_seed;
-  pdf_shell_escape_code:
-    begin
-    if shell_enabled_p then cur_val := 1
-    else cur_val := 0;
-    end;
   pdf_last_link_code:   cur_val := pdf_last_link;
   @/@<Cases for fetching an integer value@>@/
   end; {there are no other cases}
@@ -11583,25 +11597,16 @@ such that |job_name_code| remains last.
 @d pdf_font_size_code       = pdftex_first_expand_code + 4 {command code for \.{\\pdffontsize}}
 @d pdf_page_ref_code        = pdftex_first_expand_code + 5 {command code for \.{\\pdfpageref}}
 @d pdf_xform_name_code      = pdftex_first_expand_code + 6 {command code for \.{\\pdfxformname}}
-@d pdf_escape_string_code   = pdftex_first_expand_code + 7 {command code for \.{\\pdfescapestring}}
-@d pdf_escape_name_code     = pdftex_first_expand_code + 8 {command code for \.{\\pdfescapename}}
-@d left_margin_kern_code    = pdftex_first_expand_code + 9 {command code for \.{\\leftmarginkern}}
-@d right_margin_kern_code   = pdftex_first_expand_code + 10 {command code for \.{\\rightmarginkern}}
-@d pdf_strcmp_code          = pdftex_first_expand_code + 11 {command code for \.{\\pdfstrcmp}}
-@d pdf_escape_hex_code      = pdftex_first_expand_code + 12 {command code for \.{\\pdfescapehex}}
-@d pdf_unescape_hex_code    = pdftex_first_expand_code + 13 {command code for \.{\\pdfunescapehex}}
-@d pdf_creation_date_code   = pdftex_first_expand_code + 14 {command code for \.{\\pdfcreationdate}}
-@d pdf_file_mod_date_code   = pdftex_first_expand_code + 15 {command code for \.{\\pdffilemoddate}}
-@d pdf_file_size_code       = pdftex_first_expand_code + 16 {command code for \.{\\pdffilesize}}
-@d pdf_mdfive_sum_code      = pdftex_first_expand_code + 17 {command code for \.{\\pdfmdfivesum}}
-@d pdf_file_dump_code       = pdftex_first_expand_code + 18 {command code for \.{\\pdffiledump}}
-@d uniform_deviate_code     = pdftex_first_expand_code + 19 {command code for \.{\\uniformdeviate}}
-@d normal_deviate_code      = pdftex_first_expand_code + 20 {command code for \.{\\normaldeviate}}
-@d pdf_insert_ht_code       = pdftex_first_expand_code + 21 {command code for \.{\\pdfinsertht}}
-@d pdf_ximage_bbox_code     = pdftex_first_expand_code + 22 {command code for \.{\\pdfximagebbox}}
-@d lua_code                 = pdftex_first_expand_code + 23 {command code for \.{\\directlua}}
-@d lua_escape_string_code   = pdftex_first_expand_code + 24 {command code for \.{\\luaescapestring}}
-@d pdftex_convert_codes     = pdftex_first_expand_code + 25 {end of \pdfTeX's command codes}
+@d left_margin_kern_code    = pdftex_first_expand_code + 7 {command code for \.{\\leftmarginkern}}
+@d right_margin_kern_code   = pdftex_first_expand_code + 8 {command code for \.{\\rightmarginkern}}
+@d pdf_creation_date_code   = pdftex_first_expand_code + 9 {command code for \.{\\pdfcreationdate}}
+@d uniform_deviate_code     = pdftex_first_expand_code + 10 {command code for \.{\\uniformdeviate}}
+@d normal_deviate_code      = pdftex_first_expand_code + 11 {command code for \.{\\normaldeviate}}
+@d pdf_insert_ht_code       = pdftex_first_expand_code + 12 {command code for \.{\\pdfinsertht}}
+@d pdf_ximage_bbox_code     = pdftex_first_expand_code + 13 {command code for \.{\\pdfximagebbox}}
+@d lua_code                 = pdftex_first_expand_code + 14 {command code for \.{\\directlua}}
+@d lua_escape_string_code   = pdftex_first_expand_code + 15 {command code for \.{\\luaescapestring}}
+@d pdftex_convert_codes     = pdftex_first_expand_code + 16 {end of \pdfTeX's command codes}
 @d job_name_code=pdftex_convert_codes {command code for \.{\\jobname}}
 
 @<Put each...@>=
@@ -11639,26 +11644,8 @@ primitive("rightmarginkern",convert,right_margin_kern_code);@/
 @!@:right_margin_kern_}{\.{\\rightmarginkern} primitive@>
 primitive("pdfxformname",convert,pdf_xform_name_code);@/
 @!@:pdf_xform_name_}{\.{\\pdfxformname} primitive@>
-primitive("pdfescapestring",convert,pdf_escape_string_code);@/
-@!@:pdf_escape_string_}{\.{\\pdfescapestring} primitive@>
-primitive("pdfescapename",convert,pdf_escape_name_code);@/
-@!@:pdf_escape_name_}{\.{\\pdfescapename} primitive@>
-primitive("pdfescapehex",convert,pdf_escape_hex_code);@/
-@!@:pdf_escape_hex_}{\.{\\pdfescapehex} primitive@>
-primitive("pdfunescapehex",convert,pdf_unescape_hex_code);@/
-@!@:pdf_unescape_hex_}{\.{\\pdfunescapehex} primitive@>
 primitive("pdfcreationdate",convert,pdf_creation_date_code);@/
 @!@:pdf_creation_date_}{\.{\\pdfcreationdate} primitive@>
-primitive("pdffilemoddate",convert,pdf_file_mod_date_code);@/
-@!@:pdf_file_mod_date_}{\.{\\pdffilemoddate} primitive@>
-primitive("pdffilesize",convert,pdf_file_size_code);@/
-@!@:pdf_file_size_}{\.{\\pdffilesize} primitive@>
-primitive("pdfmdfivesum",convert,pdf_mdfive_sum_code);@/
-@!@:pdf_mdfive_sum_}{\.{\\pdfmdfivesum} primitive@>
-primitive("pdffiledump",convert,pdf_file_dump_code);@/
-@!@:pdf_file_dump_}{\.{\\pdffiledump} primitive@>
-primitive("pdfstrcmp",convert,pdf_strcmp_code);@/
-@!@:pdf_strcmp_}{\.{\\pdfstrcmp} primitive@>
 primitive("pdfuniformdeviate",convert,uniform_deviate_code);@/
 @!@:uniform_deviate_}{\.{\\pdfuniformdeviate} primitive@>
 primitive("pdfnormaldeviate",convert,normal_deviate_code);@/
@@ -11696,16 +11683,7 @@ convert: case chr_code of
   left_margin_kern_code:    print_esc("leftmarginkern");
   right_margin_kern_code:   print_esc("rightmarginkern");
   pdf_xform_name_code:  print_esc("pdfxformname");
-  pdf_escape_string_code: print_esc("pdfescapestring");
-  pdf_escape_name_code:   print_esc("pdfescapename");
-  pdf_escape_hex_code:    print_esc("pdfescapehex");
-  pdf_unescape_hex_code:  print_esc("pdfunescapehex");
   pdf_creation_date_code: print_esc("pdfcreationdate");
-  pdf_file_mod_date_code: print_esc("pdffilemoddate");
-  pdf_file_size_code:     print_esc("pdffilesize");
-  pdf_mdfive_sum_code:    print_esc("pdfmdfivesum");
-  pdf_file_dump_code:     print_esc("pdffiledump");
-  pdf_strcmp_code:        print_esc("pdfstrcmp");
   uniform_deviate_code:   print_esc("pdfuniformdeviate");
   normal_deviate_code:    print_esc("pdfnormaldeviate");
   pdf_insert_ht_code: print_esc("pdfinsertht");
@@ -11779,78 +11757,6 @@ pdf_xform_name_code: begin
     scan_int;
     pdf_check_obj(obj_type_xform, cur_val);
 end;
-pdf_escape_string_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    escapestring(str_start_macro(s));
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_escape_name_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    escapename(str_start_macro(s));
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_escape_hex_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    escapehex(str_start_macro(s));
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_unescape_hex_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    unescapehex(str_start_macro(s));
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
 pdf_creation_date_code:
   begin
     b := pool_ptr;
@@ -11858,118 +11764,6 @@ pdf_creation_date_code:
     link(garbage) := str_toks(b);
     ins_list(link(temp_head));
     return;
-  end;
-pdf_file_mod_date_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    getfilemoddate(s);
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_file_size_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    getfilesize(s);
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_mdfive_sum_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    bool := scan_keyword("file");
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    getmd5sum(s, bool);
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_file_dump_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    {scan offset}
-    cur_val := 0;
-    if (scan_keyword("offset")) then begin
-      scan_int;
-      if (cur_val < 0) then begin
-        print_err("Bad file offset");
-@.Bad file offset@>
-        help2("A file offset must be between 0 and 2^{31}-1,")@/
-          ("I changed this one to zero.");
-        int_error(cur_val);
-        cur_val := 0;
-      end;
-    end;
-    i := cur_val;
-    {scan length}
-    cur_val := 0;
-    if (scan_keyword("length")) then begin
-      scan_int;
-      if (cur_val < 0) then begin
-        print_err("Bad dump length");
-@.Bad dump length@>
-        help2("A dump length must be between 0 and 2^{31}-1,")@/
-          ("I changed this one to zero.");
-        int_error(cur_val);
-        cur_val := 0;
-      end;
-    end;
-    j := cur_val;
-    {scan file name}
-    scan_pdf_ext_toks;
-    s := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
-    b := pool_ptr;
-    getfiledump(s, i, j);
-    link(garbage) := str_toks(b);
-    flush_str(s);
-    ins_list(link(temp_head));
-    return;
-  end;
-pdf_strcmp_code:
-  begin
-    save_scanner_status := scanner_status;
-    save_warning_index := warning_index;
-    save_def_ref := def_ref;
-    compare_strings;
-    def_ref := save_def_ref;
-    warning_index := save_warning_index;
-    scanner_status := save_scanner_status;
   end;
 job_name_code: if job_name=0 then open_log_file;
 uniform_deviate_code:     scan_int;
@@ -12091,7 +11885,6 @@ right_margin_kern_code: begin
     print("pt");
 end;
 pdf_xform_name_code: print_int(obj_info(cur_val));
-pdf_strcmp_code: print_int(cur_val);
 uniform_deviate_code:     print_int(unif_rand(cur_val));
 normal_deviate_code:      print_int(norm_rand);
 pdf_insert_ht_code: begin
@@ -13274,15 +13067,12 @@ when an `\.{\\input}' command is being processed.
 
 @p procedure start_input; {\TeX\ will \.{\\input} something}
 label done;
+var temp_str:str_number;
 begin scan_file_name; {set |cur_name| to desired file name}
 if cur_ext="" then cur_ext:=".tex";
 pack_cur_name;
 loop@+  begin begin_file_reading; {set up |cur_file| and new level of input}
   if lua_a_open_in(cur_file,0) then goto done;
-  if cur_area="" then
-    begin pack_file_name(cur_name,TEX_area,cur_ext);
-    if lua_a_open_in(cur_file,0) then goto done;
-    end;
   end_file_reading; {remove the level that didn't work}
   prompt_file_name("input file name",".tex");
   end;
@@ -21474,8 +21264,9 @@ if pdf_pk_mode <> null then begin
     flush_string;
 end else
     kpse_init_prog('PDFTEX', fixed_pk_resolution, nil, nil);
-if not kpse_var_value('MKTEXPK') then
-    kpse_set_program_enabled (kpse_pk_format, 1, kpse_src_cmdline);
+if not callback_defined('read_pk_file') then
+  if not kpse_var_value('MKTEXPK') then
+     kpse_set_program_enabled (kpse_pk_format, 1, kpse_src_cmdline);
 set_job_id(year, month, day, time);
 if (pdf_unique_resname > 0) and (pdf_resname_prefix = 0) then
     pdf_resname_prefix := get_resname_prefix
@@ -35941,18 +35732,17 @@ stays the same.
 @d pdf_map_file_code           == pdftex_first_extension_code + 21
 @d pdf_map_line_code           == pdftex_first_extension_code + 22
 @d pdf_trailer_code            == pdftex_first_extension_code + 23
-@d reset_timer_code            == pdftex_first_extension_code + 24
-@d pdf_font_expand_code        == pdftex_first_extension_code + 25
-@d set_random_seed_code        == pdftex_first_extension_code + 26
-@d pdf_snap_ref_point_node     == pdftex_first_extension_code + 27
-@d pdf_snapy_node              == pdftex_first_extension_code + 28
-@d pdf_snapy_comp_node         == pdftex_first_extension_code + 29
-@d pdf_glyph_to_unicode_code   == pdftex_first_extension_code + 30
-@d late_lua_code               == pdftex_first_extension_code + 31
-@d close_lua_code              == pdftex_first_extension_code + 32
-@d save_cat_code_table_code    == pdftex_first_extension_code + 33
-@d init_cat_code_table_code    == pdftex_first_extension_code + 34
-@d pdftex_last_extension_code  == pdftex_first_extension_code + 34
+@d pdf_font_expand_code        == pdftex_first_extension_code + 24
+@d set_random_seed_code        == pdftex_first_extension_code + 25
+@d pdf_snap_ref_point_node     == pdftex_first_extension_code + 26
+@d pdf_snapy_node              == pdftex_first_extension_code + 27
+@d pdf_snapy_comp_node         == pdftex_first_extension_code + 28
+@d pdf_glyph_to_unicode_code   == pdftex_first_extension_code + 29
+@d late_lua_code               == pdftex_first_extension_code + 30
+@d close_lua_code              == pdftex_first_extension_code + 31
+@d save_cat_code_table_code    == pdftex_first_extension_code + 32
+@d init_cat_code_table_code    == pdftex_first_extension_code + 33
+@d pdftex_last_extension_code  == pdftex_first_extension_code + 33
 
 @<Put each...@>=
 primitive("openout",extension,open_node);@/
@@ -36034,8 +35824,6 @@ primitive("savecatcodetable",extension,save_cat_code_table_code);@/
 @!@:save_cat_code_table_}{\.{\\savecatcodetable} primitive@>
 primitive("initcatcodetable",extension,init_cat_code_table_code);@/
 @!@:init_cat_code_table_}{\.{\\initcatcodetable} primitive@>
-primitive("pdfresettimer",extension,reset_timer_code);@/
-@!@:reset_timer_}{\.{\\pdfresettimer} primitive@>
 primitive("pdfsetrandomseed",extension,set_random_seed_code);@/
 @!@:set_random_seed_code}{\.{\\pdfsetrandomseed} primitive@>
 primitive("latelua",extension,late_lua_code);@/
@@ -36089,7 +35877,6 @@ extension: case chr_code of
   pdf_trailer_code: print_esc("pdftrailer");
   pdf_xform_code: print_esc("pdfxform");
   pdf_ximage_code: print_esc("pdfximage");
-  reset_timer_code: print_esc("pdfresettimer"); 
   save_cat_code_table_code: print_esc("savecatcodetable");
   init_cat_code_table_code: print_esc("initcatcodetable");
   set_random_seed_code: print_esc("pdfsetrandomseed");
@@ -36145,7 +35932,6 @@ begin case cur_chr of
   pdf_trailer_code: @<Implement \.{\\pdftrailer}@>;
   pdf_xform_code: @<Implement \.{\\pdfxform}@>;
   pdf_ximage_code: @<Implement \.{\\pdfximage}@>;
-  reset_timer_code: @<Implement \.{\\pdfresettimer}@>;
   save_cat_code_table_code: @<Implement \.{\\savecatcodetable}@>;
   init_cat_code_table_code: @<Implement \.{\\initcatcodetable}@>;
   set_random_seed_code: @<Implement \.{\\pdfsetrandomseed}@>;
@@ -36253,45 +36039,6 @@ end;
 procedure scan_pdf_ext_toks;
 begin
     call_func(scan_toks(false, true)); {like \.{\\special}}
-end;
-
-procedure compare_strings; {to implement \.{\\pdfstrcmp}}
-label done;
-var s1, s2: str_number;
-    i1, i2, j1, j2: pool_pointer;
-begin
-    call_func(scan_toks(false, true));
-    s1 := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    call_func(scan_toks(false, true));
-    s2 := tokens_to_string(def_ref);
-    delete_token_ref(def_ref);
-    i1 := str_start_macro(s1);
-    j1 := str_start_macro(s1 + 1);
-    i2 := str_start_macro(s2);
-    j2 := str_start_macro(s2 + 1);
-    while (i1 < j1) and (i2 < j2) do begin
-        if str_pool[i1] < str_pool[i2] then begin
-            cur_val := -1;
-            goto done;
-        end;
-        if str_pool[i1] > str_pool[i2] then begin
-            cur_val := 1;
-            goto done;
-        end;
-        incr(i1);
-        incr(i2);
-    end;
-    if (i1 = j1) and (i2 = j2) then
-        cur_val := 0
-    else if i1 < j1 then
-        cur_val := 1
-    else
-        cur_val := -1;
-done:
-    flush_str(s2);
-    flush_str(s1);
-    cur_val_level := int_val;
 end;
 
 @ @<Implement \.{\\pdfliteral}@>=
@@ -37314,12 +37061,6 @@ begin
     initex_cat_codes(cur_val);
     end;
 end
-
-@ @<Implement \.{\\pdfresettimer}@>=
-begin
-  seconds_and_micros(epochseconds,microseconds);
-end
-
 
 @ The following subroutines are about PDF-specific font issues.
 
