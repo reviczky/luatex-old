@@ -38,6 +38,8 @@ extern int  runcallback          (int i, char *values, ...);
 extern int  runsavedcallback     (int i, char *name, char *values, ...);
 extern int  runandsavecallback   (int i, char *values, ...);
 extern void destroysavedcallback (int i);
+extern void getsavedluanumber    (int i, char *name, int *target);
+extern void getsavedluastring    (int i, char *name, char **target);
 
 extern void initfilecallbackids    (int max);
 extern void setinputfilecallbackid (int n, int i) ;
@@ -45,7 +47,7 @@ extern void setreadfilecallbackid  (int n, int i) ;
 extern int  getinputfilecallbackid (int n);
 extern int  getreadfilecallbackid  (int n);
 
-extern void luainitialize (void);
+extern void lua_initialize (int ac, char **av);
 
 extern int luaopen_kpse (lua_State *L);
 

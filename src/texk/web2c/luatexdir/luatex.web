@@ -21258,15 +21258,16 @@ if pdf_pk_resolution = 0 then {if not set from format file or by user}
 fixed_pk_resolution := fix_int(pdf_pk_resolution, 72, 8000);
 pk_scale_factor :=
     divide_scaled(72, fixed_pk_resolution, 5 + fixed_decimal_digits);
-if pdf_pk_mode <> null then begin
+if not callback_defined('read_pk_file') then begin
+  if pdf_pk_mode <> null then begin
     kpse_init_prog('PDFTEX', fixed_pk_resolution,
                    make_cstring(tokens_to_string(pdf_pk_mode)), nil);
     flush_string;
-end else
+  end else
     kpse_init_prog('PDFTEX', fixed_pk_resolution, nil, nil);
-if not callback_defined('read_pk_file') then
   if not kpse_var_value('MKTEXPK') then
      kpse_set_program_enabled (kpse_pk_format, 1, kpse_src_cmdline);
+  end;
 set_job_id(year, month, day, time);
 if (pdf_unique_resname > 0) and (pdf_resname_prefix = 0) then
     pdf_resname_prefix := get_resname_prefix
@@ -35492,7 +35493,6 @@ random_seed :=(microseconds*1000)+(epochseconds mod 1000000);@/
 init_randoms(random_seed);@/
 @<Compute the magic offset@>;
 @<Initialize the print |selector|...@>;
-lua_initialize;
 if (loc<limit)and(get_cat_code(cat_code_table,buffer[loc])<>escape) then start_input;
   {\.{\\input} assumed}
 @<DIR: Initialize |text_dir_ptr|@>;

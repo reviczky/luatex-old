@@ -111,10 +111,10 @@ int argc;
 static string user_progname;
 
 /* The C version of what might wind up in DUMP_VAR.  */
-static const_string dump_name;
+const_string dump_name;
 
 /* The C version of the jobname, if given. */
-static const_string job_name;
+const_string job_name;
 
 /* Full source file name. */
 extern string fullnameoffile;
@@ -124,10 +124,10 @@ string translate_filename;
 string default_translate_filename;
 
 /* Needed for --src-specials option. */
-static char *last_source_name;
-static int last_lineno;
-static boolean srcspecialsoption = false;
-static void parse_src_specials_option P1H(const_string);
+char *last_source_name;
+int last_lineno;
+boolean srcspecialsoption = false;
+void parse_src_specials_option P1H(const_string);
 
 /* The main body of the WEB is transformed into this procedure.  */
 extern TEXDLL void mainbody P1H(void);
@@ -188,7 +188,7 @@ maininit P2C(int, ac, string *, av)
      since we want the --ini option, have to do it before getting into
      the web (which would read the base file, etc.).  */
   parse_options (ac, av);
-  if (!user_progname) user_progname = dump_name;
+  if (!user_progname) user_progname = (string)dump_name;
 
   /* Do this early so we can inspect program_invocation_name and
      kpse_program_name below, and because we have to do this before
@@ -336,7 +336,16 @@ main P2C(int, ac,  string *, av)
   _response (&ac, &av);
 #endif
 
-  maininit(ac, av);
+#if defined(luaTeX)
+  /* allocate the callback array */
+  if(!callback_initialize())
+    exit(1);
+
+  if (ac>1 && (strstr(av[1],"-lua") != NULL)) {
+	lua_initialize(ac, av);
+  } else
+#endif
+    maininit(ac, av);
 
   /* Call the real main program.  */
   mainbody ();
@@ -558,7 +567,7 @@ ipcpage P1C(int, is_eof)
 #endif
     name = (string)xmalloc (len + 1);
 #if !defined(Omega) && !defined(eOmega) && !defined(Aleph)
-    strncpy (name, &strpool[strstart[outputfilename]], len);
+    strncpy (name, (string)&strpool[strstart[outputfilename]], len);
 #else
     unsigned i;
     for (i=0; i<len; i++)

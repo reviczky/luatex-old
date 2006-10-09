@@ -24,6 +24,7 @@ static const char *const callbacknames[] = {
   "find_type1_file",
   "find_image_file",
   "show_error_hook",
+  "initialize_memory",
   NULL };
 
 typedef struct {
@@ -32,7 +33,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 19
+#define NUM_CALLBACKS 20
 
 static callback_info *callback_list;
 
@@ -97,6 +98,38 @@ runsavedcallback (int r, char *name, char *values, ...) {
   va_end(args);
   lua_settop(Luas[0],stacktop);
   return ret;
+}
+
+void 
+getsavedluanumber (int r, char *name, int *target) {
+  int stacktop;
+  stacktop = lua_gettop(Luas[0]);  
+  luaL_checkstack(Luas[0],2,"out of stack space");
+  lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,r);
+  lua_getfield(Luas[0],-1,name);
+  if (lua_isnumber(Luas[0],-1)) {
+    *target = lua_tonumber(Luas[0],-1);
+  } else {
+    *target = 0;
+  }
+  lua_settop(Luas[0],stacktop);
+  return;
+}
+
+void 
+getsavedluastring (int r, char *name, char **target) {
+  int stacktop;
+  stacktop = lua_gettop(Luas[0]);  
+  luaL_checkstack(Luas[0],2,"out of stack space");
+  lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,r);
+  lua_getfield(Luas[0],-1,name);
+  if (lua_isstring(Luas[0],-1)) {
+    *target = (char *)lua_tostring(Luas[0],-1);
+  } else {
+    *target = NULL;
+  }
+  lua_settop(Luas[0],stacktop);
+  return;
 }
 
 void

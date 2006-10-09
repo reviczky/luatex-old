@@ -2970,16 +2970,26 @@ print(" (format="); print(job_name); print_char(" ");
 {|setup_bound_var| stuff duplicated in \.{mf.ch}.}
 @d setup_bound_var(#)==bound_default:=#; setup_bound_var_end
 @d setup_bound_var_end(#)==bound_name:=#; setup_bound_var_end_end
-@d setup_bound_var_end_end(#)==
-  setup_bound_variable(address_of(#), bound_name, bound_default);
+@d setup_bound_var_end_end(#)==if callback_id>0 then begin
+	get_saved_lua_number(callback_id,bound_name,address_of(#));
+	if #=0 then #:=bound_default;
+    end
+  else
+    setup_bound_variable(address_of(#), bound_name, bound_default);
 
 @p procedure main_body;
+var callback_id:integer;
 begin @!{|start_here|}
+
+ callback_id:=callback_defined('initialize_memory');
+ if callback_id>0 then 
+   callback_id:=run_and_save_callback(callback_id,'->');
 
 {Bounds that may be set from the configuration file. We want the user to
  be able to specify the names with underscores, but \.{TANGLE} removes
  underscores, so we're stuck giving the names twice, once as a string,
  once as the identifier. How ugly.}
+
   setup_bound_var (0)('mem_bot')(mem_bot);
   setup_bound_var (250000)('main_memory')(main_memory);
     {|memory_word|s for |mem| in \.{INITEX}}
