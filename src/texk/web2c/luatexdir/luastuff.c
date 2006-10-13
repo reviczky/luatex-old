@@ -144,6 +144,7 @@ void find_env (lua_State *L){
     lua_pushstring(L,"env"); 
     lua_newtable(L); 
     while (*envpointer) {
+      /* TODO: perhaps a memory leak here  */
       luaL_checkstack(L,2,"out of stack space");
       envitem = strdup(*envpointer);
       envkey=envitem;
@@ -174,9 +175,13 @@ luainterpreter (int n) {
   luaopen_tex(L);
   luaopen_texio(L);
   luaopen_kpse(L);
-  if (n==0)
+  if (n==0) {
     luaopen_callback(L);
+    lua_createtable(L, 0, 0);
+    lua_setglobal(L, "texconfig");
+  }
   luaopen_lua(L,n,startup_filename);
+  luaopen_stats(L);
   //  fix_package_path(L,"path","lua",1);
 #if defined(_WIN32)
   //  fix_package_path(L,"cpath","dll",0);
@@ -185,6 +190,26 @@ luainterpreter (int n) {
 #endif
   Luas[n] = L;
 }
+
+int hide_lua_table(lua_State *L, char *name) {
+  int r=0;
+  lua_getglobal(L,name);
+  if(lua_istable(L,-1)) {
+    r = luaL_ref(L,LUA_REGISTRYINDEX);
+    lua_pushnil(L);
+    lua_setglobal(L,name);
+  }
+  return r;
+}
+
+void unhide_lua_table(lua_State *L, char *name, int r) {
+  lua_rawgeti(L,LUA_REGISTRYINDEX,r);
+  lua_setglobal(L,name);
+  luaL_unref(L,LUA_REGISTRYINDEX,r);
+}
+
+
+
 
 void 
 luacall(int n, int s) {

@@ -25,7 +25,7 @@ static const char perforce_id[] =
     "$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writet1.c#25 $";
 
 #  include "ptexlib.h"
-#  define t1_log(s)           tex_printf(s)
+#  define t1_log(s)           if(tracefilenames) tex_printf(s)
 #  define external_enc()      (fm_cur->encoding)->glyph_names
 #  define full_file_name()    (char*)nameoffile + 1
 #  define get_length1()       t1_length1 = t1_offset() - t1_save_offset
@@ -283,7 +283,7 @@ void load_enc (char *enc_name, char **glyph_names)
 	  enc_close();
     }
     t1_log ("{");
-    t1_log (cur_file_name = full_file_name ());
+	t1_log (cur_file_name = full_file_name ());
     enc_getline ();
     if (*enc_line != '/' || (r = strchr (enc_line, '[')) == NULL) {
         remove_eol (r, enc_line);

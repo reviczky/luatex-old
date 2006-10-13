@@ -339,7 +339,8 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
 void writeimage (integer img)
 {
     cur_file_name = img_name (img);
-    tex_printf (" <%s", img_name (img));
+	if (tracefilenames)
+	  tex_printf (" <%s", img_name (img));
     switch (img_type (img)) {
     case IMAGE_TYPE_PNG:
         write_png (img);
@@ -359,7 +360,8 @@ void writeimage (integer img)
     default:
         pdftex_fail ("unknown type of image");
     }
-    tex_printf (">");
+	if (tracefilenames)
+	  tex_printf (">");
     cur_file_name = NULL;
 }
 

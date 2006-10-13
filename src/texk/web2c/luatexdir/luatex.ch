@@ -566,37 +566,6 @@ instead of the
 @z
 
 @x
-wterm(banner);
-@y
-if src_specials_p or file_line_error_style_p or parse_first_line_p then
-  wterm(banner_k)
-else
-  wterm(banner);
-@z
-
-@x
-if format_ident=0 then wterm_ln(' (no format preloaded)')
-else  begin slow_print(format_ident); print_ln;
-  end;
-@y
-wterm(version_string);
-if format_ident>0 then slow_print(format_ident);
-print_ln;
-if shell_enabled_p then begin
-  wterm_ln(' \write18 enabled.')
-end;
-if src_specials_p then begin
-  wterm_ln(' Source specials enabled.')
-end;
-if file_line_error_style_p then begin
-  wterm_ln(' file:line:error style messages enabled.')
-end;
-if parse_first_line_p then begin
-  wterm_ln(' %&-line parsing enabled.')
-end;
-@z
-
-@x
 @d error_stop_mode=3 {stops at every opportunity to interact}
 @y
 @d error_stop_mode=3 {stops at every opportunity to interact}
@@ -1766,18 +1735,18 @@ endifn ('IPC')
 @z
 
 @x
-  print_nl("Output written on "); slow_print(output_file_name);
+    print_nl("Output written on "); slow_print(output_file_name);
 @y
-  print_nl("Output written on "); print_file_name(0, output_file_name, 0);
+    print_nl("Output written on "); print_file_name(0, output_file_name, 0);
 @z
 
 @x
-  print(" ("); print_int(total_pages); print(" page");
-  if total_pages<>1 then print_char("s");
+    print(" ("); print_int(total_pages); print(" page");
+    if total_pages<>1 then print_char("s");
 @y
-  print(" ("); print_int(total_pages);
-  if total_pages<>1 then print(" pages")
-  else print(" page");
+    print(" ("); print_int(total_pages);
+    if total_pages<>1 then print(" pages")
+    else print(" page");
 @z
 
 @x
@@ -2970,8 +2939,8 @@ print(" (format="); print(job_name); print_char(" ");
 {|setup_bound_var| stuff duplicated in \.{mf.ch}.}
 @d setup_bound_var(#)==bound_default:=#; setup_bound_var_end
 @d setup_bound_var_end(#)==bound_name:=#; setup_bound_var_end_end
-@d setup_bound_var_end_end(#)==if callback_id>0 then begin
-	get_saved_lua_number(callback_id,bound_name,address_of(#));
+@d setup_bound_var_end_end(#)==if luainit>0 then begin
+	get_lua_number('texconfig',bound_name,address_of(#));
 	if #=0 then #:=bound_default;
     end
   else
@@ -3130,12 +3099,47 @@ end {|main_body|};
 @z
 
 @x
-    slow_print(log_name); print_char(".");
+  wterm(banner);
+@y
+  if src_specials_p or file_line_error_style_p or parse_first_line_p then
+    wterm(banner_k)
+  else
+    wterm(banner);
+@z
+
+@x
+  if format_ident=0 then wterm_ln(' (no format preloaded)')
+  else  begin slow_print(format_ident); print_ln;
     end;
+@y
+  wterm(version_string);
+  if format_ident>0 then slow_print(format_ident);
+  print_ln;
+  if shell_enabled_p then begin
+    wterm_ln(' \write18 enabled.')
+  end;
+  if src_specials_p then begin
+    wterm_ln(' Source specials enabled.')
+  end;
+  if file_line_error_style_p then begin
+    wterm_ln(' file:line:error style messages enabled.')
+  end;
+  if parse_first_line_p then begin
+   wterm_ln(' %&-line parsing enabled.')
+  end;
+@z
+
+
+
+@x
+     slow_print(log_name); print_char(".");
+@y
+     print_file_name(0, log_name, 0); print_char(".");
+@z
+
+@x
   end;
 @y
-    print_file_name(0, log_name, 0); print_char(".");
-    end;
   end;
 print_ln;
 if (edit_name_start<>0) and (interaction>batch_mode) then
@@ -3328,41 +3332,6 @@ if j=18 then
   pool_ptr:=str_start_macro(str_ptr);  {erase the string}
 end;
 selector:=old_setting;
-@z
-
-@x
-procedure out_what(@!p:pointer);
-var j:small_number; {write stream number}
-@y
-procedure out_what(@!p:pointer);
-var j:small_number; {write stream number}
-    @!old_setting:0..max_selector;
-@z
-
-@x
-      while not lua_a_open_out(write_file[j],(j+1)) do
-        prompt_file_name("output file name",".tex");
-      write_file[j]:= name_file_pointer;
-      write_open[j]:=true;
-@y
-      while not open_out_name_ok(stringcast(name_of_file+1))
-            or not lua_a_open_out(write_file[j],(j+1)) do
-        prompt_file_name("output file name",".tex");
-      write_file[j]:= name_file_pointer;
-      write_open[j]:=true;
-      {If on first line of input, log file is not ready yet, so don't log.}
-      if log_opened then begin
-        old_setting:=selector;
-        if (tracing_online<=0) then
-          selector:=log_only  {Show what we're doing in the log file.}
-        else selector:=term_and_log;  {Show what we're doing.}
-        print_nl("\openout");
-        print_int(j);
-        print(" = `");
-        print_file_name(cur_name,cur_area,cur_ext);
-        print("'."); print_nl(""); print_ln;
-        selector:=old_setting;
-      end;
 @z
 
 @x

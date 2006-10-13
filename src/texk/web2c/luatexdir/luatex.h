@@ -127,4 +127,10 @@ extern void btestin();
 #define vfbopenin(f) \
     open_input (&(f), kpse_vf_format, FOPEN_RBIN_MODE)
 
+extern int open_outfile(FILE **f, char *name, char *mode);
+
+#define doaopenout(f) open_outfile(&(f),(nameoffile+1),FOPEN_W_MODE)
+#define dobopenout(f) open_outfile(&(f),(nameoffile+1),FOPEN_WBIN_MODE)
+
+
 #include <luatexdir/ptexlib.h>

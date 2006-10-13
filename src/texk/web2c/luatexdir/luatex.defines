@@ -58,8 +58,12 @@ $Id $
 @define function  callbackdefined();
 @define function  callbackluaid();
 
+@define procedure getsavedluaboolean();
 @define procedure getsavedluanumber();
 @define procedure getsavedluastring();
+@define procedure getluaboolean();
+@define procedure getluanumber();
+@define procedure getluastring();
 
 @define procedure initfilecallbackids();
 @define procedure setinputfilecallbackid ();
@@ -105,9 +109,15 @@ $Id $
 @define procedure dumpluacregisters;
 @define procedure undumpluacregisters;
 
+@define function doaopenout();
+@define function dobopenout();
+
+@define procedure flushloggableinfo;
+
 { bits and pieces from aleph }
 
 @define procedure btestin ;
+
 
 @define var fonttables;
 

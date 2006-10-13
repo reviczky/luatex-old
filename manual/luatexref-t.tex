@@ -1,3 +1,15 @@
+% engine=luatex
+\pdfcompresslevel0
+ 
+%\newcount\crashcounter
+%\appendtoks
+%\ifnum\crashcounter=85 \stoptext \fi
+%\global\advance\crashcounter\plusone
+%[\the\crashcounter]
+% \ctxlua{%
+%    texio.write_nl("PAR NUMBER: \the\crashcounter")
+%    for _,v in pairs(statistics.list()) do texio.write_nl (_ .. "=" .. v) end
+%}\to\everypar
 
 \environment luatexref-env
 
@@ -314,7 +326,6 @@ identical to those defined by initex:
 \NC \type{A}--\type{Z}    \NC \type{letter}      \NC11\NC\NR
 \NC everything else       \NC \type{other}       \NC12\NC\NR
 \stoptable
-\loggingall
 
 The new catcode table is allocated globally: it will not go away after
 the current group has ended. If the supplied number is the currently

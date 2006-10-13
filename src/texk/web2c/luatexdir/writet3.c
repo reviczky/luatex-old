@@ -242,7 +242,8 @@ static boolean writepk (internalfontnumber f)
     }
     t3_image_used = true;
     is_pk_font = true;
-    tex_printf (" <%s", (char *) name);
+	if (tracefilenames)
+	  tex_printf (" <%s", (char *) name);
     cd.rastersize = 256;
     cd.raster = xtalloc (cd.rastersize, halfword);
     check_preamble = true;
@@ -353,7 +354,8 @@ void writet3 (int objnum, internalfontnumber f)
       t3_read_file();
       t3_close();
     }
-    tex_printf ("<%s", nameoffile + 1);
+	if (tracefilenames)
+	  tex_printf ("<%s", nameoffile + 1);
     t3_getline ();
     if (!t3_prefix (t3_font_scale_str) ||
         sscanf (t3_line_array + strlen (t3_font_scale_str) + 1, "%g",
@@ -445,6 +447,7 @@ void writet3 (int objnum, internalfontnumber f)
         if (t3_char_procs[i] != 0)
             pdf_printf ("/a%i %i 0 R\n", (int) i, (int) t3_char_procs[i]);
     pdfenddict ();
-    tex_printf (">");
+	if (tracefilenames)
+	  tex_printf (">");
     cur_file_name = NULL;
 }

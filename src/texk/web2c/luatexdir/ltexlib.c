@@ -52,7 +52,7 @@ do_luacprint (lua_State * L, int partial, int deftable) {
     if (st) {
       // fprintf(stderr,"W[%d]:=%s\n",spindle_index,st);
       luacstrings++; 
-      rn = (rope *)xmalloc(sizeof(rope));
+      rn = (rope *)xmalloc(sizeof(rope)); /* valgrind says we leak here */
       rn->text      = st;
       rn->partial  = partial;
       rn->cattable = cattable;

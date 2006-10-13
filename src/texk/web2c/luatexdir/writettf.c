@@ -1321,12 +1321,14 @@ void writettf ()
 	  ttf_close();
 	}
     cur_file_name = (char *) nameoffile + 1;
-    if (!is_included (fm_cur))
+	if (tracefilenames) {
+	  if (!is_included (fm_cur))
         tex_printf ("{%s", cur_file_name);
-    else if (is_subsetted (fm_cur))
+	  else if (is_subsetted (fm_cur))
         tex_printf ("<%s", cur_file_name);
-    else
+	  else
         tex_printf ("<<%s", cur_file_name);
+	}
     fontfile_found = true;
     new_glyphs_count = 2;
     new_ntabs = DEFAULT_NTABS;
@@ -1353,12 +1355,14 @@ void writettf ()
     xfree (glyph_name_buf);
     xfree (name_tab);
     xfree (name_buf);
-    if (!is_included (fm_cur))
+	if (tracefilenames) {
+	  if (!is_included (fm_cur))
         tex_printf ("}");
-    else if (is_subsetted (fm_cur))
+	  else if (is_subsetted (fm_cur))
         tex_printf (">");
-    else
+	  else 
         tex_printf (">>");
+	}
     cur_file_name = NULL;
 }
 
@@ -1388,7 +1392,8 @@ void writeotf ()
 	}
 
     cur_file_name = (char *) nameoffile + 1;
-    tex_printf ("<<%s", cur_file_name);
+	if (tracefilenames)
+	  tex_printf ("<<%s", cur_file_name);
     fontfile_found = true;
     dir_tab = NULL;
     glyph_tab = NULL;
@@ -1408,7 +1413,8 @@ void writeotf ()
         copy_char ();
     xfree (dir_tab);
 	//    ttf_close ();
-    tex_printf (">>");
+	if (tracefilenames)
+	  tex_printf (">>");
     cur_file_name = NULL;
 }
 

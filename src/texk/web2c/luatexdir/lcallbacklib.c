@@ -20,11 +20,17 @@ static const char *const callbacknames[] = {
   "read_miscfonts_file",
   "read_pk_file",
   "find_read_file",
+  "find_write_file",
+  "find_output_file",
   "find_truetype_file",
   "find_type1_file",
   "find_image_file",
+  "find_format_file",
   "show_error_hook",
-  "initialize_memory",
+  "start_page_number",
+  "stop_page_number",
+  "start_run",
+  "stop_run",
   NULL };
 
 typedef struct {
@@ -33,7 +39,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 20
+#define NUM_CALLBACKS 26
 
 static callback_info *callback_list;
 
@@ -48,9 +54,10 @@ callback_initialize (void) {
 static int 
 callback_name_to_id (char *name) {
   int i;
-  for (i=1; callbacknames[i]; i++)
+  for (i=1; callbacknames[i]; i++) {
     if (strcmp(callbacknames[i], name) == 0)
       return i;
+  }
   return 0;
 }
 
@@ -101,16 +108,86 @@ runsavedcallback (int r, char *name, char *values, ...) {
 }
 
 void 
+getluaboolean  (char *table, char *name, int *target) {
+  int stacktop;
+  stacktop = lua_gettop(Luas[0]);  
+  luaL_checkstack(Luas[0],2,"out of stack space");
+  lua_getglobal(Luas[0],table);
+  if (lua_istable(Luas[0],-1)) {
+    lua_getfield(Luas[0],-1,name);
+    if (lua_isboolean(Luas[0],-1)) {
+      *target = lua_toboolean(Luas[0],-1);
+    } else if (lua_isnumber(Luas[0],-1)) {
+      *target = (lua_tonumber(Luas[0],-1)==0 ? 0 : 1);
+    }
+  }
+  lua_settop(Luas[0],stacktop);
+  return;
+}
+
+void 
+getsavedluaboolean (int r, char *name, int *target) {
+  int stacktop;
+  stacktop = lua_gettop(Luas[0]);  
+  luaL_checkstack(Luas[0],2,"out of stack space");
+  lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,r);
+  if (lua_istable(Luas[0],-1)) {
+    lua_getfield(Luas[0],-1,name);
+    if (lua_isboolean(Luas[0],-1)) {
+      *target = lua_toboolean(Luas[0],-1);
+    } else if (lua_isnumber(Luas[0],-1)) {
+      *target = (lua_tonumber(Luas[0],-1)==0 ? 0 : 1);
+    } 
+  }
+  lua_settop(Luas[0],stacktop);
+  return;
+}
+
+
+void 
+getluanumber (char *table, char *name, int *target) {
+  int stacktop;
+  stacktop = lua_gettop(Luas[0]);  
+  luaL_checkstack(Luas[0],2,"out of stack space");
+  lua_getglobal(Luas[0],table);
+  if (lua_istable(Luas[0],-1)) {
+    lua_getfield(Luas[0],-1,name);
+    if (lua_isnumber(Luas[0],-1)) {
+      *target = lua_tonumber(Luas[0],-1);
+    }
+  }
+  lua_settop(Luas[0],stacktop);
+  return;
+}
+
+void 
 getsavedluanumber (int r, char *name, int *target) {
   int stacktop;
   stacktop = lua_gettop(Luas[0]);  
   luaL_checkstack(Luas[0],2,"out of stack space");
   lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,r);
-  lua_getfield(Luas[0],-1,name);
-  if (lua_isnumber(Luas[0],-1)) {
-    *target = lua_tonumber(Luas[0],-1);
-  } else {
-    *target = 0;
+  if (lua_istable(Luas[0],-1)) {
+    lua_getfield(Luas[0],-1,name);
+    if (lua_isnumber(Luas[0],-1)) {
+      *target = lua_tonumber(Luas[0],-1);
+    } 
+  }
+  lua_settop(Luas[0],stacktop);
+  return;
+}
+
+
+void 
+getluastring (char *table, char *name, char **target) {
+  int stacktop;
+  stacktop = lua_gettop(Luas[0]);  
+  luaL_checkstack(Luas[0],2,"out of stack space");
+  lua_getglobal(Luas[0],table);
+  if (lua_istable(Luas[0],-1)) {
+    lua_getfield(Luas[0],-1,name);
+    if (lua_isstring(Luas[0],-1)) {
+      *target = (char *)lua_tostring(Luas[0],-1);
+    }
   }
   lua_settop(Luas[0],stacktop);
   return;
@@ -122,11 +199,11 @@ getsavedluastring (int r, char *name, char **target) {
   stacktop = lua_gettop(Luas[0]);  
   luaL_checkstack(Luas[0],2,"out of stack space");
   lua_rawgeti(Luas[0],LUA_REGISTRYINDEX,r);
-  lua_getfield(Luas[0],-1,name);
-  if (lua_isstring(Luas[0],-1)) {
-    *target = (char *)lua_tostring(Luas[0],-1);
-  } else {
-    *target = NULL;
+  if (lua_istable(Luas[0],-1)) {
+    lua_getfield(Luas[0],-1,name);
+    if (lua_isstring(Luas[0],-1)) {
+      *target = (char *)lua_tostring(Luas[0],-1);
+    } 
   }
   lua_settop(Luas[0],stacktop);
   return;
@@ -231,7 +308,7 @@ do_run_callback (int special, char *values, va_list vl) {
       lua_pushstring(L, s);
       break;
     case CALLBACK_STRING: /* C string */ 
-      s = strdup(va_arg(vl, char *));
+      s = va_arg(vl, char *);
       lua_pushstring(L, s);
       break;
     case CALLBACK_INTEGER: /* int */ 
@@ -374,7 +451,8 @@ static int callback_register (lua_State *L) {
   lua_rawseti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
   //  lua_setfield(L,LUA_REGISTRYINDEX,"callbacks");
   lua_pop(L,2);
-  return 0;
+  lua_pushnumber(L,i);
+  return 1;
  EXIT:
   lua_pushnil(L);
   lua_pushstring(L,"Invalid arguments to callback.register");
@@ -382,9 +460,28 @@ static int callback_register (lua_State *L) {
 }
 
 
+static int callback_listf (lua_State *L) {
+  int i;
+  luaL_checkstack(L,1,"out of stack space");
+  lua_newtable(L);
+  for (i=1; callbacknames[i]; i++) {
+	luaL_checkstack(L,2,"out of stack space");
+	lua_pushstring(L,callbacknames[i]);
+	if (callback_list[i].is_set) {
+	  lua_pushboolean(L,1);
+	} else {
+	  lua_pushboolean(L,0);
+	}
+	lua_rawset(L,-3);
+  }
+  return 1;
+}
+
+
 static const struct luaL_reg callbacklib [] = {
   //  {"find",    callback_find},
   {"register",callback_register},
+  {"list",callback_listf},
   {NULL, NULL}  /* sentinel */
 };
 

@@ -5,6 +5,8 @@
 
 typedef void (*texio_printer) (strnumber s);
 
+static char *loggable_info = NULL;
+
 typedef enum {
   no_print=16,
   term_only=17,
@@ -31,13 +33,13 @@ do_texio_print (lua_State *L, texio_printer printfunction) {
       lua_error(L);
     } else {
       save_selector = selector;  
-      outputstr=lua_tostring(L, -2);
+      outputstr=(char *)lua_tostring(L, -2);
       if      (strcmp(outputstr,"log") == 0)          { selector = log_only;     }
       else if (strcmp(outputstr,"term") == 0)         { selector = term_only;    }
       else if (strcmp(outputstr,"term and log") == 0) {	selector = term_and_log; }
       else {
-	lua_pushstring(L, "invalid argument for print selector");
-	lua_error(L);
+		lua_pushstring(L, "invalid argument for print selector");
+		lua_error(L);
       }
     }
   } else {
@@ -64,13 +66,54 @@ do_texio_print (lua_State *L, texio_printer printfunction) {
 
 static int
 texio_print (lua_State *L) {
+  char *s;
+  if (readyalready!=314159 || poolptr==0) {
+	if(lua_isstring(L, -1)) {
+	  s = (char *)lua_tostring(L, -1);
+	  fprintf(stdout,"%s",s);
+	  if ((lua_isstring(L, -2) && strcmp(lua_tostring(L, -2),"term"))||
+		  (!lua_isstring(L, -2))) {
+		if (loggable_info==NULL)
+		  loggable_info = s;
+		else
+		  loggable_info = concat (loggable_info,s);
+	  } else {
+	  }
+	}
+	return 0;
+  }
   return do_texio_print(L,zprint);
 }
 
 static int
 texio_printnl (lua_State *L) {
+  char *s;
+  if (readyalready!=314159 || poolptr==0) {
+	if(lua_isstring(L, -1)) {
+	  s = (char *)lua_tostring(L, -1);
+	  fprintf(stdout,"\n%s",s);
+	  if ((lua_isstring(L, -2) && strcmp(lua_tostring(L, -2),"term"))||
+          (!lua_isstring(L, -2))) {
+		if (loggable_info==NULL)
+		  loggable_info = s;
+		else
+		  loggable_info = concat3 (loggable_info,"\n", s);
+	  }
+	}
+	return 0;
+  }
   return do_texio_print(L,zprintnl);
 }
+
+/* at the point this function is called, the selector is log_only */
+void flushloggableinfo (void) {
+  if (loggable_info!=NULL) {
+	fprintf(logfile,"%s\n",loggable_info);
+	free(loggable_info);
+	loggable_info=NULL;
+  }
+}
+
 
 static const struct luaL_reg texiolib [] = {
   {"write", texio_print},

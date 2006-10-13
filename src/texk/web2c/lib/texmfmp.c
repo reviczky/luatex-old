@@ -331,6 +331,7 @@ maininit P2C(int, ac, string *, av)
 int
 main P2C(int, ac,  string *, av)
 {
+  int i;
 #ifdef __EMX__
   _wildcard (&ac, &av);
   _response (&ac, &av);
@@ -338,12 +339,18 @@ main P2C(int, ac,  string *, av)
 
 #if defined(luaTeX)
   /* allocate the callback array */
-  if(!callback_initialize())
+  if(!callback_initialize()) {
+    fprintf(stdout,"Initial callback allocation failed\n");
     exit(1);
-
-  if (ac>1 && (strstr(av[1],"-lua") != NULL)) {
-	lua_initialize(ac, av);
-  } else
+  }
+  luainit = 0;
+  for (i=1;i<ac;i++) {
+    if (strstr(av[i],"-lua") != NULL)
+      luainit=1;
+  }
+  if (luainit) {
+    lua_initialize(ac, av);
+  } else 
 #endif
     maininit(ac, av);
 

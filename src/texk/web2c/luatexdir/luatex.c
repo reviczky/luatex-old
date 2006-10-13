@@ -305,7 +305,27 @@ do_zundump (char *p,  int item_size,  int nitems, FILE *in_file)
 
 boolean 
 zopen_w_input (FILE **f, int format, const_string fopen_mode) {
-  int res = open_input(f,format,fopen_mode);
+  int callbackid;
+  int res;
+  char *fnam;
+  callbackid = callbackdefined("find_format_file");
+  if (callbackid>0) {
+	res = runcallback(callbackid,"S->S",(nameoffile+1),&fnam);
+	if (res && fnam && strlen(fnam)>0) {
+	  xfree (nameoffile);
+	  nameoffile = xmalloc (strlen(fnam)+2);
+	  memcpy((nameoffile+1),fnam,strlen(fnam));
+	  *(nameoffile+strlen(fnam)+1)=0;
+	  *f = xfopen(fnam,fopen_mode);
+	  if (*f == NULL) {
+		return 0;
+	  }
+	} else {
+	  return 0;
+	}
+  } else {
+	res = open_input(f,format,fopen_mode);
+  }
   if (res) {
 	*f = (FILE *)gzdopen(fileno(*f),"rb3");
   }
@@ -314,9 +334,19 @@ zopen_w_input (FILE **f, int format, const_string fopen_mode) {
 
 boolean 
 zopen_w_output (FILE **f, const_string fopen_mode) {
-  int res =  open_output(f,fopen_mode);
+  int callbackid;
+  int res;
+  char *fnam;
+  if (luainit) {
+    *f = fopen((nameoffile+1),fopen_mode);
+    if (*f == NULL) {
+      return 0;
+    }
+  } else {
+    res =  open_output(f,fopen_mode);
+  }
   if (res) {
-	*f = (FILE *)gzdopen(fileno(*f),"wb3");
+    *f = (FILE *)gzdopen(fileno(*f),"wb3");
   }
   return res;
 }
@@ -326,6 +356,18 @@ zwclose (FILE *f) {
   //  fprintf (stderr, "Uncompressed sizes: in=%d,out=%d\n",totalin,totalout);
   gzclose((gzFile)f); 
 }
+
+int
+open_outfile(FILE **f, char *name, char *mode) {
+  FILE *res;
+  res = fopen(name,mode);
+  if (res != NULL) {
+	*f = res;
+	return 1;
+  }
+  return 0;
+}
+
 
 /* the caller sets tfm_buffer=NULL and tfm_size=0 */
 

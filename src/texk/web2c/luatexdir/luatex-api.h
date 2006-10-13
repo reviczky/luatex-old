@@ -38,8 +38,14 @@ extern int  runcallback          (int i, char *values, ...);
 extern int  runsavedcallback     (int i, char *name, char *values, ...);
 extern int  runandsavecallback   (int i, char *values, ...);
 extern void destroysavedcallback (int i);
+
+extern void getsavedluaboolean   (int i, char *name, int *target);
 extern void getsavedluanumber    (int i, char *name, int *target);
 extern void getsavedluastring    (int i, char *name, char **target);
+
+extern void getluaboolean        (char *table, char *name, int *target);
+extern void getluanumber         (char *table, char *name, int *target);
+extern void getluastring         (char *table, char *name, char **target);
 
 extern void initfilecallbackids    (int max);
 extern void setinputfilecallbackid (int n, int i) ;
@@ -55,10 +61,15 @@ extern int luaopen_callback (lua_State *L);
 
 extern int luaopen_lua (lua_State *L, int n, char *fname);
 
+extern int luaopen_stats (lua_State *L);
+
 extern int callback_initialize (void);
 
 extern void dumpluacregisters (void);
 
 extern void undumpluacregisters (void);
 
+
+extern void unhide_lua_table(lua_State *lua, char *name, int r);
+extern int  hide_lua_table  (lua_State *lua, char *name);
 

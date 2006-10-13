@@ -603,12 +603,14 @@ void fm_read_info ()
 	    if(file_opened) {
 	      if (fm_size>0) {
 		cur_file_name = (char *) nameoffile + 1;
-		tex_printf ("{%s", cur_file_name);
+		if (tracefilenames)
+		  tex_printf ("{%s", cur_file_name);
 		while (!fm_eof ()) {
 		  fm_scan_line ();
 		  mitem->lineno++;
 		}
-		tex_printf ("}");
+		if (tracefilenames)
+		  tex_printf ("}");
 		fm_file = NULL;
 	      }
 	    } else {

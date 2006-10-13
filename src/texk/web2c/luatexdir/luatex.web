@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20061004' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20061013' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -545,12 +545,15 @@ defined.
 
 @<Glob...@>=
 @!bad:integer; {is some ``constant'' wrong?}
+@!luainit:boolean; {are we using lua for initializations }
+@!tracefilenames:boolean; { print file open-close  info? }
 
 @ Later on we will say `\ignorespaces|if mem_max>=max_halfword then bad:=14|',
 or something similar. (We can't do that until |max_halfword| has been defined.)
 
 @<Check the ``constant'' values for consistency@>=
 bad:=0;
+if not luainit then  tracefilenames:=true;
 if (half_error_line<30)or(half_error_line>error_line-15) then bad:=1;
 if max_print_line<60 then bad:=2;
 if dvi_buf_size mod 8<>0 then bad:=3;
@@ -1014,9 +1017,60 @@ begin
     end;
 end;
 function lua_a_open_out(var f:alpha_file; n:quarterword):boolean;
+var test:boolean;
+  k:integer;
+  fnam:str_number;
+  callback_id:integer;
 begin
-  lua_a_open_out := a_open_out(f);
-  name_file_pointer := f;
+  name_file_pointer := 0;
+  callback_id:=callback_defined('find_write_file');
+  if callback_id>0 then begin
+    fnam:=0;
+    test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),address_of(fnam));
+    if (test)and(fnam<>0) then begin
+      @<Fixup |name_of_file| after callback@>;
+      lua_a_open_out := do_a_open_out(f);
+	  name_file_pointer := f;
+      end
+    else 
+      lua_a_open_out := false;
+    end 
+  else begin
+	if open_out_name_ok(stringcast(name_of_file+1)) then begin
+      lua_a_open_out := a_open_out(f);
+      name_file_pointer := f;
+      end
+    else
+      lua_a_open_out := false;
+   end;
+end;
+function lua_b_open_out(var f:alpha_file):boolean;
+var test:boolean;
+  k:integer;
+  fnam:str_number;
+  callback_id:integer;
+begin
+  name_file_pointer := 0;
+  callback_id:=callback_defined('find_output_file');
+  if callback_id>0 then begin
+    fnam:=0;
+    test:=run_callback(callback_id,'S->s',stringcast(name_of_file+1),address_of(fnam));
+    if (test)and(fnam<>0) then begin
+      @<Fixup |name_of_file| after callback@>;
+      lua_b_open_out := do_b_open_out(f);
+	  name_file_pointer := f;
+      end
+    else 
+      lua_b_open_out := false;
+    end 
+  else begin
+	if open_out_name_ok(stringcast(name_of_file+1)) then begin
+      lua_b_open_out := b_open_out(f);
+      name_file_pointer := f;
+      end
+    else
+      lua_b_open_out := false;
+   end;
 end;
 
 @ 
@@ -1883,14 +1937,10 @@ and format identifier together will occupy at most |max_print_line|
 character positions.
 
 @<Initialize the output...@>=
-wterm(banner);
-if format_ident=0 then wterm_ln(' (no format preloaded)')
-else  begin slow_print(format_ident); print_ln;
-  end;
-update_terminal;
+print_banner;
 
 @ The procedure |print_nl| is like |print|, but it makes sure that the
-string appears at the beginning of a new line.
+string appears at the beginning of a new line. (moved)
 
 @<Basic print...@>=
 
@@ -2196,9 +2246,9 @@ print_char(".");
 callback_id := callback_defined('show_error_hook') ;
 if callback_id>0 then begin
   if name<string_offset then
-    t := run_callback(callback_id,'sdd>',last_error,name,line)
+    t := run_callback(callback_id,'sdd->',last_error,name,line)
   else
-    t := run_callback(callback_id,'ssd>',last_error,name,line);
+    t := run_callback(callback_id,'ssd->',last_error,name,line);
 end;
 show_context;
 if interaction=error_stop_mode then @<Get user's advice and |return|@>;
@@ -9293,7 +9343,10 @@ if force_eof then
      if not ((name=19)or(name=21)) then 
        file_warning; {give warning for some unfinished groups and/or conditionals}
   if (name>21)or(name=20) then
-  begin print_char(")"); decr(open_parens);
+  begin 
+  if tracefilenames then
+    print_char(")"); 
+  decr(open_parens);
   update_terminal; {show user that file has been read}
   end;
   force_eof:=false;
@@ -9680,7 +9733,7 @@ in |fire_up| and |vsplit| do not have to traverse the full range
 @d split_first_mark(#)==split_first_marks_array[#]
 @d split_bot_mark(#)==split_bot_marks_array[#]
 @x
-@d delete_top_mark(#)==begin if top_mark(#)<>null then
+@d delete_top_mark(#)==begin if top_mark(#)<>null then 
       delete_token_ref(top_mark(#)); top_mark(#):=null; end
 @d delete_bot_mark(#)==begin if bot_mark(#)<>null then
       delete_token_ref(bot_mark(#)); bot_mark(#):=null; end
@@ -12991,8 +13044,9 @@ ship out a box of stuff, we shall use the macro |ensure_dvi_open|.
 @d ensure_dvi_open==if output_file_name=0 then
   begin if job_name=0 then open_log_file;
   pack_job_name(".dvi");
-  while not b_open_out(dvi_file) do
+  while not lua_b_open_out(dvi_file) do
     prompt_file_name("file name for output",".dvi");
+  dvi_file:=name_file_pointer	;
   output_file_name:=b_make_name_string(dvi_file);
   end
 
@@ -13015,18 +13069,23 @@ begin old_setting:=selector;
 if job_name=0 then job_name:="texput";
 @.texput@>
 pack_job_name(".log");
-while not lua_a_open_out(log_file,0) do @<Try to get a different log file name@>;
+while not lua_a_open_out(address_of(log_file),0) do @<Try to get a different log file name@>;
 log_file := name_file_pointer;
 log_name:=a_make_name_string(log_file);
 selector:=log_only; log_opened:=true;
-@<Print the banner line, including the date and time@>;
-input_stack[input_ptr]:=cur_input; {make sure bottom level is in memory}
-print_nl("**");
+if not callback_defined('start_run') then begin
+  @<Print the banner line, including the date and time@>;
+  input_stack[input_ptr]:=cur_input; {make sure bottom level is in memory}
+  print_nl("**");
 @.**@>
-l:=input_stack[0].limit_field; {last position of first line}
-if buffer[l]=end_line_char then decr(l);
-for k:=1 to l do print(buffer[k]);
-print_ln; {now the transcript file contains the first line of input}
+  l:=input_stack[0].limit_field; {last position of first line}
+  if buffer[l]=end_line_char then decr(l);
+  for k:=1 to l do print(buffer[k]);
+  print_ln; {now the transcript file contains the first line of input}
+  end
+else begin
+  flush_loggable_info;
+end;
 selector:=old_setting+2; {|log_only| or |term_and_log|}
 end;
 
@@ -13057,9 +13116,6 @@ months:='JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC';
 for k:=3*month-2 to 3*month do wlog(months[k]);
 print_char(" "); print_int(year); print_char(" ");
 print_two(time div 60); print_char(":"); print_two(time mod 60);
-if eTeX_ex then
-  begin; wlog_cr; wlog('entering extended mode');
-  end;
 end
 
 @ Let's turn now to the procedure that is used to initiate file reading
@@ -13083,9 +13139,14 @@ if job_name=0 then
   begin job_name:=cur_name; open_log_file;
   end; {|open_log_file| doesn't |show_context|, so |limit|
     and |loc| needn't be set to meaningful values yet}
-if term_offset+length(name)>max_print_line-2 then print_ln
-else if (term_offset>0)or(file_offset>0) then print_char(" ");
-print_char("("); incr(open_parens); slow_print(name); update_terminal;
+if tracefilenames then begin
+  if term_offset+length(name)>max_print_line-2 then print_ln
+  else if (term_offset>0)or(file_offset>0) then print_char(" ");
+  print_char("("); 
+  slow_print(name); 
+end;
+incr(open_parens); 
+update_terminal;
 state:=new_line;
 if name=str_ptr-1 then {we can conserve string pool space now}
   begin flush_string; name:=cur_name;
@@ -17050,33 +17111,46 @@ var page_loc:integer; {location of the current |bop|}
 @!j,@!k:0..9; {indices to first ten count registers}
 @!s:pool_pointer; {index into |str_pool|}
 @!old_setting:0..max_selector; {saved |selector| setting}
-begin if tracing_output>0 then
+pre_callback_id:integer;
+post_callback_id:integer;
+ret:boolean;
+begin 
+pre_callback_id:=callback_defined('start_page_number');	
+post_callback_id:=callback_defined('stop_page_number');	
+if (tracing_output>0)and(pre_callback_id=0) then
   begin print_nl(""); print_ln;
   print("Completed box being shipped out");
 @.Completed box...@>
   end;
-if term_offset>max_print_line-9 then print_ln
-else if (term_offset>0)or(file_offset>0) then print_char(" ");
-print_char("["); j:=9;
-while (count(j)=0)and(j>0) do decr(j);
-for k:=0 to j do
-  begin print_int(count(k));
-  if k<j then print_char(".");
+if pre_callback_id>0 then
+  ret:=run_callback(pre_callback_id,'->')
+else begin
+  if term_offset>max_print_line-9 then print_ln
+  else if (term_offset>0)or(file_offset>0) then print_char(" ");
+  print_char("["); j:=9;
+  while (count(j)=0)and(j>0) do decr(j);
+  for k:=0 to j do
+    begin print_int(count(k));
+    if k<j then print_char(".");
+    end;
   end;
 update_terminal;
-if tracing_output>0 then
+if (tracing_output>0)and(post_callback_id=0) then 
   begin print_char("]");
   begin_diagnostic; show_box(p); end_diagnostic(true);
   end;
 @<Ship box |p| out@>;
-if tracing_output<=0 then print_char("]");
+if (tracing_output<=0)and(post_callback_id=0) then 
+  print_char("]");
 dead_cycles:=0;
 update_terminal; {progress report}
 @<Flush the box from memory, showing statistics if requested@>;
+if post_callback_id>0 then 
+  ret:=run_callback(post_callback_id,'->');
 end;
 
 @ @<Flush the box from memory, showing statistics if requested@>=
-@!stat if tracing_stats>1 then
+@!stat if (tracing_stats>1)and(pre_callback_id=0) then
   begin print_nl("Memory usage before: ");
 @.Memory usage...@>
   print_int(var_used); print_char("&");
@@ -17084,7 +17158,7 @@ end;
   end;
 tats@/
 flush_node_list(p);
-@!stat if tracing_stats>1 then
+@!stat if (tracing_stats>1)and(post_callback_id=0) then
   begin print(" after: ");
   print_int(var_used); print_char("&");
   print_int(dyn_used); print("; still untouched: ");
@@ -17200,7 +17274,12 @@ while cur_s>-1 do
     end;
   decr(cur_s);
   end;
-if total_pages=0 then print_nl("No pages of output.")
+if total_pages=0 then begin 
+  if callback_id=0 then
+    print_nl("No pages of output.")
+  else
+    res:=run_callback(callback_id,'->');
+  end
 @.No pages of output@>
 else  begin dvi_out(post); {beginning of the postamble}
   dvi_four(last_bop); last_bop:=dvi_offset+dvi_ptr-5; {|post| location}
@@ -17216,11 +17295,15 @@ else  begin dvi_out(post); {beginning of the postamble}
     begin dvi_out(223); decr(k);
     end;
   @<Empty the last bytes out of |dvi_buf|@>;
-  print_nl("Output written on "); slow_print(output_file_name);
+  if callback_id=0 then begin
+    print_nl("Output written on "); slow_print(output_file_name);
 @.Output written on x@>
-  print(" ("); print_int(total_pages); print(" page");
-  if total_pages<>1 then print_char("s");
-  print(", "); print_int(dvi_offset+dvi_ptr); print(" bytes).");
+    print(" ("); print_int(total_pages); print(" page");
+    if total_pages<>1 then print_char("s");
+    print(", "); print_int(dvi_offset+dvi_ptr); print(" bytes).");
+    end
+  else
+    res:=run_callback(callback_id,'->');
   b_close(dvi_file);
   end
 
@@ -17330,6 +17413,11 @@ end;
 function new_dummy_font: internal_font_number;
 begin
     new_dummy_font := read_font_info(null_cs, "dummy", "", -1000, 0, -1);
+end;
+
+function get_hash_size: integer;
+begin
+  get_hash_size:= hash_size;
 end;
 
 @ Helper for debugging purposes
@@ -17586,8 +17674,9 @@ begin
     if job_name = 0 then
         open_log_file;
     pack_job_name(".pdf");
-    while not b_open_out(pdf_file) do
+    while not lua_b_open_out(pdf_file) do
         prompt_file_name("file name for output",".pdf");
+    pdf_file:=name_file_pointer;
     output_file_name := b_make_name_string(pdf_file);
 end;
 
@@ -20561,7 +20650,13 @@ save_xform_list: pointer; {to save |pdf_xform_list|}
 save_image_procset: integer;  {to save |pdf_image_procset|}
 save_text_procset: integer;  {to save |pdf_text_procset|}
 pdf_last_resources: integer; {pointer to most recently generated Resources object}
-begin if tracing_output>0 then
+pre_callback_id:integer;
+post_callback_id:integer;
+ret:boolean;
+begin 
+pre_callback_id:=callback_defined('start_page_number');	
+post_callback_id:=callback_defined('stop_page_number');	
+if (tracing_output>0)and(pre_callback_id=0) then
   begin print_nl(""); print_ln;
   print("Completed box being shipped out");
 @.Completed box...@>
@@ -20572,6 +20667,9 @@ if not init_pdf_output then begin
 end;
 is_shipping_page := shipping_page;
 if shipping_page then begin
+  if pre_callback_id>0 then 
+    ret:=run_callback(pre_callback_id,'->')
+  else begin
     if term_offset>max_print_line-9 then print_ln
     else if (term_offset>0)or(file_offset>0) then print_char(" ");
     print_char("["); j:=9;
@@ -20580,17 +20678,21 @@ if shipping_page then begin
       begin print_int(count(k));
       if k<j then print_char(".");
       end;
-    update_terminal;
+    end;
+  update_terminal;
 end;
-if tracing_output>0 then
+if (tracing_output>0)and(post_callback_id=0) then
   begin if shipping_page then print_char("]");
   begin_diagnostic; show_box(p); end_diagnostic(true);
   end;
 @<(\pdfTeX) Ship box |p| out@>;
-if (tracing_output<=0) and shipping_page then print_char("]");
+if (tracing_output<=0)and(post_callback_id=0) and shipping_page then
+  print_char("]");
 dead_cycles:=0;
 update_terminal; {progress report}
 @<Flush the box from memory, showing statistics if requested@>;
+if post_callback_id>0 then 
+  ret:=run_callback(post_callback_id,'->');
 end;
 
 @ @<(\pdfTeX) Ship box |p| out@>=
@@ -21327,7 +21429,10 @@ are already written completely to PDF output file.
 
 @<Finish the PDF file@>=
 if total_pages=0 then begin
-    print_nl("No pages of output.");
+	if callback_id=0 then
+      print_nl("No pages of output.")
+    else
+      res:=run_callback(callback_id,'->');
   @.No pages of output@>
     if pdf_gone > 0 then
         garbage_warning;
@@ -21361,11 +21466,15 @@ else begin
     end;
     @<Output the trailer@>;
     pdf_flush;
-    print_nl("Output written on "); print_file_name(0, output_file_name, 0);
+	if callback_id=0 then begin
+      print_nl("Output written on "); print_file_name(0, output_file_name, 0);
   @.Output written on x@>
-    print(" ("); print_int(total_pages); print(" page");
-    if total_pages<>1 then print_char("s");
-    print(", "); print_int(pdf_offset); print(" bytes).");
+      print(" ("); print_int(total_pages); print(" page");
+      if total_pages<>1 then print_char("s");
+      print(", "); print_int(pdf_offset); print(" bytes).");
+      end
+    else
+      res:=run_callback(callback_id,'->');
     libpdffinish;
     b_close(pdf_file);
 end
@@ -29380,7 +29489,7 @@ if p=q then list_ptr(v):=null
 else loop@+begin if type(p)=mark_node then
     if split_first_mark(mark_class(p))=null then
       begin split_first_mark(mark_class(p)):=mark_ptr(p);
-      split_bot_mark(mark_class(p)):=split_first_mark(p);
+      split_bot_mark(mark_class(p)):=split_first_mark(mark_class(p));
       token_ref_count(split_first_mark(mark_class(p))):=@|
         token_ref_count(split_first_mark(mark_class(p)))+2;
       end
@@ -35304,6 +35413,28 @@ end_of_TEX: close_files_and_terminate;
 final_end: ready_already:=0;
 end.
 
+@ Put this in a function because two extra variables are needed
+for callback testing, and putting those inside the main body is
+ugly
+
+@<Basic print...@>=
+procedure print_banner;
+var res:boolean;
+   callback_id:integer;
+begin
+callback_id:=callback_defined('start_run');
+if callback_id=0 then begin
+  wterm(banner);
+  if format_ident=0 then wterm_ln(' (no format preloaded)')
+  else  begin slow_print(format_ident); print_ln;
+    end;
+  end
+else
+  res:= run_callback(callback_id,'->');
+update_terminal;
+end;
+
+
 @ Here we do whatever is needed to complete \TeX's job gracefully on the
 local operating system. The code here might come into play after a fatal
 error; it must therefore consist entirely of ``safe'' operations that
@@ -35326,8 +35457,13 @@ var a, b, c, i, j, k, l: integer; {all-purpose index}
     is_names: boolean; {flag for name tree output: is it Names or Kids?}
     root, outlines, threads, names_tree, dests: integer;
     xref_offset_width, names_head, names_tail: integer;
-begin @<Finish the extensions@>;
-@!stat if tracing_stats>0 then @<Output statistics about this job@>;@;@+tats@/
+	callback_id:integer;
+	res:boolean;
+begin 
+callback_id:=callback_defined('stop_run');
+@<Finish the extensions@>;
+@!stat if tracing_stats>0 then
+  if callback_id=0 then @<Output statistics about this job@>;@;@+tats@/
 wake_up_terminal;
 if not fixed_pdfoutput_set then
     fix_pdfoutput;
@@ -35338,6 +35474,7 @@ if fixed_pdfoutput > 0 then begin
         end
     else begin
         @<Finish the PDF file@>;
+	    if callback_id=0 then begin
         wlog_cr;
         wlog_ln('PDF statistics:');
         wlog_ln(' ',obj_ptr:1,' PDF objects out of ',obj_tab_size:1,
@@ -35353,18 +35490,20 @@ if fixed_pdfoutput > 0 then begin
             ' (max. ',sup_dest_names_size:1,')');
         wlog_ln(' ',pdf_mem_ptr:1,' words of extra memory for PDF output out of ',pdf_mem_size:1,
             ' (max. ',sup_pdf_mem_size:1,')');
+        end;
     end;
 end
 else begin
     @<Finish the \.{DVI} file@>;
 end;
 if log_opened then
-  begin wlog_cr; lua_a_close_out(log_file); selector:=selector-2;
-  if selector=term_only then
-    begin print_nl("Transcript written on ");
+  begin wlog_cr; selector:=selector-2;
+  if (selector=term_only)and(callback_id=0) then begin
+     print_nl("Transcript written on ");
 @.Transcript written...@>
-    slow_print(log_name); print_char(".");
+     slow_print(log_name); print_char(".");
     end;
+  lua_a_close_out(log_file);
   end;
 end;
 
@@ -35415,7 +35554,9 @@ if job_name=0 then open_log_file;
 while input_ptr>0 do
   if state=token_list then end_token_list@+else end_file_reading;
 while open_parens>0 do
-  begin print(" )"); decr(open_parens);
+  begin 
+	if tracefilenames then print(" )"); 
+	decr(open_parens);
   end;
 if cur_level>level_one then
   begin print_nl("("); print_esc("end occurred ");
@@ -35435,14 +35576,15 @@ while cond_ptr<>null do
   cur_if:=subtype(cond_ptr); temp_ptr:=cond_ptr;
   cond_ptr:=link(cond_ptr); free_node(temp_ptr,if_node_size);
   end;
-if history<>spotless then
- if ((history=warning_issued)or(interaction<error_stop_mode)) then
-  if selector=term_and_log then
-  begin selector:=term_only;
-  print_nl("(see the transcript file for additional information)");
+if not callback_defined('stop_run') then 
+  if history<>spotless then
+    if ((history=warning_issued)or(interaction<error_stop_mode)) then
+      if selector=term_and_log then
+        begin selector:=term_only;
+        print_nl("(see the transcript file for additional information)");
 @.see the transcript file...@>
-  selector:=term_and_log;
-  end;
+        selector:=term_and_log;
+        end;
 if c=1 then
   begin @!init for i:=0 to biggest_used_mark do begin
     delete_top_mark(i); delete_first_mark(i); delete_bot_mark(i);
@@ -35485,7 +35627,7 @@ if (format_ident=0)or(buffer[loc]="&") then
   end;
 if (pdf_output_option <> 0) then pdf_output := pdf_output_value;
 pdf_init_map_file('pdftex.map');
-if eTeX_ex then wterm_ln('entering extended mode');
+if false then wterm_ln('entering extended mode');
 if end_line_char_inactive then decr(limit)
 else  buffer[limit]:=end_line_char;
 fix_date_and_time;@/

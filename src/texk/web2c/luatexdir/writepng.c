@@ -522,7 +522,8 @@ void write_png (integer img)
                 pdf_puts ("/DeviceRGB\n");
             };
         }
-        tex_printf (" (PNG copy)");
+		if (tracefilenames)
+		  tex_printf (" (PNG copy)");
         copy_png (img);
         if (palette_objnum > 0) {
             pdfbegindict (palette_objnum, 0);
