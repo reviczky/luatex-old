@@ -2947,12 +2947,7 @@ print(" (format="); print(job_name); print_char(" ");
     setup_bound_variable(address_of(#), bound_name, bound_default);
 
 @p procedure main_body;
-var callback_id:integer;
 begin @!{|start_here|}
-
- callback_id:=callback_defined('initialize_memory');
- if callback_id>0 then 
-   callback_id:=run_and_save_callback(callback_id,'->');
 
 {Bounds that may be set from the configuration file. We want the user to
  be able to specify the names with underscores, but \.{TANGLE} removes
