@@ -13,18 +13,22 @@
 
 \environment luatexref-env
 
+\setupalign[flushleft]
+
+\catcode`\_=12
+
 \def\hex{"}
 
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2006-09-30}
+\TitlePage{Snapshot 2006-10-13}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
 \title{Contents}
 
-\placecontent[criterium=text]
+\placecontent[criterium=text,level=subsection]
 
 \chapter{Introduction}
 
@@ -348,61 +352,73 @@ active table, an error is raised.
 
 \section{Initialization}
 
-Whenever the \LUATEX\ executable starts, it uses kpathsea to search for
-a file of type `texmfscript' that is named
-\starttyping
-     startup.lua
-\stoptyping
 
-If such a file exists, it is loaded in the lua state zero (0).
+Whenever the \LUATEX\ executable starts, it looks for a \type{--lua}
+command||line option. If such an option is present, it will enter an
+alternative mode of command||line parsing.
 
-This loading happens right before the first text input file needs to
-be opened, after format loading, but before the \type{\everyjob}
-tokens are executed.
+In this mode, it will only interpret a very small subset of the
+command||line directly:
+\starttable[|l|l|]
+\NC --lua=s      \NC load and execute a lua init script   \NC \AR
+\NC --help       \NC display help and exit                \NC \AR
+\NC --version    \NC display version and exit             \NC \AR
+\stoptable
 
-\section{Lua search paths}
+If the Lua script can not be found using the actual name of the
+command||line, a second attempt is made by prepending the value of the
+environment variable \type{LUATEXDIR}, if it esists.
 
-The default lua file search paths are adjusted to co\"operate with
-a typical \TEX\ installation. 
+Then the script is loaded and executed. It will find the entire
+commandline in the table \type{arg}, beginning with \type{arg[0]},
+that is the name of the executable. At the end of script execution,
+\LUATEX\ will fetch some of the processed command line options 
+from the \type{texconfig} table  (see the description of the
+\type{texconfig} table later on in this document).
 
-The search path for lua script files (\type{package.path}) now
-contains the following items, that are tried in order:
-\startitemize[n]
-\item the local directory:
-\starttyping
-      ./?.lua
-\stoptyping
+This happens very early on. So early, in fact, that none of
+\TEX's initializations have taken place yet. For that reason, the
+\type{tex} and \type{pdf} tables are off-limits during the execution
+of the startup file (they are nilled). Special care is taken that
+\type{texio.write} and \type{texio.write_nl} function properly, so that
+you can at least report your actions to the log file when it
+eventually becomes opened (note that \TEX\ does not even know it's
+\type{\jobname} yet at this point).
 
-\item the items from the expansion of kpathsea's \$TEXMFSCRIPTS variable,
-      but only the parts that contain `lua' as a sub-path:
-\starttyping
-      $TEXMFSCRIPTS<lua>/?.lua
-      $TEXMFSCRIPTS<lua>/?/init.lua
-\stoptyping
- 
-\item the \$SELFAUTOPARENT sibling directory named `lib'.
-\starttyping
-      $SELFAUTOPARENT/lib/lua/5.1/?.lua
-      $SELFAUTOPARENT/lib/lua/5.1/?/init.lua
-\stoptyping
+The file is loaded into Lua state 0, and everything you do will remain
+visible during the rest of the run, with the exception of the
+\type{tex} and \type{pdf} tables: those will be restored to their
+normal meaning right after the execution of the script. 
 
-\stopitemize
+We recommend you use the startup file only for your own
+\TEX-independant initializations (if you need any), to parse the
+command||line, set values in the \type{texconfig} table, and
+register the callbacks you need.
 
 
-Because dynamic libraries are by definition system-dependent, the
-search path for dynamic libraries (\type{package.cpath}) has only
+Unless the \type{texconfig} table tells it not to start kpathsea at
+all (set \type{texconfig.kpse_init} to \type{false} for that), it also
+acts on three other command||line options:
 
-\startitemize[n]
-\item the local directory
-\starttyping
-      ./?.so
-\stoptyping
+\starttable[|l|l|]
+\NC --fmt=s      \NC set the format name                  \NC \AR
+\NC --progname=s \NC set the progname (only for kpathsea) \NC \AR
+\NC --ini        \NC enable initex mode                   \NC \AR
+\stoptable
 
-\item and the \$SELFAUTOPARENT sibling directory named `lib'
-\starttyping
-      $SELFAUTOPARENT/lib/lua/5.1/?.so
-\stoptyping % $
-\stopitemize
+In order to initialize the built-in kpathsea library properly,
+\LUATEX\ needs to know the correct `progname' to use, and for that it 
+needs to check \type{-progname} and \type{-ini} and \type{-fmt}
+(if \type{-progname} is missing).
+
+\section{Lua changes}
+
+Two modules that are normally external are statically linked in with
+\LUATEX: \type{slnunicode} and \type{luazip}.
+
+The \type{read("*line")} function from the io library has been
+adjusted so that it is line-ending neutral: any of \type{LF}, \type
+{CR} or type{CR+LF} are accepted.
 
 
 \chapter{Lua Libraries}
@@ -883,25 +899,28 @@ This library takes care of the low-level I/O interface.
 \subsubsection{\function{texio.write}}
 
 \startfunctioncall
+  texio.write(string target, tring s)
   texio.write(string s)
 \stopfunctioncall
 
-Writes the string to the same location(s) \TEX\ writes to at this
-moment. So if \type{\batchmode} is on, it writes only to the log,
-inside a \type{\write}, it prints to the current write file, etc.
+Without the \type{target} argument, Writes the string to the same
+location(s) \TEX\ writes messages to at this moment. If
+\type{\batchmode} is in effect, it writes only to the log, 
+otherwise  it writes to the log and the terminal.
 
-A read||write interface to \TEX's internal file selector will be
-added soon.
+The optional \type{target} can be one of three possibilities:
+`term', `log' or `term and log'.
 
-\subsubsection{\function{tex.write\_nl}}
+\subsubsection{\function{tex.write_nl}}
 
 \startfunctioncall
+  texio.write_nl(string target, tring s)
   texio.write_nl(string s)
 \stopfunctioncall
 
-Like \function{texio.write}, but always writes starts a new line
-first. You can use an empty string if you only want to move to the
-next line.
+Like \function{texio.write}, but make sure that the string s will
+appear at the beginning of a line. You can use an empty string if you
+only want to move to the next line.
 
 \section{The \lualib{pdf} library}
 
@@ -925,7 +944,8 @@ The associated function calls are
 
 \section{The \lualib{callback} library}
 
-This library has a single function that is used to register callbacks.
+This library has a function that is used to register callbacks, and a
+function that lists the registered callbacks
 
 The \lualib{callback} library is only available in lua state zero (0).
 
@@ -943,44 +963,122 @@ it does not matter if you redefine a function accidentally.
 Callback assignments are always global. You can use the special value
 `nil' instead of a function for clearing the callback.
 
-\subsection{Recognized callbacks}
+\startfunctioncall
+   table <info> = callback.list()
+\stopfunctioncall
 
-\subsubsection{\callback{open\_read\_file}}
+The keys in the table are the known callback names, the value is a
+boolean where \type{true} means that the callback is currently set
+(active).
+
+\subsection{File discovery callbacks}
+
+
+\subsubsection{\callback{find_read_file} and \callback{find_write_file}}
 
 You callback function should have the following conventions:
 
 \startfunctioncall
-   function (number <id_number>, string <asked_name>)
-      return boolean <success>, string <actual_name>, table <env>
-   end
+   string <actual_name> = function (number <id_number>, string <asked_name>)
 \stopfunctioncall
 
 Arguments:
 \startitemize
-\sym{id\_number}   
+\sym{id_number}   
 
-zero for the log or \type{\input} files or TeX's \type{\read} number
-incremented by one (\type{\read}0 becomes 1).
+zero for the log or \type{\input} files, or TeX's \type{\read} or
+\type{\write} number incremented by one (\type{\read}0 becomes 1).
 
-\sym{asked\_name}
+\sym{asked_name}
 
-the user||supplied filename, as found by \type{\input} or \type{\openin}
+the user||supplied filename, as found by \type{\input}, or \type{\openin},
+or \type{\openout}.
 \stopitemize
 
-Return values:
+Return value:
 \startitemize
-\sym{success} 
 
-return false when the file cannot be found or there is
-another error, true otherwise. If you return false, the remaining two
-return values are never looked at.
-
-\sym{actual\_name} 
+\sym{actual_name} 
 
 the filename used. For the very first file that is read in by \TEX,
 you have to make sure you return an \type{actual_name} that has an
-extension and that is suitable for use as \type{jobname}.
+extension and that is suitable for use as \type{jobname}. If you
+don't, you will have to manually fix the name for the log file and
+output file, and an eventual format filename will become mangled,
+since these depend on the jobname.
 
+\stopitemize
+
+\subsubsection{\callback{find_output_file}}
+
+You callback function should have the following conventions:
+
+\startfunctioncall
+   string <actual_name> = function (string <asked_name>)
+\stopfunctioncall
+
+The  \type{asked_name} is the PDF or DVI file for writing.
+
+\subsubsection{\callback{find_format_file}}
+
+You callback function should have the following conventions:
+
+\startfunctioncall
+   string <actual_name> = function (string <asked_name>)
+\stopfunctioncall
+
+The \type{asked_name} is a format file for reading (the format file
+for writing is always opened in the current directory).
+
+\subsubsection{\callback{find_truetype_file} and \callback{find_type1_file}}
+
+You callback function should have the following conventions:
+
+\startfunctioncall
+   string <actual_name> = function (string <asked_name>)
+\stopfunctioncall
+
+The \type{asked_name} is a font file. This callback is called while
+\LUATEX\ is building its internal list of needed font files, so the
+actual timing may surprise you. Your return value is later fed back
+into the matching \callback{read__file} callback.
+
+Strangely enough, \type{find_type1_file} is also used for OpenType
+(otf) fonts.
+
+\subsubsection{\callback{find_image_file}}
+
+You callback function should have the following conventions:
+
+\startfunctioncall
+   string <actual_name> = function (string <asked_name>)
+\stopfunctioncall
+
+The \type{asked_name} is an image file. Your return value is used to
+open a file from the harddisk, so make sure you return something that
+is considered the name of a valid file by your operating system.
+
+
+\subsection{File reading callbacks}
+
+\subsubsection{\callback{open_read_file}}
+
+You callback function should have the following conventions:
+
+\startfunctioncall
+   table <env> = function (string <file_name>)
+\stopfunctioncall
+
+Argument:
+\startitemize
+\sym{file_name}
+
+the filename returned by a previous \callback{find_read_file} or the return
+value of \type{kpse_find_file()} if there was no such callback defined.
+\stopitemize
+
+Return value:
+\startitemize
 \sym{env}  
 
 this is a table containing one required and one optional callback
@@ -1020,7 +1118,7 @@ the optional `\callback{close}' function next.
 
 Your function should not return any value.
 
-\subsubsection{\callback{read\_font\_file}}
+\subsubsection{\callback{read_font_file}}
 
 This function is called when \TEX\ needs to read a \type{ofm} or
 \type{tfm} file.
@@ -1040,7 +1138,7 @@ return false when the file cannot be found.
 
 the bytes comprising the file. 
 
-\sym{data\_size} 
+\sym{data_size} 
 
 the length of the \type{data}, in bytes.
 \stopitemize
@@ -1048,30 +1146,113 @@ the length of the \type{data}, in bytes.
 return an empty string and zero if the file was found but there was a
 reading problem.
 
-\subsubsection{\callback{read\_vf\_file}}
+\subsubsection{\callback{read_vf_file}}
 
 Like \callback{read_font_file}, but for virtual fonts.
 
-
-\subsubsection{\callback{read\_ocp\_file}}
+\subsubsection{\callback{read_ocp_file}}
 
 Like \callback{read_font_file}, but for ocp files.
 
+\subsubsection{\callback{read_map_file}}
 
-\subsubsection{\callback{read\_data\_file}}
+Like \callback{read_font_file}, but for map files.
+
+\subsubsection{\callback{read_enc_file}}
+
+Like \callback{read_font_file}, but for enc files.
+
+
+\subsubsection{\callback{read_sfd_file}}
+
+Like \callback{read_font_file}, but for subfont definition files.
+
+
+\subsubsection{\callback{read_miscfonts_file}}
+
+Like \callback{read_font_file}, but for t3 font (pgc) files.
+
+
+\subsubsection{\callback{read_pk_file}}
+
+Like \callback{read_font_file}, but for pk bitmap files. The argument
+\type{<name>} is a bit special in this case. It's form is
+
+\starttyping
+  <base res>dpi/<fontname>.<actual res>pk
+\stoptyping
+
+So you may be asked for \type{600dpi/manfnt.720pk}.  It is up to you
+to find a `reasonable' bitmap file to go with that specification.
+
+\subsubsection{\callback{read_data_file}}
 
 Like \callback{read_font_file}, but for embedded files (\type{\pdfobj file "..."}).
 
 
-\subsubsection{\callback{show\_error\_hook}}
+\subsubsection{\callback{read_truetype_file}}
+
+Like \callback{read_font_file}, but for truetype font files. The
+\type{name} is a path name as returned by \callback{find_truetype_file} 
+or \type{kpse_find_file}.
+
+\subsubsection{\callback{read_type1_file}}
+
+Like \callback{read_font_file}, but for type1 font files. The
+\type{name} is a path name as returned by \callback{find_type1_file} 
+or \type{kpse_find_file}.
+
+\subsubsection{\callback{read_opentype_file}}
+
+Like \callback{read_font_file}, but for opentype font files. The
+\type{name} is a path name as returned by \callback{find_type1_file} 
+or \type{kpse_find_file}.
+
+\subsection{Information reporting callbacks}
+
+
+\subsubsection{\callback{start_run}}
+
+\startfunctioncall
+  function ()
+\stopfunctioncall
+
+Replaces the code that prints \LUATEX's banner
+
+\subsubsection{\callback{stop_run}}
+
+\startfunctioncall
+  function ()
+\stopfunctioncall
+
+Replaces the code that prints \LUATEX's statistics and `Output written
+to' messages.
+
+\subsubsection{\callback{start_page_number}}
+
+\startfunctioncall
+  function ()
+\stopfunctioncall
+
+Replaces the code that prints the \type{[} and the page number at the
+begin of \type{\shipout}. This callback will also override the
+printing of box information that normally takes place when
+\type{\tracingoutput} is positive.
+
+\subsubsection{\callback{stop_page_number}}
+
+\startfunctioncall
+  function ()
+\stopfunctioncall
+
+Replaces the code that prints the \type{]} at the end of \type{\shipout}
+
+\subsubsection{\callback{show_error_hook}}
        
 \startfunctioncall
-     function (string <message>, string <indicator>,  number <lineno>)
-        return
-     end
-     function (string <message>, number <indicator>,  number <lineno>)
-        return
-     end
+     function (string <message>, string <indicator>, number <lineno>)
+     return end function (string <message>, number <indicator>, number
+     <lineno>) return end
 \stopfunctioncall
 
 This callback is run from inside the \TEX\ error function, and the idea
@@ -1103,7 +1284,7 @@ routines, but that needs lots of adjustments in the web source because
 
 \section{The \lualib{lua} library}
 
-This library contains three read-only  items:
+This library contains two read-only  items:
 
 \subsection{Variables}
 
@@ -1117,12 +1298,6 @@ the id number of the instance
      string s = lua.version
 \stoptyping 
 a luatex version identifier string (currently \type{"0.1"})
-
-\starttyping
-     string s = lua.startupfile
-\stoptyping
-the full filename of the used \type{startup.lua}, or `nil' if there
-was no startup file.
 
 \subsection{Lua bytecode registers}
 
@@ -1148,9 +1323,9 @@ The associated function calls are
 
 \section{The \lualib{kpse} library}
 
-\subsection{\function{kpse.find\_file}}
+\subsection{\function{kpse.find_file}}
 
-The most important function in the library is find\_file:
+The most important function in the library is find_file:
 
 \startfunctioncall
  string f = kpse.find_file(string filename)
@@ -1236,7 +1411,7 @@ If you specify `true' (or a non-zero integer), then the kpse library
 will search the disk as well as the ls-R databases.
 \stopitemize
 
-\subsection{\function{kpse.expand\_path}}
+\subsection{\function{kpse.expand_path}}
 
 Like kpsewhich's  `-expand-path':
 
@@ -1244,7 +1419,7 @@ Like kpsewhich's  `-expand-path':
      string r = kpse.expand_path(string s)
 \stopfunctioncall
 
-\subsection{\function{kpse.expand\_var}}
+\subsection{\function{kpse.expand_var}}
 
 Like kpsewhich's  `-expand-var':
 
@@ -1253,13 +1428,142 @@ Like kpsewhich's  `-expand-var':
 \stopfunctioncall
 
 
-\subsection{\function{kpse.expand\_braces}}
+\subsection{\function{kpse.expand_braces}}
 
 Like kpsewhich's  `-expand-braces':
 
 \startfunctioncall
      string r = kpse.expand_braces(string s)
 \stopfunctioncall
+
+\section{The \lualib{statistics} library}
+
+This contains a number of run||time configuration items that
+you may find useful in message reporting, as well as an iterator
+function that gets all of the names and values as a table.
+
+\startfunctioncall
+   table <info> = statistics.list()
+\stopfunctioncall
+
+The keys in the table are the known items, the value is the current
+value. 
+
+Almost all of the values in \type{statistics} are fetched through a
+metatable at run||time whenever they are accessed, so you cannot use
+\type{pairs} on\type{statistics}, but you {\it can\/} use \type{pairs}
+on \type{<info>}, of course.
+
+If you do not need the full list, you can also ask for a single item
+by using it's name as an index into \type{statistics}. 
+
+The current list is:
+
+\starttabulate[|l|l|]
+\NC Key     \NC                  Explanation \NC\FR
+\NC pdf_gone\NC                  written pdf bytes      \NC \AR
+\NC pdf_ptr\NC                   not yet written pdf bytes      \NC \AR
+\NC dvi_gone\NC                  written dvi bytes      \NC \AR
+\NC dvi_ptr\NC                   not yet written dvi bytes      \NC \AR
+\NC total_pages\NC               number of written pages      \NC \AR
+\NC output_file_name\NC          name of the pdf or dvi file      \NC \AR
+\NC log_name\NC                  name of the log file      \NC \AR
+\NC banner\NC                    terminal display banner      \NC \AR
+\NC pdftex_banner\NC             --      \NC \AR
+\NC var_used\NC                  variable (one-word) memory in use \NC \AR
+\NC dyn_used\NC                  token (multi-word) memory in use  \NC \AR
+\NC str_ptr\NC                   number of strings      \NC \AR
+\NC init_str_ptr\NC              number of initex strings      \NC \AR
+\NC max_strings\NC               maximum allowed strings      \NC \AR
+\NC pool_ptr\NC                  string pool index      \NC \AR
+\NC init_pool_ptr\NC             initex string pool index      \NC \AR
+\NC pool_size\NC                 maximum allowed string characters      \NC \AR
+\NC lo_mem_max\NC                current top of multi-word memory      \NC \AR
+\NC mem_min\NC                   bottom index of memory array     \NC \AR
+\NC mem_end\NC                   top index of memory array      \NC \AR
+\NC hi_mem_min\NC                current bottom of one-word memory      \NC \AR
+\NC cs_count\NC                  number of control sequences      \NC \AR
+\NC hash_size\NC                 size of hash       \NC \AR
+\NC hash_extra\NC                extra allowed hash  \NC \AR
+\NC font_ptr\NC                  number of active fonts      \NC \AR
+\NC hyph_count\NC                hyphenation exceptions      \NC \AR
+\NC hyph_size\NC                 max used hyphenation exceptions  \NC \AR
+\NC max_in_stack\NC              max used input stack entries      \NC \AR
+\NC max_nest_stack\NC            max used nesting stack entries     \NC \AR
+\NC max_param_stack\NC           max used parameter stack entries     \NC \AR
+\NC max_buf_stack\NC             max used buffer position      \NC \AR
+\NC max_save_stack\NC            max used save stack entries      \NC \AR
+\NC stack_size\NC                input stack size      \NC \AR
+\NC nest_size\NC                 nesting stack size      \NC \AR
+\NC param_size\NC                parameter stack size      \NC \AR
+\NC buf_size\NC                  line buffer size      \NC \AR
+\NC save_size\NC                 save stack size      \NC \AR
+\NC obj_ptr\NC                   max pdf object pointer      \NC \AR
+\NC obj_tab_size\NC              pdf object table size      \NC \AR
+\NC pdf_os_cntr\NC               max pdf object stream pointer      \NC \AR
+\NC pdf_os_objidx\NC             pdf object stream index \NC \AR
+\NC pdf_dest_names_ptr\NC        max pdf destination pointer       \NC \AR
+\NC dest_names_size\NC           pdf destination table size      \NC \AR
+\NC pdf_mem_ptr\NC               max pdf memory used      \NC \AR
+\NC pdf_mem_size\NC              pdf memory size      \NC \AR
+\NC biggest_used_mark\NC         max referenced marks class      \NC \AR
+\stoptabulate
+
+
+\section{The \lualib{texconfig} table}
+
+This is a table that is created empty. A startup lua script could
+fill this table with a number of settings that are read out by
+the executable after loading and executing the startup file. 
+
+
+\starttabulate[|l|l|l|p|]
+\NC key      \NC type     \NC default \NC explanation \NC\FR
+\NC mem_bot \NC 	        number\NC  0\NC cf. web2c docs \NC \AR     
+\NC main_memory \NC        number\NC  250000\NC cf. web2c docs \NC \AR
+\NC extra_mem_top \NC      number\NC  0\NC cf. web2c docs \NC \AR     
+\NC extra_mem_bot \NC      number\NC  0\NC cf. web2c docs \NC \AR     
+\NC pool_size \NC 	        number\NC  100000\NC cf. web2c docs \NC \AR
+\NC string_vacancies \NC   number\NC  75000\NC cf. web2c docs \NC \AR 
+\NC pool_free \NC 	        number\NC  5000\NC cf. web2c docs \NC \AR  
+\NC max_strings \NC        number\NC  15000\NC cf. web2c docs \NC \AR 
+\NC strings_free \NC       number\NC  100\NC cf. web2c docs \NC \AR   
+\NC trie_size \NC 	        number\NC  20000\NC cf. web2c docs \NC \AR 
+\NC hyph_size \NC 	        number\NC  659\NC cf. web2c docs \NC \AR   
+\NC buf_size \NC 	        number\NC  3000\NC cf. web2c docs \NC \AR  
+\NC nest_size \NC 	        number\NC  50\NC cf. web2c docs \NC \AR    
+\NC max_in_open \NC        number\NC  15\NC cf. web2c docs \NC \AR    
+\NC param_size \NC         number\NC  60\NC cf. web2c docs \NC \AR    
+\NC save_size \NC 	        number\NC  4000\NC cf. web2c docs \NC \AR  
+\NC stack_size \NC         number\NC  300\NC cf. web2c docs \NC \AR   
+\NC dvi_buf_size \NC       number\NC  16384\NC cf. web2c docs \NC \AR 
+\NC error_line \NC         number\NC  79\NC cf. web2c docs \NC \AR    
+\NC half_error_line \NC    number\NC  50\NC cf. web2c docs \NC \AR    
+\NC max_print_line \NC     number\NC  79\NC cf. web2c docs \NC \AR    
+\NC ocp_list_size \NC      number\NC 1000\NC cf. web2c docs \NC \AR   
+\NC ocp_buf_size \NC       number\NC 1000\NC cf. web2c docs \NC \AR   
+\NC ocp_stack_size \NC     number\NC 1000\NC cf. web2c docs \NC \AR   
+\NC hash_extra \NC         number\NC  0\NC cf. web2c docs \NC \AR     
+\NC pk_dpi \NC             number\NC  72\NC cf. web2c docs \NC \AR    
+\NC kpse_init \NC boolean \NC true    \NC \type{false} totally disables Kpathsea initialisation
+                                          (only ever unset this if you implement {\it all\/} file
+                                          find callbacks!)\NC\AR
+\NC trace_file_names \NC boolean \NC true \NC \type{false} disables TeX's normal file open||close 
+                                              feedback (the assumption is that callbacks will take care of 
+	                                      that). \NC \AR
+\NC src_special_auto  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+\NC src_special_everypar  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+\NC src_special_everyparend  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+\NC src_special_everycr  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+\NC src_special_everymath  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+\NC src_special_everyhbox  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+\NC src_special_everyvbox  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+\NC src_special_everydisplay  \NC boolean \NC false \NC Source specials sub-item \NC\AR
+
+\NC file_line_error  \NC boolean \NC false \NC Do \type{file:line} style error messages\NC\AR
+\NC halt_on_error    \NC boolean \NC false \NC Abort run on the first encountered error\NC\AR
+\stoptabulate
+
 
 
 \chapter{Modifications}
@@ -1375,6 +1679,9 @@ loop when trying to \type{\show} a box.
 \item A fair amount of minor bugs are fixed as well, most of these
 related to \type{\tracingcommands} output.
 
+\item The number of fonts, ocps and ocplists is capped off at about 8\% 
+of their maximum \ALEPH\ value (around 5000 for each).
+
 \stopitemize
 
 \section{Changes from standard \WEBC}
@@ -1393,6 +1700,15 @@ related to \type{\tracingcommands} output.
   -enc
   -etex
 \stoptyping
+
+\item \type{\openout} whatsits are not written to the log file.
+
+\item Some of the so||called web2c extensions are hard to set up 
+  in non-kpse mode because texmf.cnf is not read: \type{shell-escape}
+  is off (but that is not a problem because of Lua's
+  \type{os.execute}), and the paranoia checks on \type{openin} and
+  \type{openout} do not happen (however, it is easy for a Lua script
+  to do this itself by overloading \type{io.open}).
 
 \stopitemize
 
@@ -1449,6 +1765,18 @@ faster.
 
 The chosen compression factor is fairly low, equivalent to \type{gzip -3}.
 
+\subsection{Binary file reading}
+
+All of the internal code is changed in such a way that if one of the
+\type{read_xxx_file} callbacks is not set, then the file is read by
+a C function using basically the same convention as the callback: a
+single read into a buffer big enough to hold the entire file
+contents. While this uses more memory than the previous code (that
+mostly used \type{getc} calls), it can be quite a bit faster
+(depending on your I/O subsystem).
+
+
+
 \chapter{Known bugs}
 
 \startitemize
@@ -1486,7 +1814,6 @@ values instead of strings
 \item A way to (re?)calculate the width of a  \type{\vbox}, taking only
 the natural width of the included items into account.
 
-\item Link in  \type{luazip}
 \stopitemize
 
 
