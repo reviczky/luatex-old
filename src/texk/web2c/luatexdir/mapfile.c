@@ -787,7 +787,8 @@ static boolean used_tfm (fm_entry * p)
     internalfontnumber f;
     strnumber s;
     ff_entry *ff;
-
+    int callback_id;
+    char *tfm_ret;
     /* check if the font file is not a TrueType font */
     /* font replacement makes sense only for included Type1 files */
     if (is_truetype (p) || !is_included (p))
@@ -824,7 +825,10 @@ static boolean used_tfm (fm_entry * p)
     if (avail_tfm_found == NULL && loaded_tfm_found == NULL &&
         strcmp (p->tfm_name, nontfm) != 0) {
         if (p->tfm_avail == TFM_UNCHECKED) {
-            if (kpse_find_file (p->tfm_name, kpse_tfm_format, 0) != NULL) {
+	  callback_id = callbackdefined("find_font_file");
+	  if ((callback_id>0 && runcallback(callback_id,"S->S",p->tfm_name,&tfm_ret) && tfm_ret!=NULL)
+	      || 
+	      (kpse_find_file (p->tfm_name, kpse_tfm_format, 0) != NULL)) {
                 avail_tfm_found = p;
                 p->tfm_avail = TFM_FOUND;
             } else {

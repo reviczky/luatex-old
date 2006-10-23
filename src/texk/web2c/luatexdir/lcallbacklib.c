@@ -26,6 +26,7 @@ static const char *const callbacknames[] = {
   "find_type1_file",
   "find_image_file",
   "find_format_file",
+  "find_font_file",
   "show_error_hook",
   "start_page_number",
   "stop_page_number",
@@ -39,7 +40,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 26
+#define NUM_CALLBACKS 27
 
 static callback_info *callback_list;
 
