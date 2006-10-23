@@ -118,7 +118,7 @@ luacstringinput (void) {
     last = first;
     ret = last;
     len = strlen(st);
-	fprintf(stderr,"buffer -- string: %d+%d -- %d\n",last,len, bufsize);
+    // fprintf(stderr,"buffer -- string: %d+%d -- %d\n",last,len, bufsize);
     check_buf (last + len,bufsize);
     while (len-->0)
       buffer[last++] = *st++;

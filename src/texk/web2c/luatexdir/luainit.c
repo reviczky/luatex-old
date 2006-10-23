@@ -5,6 +5,10 @@
 
 #include <luatexdir/luatexextra.h>
 
+#ifndef program_invocation_name
+/*  char *program_invocation_name = NULL; */
+#endif
+
 const_string LUATEX_IHELP[] = {
     "Usage: luatex --lua=FILE [OPTION]... [TEXNAME[.tex]] [COMMANDS]",
     "   or: luatex --lua=FILE [OPTION]... \\FIRST-LINE",
@@ -159,6 +163,7 @@ lua_initialize (int ac, char **av) {
   argv = av;
 
   ptexbanner = BANNER;
+  program_invocation_name = argv[0];
 
   /* Must be initialized before options are parsed.  */
   interactionoption = 4;
