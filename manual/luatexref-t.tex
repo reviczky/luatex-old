@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2006-10-13}
+\TitlePage{Snapshot 2006-10-23}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -420,6 +420,10 @@ The \type{read("*line")} function from the io library has been
 adjusted so that it is line-ending neutral: any of \type{LF}, \type
 {CR} or type{CR+LF} are accepted.
 
+The \type{tostring()} printer for numbers has been changed so that it
+returns `0' instead of something like `2e-5' (which confused \TEX\
+enormously).
+
 
 \chapter{Lua Libraries}
 
@@ -436,7 +440,6 @@ defined in Lua, but are only frontends that are handled by a metatable
 that operates on the actual \TEX\ values. As a result, most of the lua
 table operators (like \type{pairs} and \type{#}) do not work on such
 items.
-
 
 
 At the moment, it is possible to access almost every parameter
@@ -1008,6 +1011,17 @@ output file, and an eventual format filename will become mangled,
 since these depend on the jobname.
 
 \stopitemize
+
+\subsubsection{\callback{find_font_file}}
+
+You callback function should have the following conventions:
+
+\startfunctioncall
+   string <actual_name> = function (string <asked_name>)
+\stopfunctioncall
+
+The  \type{asked_name} is an OTF or TFM font metrics file.
+
 
 \subsubsection{\callback{find_output_file}}
 
