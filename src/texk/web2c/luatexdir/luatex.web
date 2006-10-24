@@ -508,13 +508,13 @@ emphasize this distinction.
 @d hyph_size=307 {another prime; the number of \.{\\hyphenation} exceptions}
 @d ocp_base=0 {smallest internal ocp number; must not be less
   than |min_quarterword|}
-@d ocp_biggest=5535 {the real biggest ocp}
+@d ocp_biggest=32767 {the real biggest ocp}
 @d number_ocps=ocp_biggest-ocp_base+1
 @d ocp_list_base=0 {smallest internal ocp list number; must not be less
   than |min_quarterword|}
-@d ocp_list_biggest=5535 {the real biggest ocp list}
+@d ocp_list_biggest=32727 {the real biggest ocp list}
 @d number_ocp_lists=ocp_list_biggest-ocp_list_base+1
-@d max_active_ocp_lists=5536
+@d max_active_ocp_lists=32768
 @d biggest_reg=65535 {the largest allowed register number; must be |<=max_quarterword|}
 @d number_regs=65536 {|biggest_reg+1|}
 @d biggest_mark=65535 {the largest allowed marks class; must be |<=max_quarterword|}
