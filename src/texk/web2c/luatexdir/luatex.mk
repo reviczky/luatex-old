@@ -22,14 +22,14 @@ $(luatexdir)/luatex.version: $(srcdir)/$(luatexdir)/luatex.web
 	grep '^@d luatex_version_string==' $(srcdir)/$(luatexdir)/luatex.web \
 	  | sed "s/^.*'-//;s/'.*$$//" \
 	  >$(luatexdir)/luatex.version
-          
+
 # The C sources.
 luatex_c = luatexini.c luatex0.c luatex1.c luatex2.c luatex3.c
 luatex_o = luatexini.o luatex0.o luatex1.o luatex2.o luatex3.o luatexextra.o loadpool.o
 
 # Making luatex
 luatex: luatexd.h $(luatex_o) $(luatexextra_o) $(luatexlibsdep)
-	@CXXHACKLINK@ $(luatex_o) $(luatexextra_o) $(luatexlibs) $(socketlibs) -Wl,-E $(luatexlibsldextra) @CXXHACKLDLIBS@ @CXXLDEXTRA@
+	@CXXHACKLINK@ $(luatex_o) $(luatexextra_o) $(luatexlibs) $(socketlibs) @CXXHACKLDLIBS@ @CXXLDEXTRA@
 
 # C file dependencies.
 $(luatex_c) luatexcoerce.h luatexd.h: luatex.p $(web2c_texmf) $(srcdir)/$(luatexdir)/luatex.defines $(srcdir)/$(luatexdir)/luatex.h
@@ -41,8 +41,8 @@ $(luatexdir)/luatexextra.h: $(luatexdir)/luatexextra.in $(luatexdir)/luatex.vers
 	test -d $(luatexdir) || mkdir $(luatexdir)
 	sed -e s/LUATEX-VERSION/`cat $(luatexdir)/luatex.version`/ \
 	  $(srcdir)/$(luatexdir)/luatexextra.in >$@
-loadpool.c: luatex.pool $(srcdir)/$(luatexdir)/makecpool
-	perl $(srcdir)/$(luatexdir)/makecpool luatex.pool > loadpool.c
+loadpool.c: luatex.pool $(luatexdir)/makecpool
+	$(native)/$(luatexdir)/makecpool luatex.pool luatexdir/ptexlib.h > loadpool.c
 
 # luatangle we need a private version of tangle
 
