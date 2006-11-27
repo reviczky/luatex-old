@@ -60,6 +60,8 @@ cd ..
 unset NATIVE
 
 mkdir -p linux/texk/web2c/web2c
+mkdir linux/texk/web2c/luatexdir
+cp build/texk/web2c/luatexdir/makecpool linux/texk/web2c/luatexdir
 cp build/texk/web2c/web2c/{web2c,fixwrites,splitup} linux/texk/web2c/web2c
 cp build/texk/web2c/{luatex,tangle,tangleboot,luatangle} linux/texk/web2c
 strip linux/texk/web2c/luatex
