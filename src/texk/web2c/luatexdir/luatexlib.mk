@@ -76,6 +76,10 @@ pdflib_sources = $(srcdir)/luatexdir/*.c $(srcdir)/luatexdir/*.cc \
 luatexdir/libpdf.a: $(pdflib_sources) luatexdir/luatexextra.h
 	cd luatexdir && $(MAKE) $(common_makeargs) libpdf.a
 
+# makecpool:
+
+luatexdir/makecpool: luatexdir/makecpool.c
+	cd luatexdir && $(MAKE) $(common_makeargs) makecpool
 
 # lua
 
@@ -83,7 +87,6 @@ LIBLUADIR=../../libs/lua51
 LIBLUASRCDIR=$(srcdir)/$(LIBLUADIR)
 LIBLUADEP=$(LIBLUADIR)/liblua.a
 
-luatexlibsldextra=
 luatarget=posix
 ifeq ($(target),i386-mingw32)
   ifeq ($(host),i386-linux)
@@ -93,8 +96,7 @@ ifeq ($(target),i386-mingw32)
   endif
 else
 ifeq ($(target),i386-linux)
-  luatexlibsldextra = -ldl
-  luatarget = linux
+  luatarget = posix
 endif
 endif
 
@@ -124,7 +126,9 @@ ZZIPLIBDEP = $(ZZIPLIBDIR)/zzip/.libs/libzzip.a
 ZIPZIPINC = -I$(ZLIBSRCDIR)
 
 $(ZZIPLIBDEP): $(ZZIPLIBSRCDIR)
-	mkdir -p $(ZZIPLIBDIR) && cd $(ZZIPLIBDIR) && cp -a $(ZZIPLIBSRCDIR)/* . && env CPPFLAGS=$(ZIPZIPINC) ./configure --disable-builddir --disable-shared $(zzipretarget) && cd $(ZZIPLIBDIR)/zzip && $(MAKE) $(common_makeargs) libzzip.la
+	mkdir -p $(ZZIPLIBDIR) && cd $(ZZIPLIBDIR) &&                \
+    cp -R $(ZZIPLIBSRCDIR)/* . &&                                \
+    env CPPFLAGS=$(ZIPZIPINC) ./configure --disable-builddir --disable-shared $(zzipretarget) && cd $(ZZIPLIBDIR)/zzip && $(MAKE) $(common_makeargs) libzzip.la
 
 # luazip
 
@@ -134,14 +138,15 @@ LUAZIPDEP=$(LUAZIPDIR)/src/luazip.o
 LUAZIPINC=-I../../lua51 -I../../zziplib
 
 $(LUAZIPDEP): $(LUAZIPDIR)/src/luazip.c
-	mkdir -p $(LUAZIPDIR) && cd $(LUAZIPDIR) && cp -a $(LUAZIPSRCDIR)/* . && cd src && $(CC) $(LUAZIPINC) -o luazip.o -c luazip.c
+	mkdir -p $(LUAZIPDIR) && cd $(LUAZIPDIR) && cp -R $(LUAZIPSRCDIR)/* . && \
+    cd src && $(CC) $(LUAZIPINC) -o luazip.o -c luazip.c
 
 # Convenience variables.
 
 luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) \
               $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP)
 luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) \
-                $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP)
+                $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP) $(makecpool)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 
