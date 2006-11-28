@@ -65,7 +65,7 @@ need arises, anything can (and will) be changed without prior notice.
 \item \PDFTEX\ version 1.40  (currently in beta)
 \item \ALEPH\ RC4 (from the \TEXLIVE\ repository)
 \item Functionality of \ETEX\ 2.2
-\item Lua 5.1
+\item Lua 5.1.1
 \item Dedicated lua libraries
 \item Various \TeX\ extensions
 \item Compiled source code to glue it all together
@@ -354,34 +354,43 @@ active table, an error is raised.
 
 
 Whenever the \LUATEX\ executable starts, it looks for a \type{--lua}
-command||line option. If such an option is present, it will enter an
-alternative mode of command||line parsing.
+or \type{--luaonly} command||line option. If such an option is
+present, it will enter an alternative mode of command||line parsing.
 
 In this mode, it will only interpret a very small subset of the
 command||line directly:
 \starttable[|l|l|]
+\NC --luaonly=s  \NC execute a lua script, then exit      \NC \AR
 \NC --lua=s      \NC load and execute a lua init script   \NC \AR
 \NC --help       \NC display help and exit                \NC \AR
 \NC --version    \NC display version and exit             \NC \AR
 \stoptable
 
-If the Lua script can not be found using the actual name of the
-command||line, a second attempt is made by prepending the value of the
-environment variable \type{LUATEXDIR}, if it esists.
+If a requested lua script can not be found using the actual name given
+on the command||line, a second attempt is made by prepending the value
+of the environment variable \type{LUATEXDIR}, if that variable is
+defined.
 
 Then the script is loaded and executed. It will find the entire
 commandline in the table \type{arg}, beginning with \type{arg[0]},
-that is the name of the executable. At the end of script execution,
-\LUATEX\ will fetch some of the processed command line options 
-from the \type{texconfig} table  (see the description of the
-\type{texconfig} table later on in this document).
+that is the name of the executable. 
+
+In the \type{--luaonly} case and in the case where there is no
+discernable input or format file on the command line, \LUATEX\ will
+exit immediately after executing the lua script and is, in effect,
+a rather bulky standalone lua interpreter.
+
+In the other cases, \LUATEX\ will fetch some of the processed command
+line options from the \type{texconfig} table at the end of script
+execution (see the description of the \type{texconfig} table later on
+in this document).
 
 This happens very early on. So early, in fact, that none of
 \TEX's initializations have taken place yet. For that reason, the
 \type{tex} and \type{pdf} tables are off-limits during the execution
 of the startup file (they are nilled). Special care is taken that
 \type{texio.write} and \type{texio.write_nl} function properly, so that
-you can at least report your actions to the log file when it
+you can at least report your actions to the log file when (and if) it
 eventually becomes opened (note that \TEX\ does not even know it's
 \type{\jobname} yet at this point).
 
@@ -413,8 +422,8 @@ needs to check \type{-progname} and \type{-ini} and \type{-fmt}
 
 \section{Lua changes}
 
-Two modules that are normally external are statically linked in with
-\LUATEX: \type{slnunicode} and \type{luazip}.
+Three modules that are normally external are statically linked in with
+\LUATEX: \type{slnunicode}, \type{luazip}, and \type{luafilesystem}.
 
 The \type{read("*line")} function from the io library has been
 adjusted so that it is line-ending neutral: any of \type{LF}, \type
@@ -422,8 +431,13 @@ adjusted so that it is line-ending neutral: any of \type{LF}, \type
 
 The \type{tostring()} printer for numbers has been changed so that it
 returns `0' instead of something like `2e-5' (which confused \TEX\
-enormously).
+enormously) when the value is so small that \TEX\ cannot distinguish
+it from zero.
 
+The (currently three) known bugs in Lua 5.1.1 have been patched.
+
+Dynamic loading of \type{.so} and \type{.dll} files is disabled on
+all platforms.
 
 \chapter{Lua Libraries}
 

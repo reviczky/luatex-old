@@ -62,6 +62,7 @@ extern char **argv;
 extern int argc;
 
 char *startup_filename = NULL;
+int quit_option = 0;
 
 /* Reading the options.  */
 
@@ -74,6 +75,7 @@ char *startup_filename = NULL;
 static struct option long_options[]
 = { {"fmt", 1, 0, 0},
 {"lua", 1, 0, 0},
+{"luaonly", 1, 0, 0},
 {"progname", 1, 0, 0},
 {"help", 0, 0, 0},
 {"ini", 0, &iniversion, 1},
@@ -97,8 +99,12 @@ parse_options(int argc, char **argv)
 
 	assert(g == 0);		/* We have no short option names.  */
 
-	if (ARGUMENT_IS("lua")) {
+	if (ARGUMENT_IS("luaonly")) {
 	    startup_filename = optarg;
+		quit_option = 1;
+
+	} else if (ARGUMENT_IS("lua")) {
+        startup_filename = optarg;
 
 	} else if (ARGUMENT_IS("fmt")) {
 	    dump_name = optarg;
@@ -199,7 +205,7 @@ lua_initialize(int ac, char **av)
 	    exit(1);
 	  }
 	  /* no filename? quit now! */
-	  if ((!input_name) && (!dump_name)) {
+	  if ((quit_option) || ((!input_name) && (!dump_name))) {
 		exit(0);
 	  }
 	  /* unhide the 'tex' and 'pdf' table */
