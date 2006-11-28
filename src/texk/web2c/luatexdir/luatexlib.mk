@@ -141,12 +141,23 @@ $(LUAZIPDEP): $(LUAZIPDIR)/src/luazip.c
 	mkdir -p $(LUAZIPDIR) && cd $(LUAZIPDIR) && cp -R $(LUAZIPSRCDIR)/* . && \
     cd src && $(CC) $(LUAZIPINC) -o luazip.o -c luazip.c
 
+# luafilesystem
+
+LUAFSDIR=../../libs/luafilesystem
+LUAFSSRCDIR=$(srcdir)/$(LUAFSDIR)
+LUAFSDEP=$(LUAFSDIR)/src/lfs.o
+LUAFSINC=-I../../lua51
+
+$(LUAFSDEP): $(LUAFSDIR)/src/lfs.c $(LUAFSDIR)/src/lfs.h
+	mkdir -p $(LUAFSDIR) && cd $(LUAFSDIR) && cp -R $(LUAFSSRCDIR)/* . && \
+    cd src && $(CC) $(LUAFSINC) -o lfs.o -c lfs.c
+
 # Convenience variables.
 
 luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) \
-              $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP)
+              $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP) $(LUAFSDEP)
 luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) \
-                $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP) $(makecpool)
+                $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP)  $(LUAFSDEP) $(makecpool)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 

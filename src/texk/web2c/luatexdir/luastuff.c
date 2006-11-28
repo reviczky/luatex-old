@@ -175,6 +175,7 @@ luainterpreter (int n) {
   luaopen_tex(L);
   luaopen_texio(L);
   luaopen_kpse(L);
+  luaopen_lfs(L);
   if (n==0) {
     luaopen_callback(L);
     lua_createtable(L, 0, 0);
