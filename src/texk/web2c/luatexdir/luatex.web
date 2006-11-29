@@ -10829,7 +10829,7 @@ else begin
 end
 
 @<Declare procedures that scan restricted classes of integers@>=
-procedure scan_dir;
+procedure scan_direction;
 var d1,d2,d3: integer;
 begin
 get_x_token;
@@ -14762,6 +14762,7 @@ var
 @!file_opened:boolean; {was |ocp_file| successfully opened?}
 @!res:boolean;
 @!callback_id:integer;
+@!fnam:str_number;
 @!f:internal_ocp_number; {the new ocp's number}
 @!g:internal_ocp_number; {the number to return}
 @!ocpword:integer;
@@ -14834,6 +14835,13 @@ file_opened:=false;
 pack_file_name(nom,aire,".ocp");
 if ocp_buffer<>0 then libc_free(ocp_buffer);
 ocp_cur:=0; ocp_buffer:=0; ocp_size:=0;
+callback_id:=callback_defined('find_ocp_file');
+if callback_id>0 then begin
+  res := run_callback(callback_id,'S->s',stringcast(name_of_file+1), address_of(fnam));
+  if (res)and(fnam<>0) then begin
+    @<Fixup |name_of_file| after callback@>;
+    end;
+  end;
 callback_id:=callback_defined('read_ocp_file');
 if callback_id>0 then begin
   res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
@@ -19821,6 +19829,7 @@ var cmd, k, n: integer;
     file_read:boolean; {was |vf_file| successfully read?}
     res:boolean; {was the callback successful?}
     callback_id:integer;
+    fnam:str_number;
 begin
     f := tmp_f;
     pdf_font_type[f] := real_font_type;
@@ -19852,6 +19861,13 @@ end;
 pack_file_name(font_name(f), "", ".vf");
 if vf_buffer<>0 then libc_free(vf_buffer);
 vf_cur:=0; vf_buffer:=0; vf_size:=0;
+callback_id:=callback_defined('find_vf_file');
+if callback_id>0 then begin
+  res := run_callback(callback_id,'S->s',stringcast(name_of_file+1), address_of(fnam));
+  if (res)and(fnam<>0) then begin
+    @<Fixup |name_of_file| after callback@>;
+    end;
+  end;
 callback_id:=callback_defined('read_vf_file');
 if callback_id>0 then begin
   file_read := false;
@@ -20975,6 +20991,7 @@ var s: str_number;
     data_buffer:^real_eight_bits; {byte buffer for data files}
     file_opened:boolean;
     res:boolean;
+	fnam: str_number;
     callback_id:integer;
 begin
     s := tokens_to_string(obj_obj_data(n));
@@ -20992,7 +21009,14 @@ begin
     if obj_obj_is_file(n) > 0 then begin
         data_size:=0; data_cur:=0; data_buffer:=0;
         pack_file_name(s,"","");
-	callback_id:=callback_defined('read_data_file');
+	    callback_id:=callback_defined('find_data_file');
+	    if callback_id>0 then begin
+    	  res := run_callback(callback_id,'S->s',stringcast(name_of_file+1),address_of(fnam));
+	      if (res)and(fnam<>0) then begin
+	        @<Fixup |name_of_file| after callback@>;
+		 	end;
+          end;
+		callback_id:=callback_defined('read_data_file');
         if callback_id>0 then begin
           file_opened := false;
           res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
@@ -22000,7 +22024,7 @@ var @!s:integer; {temporarily saved value}
 begin if three_codes then s:=saved(0);
 if (c<>align_group) and (c<>vcenter_group) then begin
   if scan_keyword("dir") then begin
-    scan_dir; spec_direction:=cur_val;
+    scan_direction; spec_direction:=cur_val;
     end;
   end;
 if scan_keyword("to") then spec_code:=exactly
@@ -31466,7 +31490,7 @@ any_mode(leader_ship): scan_box(leader_flag-a_leaders+cur_chr);
 any_mode(make_box): begin_box(0);
 any_mode(assign_box_dir): begin scan_register_num;
   cur_box:=box(cur_val);
-  scan_optional_equals; scan_dir;
+  scan_optional_equals; scan_direction;
   if cur_box<>null then box_dir(cur_box):=cur_val;
   end;
 
@@ -34407,7 +34431,7 @@ if scan_keyword("offset") then begin
   end
 else offset:=0;
 if scan_keyword("naturaldir") then begin
-  scan_dir;
+  scan_direction;
   natural_dir:=cur_val;
   end
 else natural_dir:=-1;
@@ -38145,21 +38169,21 @@ begin tail_append(make_local_par_node) end
 case cur_chr of
 dir_base+page_direction_code: begin
   if its_all_over then begin
-    scan_dir;
+    scan_direction;
     eq_word_define(dir_base+page_direction_code,cur_val);
     end;
   end;
 dir_base+body_direction_code: begin
   if its_all_over then begin
-    scan_dir;
+    scan_direction;
     eq_word_define(dir_base+body_direction_code,cur_val);
     end;
   end;
 dir_base+par_direction_code: begin
-  scan_dir;
+  scan_direction;
   eq_word_define(dir_base+par_direction_code,cur_val);
   end;
-dir_base+text_direction_code: begin scan_dir;
+dir_base+text_direction_code: begin scan_direction;
   if (no_local_dirs>0) and (abs(mode)=hmode) then begin
     @<DIR: Add local dir node@>;
     dir_dir(tail):=dir_dir(tail)-64;
@@ -38176,7 +38200,7 @@ dir_base+text_direction_code: begin scan_dir;
   eq_word_define(int_base+no_local_dirs_code,no_local_dirs+1);
   eq_word_define(int_base+level_local_dir_code,cur_level);
   end;
-dir_base+math_direction_code: begin scan_dir;
+dir_base+math_direction_code: begin scan_direction;
   eq_word_define(dir_base+math_direction_code,cur_val);
   end;
 end;

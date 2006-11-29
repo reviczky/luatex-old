@@ -41,96 +41,6 @@ const char *getS(lua_State * L, void *ud, size_t * size) {
     return ls->s;
 }
 
-/* package.path should contain:
-  (1) the local dir          :  ./?.lua
-  (2) global lua macros      :  $LUASCRIPTS/?.lua
-                                $LUASCRIPTS/?/init.lua
-
-      $LUASCRIPTS = bit of expansion of $TEXMFSCRIPTS 
-                    containing /lua/
-                                
-  (3) the base lua libraries :  $BINDIR/../lib/lua/5.1/?.lua;
-                                $BINDIR/../lib/lua/5.1/?/init.lua
-*/
-
-
-void fix_package_path (lua_State *L, char *key, char *ext, int doinit) 
-{
-  char *path;
-  char *allocpath;
-  char *result;
-  char *rover;
-  char *curstr;
-  int alloc;
-  lua_getglobal(L,"package");
-  if (lua_istable(L,-1)) {
-    // local
-    alloc = strlen(DIR_SEP_STRING) + 3 +1 + strlen(ext);
-    path = malloc(alloc);
-    if (path==NULL)
-      return;
-    snprintf(path,alloc,".%s?.%s", DIR_SEP_STRING, ext);
-    // texmfscripts
-    if (doinit) {
-      result = (char *)kpse_path_expand(kpse_expand ("$TEXMFSCRIPTS"));
-      if (result!=NULL) {
-	rover = result;
-	curstr = result;
-	while (*rover) {
-	  if (IS_ENV_SEP(*rover)) {
-	    *rover = 0;
-	    if (!(strstr(curstr,"lua")==NULL) &&
-		(strstr(curstr,"LUA")==NULL)) {
-	      alloc = strlen(path)+1+2*strlen(curstr)+2+2+6+3*strlen(DIR_SEP_STRING)+2*strlen(ext);
-	      allocpath = malloc (alloc);
-	      if (allocpath==NULL) {
-		*rover = ENV_SEP; // enable cleanup
-		break;
-	      }
-	      snprintf(allocpath,alloc,"%s;%s%s?.%s;%s%s?%sinit.%s",
-		       path,curstr,DIR_SEP_STRING,ext,curstr,DIR_SEP_STRING,DIR_SEP_STRING,ext);
-	      free (path);
-	      path = allocpath;
-	    }
-	    if (*(rover+1)!=0) 
-	      curstr=rover+1;
-	    *rover = ENV_SEP; // enable cleanup
-	  }
-	  rover++;
-	}
-	free(result);
-      }
-    }
-    // bindir
-    curstr = getenv("SELFAUTODIR");
-    if (curstr!=NULL) {
-      rover =  DIR_SEP_STRING "lib" DIR_SEP_STRING "lua" DIR_SEP_STRING "5.1" DIR_SEP_STRING;
-      alloc = strlen(path)+2+2*strlen(curstr)+2+2*strlen(rover)+6+
-                strlen(DIR_SEP_STRING)+1+2*strlen(ext);
-      allocpath = malloc (alloc);
-      if (allocpath!=NULL) {
-	if (doinit) {
-	  snprintf(allocpath,alloc,"%s;%s%s?.%s;%s%s?%sinit.%s",
-		   path,curstr,rover,ext,curstr,rover,DIR_SEP_STRING,ext);
-	} else {
-	  snprintf(allocpath,alloc,"%s;%s%s?.%s", path,curstr,rover,ext);
-	}
-	free (path);
-	path = allocpath;
-
-      }
-    }
-    rover = path;
-    while (*rover) { 
-      if (*rover == '\\')
-	*rover = '/';
-      rover++;
-    }
-    lua_pushstring(L, path);
-    lua_setfield(L,-2,key);
-  }
-}
-
 extern char **environ;
 
 void find_env (lua_State *L){
@@ -183,12 +93,6 @@ luainterpreter (int n) {
   }
   luaopen_lua(L,n,startup_filename);
   luaopen_stats(L);
-  //  fix_package_path(L,"path","lua",1);
-#if defined(_WIN32)
-  //  fix_package_path(L,"cpath","dll",0);
-#else
-  //  fix_package_path(L,"cpath","so",0);
-#endif
   Luas[n] = L;
 }
 

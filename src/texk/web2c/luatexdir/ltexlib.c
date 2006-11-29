@@ -80,12 +80,12 @@ int luacsprint(lua_State * L) {
   return do_luacprint(L,PARTIAL_LINE,DEFAULT_CAT_TABLE);
 }
 
-boolean 
+int 
 luacstringdetokenized (void) {
   return (read_spindle.tail->cattable == NO_CAT_TABLE);
 }
 
-boolean
+int
 luacstringdefaultcattable (void) {
   return (read_spindle.tail->cattable == DEFAULT_CAT_TABLE);
 }
@@ -95,17 +95,17 @@ luacstringcattable (void) {
   return (integer)read_spindle.tail->cattable;
 }
 
-boolean 
+int 
 luacstringsimple (void) {
   return (read_spindle.tail->partial == PARTIAL_LINE);
 }
 
-boolean 
+int 
 luacstringpenultimate (void) {
   return (read_spindle.tail->next == NULL);
 }
 
-boolean 
+int 
 luacstringinput (void) {
   char *st;
   rope *t;

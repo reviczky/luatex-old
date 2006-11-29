@@ -6,32 +6,25 @@
 
 static const char *const callbacknames[] = {
   "<empty>",
-  "open_read_file",
-  "read_ocp_file",
-  "read_vf_file",
-  "read_data_file",
-  "read_font_file",
-  "read_map_file",
-  "read_enc_file",
-  "read_type1_file",
-  "read_truetype_file",
-  "read_opentype_file",
-  "read_sfd_file",
-  "read_miscfonts_file",
-  "read_pk_file",
-  "find_read_file",
   "find_write_file",
   "find_output_file",
-  "find_truetype_file",
-  "find_type1_file",
   "find_image_file",
   "find_format_file",
-  "find_font_file",
+  "find_read_file",      "open_read_file",
+  "find_ocp_file",       "read_ocp_file",
+  "find_vf_file",        "read_vf_file",
+  "find_data_file",      "read_data_file",
+  "find_font_file",      "read_font_file",
+  "find_map_file",       "read_map_file",
+  "find_enc_file",       "read_enc_file",
+  "find_type1_file",     "read_type1_file",
+  "find_truetype_file",  "read_truetype_file",
+  "find_opentype_file",  "read_opentype_file",
+  "find_sfd_file",       "read_sfd_file",
+  "find_pk_file",        "read_pk_file",
   "show_error_hook",
-  "start_page_number",
-  "stop_page_number",
-  "start_run",
-  "stop_run",
+  "start_page_number",  "stop_page_number",
+  "start_run",          "stop_run",
   NULL };
 
 typedef struct {
@@ -40,7 +33,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 27
+#define NUM_CALLBACKS 34
 
 static callback_info *callback_list;
 

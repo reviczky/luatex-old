@@ -38,9 +38,10 @@ XCPPFLAGS=-I.. -I$(srcdir)/.. -I../.. -I$(srcdir)/../.. -I$(LIBMD5DIR) \
   -I$(LIBOBSDCOMPATFSRCDIR)/.. -DpdfTeX
 
 
-OBJS = epdf.o mapfile.o utils.o vfpacket.o pkin.o \
-writefont.o writet1.o writet3.o writezip.o writeenc.o writettf.o \
-writejpg.o writejbig2.o writepng.o writejbig2.o writeimg.o pdftoepdf.o avl.o avlstuff.o subfont.o tounicode.o \
+OBJS = epdf.o font/mapfile.o utils.o font/vfpacket.o font/pkin.o \
+font/writefont.o font/writet1.o font/writet3.o font/writeenc.o font/writettf.o \
+writejpg.o writejbig2.o writepng.o writeimg.o pdftoepdf.o avl.o \
+writezip.o avlstuff.o font/subfont.o font/tounicode.o \
 ltexlib.o lpdflib.o ltexiolib.o lcallbacklib.o lkpselib.o llualib.o lstatslib.o \
 luastuff.o mathcodes.o textcodes.o luatex.o managed-sa.o luainit.o
 
@@ -67,4 +68,4 @@ depend:
 	    grep -v "^$(CC)\|$(CXX)\|$(AR)\|make\|klibtool" | \
 	    sed 's: [^ ]*/\.\./libs/[^ ]*::g' > $(srcdir)/depend.mk
 
-kpse_include pdftexdir/depend.mk
+# kpse_include luatexdir/depend.mk

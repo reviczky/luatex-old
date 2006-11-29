@@ -31,6 +31,7 @@ extern lua_State *luatex_error (lua_State *L, int fatal);
 
 extern int luaopen_unicode (lua_State *L);
 extern int luaopen_zip (lua_State *L);
+extern int luaopen_lfs (lua_State *L);
 
 extern int callbackdefined (char *name);
 
