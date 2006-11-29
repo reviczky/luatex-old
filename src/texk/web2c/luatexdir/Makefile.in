@@ -38,12 +38,40 @@ XCPPFLAGS=-I.. -I$(srcdir)/.. -I../.. -I$(srcdir)/../.. -I$(LIBMD5DIR) \
   -I$(LIBOBSDCOMPATFSRCDIR)/.. -DpdfTeX
 
 
-OBJS = epdf.o font/mapfile.o utils.o font/vfpacket.o font/pkin.o \
-font/writefont.o font/writet1.o font/writet3.o font/writeenc.o font/writettf.o \
-writejpg.o writejbig2.o writepng.o writeimg.o pdftoepdf.o avl.o \
-writezip.o avlstuff.o font/subfont.o font/tounicode.o \
-ltexlib.o lpdflib.o ltexiolib.o lcallbacklib.o lkpselib.o llualib.o lstatslib.o \
-luastuff.o mathcodes.o textcodes.o luatex.o managed-sa.o luainit.o
+OBJS = \
+avl.o \
+avlstuff.o \
+epdf.o \
+font/mapfile.o \
+font/pkin.o \
+font/subfont.o \
+font/tounicode.o \
+font/vfpacket.o \
+font/writeenc.o \
+font/writefont.o \
+font/writet1.o \
+font/writet3.o \
+font/writettf.o \
+lua/lcallbacklib.o \
+lua/lkpselib.o \
+lua/llualib.o \
+lua/lpdflib.o \
+lua/lstatslib.o \
+lua/ltexiolib.o \
+lua/ltexlib.o \
+luainit.o
+luastuff.o \
+luatex.o \
+managed-sa.o \
+mathcodes.o \
+pdftoepdf.o \
+textcodes.o \
+utils.o \
+writeimg.o \
+writejbig2.o \
+writejpg.o \
+writepng.o \
+writezip.o \
 
 all: libpdf.a makecpool
 
