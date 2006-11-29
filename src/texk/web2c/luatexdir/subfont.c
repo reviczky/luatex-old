@@ -114,6 +114,7 @@ static sfd_entry *read_sfd (char *sfd_name)
     void **aa;
     sfd_entry *sfd, tmp_sfd;
     subfont_entry *sf;
+	char *ftemp = NULL;
     char buf[SMALL_BUF_SIZE], *p;
     long int i, j, k;
     int n;
@@ -135,6 +136,18 @@ static sfd_entry *read_sfd (char *sfd_name)
     }
     sfd_curbyte=0;
     sfd_size=0;
+
+	callback_id=callbackdefined("find_sfd_file");
+	if (callback_id>0) {
+	  if(runcallback(callback_id,"S->S",cur_file_name,&ftemp)) {
+		if(ftemp!=NULL) {
+		  if (cur_file_name)
+			free(cur_file_name);
+		  cur_file_name = xstrdup(ftemp);
+		  free(ftemp);
+		}
+	  }
+	}
     callback_id=callbackdefined("read_sfd_file");
     if (callback_id>0) {
       if(! (runcallback(callback_id,"S->bSd",cur_file_name,

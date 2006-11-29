@@ -193,6 +193,7 @@ static boolean writepk (internalfontnumber f)
     integer cw, rw, i, j;
     halfword *row;
     char *name;
+	char *ftemp = NULL;
     chardesc cd;
     boolean is_null_glyph, check_preamble;
     integer dpi;
@@ -205,8 +206,10 @@ static boolean writepk (internalfontnumber f)
     }
     t3_curbyte=0;
     t3_size=0;
-    callback_id=callbackdefined("read_pk_file");
-    if (callback_id>0) {
+
+	callback_id=callbackdefined("find_pk_file");
+
+	if (callback_id>0) {
       dpi = round (fixedpkresolution *
 		   (((float) pdffontsize[f]) / getfontdsize(f)));
       /* <base>.dpi/<fontname>.<tdpi>pk */
@@ -214,14 +217,14 @@ static boolean writepk (internalfontnumber f)
       mallocsize = strlen(cur_file_name)+24+9;
       name = xmalloc(mallocsize);
       snprintf(name,mallocsize,"%ddpi/%s.%dpk",fixedpkresolution,cur_file_name,dpi);
-      if(! ( runcallback(callback_id,"S->bSd",name, &file_opened, &t3_buffer,&t3_size) &&
-	     file_opened && 
-	     t3_size>0 ) ) {
-	pdftex_warn ("Font %s at %i not found", cur_file_name, (int)dpi);
-	cur_file_name = NULL;
-	return false;
-      }
-    } else {
+	  if(runcallback(callback_id,"S->S",name,&ftemp)) {
+		if(ftemp!=NULL) {
+		  free(name);
+		  name = xstrdup(ftemp);
+		  free(ftemp);
+		}
+	  }
+	} else {
       dpi =
         kpse_magstep_fix (round
                           (fixedpkresolution *
@@ -236,6 +239,17 @@ static boolean writepk (internalfontnumber f)
         cur_file_name = NULL;
         return false;
       }
+	}
+    callback_id=callbackdefined("read_pk_file");
+    if (callback_id>0) {
+      if(! ( runcallback(callback_id,"S->bSd",name, &file_opened, &t3_buffer,&t3_size) &&
+	     file_opened && 
+	     t3_size>0 ) ) {
+		pdftex_warn ("Font %s at %i not found", cur_file_name, (int)dpi);
+		cur_file_name = NULL;
+		return false;
+      }
+    } else {
       t3_file = xfopen (name, FOPEN_RBIN_MODE);
       t3_read_file();
       t3_close();
@@ -329,46 +343,10 @@ void writet3 (int objnum, internalfontnumber f)
     }
     t3_curbyte=0;
     t3_size=0;
-    callback_id=callbackdefined("read_miscfonts_file");
-    if (callback_id>0) {
-      if(! ( runcallback(callback_id,"S->bSd",cur_file_name,
-			 &file_opened, &t3_buffer,&t3_size) &&
-	     file_opened && 
-	     t3_size>0 ) ) {
-	if (writepk (f))
-	  goto write_font_dict;
-	else {
+	if (!writepk (f)) {
 	  cur_file_name = NULL;
-	  return;      
+	  return;
 	}
-      }
-    } else {
-      if (!t3_open ()) {
-        if (writepk (f))
-            goto write_font_dict;
-        else {
-            cur_file_name = NULL;
-            return;
-        }
-      }
-      t3_read_file();
-      t3_close();
-    }
-	if (tracefilenames)
-	  tex_printf ("<%s", nameoffile + 1);
-    t3_getline ();
-    if (!t3_prefix (t3_font_scale_str) ||
-        sscanf (t3_line_array + strlen (t3_font_scale_str) + 1, "%g",
-                &t3_font_scale) < 1 || t3_font_scale <= 0
-        || t3_font_scale > 1000) {
-        pdftex_warn ("missing or invalid font scale");
-        t3_close ();
-        cur_file_name = NULL;
-        return;
-    }
-    while (!t3_eof ())
-        t3_write_glyph (f);
-  write_font_dict:
     for (i = getfontbc(f); i <= getfontec(f); i++)
         if (pdfcharmarked (f, i))
             break;

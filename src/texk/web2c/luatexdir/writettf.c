@@ -1297,6 +1297,7 @@ void writettf ()
 {
   int callback_id;
   int file_opened = 0;
+  char *ftemp = NULL;
     set_cur_file_name (fm_cur->ff_name);
     if (is_subsetted (fm_cur) && !is_reencoded (fm_cur) && !is_subfont (fm_cur)) {
         pdftex_warn ("Subset TrueType must be a reencoded or a subfont");
@@ -1305,6 +1306,19 @@ void writettf ()
     }
 	ttf_curbyte=0;
 	ttf_size=0;
+	callback_id=callbackdefined("find_truetype_file");
+	if (callback_id>0) {
+	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+		if(ftemp!=NULL) {
+		  free(nameoffile);
+		  namelength = strlen(ftemp);
+		  nameoffile = xmalloc(namelength+2);
+		  strcpy((char *)(nameoffile+1),ftemp);
+		  free(ftemp);
+		}
+	  }
+	}
+
 	callback_id=callbackdefined("read_truetype_file");
 	if (callback_id>0) {
 	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
@@ -1371,10 +1385,23 @@ void writeotf ()
     int callback_id;
     int file_opened = 0;
     dirtab_entry *tab;
+	char *ftemp = NULL;
     long i;
     set_cur_file_name (fm_cur->ff_name);
 	ttf_curbyte=0;
 	ttf_size=0;
+	callback_id=callbackdefined("find_opentype_file");
+	if (callback_id>0) {
+	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+		if(ftemp!=NULL) {
+		  free(nameoffile);
+		  namelength = strlen(ftemp);
+		  nameoffile = xmalloc(namelength+2);
+		  strcpy((char *)(nameoffile+1),ftemp);
+		  free(ftemp);
+		}
+	  }
+	}
 	callback_id=callbackdefined("read_opentype_file");
 	if (callback_id>0) {
 	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),

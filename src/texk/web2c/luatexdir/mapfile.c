@@ -582,6 +582,7 @@ void fm_read_info ()
 {
     int callback_id;
     int file_opened = 0;
+	char *ftemp = NULL;
     if (tfm_tree == NULL)
         create_avl_trees ();
     if (mitem->line == NULL)    /* nothing to do */
@@ -590,58 +591,70 @@ void fm_read_info ()
     switch (mitem->type) {
     case MAPFILE:
         set_cur_file_name (mitem->line);
-	if (fm_buffer!=NULL) {
-	  xfree(fm_buffer);
-	  fm_buffer=NULL;
-	}
-	fm_curbyte=0;
-	fm_size=0;
-        callback_id=callbackdefined("read_map_file");
-        if (callback_id>0) {
-	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
-                          &file_opened, &fm_buffer,&fm_size)) {
-	    if(file_opened) {
-	      if (fm_size>0) {
-		cur_file_name = (char *) nameoffile + 1;
-		if (tracefilenames)
-		  tex_printf ("{%s", cur_file_name);
-		while (!fm_eof ()) {
-		  fm_scan_line ();
-		  mitem->lineno++;
+		if (fm_buffer!=NULL) {
+		  xfree(fm_buffer);
+		  fm_buffer=NULL;
 		}
-		if (tracefilenames)
-		  tex_printf ("}");
-		fm_file = NULL;
-	      }
-	    } else {
-	      pdftex_warn ("cannot open font map file");
-	    }
-	  } else {
-            pdftex_warn ("cannot open font map file");
-	  }
-	} else {
-	  if (!fm_open ()) {
-            pdftex_warn ("cannot open font map file");
-	  } else {
-            fm_read_file();
-            cur_file_name = (char *) nameoffile + 1;
-            tex_printf ("{%s", cur_file_name);
-            while (!fm_eof ()) {
-                fm_scan_line ();
-                mitem->lineno++;
-            }
-            fm_close ();
-            tex_printf ("}");
-            fm_file = NULL;
-	  }
-	}
-        break;
+		fm_curbyte=0;
+		fm_size=0;
+		callback_id=callbackdefined("find_map_file");
+		if (callback_id>0) {
+		  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+			if(ftemp!=NULL) {
+			  free(nameoffile);
+			  namelength = strlen(ftemp);
+			  nameoffile = xmalloc(namelength+2);
+			  strcpy((char *)(nameoffile+1),ftemp);
+			  free(ftemp);
+			}			
+		  }
+		}
+		callback_id=callbackdefined("read_map_file");
+		if (callback_id>0) {
+		  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+						 &file_opened, &fm_buffer,&fm_size)) {
+			if(file_opened) {
+			  if (fm_size>0) {
+				cur_file_name = (char *) nameoffile + 1;
+				if (tracefilenames)
+				  tex_printf ("{%s", cur_file_name);
+				while (!fm_eof ()) {
+				  fm_scan_line ();
+				  mitem->lineno++;
+				}
+				if (tracefilenames)
+				  tex_printf ("}");
+				fm_file = NULL;
+			  }
+			} else {
+			  pdftex_warn ("cannot open font map file");
+			}
+		  } else {
+			pdftex_warn ("cannot open font map file");
+		  }
+		} else {
+		  if (!fm_open ()) {
+			pdftex_warn ("cannot open font map file");
+		  } else {
+			fm_read_file();
+			cur_file_name = (char *) nameoffile + 1;
+			tex_printf ("{%s", cur_file_name);
+			while (!fm_eof ()) {
+			  fm_scan_line ();
+			  mitem->lineno++;
+			}
+			fm_close ();
+			tex_printf ("}");
+			fm_file = NULL;
+		  }
+		}
+		break;
     case MAPLINE:
-        cur_file_name = NULL;   /* makes pdftex_warn() shorter */
-        fm_scan_line ();
-        break;
+	  cur_file_name = NULL;   /* makes pdftex_warn() shorter */
+	  fm_scan_line ();
+	  break;
     default:
-        assert (0);
+	  assert (0);
     }
     mitem->line = NULL;         /* done with this line */
     cur_file_name = NULL;
