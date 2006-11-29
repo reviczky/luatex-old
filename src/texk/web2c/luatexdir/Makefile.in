@@ -13,7 +13,7 @@ CXX = @CXX@
 
 .SUFFIXES: .cc .o
 .cc.o:
-	$(CXX) $(ALL_CXXFLAGS) -c $<
+	$(CXX) $(ALL_CXXFLAGS) -c $< -o $@
 
 # XCFLAGS=-Wstrict-prototypes -Wmissing-prototypes 
 
