@@ -41,7 +41,6 @@ XCPPFLAGS=-I.. -I$(srcdir)/.. -I../.. -I$(srcdir)/../.. -I$(LIBMD5DIR) \
 OBJS = \
 avl.o \
 avlstuff.o \
-epdf.o \
 font/mapfile.o \
 font/pkin.o \
 font/subfont.o \
@@ -52,6 +51,13 @@ font/writefont.o \
 font/writet1.o \
 font/writet3.o \
 font/writettf.o \
+image/epdf.o \
+image/pdftoepdf.o \
+image/writeimg.o \
+image/writejbig2.o \
+image/writejpg.o \
+image/writepng.o \
+image/writezip.o \
 lua/lcallbacklib.o \
 lua/lkpselib.o \
 lua/llualib.o \
@@ -59,19 +65,13 @@ lua/lpdflib.o \
 lua/lstatslib.o \
 lua/ltexiolib.o \
 lua/ltexlib.o \
-luainit.o
-luastuff.o \
-luatex.o \
+lua/luainit.o \
+lua/luastuff.o \
+lua/luatex.o \
 managed-sa.o \
 mathcodes.o \
-pdftoepdf.o \
 textcodes.o \
-utils.o \
-writeimg.o \
-writejbig2.o \
-writejpg.o \
-writepng.o \
-writezip.o \
+utils.o
 
 all: libpdf.a makecpool
 
