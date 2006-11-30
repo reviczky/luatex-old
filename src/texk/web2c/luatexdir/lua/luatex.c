@@ -268,8 +268,12 @@ end_of_while:
 
 /* Read and write dump files through zlib */
 
-static int totalout = 0;
-static int totalin = 0;
+/* Earlier versions recast *f from FILE * to gzFile, but there is
+ * no guarantee that these have the same size, so a static variable 
+ * is needed.
+ */
+
+static gzFile gz_fmtfile = NULL;
 
 void
 do_zdump (char *p,  int item_size,  int nitems, FILE *out_file)
@@ -277,12 +281,10 @@ do_zdump (char *p,  int item_size,  int nitems, FILE *out_file)
   int err;
   if (nitems==0)
 	return;
-  //  fprintf(stderr,"*%dx%d->%d",item_size,nitems,totalout);
-  //  totalout += item_size*nitems;
-  if (gzwrite ((gzFile)out_file,(void *)p, item_size*nitems) != item_size*nitems)
+  if (gzwrite (gz_fmtfile,(void *)p, item_size*nitems) != item_size*nitems)
     {
       fprintf (stderr, "! Could not write %d %d-byte item(s): %s.\n",
-               nitems, item_size, gzerror((gzFile)out_file,&err));
+               nitems, item_size, gzerror(gz_fmtfile,&err));
       uexit (1);
     }
 }
@@ -293,12 +295,10 @@ do_zundump (char *p,  int item_size,  int nitems, FILE *in_file)
   int err;
   if (nitems==0)
 	return;
-  //totalin += item_size*nitems;
-  //  fprintf(stderr,"*%dx%d->%d",item_size,nitems,totalin);
-  if (gzread ((gzFile)in_file,(void *)p, item_size*nitems) <= 0) 
+  if (gzread (gz_fmtfile,(void *)p, item_size*nitems) <= 0) 
 	{
 	  fprintf (stderr, "Could not undump %d %d-byte item(s): %s.\n",
-			   nitems, item_size, gzerror((gzFile)in_file,&err));
+			   nitems, item_size, gzerror(gz_fmtfile,&err));
 	  uexit (1);
 	}
 }
@@ -327,7 +327,7 @@ zopen_w_input (FILE **f, int format, const_string fopen_mode) {
 	res = open_input(f,format,fopen_mode);
   }
   if (res) {
-	*f = (FILE *)gzdopen(fileno(*f),"rb3");
+	gz_fmtfile = gzdopen(fileno(*f),"rb3");
   }
   return res;
 }
@@ -346,16 +346,17 @@ zopen_w_output (FILE **f, const_string fopen_mode) {
     res =  open_output(f,fopen_mode);
   }
   if (res) {
-    *f = (FILE *)gzdopen(fileno(*f),"wb3");
+	gz_fmtfile = gzdopen(fileno(*f),"wb3");
   }
   return res;
 }
 
 void 
 zwclose (FILE *f) { 
-  //  fprintf (stderr, "Uncompressed sizes: in=%d,out=%d\n",totalin,totalout);
-  gzclose((gzFile)f); 
+  gzclose(gz_fmtfile); 
 }
+
+/* create the dvi or pdf file */
 
 int
 open_outfile(FILE **f, char *name, char *mode) {
