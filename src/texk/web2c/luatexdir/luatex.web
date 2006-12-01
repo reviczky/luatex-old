@@ -1229,18 +1229,42 @@ else
 if callback_id>0 then begin
     last:=first;
 	last_ptr := first;
-    	lua_result := run_saved_callback(callback_id,'reader','->l', address_of(last_ptr));
-	if (lua_result=true) then begin
+    lua_result := run_saved_callback(callback_id,'reader','->l', address_of(last_ptr));
+	if (lua_result=true)and(last_ptr<>0) then begin
 	  last := last_ptr;
 	  if last>max_buf_stack then max_buf_stack:=last; 
 	  lua_input_ln := true;
+      @<Fix up the input buffer using callbacks@>; 
       end
     else 
       lua_input_ln := false;
     end
-  else 
-    lua_input_ln := input_ln(f,bypass_eoln);
+  else begin
+    lua_result := input_ln(f,bypass_eoln);
+	if lua_result=true then begin
+      lua_input_ln := true;
+      @<Fix up the input buffer using callbacks@>; 
+      end
+    else
+      lua_input_ln := false;
+    end
 end;
+
+@ 
+@<Fix up the input buffer using callbacks@>=
+if last>=first then begin
+  callback_id := callback_defined('process_input_buffer');
+  if callback_id>0 then begin
+    last_ptr := first;
+    lua_result := run_callback(callback_id, 'l->l', (last-first), address_of(last_ptr)); 
+    if (lua_result=true)and(last_ptr<>0) then begin
+	  last := last_ptr;
+	  if last>max_buf_stack then max_buf_stack:=last; 
+      end;
+    end;
+  end
+
+
 
 @ The user's terminal acts essentially like other files of text, except
 that it is used both for input and for output. When the terminal is
@@ -17427,6 +17451,12 @@ function get_hash_size: integer;
 begin
   get_hash_size:= hash_size;
 end;
+
+function get_current_filename_string: str_number;
+begin
+  get_current_filename_string:= name;
+end;
+
 
 @ Helper for debugging purposes
 
