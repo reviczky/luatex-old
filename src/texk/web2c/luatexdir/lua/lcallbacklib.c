@@ -29,6 +29,8 @@ static const char *const callbacknames[] = {
   NULL };
 
 typedef struct {
+  char *name;
+  int number;
   int is_set;
 } callback_info;
 
@@ -374,12 +376,14 @@ do_run_callback (int special, char *values, va_list vl) {
 		  fprintf(stderr,"Expected a string for (l), not: %s\n", lua_typename(L,lua_type(L,nres))); 
 		goto EXIT;
       }
-      ss = (char *)lua_tostring(L,nres);
-      if (ss!=NULL) {
-		s = strdup(ss);
+      ss = (char *)lua_tolstring(L,nres, &len);
+	  if (ss!=NULL) {
 		bufloc = va_arg(vl, int *);
 		ret = *bufloc;
-		len = strlen(s);
+		s = xmalloc(len+1);
+		memcpy(s,ss,len);
+		s[len] = 0;
+		// len = strlen(s);
 		check_buf ((*bufloc) + ret,bufsize);
 		while (len--)
 		  buffer[(*bufloc)++] = *s++;
@@ -391,13 +395,13 @@ do_run_callback (int special, char *values, va_list vl) {
       break;
     case CALLBACK_STRNUMBER:  /* TeX string */
       if (!lua_isstring(L,nres)) {
-	if (!lua_isnil(L,nres)) {
-	  fprintf(stderr,"Expected a string for (s), not: %s\n", lua_typename(L,lua_type(L,nres)));
-	  goto EXIT;
-	}
+		if (!lua_isnil(L,nres)) {
+		  fprintf(stderr,"Expected a string for (s), not: %s\n", lua_typename(L,lua_type(L,nres)));
+		  goto EXIT;
+		}
       }
       if (lua_isstring(L,nres))
-	s = (char *)lua_tolstring(L,nres,(size_t *)&len);
+		s = (char *)lua_tolstring(L,nres,(size_t *)&len);
       else
 	s = NULL;
       if (s==NULL || len == 0) 
