@@ -10,12 +10,17 @@ typedef struct statistic {
 } statistic ;
 
 extern char *ptexbanner;
+/* extern string getcurrentfilenamestring; */
 
 typedef char * (*charfunc)(void);
 typedef integer (*intfunc)(void);
 
 char *getbanner (void) {
   return ptexbanner;
+}
+
+char *getfilename (void) {
+  return makecstring(getcurrentfilenamestring());
 }
 
 
@@ -78,7 +83,12 @@ static struct statistic stats[] = {
   { "pdf_mem_size",              'g', &pdfmemsize      },
   //{ "sup_pdf_mem_size",          'g', &suppdfmemsize   },
   
-  { "biggest_used_mark",         'g', &biggestusedmark  },
+  { "largest_used_mark",         'g', &biggestusedmark  },
+  //
+
+  { "filename",                  'S', &getfilename     },
+  { "linenumber",                'g', &line            },
+
   { NULL,                         0 , 0                } };
 
 
