@@ -23,6 +23,7 @@ static const char *const callbacknames[] = {
   "find_sfd_file",       "read_sfd_file",
   "find_pk_file",        "read_pk_file",
   "show_error_hook",
+  "process_input_buffer",
   "start_page_number",  "stop_page_number",
   "start_run",          "stop_run",
   NULL };
@@ -33,7 +34,7 @@ typedef struct {
 
 static int callback_callbacks_id = 0;
 
-#define NUM_CALLBACKS 34
+#define NUM_CALLBACKS 35
 
 static callback_info *callback_list;
 
@@ -315,6 +316,18 @@ do_run_callback (int special, char *values, va_list vl) {
     case CALLBACK_BOOLEAN: /* boolean */ 
       lua_pushboolean(L, va_arg(vl, int));
       break;
+    case CALLBACK_LINE: /* a buffer section, with length 'integer' */ 
+	  i = va_arg(vl, int);
+	  r = i;
+	  ss = xmalloc(i+1);
+	  ss[i]=0;
+	  while (i-->0) {
+		ss[i] = buffer[first+i];
+	  }
+	  /*fprintf(stderr, "a buffer section at %d of length %d: (%s)\n", first,r,ss);*/
+      lua_pushlstring(L, ss, r);
+	  free (ss);
+      break;
     case '-': 
       narg--;
       break;
@@ -357,22 +370,24 @@ do_run_callback (int special, char *values, va_list vl) {
       break;
     case CALLBACK_LINE:  /* TeX line */
       if (!lua_isstring(L,nres)) {
-	if (!lua_isnil(L,nres))
-	  fprintf(stderr,"Expected a string for (l), not: %s\n", lua_typename(L,lua_type(L,nres))); 
-	goto EXIT;
+		if (!lua_isnil(L,nres))
+		  fprintf(stderr,"Expected a string for (l), not: %s\n", lua_typename(L,lua_type(L,nres))); 
+		goto EXIT;
       }
       ss = (char *)lua_tostring(L,nres);
       if (ss!=NULL) {
-	s = strdup(ss);
-	bufloc = va_arg(vl, int *);
-	ret = *bufloc;
-	len = strlen(s);
-	check_buf ((*bufloc) + ret,bufsize);
-	while (len--)
-	  buffer[(*bufloc)++] = *s++;
-	while ((*bufloc)-1>ret && buffer[(*bufloc)-1] == ' ')
-	  (*bufloc)--;
-      }
+		s = strdup(ss);
+		bufloc = va_arg(vl, int *);
+		ret = *bufloc;
+		len = strlen(s);
+		check_buf ((*bufloc) + ret,bufsize);
+		while (len--)
+		  buffer[(*bufloc)++] = *s++;
+		while ((*bufloc)-1>ret && buffer[(*bufloc)-1] == ' ')
+		  (*bufloc)--;
+      } else {
+		bufloc = 0;
+	  }
       break;
     case CALLBACK_STRNUMBER:  /* TeX string */
       if (!lua_isstring(L,nres)) {
@@ -481,8 +496,6 @@ static const struct luaL_reg callbacklib [] = {
 
 int luaopen_callback (lua_State *L) 
 {
-  //  lua_newtable(L);
-  //  lua_replace(L, LUA_REGISTRYINDEX);
   luaL_register(L, "callback", callbacklib);
   luaL_checkstack(L,1,"out of stack space");
   lua_newtable(L);
