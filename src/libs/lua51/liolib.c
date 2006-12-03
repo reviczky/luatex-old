@@ -306,17 +306,12 @@ static int new_read_line (lua_State *L, FILE *f) {
       luaL_pushresult(&buf);  /* close buffer */
       return (lua_strlen(L, -1) > 0);  /* check whether read something */      
     };
-	if (c == '\n') {
+    if (c == '\n') {
       break;
     } else if (c == '\r') {
       d = fgetc(f);
-      if (d != EOF) {
-		if (d != '\n')
-		  ungetc(d,f);
-	  } else {
-		luaL_pushresult(&buf);  /* close buffer */
-		return (lua_strlen(L, -1) > 0); 
-	  }
+      if (d != EOF && d != '\n')
+	ungetc(d,f);
       break;
     } else {
       luaL_addchar(&buf,c);
@@ -325,96 +320,6 @@ static int new_read_line (lua_State *L, FILE *f) {
   luaL_pushresult(&buf);  /* close buffer */
   return 1;
 }
-
-
-static int new_read_linew_msb (lua_State *L, FILE *f) {
-  luaL_Buffer buf;
-  int a, b, c, d;
-  luaL_buffinit(L, &buf);
-  while (1) {
-    a = fgetc(f);
-    b = fgetc(f);
-    if (a == EOF || b == EOF) {
-      luaL_pushresult(&buf);  /* close buffer */
-      return (lua_strlen(L, -1) > 0);  /* check whether read something */      
-    };
-	if (a == 0 && b == '\n') {
-      break;
-    } else if (a == 0 && b == '\r') {
-      c = fgetc(f);
-      if (c == EOF) {
-		luaL_pushresult(&buf);  /* close buffer */
-		return (lua_strlen(L, -1) > 0);
-	  };
-	  if (c == 0) {
-		d = fgetc(f);
-		if (d == EOF) {
-		  luaL_pushresult(&buf);  /* close buffer */
-		  return (lua_strlen(L, -1) > 0);
-		};
-		if (d != '\n') {
-		  /* should do an fseek here */
-		  ungetc(c,f);
-		  ungetc(d,f);
-		}
-	  } else {
-		ungetc(c,f);
-	  }
-      break;
-    } else {
-      luaL_addchar(&buf,a);
-      luaL_addchar(&buf,b);
-    }
-  }
-  luaL_pushresult(&buf);  /* close buffer */
-  return 1;
-}
-
-
-static int new_read_linew_lsb (lua_State *L, FILE *f) {
-  luaL_Buffer buf;
-  int a, b, c, d;
-  luaL_buffinit(L, &buf);
-  while (1) {
-    a = fgetc(f);
-    b = fgetc(f);
-    if (a == EOF || b == EOF) {
-      luaL_pushresult(&buf);  /* close buffer */
-      return (lua_strlen(L, -1) > 0);  /* check whether read something */      
-    };
-	if (b == 0 && a == '\n') {
-      break;
-    } else if (b == 0 && a == '\r') {
-      c = fgetc(f);
-      if (c == EOF) {
-		luaL_pushresult(&buf);  /* close buffer */
-		return (lua_strlen(L, -1) > 0);
-	  };
-	  if (c == '\n') {
-		d = fgetc(f);
-		if (d == EOF) {
-		  luaL_pushresult(&buf);  /* close buffer */
-		  return (lua_strlen(L, -1) > 0);
-		};
-		if (d != 0) {
-		  /* should do an fseek here */
-		  ungetc(c,f);
-		  ungetc(d,f);
-		}
-	  } else {
-		ungetc(c,f);
-	  }
-      break;
-    } else {
-      luaL_addchar(&buf,a);
-      luaL_addchar(&buf,b);
-    }
-  }
-  luaL_pushresult(&buf);  /* close buffer */
-  return 1;
-}
-
-
 
 
 static int read_chars (lua_State *L, FILE *f, size_t n) {
@@ -481,103 +386,6 @@ static int g_read (lua_State *L, FILE *f, int first) {
   return n - first;
 }
 
-
-
-static int g_readw_lsb (lua_State *L, FILE *f, int first) {
-  int nargs = lua_gettop(L) - 1;
-  int success;
-  int n;
-  clearerr(f);
-  if (nargs == 0) {  /* no arguments? */
-    success = read_line(L, f);
-    n = first+1;  /* to return 1 result */
-  }
-  else {  /* ensure stack space for all results and for auxlib's buffer */
-    luaL_checkstack(L, nargs+LUA_MINSTACK, "too many arguments");
-    success = 1;
-    for (n = first; nargs-- && success; n++) {
-      if (lua_type(L, n) == LUA_TNUMBER) {
-        size_t l = (size_t)lua_tointeger(L, n);
-        success = (l == 0) ? test_eof(L, f) : read_chars(L, f, (2*l));
-      }
-      else {
-        const char *p = lua_tostring(L, n);
-        luaL_argcheck(L, p && p[0] == '*', n, "invalid option");
-        switch (p[1]) {
-          case 'n':  /* number */
-            success = read_number(L, f);
-            break;
-          case 'l':  /* line */
-            success = new_read_linew_lsb(L, f);
-            break;
-          case 'a':  /* file */
-            read_chars(L, f, ~((size_t)0));  /* read MAX_SIZE_T chars */
-            success = 1; /* always success */
-            break;
-          default:
-            return luaL_argerror(L, n, "invalid format");
-        }
-      }
-    }
-  }
-  if (ferror(f))
-    return pushresult(L, 0, NULL);
-  if (!success) {
-    lua_pop(L, 1);  /* remove last result */
-    lua_pushnil(L);  /* push nil instead */
-  }
-  return n - first;
-}
-
-
-static int g_readw_msb (lua_State *L, FILE *f, int first) {
-  int nargs = lua_gettop(L) - 1;
-  int success;
-  int n;
-  clearerr(f);
-  if (nargs == 0) {  /* no arguments? */
-    success = read_line(L, f);
-    n = first+1;  /* to return 1 result */
-  }
-  else {  /* ensure stack space for all results and for auxlib's buffer */
-    luaL_checkstack(L, nargs+LUA_MINSTACK, "too many arguments");
-    success = 1;
-    for (n = first; nargs-- && success; n++) {
-      if (lua_type(L, n) == LUA_TNUMBER) {
-        size_t l = (size_t)lua_tointeger(L, n);
-        success = (l == 0) ? test_eof(L, f) : read_chars(L, f, (2*l));
-      }
-      else {
-        const char *p = lua_tostring(L, n);
-        luaL_argcheck(L, p && p[0] == '*', n, "invalid option");
-        switch (p[1]) {
-          case 'n':  /* number */
-            success = read_number(L, f);
-            break;
-          case 'l':  /* line */
-            success = new_read_linew_msb(L, f);
-            break;
-          case 'a':  /* file */
-            read_chars(L, f, ~((size_t)0));  /* read MAX_SIZE_T chars */
-            success = 1; /* always success */
-            break;
-          default:
-            return luaL_argerror(L, n, "invalid format");
-        }
-      }
-    }
-  }
-  if (ferror(f))
-    return pushresult(L, 0, NULL);
-  if (!success) {
-    lua_pop(L, 1);  /* remove last result */
-    lua_pushnil(L);  /* push nil instead */
-  }
-  return n - first;
-}
-
-
-
 static int io_read (lua_State *L) {
   return g_read(L, getiofile(L, IO_INPUT), 1);
 }
@@ -585,16 +393,6 @@ static int io_read (lua_State *L) {
 static int f_read (lua_State *L) {
   return g_read(L, tofile(L), 2);
 }
-
-static int f_readw_lsb (lua_State *L) {
-  return g_readw_lsb(L, tofile(L), 2);
-}
-
-static int f_readw_msb (lua_State *L) {
-  return g_readw_msb(L, tofile(L), 2);
-}
-
-
 
 static int io_readline (lua_State *L) {
   FILE *f = *(FILE **)lua_touserdata(L, lua_upvalueindex(1));
@@ -706,8 +504,6 @@ static const luaL_Reg flib[] = {
   {"flush", f_flush},
   {"lines", f_lines},
   {"read", f_read},
-  {"readw_lsb", f_readw_lsb},
-  {"readw_msb", f_readw_msb},
   {"seek", f_seek},
   {"setvbuf", f_setvbuf},
   {"write", f_write},
