@@ -279,6 +279,7 @@ int
 do_run_callback (int special, char *values, va_list vl) {
   int ret, len;
   int narg,nres;
+  size_t abslen;
   FILE **readfile;
   char *s;
   char *ss = NULL;
@@ -307,7 +308,7 @@ do_run_callback (int special, char *values, va_list vl) {
     case CALLBACK_CHARNUM: /* an ascii char! */ 
       s = malloc(2);
       snprintf(s,2,"%c",va_arg(vl, int));
-      lua_pushstring(L, s);
+      lua_pushlstring(L, s, 1);
       break;
     case CALLBACK_STRING: /* C string */ 
       s = va_arg(vl, char *);
@@ -317,23 +318,22 @@ do_run_callback (int special, char *values, va_list vl) {
       lua_pushnumber(L, va_arg(vl, int));
       break;
     case CALLBACK_STRNUMBER: /* TeX string */ 
-      s = makecstring(va_arg(vl, int));
-      lua_pushstring(L, s);
+      s = makeclstring(va_arg(vl, int),&len);
+      lua_pushlstring(L, s,len);
       break;
     case CALLBACK_BOOLEAN: /* boolean */ 
       lua_pushboolean(L, va_arg(vl, int));
       break;
     case CALLBACK_LINE: /* a buffer section, with length 'integer' */ 
-	  i = va_arg(vl, int);
-	  r = i;
-	  ss = xmalloc(i+1);
-	  ss[i]=0;
-	  while (i-->0) {
-		ss[i] = buffer[first+i];
-	  }
-	  /*fprintf(stderr, "a buffer section at %d of length %d: (%s)\n", first,r,ss);*/
-      lua_pushlstring(L, ss, r);
-	  free (ss);
+      len = (integer)va_arg(vl, int);
+      if (len<0)
+	len=0;
+      ss = xmalloc(len+1);
+      memcpy(ss,(char *)(buffer+first),(size_t)len);
+      ss[len]=0;
+      //      lua_pushlstring(L, ss, len);
+      lua_pushlstring(L, (char *)(buffer+first), len);
+      free (ss);
       break;
     case '-': 
       narg--;
@@ -353,8 +353,8 @@ do_run_callback (int special, char *values, va_list vl) {
     narg++;
   }
   if(lua_pcall(L,narg,nres,0) != 0) {
-    fprintf(stdout,"%s:%s: This went wrong: %s\n", 
-	    makecstring(getcurrentfilenamestring()), line, lua_tostring(L,-1));
+    /* can't be more precise here, could be called before TeX initialization is complete */
+    fprintf(stdout,"This went wrong: %s\n",lua_tostring(L,-1));
     goto EXIT;
   };
   if (nres==0) {
@@ -382,42 +382,44 @@ do_run_callback (int special, char *values, va_list vl) {
       break;
     case CALLBACK_LINE:  /* TeX line */
       if (!lua_isstring(L,nres)) {
-		if (!lua_isnil(L,nres))
-		  fprintf(stderr,"Expected a string for (l), not: %s\n", lua_typename(L,lua_type(L,nres))); 
-		goto EXIT;
+	if (!lua_isnil(L,nres))
+	  fprintf(stderr,"Expected a string for (l), not: %s\n", lua_typename(L,lua_type(L,nres))); 
+	goto EXIT;
       }
-      ss = (char *)lua_tolstring(L,nres, &len);
-	  if (ss!=NULL) {
-		bufloc = va_arg(vl, int *);
-		ret = *bufloc;
-		s = xmalloc(len+1);
-		memcpy(s,ss,len);
-		s[len] = 0;
-		// len = strlen(s);
-		check_buf ((*bufloc) + ret,bufsize);
-		while (len--)
-		  buffer[(*bufloc)++] = *s++;
-		while ((*bufloc)-1>ret && buffer[(*bufloc)-1] == ' ')
-		  (*bufloc)--;
+      ss = (char *)lua_tolstring(L,nres, &abslen);
+      len = (int)abslen;
+      if (ss!=NULL) {
+	bufloc = va_arg(vl, int *);
+	ret = *bufloc;
+	s = xmalloc(len+1);
+	(void)memcpy(s,ss,(len+1));
+	check_buf ((*bufloc) + ret,bufsize);
+	while (len--)
+	  buffer[(*bufloc)++] = *s++;
+	while ((*bufloc)-1>ret && buffer[(*bufloc)-1] == ' ')
+	  (*bufloc)--;
       } else {
 		bufloc = 0;
 	  }
       break;
     case CALLBACK_STRNUMBER:  /* TeX string */
       if (!lua_isstring(L,nres)) {
-		if (!lua_isnil(L,nres)) {
-		  fprintf(stderr,"Expected a string for (s), not: %s\n", lua_typename(L,lua_type(L,nres)));
-		  goto EXIT;
-		}
+	if (!lua_isnil(L,nres)) {
+	  fprintf(stderr,"Expected a string for (s), not: %s\n", lua_typename(L,lua_type(L,nres)));
+	  goto EXIT;
+	}
       }
       if (lua_isstring(L,nres))
-		s = (char *)lua_tolstring(L,nres,(size_t *)&len);
+	s = (char *)lua_tolstring(L,nres,(size_t *)&len);
       else
 	s = NULL;
       if (s==NULL || len == 0) 
 	*va_arg(vl, int *) = 0;
       else {
-	*va_arg(vl, int *) = maketexstring(strdup(s));
+	ss = xmalloc(len+1);
+	(void)memcpy(ss,s,(len+1));
+	*va_arg(vl, int *) = maketexlstring(ss,len);
+	free(ss);
       }
       break;
     case CALLBACK_STRING:  /* C string aka buffer */
@@ -435,8 +437,7 @@ do_run_callback (int special, char *values, va_list vl) {
 	*va_arg(vl, int *) = 0;
       else {
 	ss = xmalloc(len+1);
-	*(ss+len)=0;
-        (void)memcpy(ss,s,len);
+        (void)memcpy(ss,s,(len+1));
 	*va_arg(vl, char **) = ss;
       }
       break;
