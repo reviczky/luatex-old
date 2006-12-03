@@ -354,7 +354,7 @@ do_run_callback (int special, char *values, va_list vl) {
   }
   if(lua_pcall(L,narg,nres,0) != 0) {
     fprintf(stdout,"%s:%s: This went wrong: %s\n", 
-	    makecstring(getcurrentfilenamestring(), line, lua_tostring(L,-1));
+	    makecstring(getcurrentfilenamestring()), line, lua_tostring(L,-1));
     goto EXIT;
   };
   if (nres==0) {
@@ -517,40 +517,5 @@ int luaopen_callback (lua_State *L)
   return 1;
 }
 
-/* this is how we know there is a pending callback */
-
-int *input_file_callback_ids = NULL;
-int *read_file_callback_ids = NULL;
-
-void 
-initfilecallbackids (int max) {
-  int k;
-  input_file_callback_ids = (int *)xmalloc(sizeof(int)*(max+1));
-  read_file_callback_ids  = (int *)xmalloc(sizeof(int)*(max+1));
-  for (k=0;k<=max;k++) {
-    input_file_callback_ids[k]= 0;
-    read_file_callback_ids[k]= 0;
-  }
-}
-
-int
-getinputfilecallbackid (int n) {  
-  return input_file_callback_ids[n]; 
-}
-
-void 
-setinputfilecallbackid (int n, int val) {
-  input_file_callback_ids[n]=val; 
-}
-
-int
-getreadfilecallbackid (int n) {
-  return read_file_callback_ids[n]; 
-}
-
-void 
-setreadfilecallbackid (int n, int val) {
-  read_file_callback_ids[n]=val; 
-}
 
 

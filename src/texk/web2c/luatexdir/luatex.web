@@ -953,6 +953,12 @@ end;
 
 @ Add callback check
 
+@<Glob...@>=
+@!input_file_callback_id : ^integer;
+@!read_file_callback_id : array[0..16] of integer;
+
+@
+
 @p function lua_a_open_in(var f:alpha_file; n:quarterword):boolean;
 var ret,test:boolean;
   k:integer;
@@ -962,11 +968,11 @@ var ret,test:boolean;
 begin 
   if n=0 then begin
     tex_input_type := 1; {Tell |open_input| we are \.{\\input}.}
-    set_input_file_callback_id(index,0);
+    input_file_callback_id[index] := 0;
     end
   else begin
     tex_input_type:=0; 
-    set_read_file_callback_id((n-1),0);
+    read_file_callback_id[n] := 0;
     end;
   callback_id:=callback_defined('find_read_file');
   if callback_id>0 then begin
@@ -980,9 +986,9 @@ begin
         if stored_callback_id>0 then begin
           lua_a_open_in := true;
           if n=0 then
-            set_input_file_callback_id(index,stored_callback_id)
+            input_file_callback_id[index] := stored_callback_id
           else 
-            set_read_file_callback_id((n-1),stored_callback_id);
+            read_file_callback_id[n] := stored_callback_id;
           end
         else begin {read failed}
           lua_a_open_in := false;
@@ -1113,16 +1119,16 @@ var ret:boolean;
     callback_id:integer;
 begin
 if n=0 then
-  callback_id:=get_input_file_callback_id(index)
+  callback_id:=input_file_callback_id[index]
 else
-  callback_id:=get_read_file_callback_id(n-1);
+  callback_id:=read_file_callback_id[n];
 if callback_id>0 then begin
   ret:=run_saved_callback(callback_id,'close','->');
   destroy_saved_callback(callback_id);
   if n=0 then
-    set_input_file_callback_id(index,0)
+    input_file_callback_id[index] := 0
   else
-    set_read_file_callback_id((n-1),0);
+    read_file_callback_id[n] := 0;
   end
 else
   a_close(f);
@@ -1223,9 +1229,9 @@ var lua_result:boolean;
     callback_id:integer;
 begin
 if n=0 then
-  callback_id:=get_input_file_callback_id(index)
+  callback_id:=input_file_callback_id[index]
 else 
-  callback_id:=get_read_file_callback_id(n-1);
+  callback_id:=read_file_callback_id[n];
 if callback_id>0 then begin
     last:=first;
 	last_ptr := first;

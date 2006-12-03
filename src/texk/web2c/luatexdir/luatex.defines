@@ -65,12 +65,6 @@ $Id $
 @define procedure getluanumber();
 @define procedure getluastring();
 
-@define procedure initfilecallbackids();
-@define procedure setinputfilecallbackid ();
-@define procedure setreadfilecallbackid ();
-@define function  getinputfilecallbackid ();
-@define function  getreadfilecallbackid ();
-
 { bits for extended char code access }
 
 @define function getmathcode();

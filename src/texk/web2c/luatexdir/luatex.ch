@@ -3025,7 +3025,7 @@ begin @!{|start_here|}
   save_stack:=xmalloc_array (memory_word, save_size);
   input_stack:=xmalloc_array (in_state_record, stack_size);
   input_file:=xmalloc_array (alpha_file, max_in_open);
-  init_file_callback_ids(max_in_open);
+  input_file_callback_id:=xmalloc_array (integer, max_in_open);
   line_stack:=xmalloc_array (integer, max_in_open);
   eof_seen:=xmalloc_array (boolean, max_in_open);
   grp_stack:=xmalloc_array (save_pointer, max_in_open);
