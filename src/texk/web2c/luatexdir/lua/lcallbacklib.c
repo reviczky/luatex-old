@@ -97,7 +97,7 @@ runsavedcallback (int r, char *name, char *values, ...) {
   if (lua_isnil(Luas[0],-1)) {
     ret = 1;
   } else {
-    ret = do_run_callback(0,values,args);
+    ret = do_run_callback(2,values,args);
   }
   va_end(args);
   lua_settop(Luas[0],stacktop);
@@ -296,6 +296,11 @@ do_run_callback (int special, char *values, va_list vl) {
     return 0;
   }
   //  va_start(vl, values);
+  if (special==2) {
+    /* copy the enclosing table */
+    luaL_checkstack(L,1,"out of stack space");
+    lua_pushvalue(L,-2);
+  }
   for (narg = 0; *values; narg++) {
     luaL_checkstack(L,1,"out of stack space");
     switch (*values++) {
@@ -341,10 +346,15 @@ do_run_callback (int special, char *values, va_list vl) {
   }
  ENDARGS:
   nres = strlen(values);
-  if (special) 
+  if (special==1) {
     nres++;
+  }
+  if (special==2) {
+    narg++;
+  }
   if(lua_pcall(L,narg,nres,0) != 0) {
-    fprintf(stdout,"This went wrong: %s\n", lua_tostring(L,-1));
+    fprintf(stdout,"%s:%s: This went wrong: %s\n", 
+	    makecstring(getcurrentfilenamestring(), line, lua_tostring(L,-1));
     goto EXIT;
   };
   if (nres==0) {
