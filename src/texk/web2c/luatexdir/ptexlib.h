@@ -172,6 +172,7 @@ extern integer write_tounicode (char **, char *);
 /* utils.c */
 extern boolean str_eq_cstr (strnumber, char *);
 extern char *makecstring (integer);
+extern char *makeclstring (integer, int *);
 extern int xfflush (FILE *);
 extern int xgetc (FILE *);
 extern int xputc (int, FILE *);
@@ -179,6 +180,7 @@ extern scaled extxnoverd (scaled, scaled, scaled);
 extern size_t xfwrite (void *, size_t size, size_t nmemb, FILE *);
 extern strnumber getresnameprefix (void);
 extern strnumber maketexstring (const char *);
+extern strnumber maketexlstring (const char *, size_t);
 extern integer fb_offset (void);
 extern void fb_flush (void);
 extern void fb_putchar (eightbits b);

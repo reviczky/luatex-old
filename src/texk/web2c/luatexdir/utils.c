@@ -170,16 +170,22 @@ void pdf_printf (const char *fmt, ...)
 
 strnumber maketexstring (const char *s)
 {
-    size_t l;
+  if (s == NULL || *s == 0)
+    return getnullstr ();
+  return maketexlstring(s,strlen(s));
+}
+
+strnumber maketexlstring (const char *s, size_t l) 
+{
     if (s == NULL || *s == 0)
         return getnullstr ();
-    l = strlen (s);
     check_buf (poolptr + l, poolsize);
     while (l-- > 0)
         strpool[poolptr++] = *s++;
     last_tex_string = makestring ();
     return last_tex_string;
 }
+
 
 __attribute__ ((format (printf, 1, 2)))
 void tex_printf (const char *fmt, ...) 
@@ -264,40 +270,48 @@ void garbagewarning (void)
     removepdffile ();
 }
 
-char *makecstring (integer s)
+char *makecstring (integer s) {
+  int l;
+  return makeclstring(s,&l);
+}
+
+
+char *makeclstring (integer s, int *len)
 {
     static char *cstrbuf = NULL;
     char *p;
     static int allocsize;
-     int allocgrow, i, l;
- 	if (s >=2097152) {
- 	  s -= 2097152;
- 	  l = strstart[s + 1] - strstart[s];
-	  check_buf (l + 1, MAX_CSTRING_LEN);
-	  if (cstrbuf == NULL) {
-        allocsize = l + 1;
-        cstrbuf = xmallocarray (char, allocsize);
-	  } else if (l + 1 > allocsize) {
-        allocgrow = allocsize * 0.2;
+    int allocgrow, i, l;
+    if (s >=2097152) {
+      s -= 2097152;
+      l = strstart[s + 1] - strstart[s];
+      *len = l;
+      check_buf (l + 1, MAX_CSTRING_LEN);
+      if (cstrbuf == NULL) {
+	allocsize = l + 1;
+	cstrbuf = xmallocarray (char, allocsize);
+      } else if (l + 1 > allocsize) {
+	allocgrow = allocsize * 0.2;
         if (l + 1 - allocgrow > allocsize)
-            allocsize = l + 1;
+	  allocsize = l + 1;
         else if (allocsize < MAX_CSTRING_LEN - allocgrow)
-            allocsize += allocgrow;
+	  allocsize += allocgrow;
         else
-            allocsize = MAX_CSTRING_LEN;
+	  allocsize = MAX_CSTRING_LEN;
         cstrbuf = xreallocarray (cstrbuf, char, allocsize);
-	  }
- 	} else {
-	  if (cstrbuf == NULL) {
-         allocsize = 5;
-         cstrbuf = xmallocarray (char, allocsize);
- 	  }
- 	  *cstrbuf=0;
- 	  pdftex_fail("makecstring for character: NI");
- 	}
+      }
+    } else {
+      *len = 0;
+      if (cstrbuf == NULL) {
+	allocsize = 5;
+	cstrbuf = xmallocarray (char, allocsize);
+      }
+      *cstrbuf=0;
+      pdftex_fail("makecstring for character: NI");
+    }
     p = cstrbuf;
     for (i = 0; i < l; i++)
-        *p++ = strpool[i + strstart[s]];
+      *p++ = strpool[i + strstart[s]];
     *p = 0;
     return cstrbuf;
 }
