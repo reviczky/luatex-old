@@ -54,6 +54,9 @@ callback_name_to_id (char *name) {
 int
 callbackdefined (char *name) {  
   int i;
+  /* there is no guarantee that lua[0] is initialized */
+  if (callback_list==NULL)
+	return 0;
   i = callback_name_to_id(name);
   if (callback_list[i].is_set)
     return i;
