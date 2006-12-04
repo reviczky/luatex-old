@@ -113,7 +113,26 @@ void unhide_lua_table(lua_State *L, char *name, int r) {
   luaL_unref(L,LUA_REGISTRYINDEX,r);
 }
 
+int hide_lua_value(lua_State *L, char *name, char *item) {
+  int r=0;
+  lua_getglobal(L,name);
+  if(lua_istable(L,-1)) {
+	lua_getfield(Luas[0],-1,item);
+    r = luaL_ref(L,LUA_REGISTRYINDEX);
+    lua_pushnil(L);
+    lua_setfield(L,-2,item);
+  }
+  return r;
+}
 
+void unhide_lua_value(lua_State *L, char *name, char *item, int r) {
+  lua_getglobal(L,name);
+  if(lua_istable(L,-1)) {
+	lua_rawgeti(L,LUA_REGISTRYINDEX,r);
+	lua_setfield(L,-2,item);
+	luaL_unref(L,LUA_REGISTRYINDEX,r);
+  }
+}
 
 
 void 

@@ -72,3 +72,6 @@ extern void undumpluacregisters (void);
 extern void unhide_lua_table(lua_State *lua, char *name, int r);
 extern int  hide_lua_table  (lua_State *lua, char *name);
 
+extern void unhide_lua_value(lua_State *lua, char *name, char *item, int r);
+extern int  hide_lua_value  (lua_State *lua, char *name, char *item);
+

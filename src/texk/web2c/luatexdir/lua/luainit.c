@@ -25,11 +25,13 @@ const_string LUATEX_IHELP[] = {
     "",
     "  If no arguments or options are specified, prompt for input.",
     "",
-    "-lua=FILE               the lua initialization file",
-    "-fmt=FORMAT             load the format file FORMAT",
-    "-ini                    be initex, for dumping formats",
-    "-help                   display this help and exit",
-    "-version                output version information and exit",
+    "--lua=FILE               the lua initialization file",
+    "--luaonly=FILE           run this lua file, then exit",
+    "--safer                  disable some easily exploitable lua commands",
+    "--fmt=FORMAT             load the format file FORMAT",
+    "--ini                    be initex, for dumping formats",
+    "--help                   display this help and exit",
+    "--version                output version information and exit",
     NULL
 };
 
@@ -64,6 +66,8 @@ extern int argc;
 char *startup_filename = NULL;
 int quit_option = 0;
 
+int safer_option = 0;
+
 /* Reading the options.  */
 
 /* Test whether getopt found an option ``A''.
@@ -79,6 +83,7 @@ static struct option long_options[]
 {"progname", 1, 0, 0},
 {"help", 0, 0, 0},
 {"ini", 0, &iniversion, 1},
+{"safer", 0, &safer_option, 1},
 {"version", 0, 0, 0},
 {0, 0, 0, 0}
 };
@@ -186,6 +191,13 @@ lua_initialize(int ac, char **av)
     parse_options(ac, av);
 
     luainterpreter(0);
+	/* disable some stuff if --safer */
+	if (safer_option) {
+	  (void)hide_lua_table(Luas[0], "os");
+	  (void)hide_lua_value(Luas[0], "io","popen");
+	  (void)hide_lua_table(Luas[0], "lfs");
+	}
+	   
     /* hide the 'tex' and 'pdf' table */
     tex_table_id = hide_lua_table(Luas[0], "tex");
     pdf_table_id = hide_lua_table(Luas[0], "pdf");
