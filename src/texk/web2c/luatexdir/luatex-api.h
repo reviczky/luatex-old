@@ -64,8 +64,6 @@ extern int luaopen_lua (lua_State *L, int n, char *fname);
 
 extern int luaopen_stats (lua_State *L);
 
-extern int callback_initialize (void);
-
 extern void dumpluacregisters (void);
 
 extern void undumpluacregisters (void);

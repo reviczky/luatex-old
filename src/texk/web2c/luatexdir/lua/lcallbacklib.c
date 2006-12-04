@@ -40,14 +40,6 @@ static int callback_callbacks_id = 0;
 
 static callback_info *callback_list;
 
-int 
-callback_initialize (void) {
-  callback_list = (callback_info *)calloc(NUM_CALLBACKS,sizeof(callback_info));
-  if (callback_list == NULL)
-    return 0;
-  return 1;
-}
-
 static int 
 callback_name_to_id (char *name) {
   int i;
@@ -511,6 +503,9 @@ static const struct luaL_reg callbacklib [] = {
 
 int luaopen_callback (lua_State *L) 
 {
+  callback_list = (callback_info *)calloc(NUM_CALLBACKS,sizeof(callback_info));
+  if (callback_list == NULL) 
+    return 0;
   luaL_register(L, "callback", callbacklib);
   luaL_checkstack(L,1,"out of stack space");
   lua_newtable(L);

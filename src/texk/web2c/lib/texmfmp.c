@@ -338,19 +338,14 @@ main P2C(int, ac,  string *, av)
 #endif
 
 #if defined(luaTeX)
-  /* allocate the callback array */
-  if(!callback_initialize()) {
-    fprintf(stdout,"Initial callback allocation failed\n");
-    exit(1);
-  }
   luainit = 0;
   for (i=1;i<ac;i++) {
     if (strstr(av[i],"-lua") != NULL)
       luainit=1;
   }
-  if (luainit) {
+  if (luainit)
     lua_initialize(ac, av);
-  } else 
+  else 
 #endif
     maininit(ac, av);
 
