@@ -1,5 +1,5 @@
 % engine=luatex
-\pdfcompresslevel0
+% \pdfcompresslevel0
  
 %\newcount\crashcounter
 %\appendtoks
@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2006-10-23}
+\TitlePage{Snapshot 2006-12-04}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -438,6 +438,11 @@ The (currently three) known bugs in Lua 5.1.1 have been patched.
 
 Dynamic loading of \type{.so} and \type{.dll} files is disabled on
 all platforms.
+
+\type{luafilesystem} has been extended with two extra boolean functions
+(\type{isdir(filename)} and \type{isfile(filename)}) and one extra
+string field in the attributes table (\type{permissions}).
+
 
 \chapter{Lua Libraries}
 
@@ -1058,6 +1063,49 @@ You callback function should have the following conventions:
 The \type{asked_name} is a format file for reading (the format file
 for writing is always opened in the current directory).
 
+
+\subsubsection{\callback{find_vf_file}}
+
+Like \callback{find_font_file}, but for virtual fonts.
+
+\subsubsection{\callback{find_ocp_file}}
+
+Like \callback{find_font_file}, but for ocp files.
+
+\subsubsection{\callback{find_map_file}}
+
+Like \callback{find_font_file}, but for map files.
+
+\subsubsection{\callback{find_enc_file}}
+
+Like \callback{find_font_file}, but for enc files.
+
+
+\subsubsection{\callback{find_sfd_file}}
+
+Like \callback{find_font_file}, but for subfont definition files.
+
+
+\subsubsection{\callback{find_pk_file}}
+
+Like \callback{find_font_file}, but for pk bitmap files. The argument
+\type{<name>} is a bit special in this case. It's form is
+
+\starttyping
+  <base res>dpi/<fontname>.<actual res>pk
+\stoptyping
+
+So you may be asked for \type{600dpi/manfnt.720pk}.  It is up to you
+to find a `reasonable' bitmap file to go with that specification.
+
+\subsubsection{\callback{find_data_file}}
+
+Like \callback{find_font_file}, but for embedded files (\type{\pdfobj file "..."}).
+
+\subsubsection{\callback{find_opentype_file}}
+
+Like \callback{find_font_file}, but for opentype font files.
+
 \subsubsection{\callback{find_truetype_file} and \callback{find_type1_file}}
 
 You callback function should have the following conventions:
@@ -1109,14 +1157,15 @@ Return value:
 \startitemize
 \sym{env}  
 
-this is a table containing one required and one optional callback
-functions for this file. The required field is `\callback{reader}' and
-the associated function will be called once for each new line to be
-read, the optional one is `\callback{close}' that will be called once
-when \LUATEX\ is done with the file.
+this is a table containing at least one required and one optional
+callback functions for this file. The required field is
+`\callback{reader}' and the associated function will be called once
+for each new line to be read, the optional one is `\callback{close}'
+that will be called once when \LUATEX\ is done with the file. 
 
-Neither function will receive an argument, so you should set you a
-proper closure for them.
+\LUATEX\ never looks at the rest of the table, so you can use it to 
+store your private per-file data. Both the callback functions will
+receive the table as their only argument.
 \stopitemize
 
 \subsubsubsection{\callback{reader}}
@@ -1125,7 +1174,7 @@ proper closure for them.
 from the file.
 
 \startfunctioncall
-  function ()
+  function (table <env>)
     return string <line>
   end
 \stopfunctioncall
@@ -1139,7 +1188,7 @@ the optional `\callback{close}' function next.
 \LUATEX\ will optionally run this function when it needs to close the file.
 
 \startfunctioncall
-  function ()
+  function (table <env>)
     return
   end
 \stopfunctioncall
@@ -1160,7 +1209,8 @@ This function is called when \TEX\ needs to read a \type{ofm} or
 \startitemize
 \sym{success} 
 
-return false when the file cannot be found.
+return false when a fatal error occured (e.g. when the file cannot be
+found, after all).
 
 \sym{data} 
 
@@ -1196,22 +1246,9 @@ Like \callback{read_font_file}, but for enc files.
 Like \callback{read_font_file}, but for subfont definition files.
 
 
-\subsubsection{\callback{read_miscfonts_file}}
-
-Like \callback{read_font_file}, but for t3 font (pgc) files.
-
-
 \subsubsection{\callback{read_pk_file}}
 
-Like \callback{read_font_file}, but for pk bitmap files. The argument
-\type{<name>} is a bit special in this case. It's form is
-
-\starttyping
-  <base res>dpi/<fontname>.<actual res>pk
-\stoptyping
-
-So you may be asked for \type{600dpi/manfnt.720pk}.  It is up to you
-to find a `reasonable' bitmap file to go with that specification.
+Like \callback{read_font_file}, but for pk bitmap files.
 
 \subsubsection{\callback{read_data_file}}
 
@@ -1235,6 +1272,26 @@ or \type{kpse_find_file}.
 Like \callback{read_font_file}, but for opentype font files. The
 \type{name} is a path name as returned by \callback{find_type1_file} 
 or \type{kpse_find_file}.
+
+
+\subsection{Data processing callbacks}
+
+
+\subsubsection{\callback{process_input_buffer}}
+
+
+This callback allows you to change the contents of the line input
+buffer just before \LUATEX\ actually starts looking at it.
+
+\startfunctioncall
+     function (string <buffer>)
+        return string <adjusted_buffer>
+     end
+\stopfunctioncall
+
+If you return \type{nil}, \LUATEX\ will pretend like your callback
+never happened. You can gain a small amount of processing time from
+that.
 
 \subsection{Information reporting callbacks}
 
@@ -1534,7 +1591,9 @@ The current list is:
 \NC dest_names_size\NC           pdf destination table size      \NC \AR
 \NC pdf_mem_ptr\NC               max pdf memory used      \NC \AR
 \NC pdf_mem_size\NC              pdf memory size      \NC \AR
-\NC biggest_used_mark\NC         max referenced marks class      \NC \AR
+\NC largest_used_mark\NC         max referenced marks class        \NC \AR
+\NC filename\NC                  name of the current input file    \NC \AR
+\NC linenumber\NC                location in the current input file\NC \AR
 \stoptabulate
 
 
@@ -1711,6 +1770,9 @@ related to \type{\tracingcommands} output.
 smaller than their maximum \ALEPH\ value (around 500 fonts and 
 30000 ocps / ocplists).
 
+\item The internal function \type{scan_dir()} has been renamed to
+\type{scan_direction()} to prevent a naming clash.
+
 \stopitemize
 
 \section{Changes from standard \WEBC}
@@ -1721,7 +1783,8 @@ smaller than their maximum \ALEPH\ value (around 500 fonts and
 
 \item There is no enctex
 
-\item The following command-line switches are silently ignored:
+\item The following command-line switches are silently ignored, even
+in non||lua mode:
 \starttyping
   -8bit
   -translate-file=TCXNAME
@@ -1803,7 +1866,6 @@ single read into a buffer big enough to hold the entire file
 contents. While this uses more memory than the previous code (that
 mostly used \type{getc} calls), it can be quite a bit faster
 (depending on your I/O subsystem).
-
 
 
 \chapter{Known bugs}
