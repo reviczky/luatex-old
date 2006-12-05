@@ -216,12 +216,14 @@ This command is expandable.
 \subsection{\primitive{latelua}}
 
 \primitive{latelua} stores lua code in a whatsit that will be processed 
-inside the output routine. It is very similar to \type{\pdfliteral}.
+inside the output routine. It's intended use is is very similar to
+\type{\pdfliteral}.
 
-Any output it produces should go straight to the PDF file, but at the
-moment it is broken (there is no way to generate the desired output)
+Within the lua code, you should use \type{pdf.print} to print stuff
+directly to the pdffile..
+
 \startsyntax
-  \latelua ["direct"|"page"] <16-bit number> <general text>
+  \latelua <16-bit number> <general text>
 \stopsyntax
 
 \subsection{\primitive{luaescapestring}}
@@ -249,6 +251,10 @@ silently ignored.
 
 States are only closed automatically when a fatal (out of memory)
 error occurs, but at that point \LUATEX\ will exit anyway.
+
+States are not closed immediately, but only when the output routine
+comes into play next (because there may be pending \type{\latelua}
+calls)
 
 \section{New \ETEX\ primitives}
 
@@ -963,6 +969,22 @@ The associated function calls are
      pdf.seth(number n)
      number n = pdf.geth()
 \stopfunctioncall
+
+
+It also holds a print function to write stuff to the pdf document,
+to be used from within a \type{\latelua} argument.
+
+
+\subsubsection{\function{pdf.print}}
+
+\startfunctioncall
+   pdf.print(<string s>)
+   pdf.print(<string type>, <string s>)
+\stopfunctioncall
+
+The optional parameter can be used to mimic the behaviour of
+pdfliteral: the \type{type} is \type{"direct"} or \type{"page"}.
+
 
 \section{The \lualib{callback} library}
 
