@@ -23,6 +23,10 @@ char *getfilename (void) {
   return makecstring(getcurrentfilenamestring());
 }
 
+extern int luabytecode_max;
+extern int luabytecode_bytes;
+extern int luastate_max;
+extern int luastate_bytes;
 
 static struct statistic stats[] = {
   { "pdf_gone",                  'g', &pdfgone         },
@@ -88,7 +92,13 @@ static struct statistic stats[] = {
 
   { "filename",                  'S', &getfilename     },
   { "linenumber",                'g', &line            },
-
+  
+  // 
+  { "luabytecodes",              'g', &luabytecode_max   },
+  { "luabytecode_bytes",         'g', &luabytecode_bytes },
+  { "luastates",                 'g', &luastate_max      },
+  { "luastate_bytes",            'g', &luastate_bytes    },
+  
   { NULL,                         0 , 0                } };
 
 

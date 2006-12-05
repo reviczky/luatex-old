@@ -7,6 +7,9 @@ lua_State *Luas[65536];
 
 extern char *startup_filename;
 
+int luastate_max = 0;
+int luastate_bytes = 0;
+
 void
 make_table (lua_State *L, char *tab, char *getfunc, char *setfunc) {
   /* make the table */            /* [{<tex>}] */
@@ -73,10 +76,35 @@ void find_env (lua_State *L){
   lua_pop(L,1);
 }
 
+void *my_luaalloc (void *ud, void *ptr, size_t osize, size_t nsize) {
+  void *ret = NULL;
+  if (nsize == 0)
+	free(ptr);
+  else
+	ret = realloc(ptr, nsize);
+  luastate_bytes += (nsize-osize);
+  return ret;
+}
+
+static int my_luapanic (lua_State *L) {
+  (void)L;  /* to avoid warnings */
+  fprintf(stderr, "PANIC: unprotected error in call to Lua API (%s)\n",
+                   lua_tostring(L, -1));
+  return 0;
+}
+
+
 void 
 luainterpreter (int n) {
   lua_State *L;
-  L = luaL_newstate();
+  L = lua_newstate(my_luaalloc, NULL);
+  if (L==NULL) {
+	fprintf(stderr,"Can't create a new Lua state (%d).",n);
+	return;
+  }
+  lua_atpanic(L, &my_luapanic);
+
+  luastate_max++;
   luaL_openlibs(L);
   find_env(L);
   luaopen_unicode(L);
@@ -162,6 +190,7 @@ void
 closelua(int n) {
   if (n!=0 && Luas[n] != NULL) {
     lua_close(Luas[n]);
+	luastate_max--;
     Luas[n] = NULL;
   }
 }
@@ -191,6 +220,7 @@ luatex_error (lua_State * L, int is_fatal) {
     /* never reached */
     xfree (err);
     lua_close(L);
+	luastate_max--;
     return (lua_State *)NULL;
   } else {
     /* Here, the pool could be full already, but we can possibly escape from that 
