@@ -18397,21 +18397,10 @@ begin
     pdf_print_nl;
 end;
 
-procedure latelua(lua_id: quarterword; s: str_number; lua_mode: integer; warn: boolean);
+procedure latelua(lua_id: quarterword; s: str_number);
 var b, j: pool_pointer; {current character code position}
 begin
     j:=str_start_macro(s);
-    case lua_mode of
-    set_origin: begin
-        pdf_end_text;
-        pdf_set_origin(cur_h, cur_v);
-        end;
-    direct_page:
-        pdf_end_text;
-    direct_always:
-        pdf_end_string_nl;
-    othercases confusion("latelua1")
-    endcases;
     b := pool_ptr;
     luacall(lua_id,(s-string_offset));
     while b<pool_ptr do begin
@@ -18508,8 +18497,6 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 @# {data structure for \.{\\latelua}}
 @d late_lua_data(#)        == link(#+1) {data}
 @# {a bit sneaky, since these are quarterwords that are assumed to hold 16bits}
-@d late_lua_mode(#)        == type(#+1) {mode of resetting the text matrix
-                              while writing data to the page stream}
 @d late_lua_reg(#)         == subtype(#+1) {register id}
 
 @# {data structure for \.{\\pdfobj} and \.{\\pdfrefobj}}
@@ -20358,7 +20345,7 @@ begin
     show_token_list(link(write_tokens(p)),null,pool_size-pool_ptr);
     selector:=old_setting;
     s := make_string;
-    latelua(late_lua_reg(p), s, late_lua_mode(p), false);
+    latelua(late_lua_reg(p), s);
     flush_str(s);
 end;
 
@@ -36261,14 +36248,8 @@ end
 begin
     check_pdfoutput("\latelua", true);
     new_whatsit(late_lua_code, write_node_size);
-    if scan_keyword("direct") then
-        late_lua_mode(tail) := direct_always
-    else if scan_keyword("page") then
-        late_lua_mode(tail) := direct_page
-    else
-        late_lua_mode(tail) := set_origin;
-	scan_register_num;
-	late_lua_reg(tail) := cur_val;
+    scan_register_num;
+    late_lua_reg(tail) := cur_val;
     scan_pdf_ext_toks;
     late_lua_data(tail) := def_ref;
 end
@@ -37491,16 +37472,7 @@ pdf_literal_node: begin
 end;
 late_lua_code: begin
     print_esc("latelua");
-    case late_lua_mode(p) of
-    set_origin:
-        do_nothing;
-    direct_page:
-        print(" page");
-    direct_always:
-        print(" direct");
-    othercases confusion("latelua2")
-    endcases;
-	print_int(late_lua_reg(p));
+    print_int(late_lua_reg(p));
     print_mark(late_lua_data(p));
 end;
 close_lua_code: begin
