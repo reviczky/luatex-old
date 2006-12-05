@@ -580,6 +580,254 @@ static int gmatch (lua_State *L) {
 }
 
 
+static int characters_aux (lua_State *L) {
+  size_t ls;
+  char b[2];
+  const char *s = lua_tolstring(L, lua_upvalueindex(1), &ls);
+  int ind       = lua_tointeger(L, lua_upvalueindex(2));
+  if (ind<ls) {
+    lua_pushinteger(L, (ind+1));  /* iterator */
+	lua_replace(L, lua_upvalueindex(2));
+	b[0] = *(s+ind); b[1] = 0;
+	lua_pushlstring(L, b, 1);
+	return 1;
+  }
+  return 0;  /* string ended */
+}
+
+
+static int str_characters (lua_State *L) {
+  luaL_checkstring(L, 1);
+  lua_settop(L, 1);
+  lua_pushinteger(L, 0);
+  lua_pushcclosure(L, characters_aux, 2);
+  return 1;
+}
+
+static int utfcharacters_aux (lua_State *L) {
+  size_t ls;
+  char b[5];
+  unsigned char i;
+  int stringbytes = 0;
+  int skipbytes = 0;
+  const char *s = lua_tolstring(L, lua_upvalueindex(1), &ls);
+  int       ind = lua_tointeger(L, lua_upvalueindex(2));
+  for (i=0;i<=4;i++)
+	b[i] = 0;
+  if (ind<ls) {
+	i = (unsigned)*(s+ind);
+	skipbytes = 1;
+	b[0] = *(s+ind); 
+	stringbytes = 1;
+	if (i<0x80) {
+	} else {
+	  if (i>=0xC0) {
+		if ((ind+1)<ls && (unsigned)*(s+ind+1)>=0x80) {
+		  b[1] = *(s+ind+1);
+		  stringbytes++;
+		  skipbytes++;
+		  if (i>=0xE0) {
+			if ((ind+2)<ls && (unsigned)*(s+ind+2)>=0x80) {
+			  b[2] = *(s+ind+2);
+			  stringbytes++;
+			  skipbytes++;
+			  if (i>=0xF0) {
+				if ((ind+3)<ls && (unsigned)*(s+ind+3)>=0x80) {
+				  b[3] = *(s+ind+3);
+				  stringbytes++;
+				  skipbytes++;
+				} else {
+				  stringbytes = 0;
+				}
+			  }
+			} else {
+			  stringbytes = 0;
+			}
+		  }
+		} else {
+		  stringbytes = 0;
+		}
+	  } else {
+		stringbytes = 0;
+	  }
+	}
+	if (stringbytes==0) {
+	  stringbytes = 3;
+	  b[0] = 0xEF;
+	  b[1] = 0xBF;
+	  b[2] = 0xBD;
+	}
+	lua_pushinteger(L, (ind+skipbytes));  /* iterator */
+	lua_replace(L, lua_upvalueindex(2));
+	lua_pushlstring(L, b, stringbytes);
+	return 1;
+  }
+  return 0;  /* string ended */
+}
+
+
+static int str_utfcharacters (lua_State *L) {
+  luaL_checkstring(L, 1);
+  lua_settop(L, 1);
+  lua_pushinteger(L, 0);
+  lua_pushcclosure(L, utfcharacters_aux, 2);
+  return 1;
+}
+
+
+static int utfvalues_aux (lua_State *L) {
+  size_t ls;
+  unsigned char i = 0;
+  unsigned char j = 0;
+  unsigned char k = 0;
+  unsigned char l = 0;
+  unsigned int  v = 0xFFFD;
+  int numbytes = 1;
+  const char *s = lua_tolstring(L, lua_upvalueindex(1), &ls);
+  int ind       = lua_tointeger(L, lua_upvalueindex(2));
+
+  if (ind<ls) {
+	i = *(s+ind);
+	if (i<0x80) {
+	  v = i;
+	} else if (i>=0xF0) {
+	  if ((ind+3)<ls && ((unsigned)*(s+ind+1))>=0x80 
+		  && ((unsigned)*(s+ind+2))>=0x80 && ((unsigned)*(s+ind+3))>=0x80) {
+		numbytes  = 4;
+		j = ((unsigned)*(s+ind+1))-128;
+		k = ((unsigned)*(s+ind+2))-128;
+		l = ((unsigned)*(s+ind+3))-128;
+		v = (((((i-0xF0)*64) + j)*64) + k)*64 + l;
+	  }
+	} else if (i>=0xE0) {
+	  if ((ind+2)<ls && ((unsigned)*(s+ind+1))>=0x80 && ((unsigned)*(s+ind+2))>=0x80) {
+		numbytes  = 3;
+		j = ((unsigned)*(s+ind+1))-128;
+		k = ((unsigned)*(s+ind+2))-128;
+		v = (((i-0xE0)*64) + j)*64 + k;
+	  }
+
+	} else if (i>=0xC0) {
+	  if ((ind+1)<ls && ((unsigned)*(s+ind+1))>=0x80) {
+		numbytes  = 2;
+		j = ((unsigned)*(s+ind+1))-128;
+		v = ((i-0xC0)*64) + j;
+	  }
+	}
+	lua_pushinteger(L, (ind+numbytes));  /* iterator */
+	lua_replace(L, lua_upvalueindex(2));
+	lua_pushinteger(L, v);
+	return 1;
+  }
+  return 0;  /* string ended */
+}
+
+
+static int str_utfvalues (lua_State *L) {
+  luaL_checkstring(L, 1);
+  lua_settop(L, 1);
+  lua_pushinteger(L, 0);
+  lua_pushcclosure(L, utfvalues_aux, 2);
+  return 1;
+}
+
+
+
+static int characterpairs_aux (lua_State *L) {
+  size_t ls;
+  char b[2];
+  const char *s = lua_tolstring(L, lua_upvalueindex(1), &ls);
+  int ind       = lua_tointeger(L, lua_upvalueindex(2));
+  if (ind<ls) {
+	if (ind+1<ls) {
+	  lua_pushinteger(L, (ind+2));  /* iterator */
+	} else {
+	  lua_pushinteger(L, (ind+1));  /* iterator */
+	}
+	lua_replace(L, lua_upvalueindex(2));
+	b[0] = *(s+ind); b[1] = 0;
+	lua_pushlstring(L, b, 1);
+	if (ind+1<ls) {
+	  b[0] = *(s+ind+1); 
+	  lua_pushlstring(L, b, 1);
+	} else {
+	  lua_pushlstring(L, b+1, 0);
+	}
+	return 2;
+  }
+  return 0;  /* string ended */
+}
+
+
+static int str_characterpairs (lua_State *L) {
+  luaL_checkstring(L, 1);
+  lua_settop(L, 1);
+  lua_pushinteger(L, 0);
+  lua_pushcclosure(L, characterpairs_aux, 2);
+  return 1;
+}
+
+static int bytes_aux (lua_State *L) {
+  size_t ls;
+  unsigned char i;
+  const char *s = lua_tolstring(L, lua_upvalueindex(1), &ls);
+  int ind       = lua_tointeger(L, lua_upvalueindex(2));
+  if (ind<ls) {
+    lua_pushinteger(L, (ind+1));  /* iterator */
+	lua_replace(L, lua_upvalueindex(2));
+	i = (unsigned char)*(s+ind);
+	lua_pushinteger(L, i);     /* byte */
+	return 1;
+  }
+  return 0;  /* string ended */
+}
+
+static int str_bytes (lua_State *L) {
+  luaL_checkstring(L, 1);
+  lua_settop(L, 1);
+  lua_pushinteger(L, 0);
+  lua_pushcclosure(L, bytes_aux, 2);
+  return 1;
+}
+
+static int bytepairs_aux (lua_State *L) {
+  size_t ls;
+  unsigned char i;
+  const char *s = lua_tolstring(L, lua_upvalueindex(1), &ls);
+  int ind       = lua_tointeger(L, lua_upvalueindex(2));
+  if (ind<ls) {
+	if (ind+1<ls) {
+	  lua_pushinteger(L, (ind+2));  /* iterator */
+	} else {
+	  lua_pushinteger(L, (ind+1));  /* iterator */
+	}
+	lua_replace(L, lua_upvalueindex(2));
+	i = (unsigned char)*(s+ind);
+	lua_pushinteger(L, i);     /* byte one */
+	if (ind+1<ls) {
+	  i = (unsigned char)*(s+ind+1);
+	  lua_pushinteger(L, i);     /* byte two */
+	} else {
+	  lua_pushnil(L);     /* odd string length */
+	}
+	return 2;
+  }
+  return 0;  /* string ended */
+}
+
+
+static int str_bytepairs (lua_State *L) {
+  luaL_checkstring(L, 1);
+  lua_settop(L, 1);
+  lua_pushinteger(L, 0);
+  lua_pushcclosure(L, bytepairs_aux, 2);
+  return 1;
+}
+
+
+
+
+
 static int gfind_nodef (lua_State *L) {
   return luaL_error(L, LUA_QL("string.gfind") " was renamed to "
                        LUA_QL("string.gmatch"));
@@ -829,6 +1077,12 @@ static const luaL_Reg strlib[] = {
   {"format", str_format},
   {"gfind", gfind_nodef},
   {"gmatch", gmatch},
+  {"utfvalues", str_utfvalues},
+  {"utfcharacters", str_utfcharacters},
+  {"characters", str_characters},
+  {"characterpairs", str_characterpairs},
+  {"bytes", str_bytes},
+  {"bytepairs", str_bytepairs},
   {"gsub", str_gsub},
   {"len", str_len},
   {"lower", str_lower},

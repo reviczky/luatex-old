@@ -449,6 +449,15 @@ all platforms.
 (\type{isdir(filename)} and \type{isfile(filename)}) and one extra
 string field in the attributes table (\type{permissions}).
 
+The \type{string} library has six extra iterators that return strings
+piecemeal: "utfvalues" (returns an integer value in the unicode
+range), "utfcharacters" (returns a string with a single UTF-8 token in
+it), "characters" (a string of length one), "characterpairs" (two
+strings of length one), "bytes" (a single byte value), and "bytepairs"
+(two byte values).  The "bytepairs" will produce nil instead of a
+number as its second return value if the string length was odd.
+"characterpairs" will produce an empty second string in that case.
+
 
 \chapter{Lua Libraries}
 
@@ -1615,11 +1624,11 @@ The current list is:
 \NC pdf_mem_size\NC              pdf memory size      \NC \AR
 \NC largest_used_mark\NC         max referenced marks class        \NC \AR
 \NC filename\NC                  name of the current input file    \NC \AR
-\NC linenumber\NC                location in the current input file\NC \AR
-\NC luabytecodes\N               number of active luabytecode registers\NC \AR
-\NC luabytecode_bytes\NC         number of bytes in luabytecode registers\NC \AR
-\NC luastates\NC                 number of active lua interpreters\NC \AR
-\NC luastate_bytes\NC            number of bytes in use by lua interpreters\NC \AR
+\NC linenumber\NC                location in the current input file\NC\AR
+\NC luabytecodes\NC              number of active luabytecode registers\NC\AR
+\NC luabytecode_bytes\NC         number of bytes in luabytecode registers\NC\AR
+\NC luastates\NC                 number of active lua interpreters\NC\AR
+\NC luastate_bytes\NC            number of bytes in use by lua interpreters\NC\AR
 \stoptabulate
 
 
