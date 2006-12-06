@@ -604,66 +604,41 @@ static int str_characters (lua_State *L) {
   return 1;
 }
 
+
+static int utf_failed(lua_State *L, int new_ind) {
+  static char fffd [3] = {0xEF,0xBF,0xBD};
+  lua_pushinteger(L, new_ind);  /* iterator */
+  lua_replace(L, lua_upvalueindex(2));
+  lua_pushlstring(L, fffd, 3);
+  return 1;
+}
+
 static int utfcharacters_aux (lua_State *L) {
+  static const unsigned char mask[4] = {0x80,0xE0,0xF0,0xF8};
+  static const unsigned char mequ[4] = {0x00,0xC0,0xE0,0xF0};
   size_t ls;
-  char b[5];
-  unsigned char i;
-  int stringbytes = 0;
-  int skipbytes = 0;
+  unsigned char c;
+  int j;
   const char *s = lua_tolstring(L, lua_upvalueindex(1), &ls);
   int       ind = lua_tointeger(L, lua_upvalueindex(2));
-  for (i=0;i<=4;i++)
-	b[i] = 0;
-  if (ind<ls) {
-	i = (unsigned)*(s+ind);
-	skipbytes = 1;
-	b[0] = *(s+ind); 
-	stringbytes = 1;
-	if (i<0x80) {
-	} else {
-	  if (i>=0xC0) {
-		if ((ind+1)<ls && (unsigned)*(s+ind+1)>=0x80) {
-		  b[1] = *(s+ind+1);
-		  stringbytes++;
-		  skipbytes++;
-		  if (i>=0xE0) {
-			if ((ind+2)<ls && (unsigned)*(s+ind+2)>=0x80) {
-			  b[2] = *(s+ind+2);
-			  stringbytes++;
-			  skipbytes++;
-			  if (i>=0xF0) {
-				if ((ind+3)<ls && (unsigned)*(s+ind+3)>=0x80) {
-				  b[3] = *(s+ind+3);
-				  stringbytes++;
-				  skipbytes++;
-				} else {
-				  stringbytes = 0;
-				}
-			  }
-			} else {
-			  stringbytes = 0;
-			}
-		  }
-		} else {
-		  stringbytes = 0;
-		}
-	  } else {
-		stringbytes = 0;
-	  }
-	}
-	if (stringbytes==0) {
-	  stringbytes = 3;
-	  b[0] = 0xEF;
-	  b[1] = 0xBF;
-	  b[2] = 0xBD;
-	}
-	lua_pushinteger(L, (ind+skipbytes));  /* iterator */
-	lua_replace(L, lua_upvalueindex(2));
-	lua_pushlstring(L, b, stringbytes);
-	return 1;
+  if (ind>=ls) return 0; /* end of string */
+  c = (unsigned) s[ind];
+  for (j=0;j<4;j++) {
+    if ((c&mask[j])==mequ[j]) {
+      int k;
+      if (ind+1+j>=ls) return utf_failed(L,ls); /* will not fit */
+      for (k=1; k<=j; k++) {
+        c = (unsigned) s[ind+k];
+        if ((c&0xC0)!=0x80) return utf_failed(L,ind+k); /* bad follow */
+      }
+      lua_pushinteger(L, ind+1+j);  /* iterator */
+      lua_replace(L, lua_upvalueindex(2));
+      lua_pushlstring(L, s+ind, 1+j);
+      return 1;
+    }
   }
-  return 0;  /* string ended */
-}
+  return utf_failed(L,ind+1); /* we found a follow byte! */
+} 
 
 
 static int str_utfcharacters (lua_State *L) {
