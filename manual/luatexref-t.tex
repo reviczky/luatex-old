@@ -129,12 +129,17 @@ As far as the core engine is aware, all input and output to text files
 is UTF-8 encoded. Input files can be preprocessed using the
 \callback{reader} callback. This will be explained in a later chapter.
 
-Output to the terminal uses \type{^^} notation for the lower control
-range, with the exception of \type{^^I}, \type{^^J} and  \type{^^M}.
-These are considered `safe' and therefore printed as-is.
+Output in byte-sized chunks can be achieved by using characters in the
+private use block that starts at index 1.113.856 (\hex10FF00). When
+the times comes to print a character $c>=1.113.856$, \LUATEX\ will
+actually print the single byte corresponding to $c-1.113.856$.
 
-No normalization of the Unicode input takes place yet, but that will
-happen eventually.
+Output to the terminal uses \type{^^} notation for the lower control
+range ($c<32$), with the exception of \type{^^I}, \type{^^J} and
+\type{^^M}.  These are considered `safe' and therefore printed as-is.
+
+Normalization of the Unicode input can be handled by a macro package
+during callback processing (will be explained below).
 
 \section{Wide math characters}
 
@@ -368,6 +373,7 @@ command||line directly:
 \starttable[|l|l|]
 \NC --luaonly=s  \NC execute a lua script, then exit      \NC \AR
 \NC --lua=s      \NC load and execute a lua init script   \NC \AR
+\NC --safer      \NC disable easily exploitable lua commands\NC \AR
 \NC --help       \NC display help and exit                \NC \AR
 \NC --version    \NC display version and exit             \NC \AR
 \stoptable
@@ -409,6 +415,17 @@ We recommend you use the startup file only for your own
 \TEX-independant initializations (if you need any), to parse the
 command||line, set values in the \type{texconfig} table, and
 register the callbacks you need.
+
+
+You can use the \type{--safer} switch to disable some commands that
+can easily be abused by a malicious document. At the moment, this
+switch \type{nil}s the following:
+
+\starttable[|l|l|]
+\NC the whole \type{os} table\NC\AR
+\NC \type{io.popen()}\NC\AR
+\NC the whole \type{lfs} table\NC\AR
+\stoptable
 
 
 Unless the \type{texconfig} table tells it not to start kpathsea at
@@ -997,8 +1014,7 @@ pdfliteral: the \type{type} is \type{"direct"} or \type{"page"}.
 
 \section{The \lualib{callback} library}
 
-This library has a function that is used to register callbacks, and a
-function that lists the registered callbacks
+This library has functions that register, find and list callbacks.
 
 The \lualib{callback} library is only available in lua state zero (0).
 
@@ -1023,6 +1039,13 @@ Callback assignments are always global. You can use the special value
 The keys in the table are the known callback names, the value is a
 boolean where \type{true} means that the callback is currently set
 (active).
+
+\startfunctioncall
+   function <f> = callback.find(<callback name>)
+\stopfunctioncall
+
+If the callback is not set, \type{callback.find} returns \type{nil}.
+
 
 \subsection{File discovery callbacks}
 
@@ -1366,14 +1389,15 @@ Replaces the code that prints the \type{]} at the end of \type{\shipout}
 \subsubsection{\callback{show_error_hook}}
        
 \startfunctioncall
-     function (string <message>, string <indicator>, number <lineno>)
-     return end function (string <message>, number <indicator>, number
-     <lineno>) return end
+     function ()
+       return 
+     end 
 \stopfunctioncall
 
 This callback is run from inside the \TEX\ error function, and the idea
 is to allow you to do some extra reporting on top of what \TEX\ already
-does (none of the normal actions are removed).
+does (none of the normal actions are removed). You may find some of
+the values in the \lualib{statistics} table useful.
 
 \startitemize
 \sym{message} 
@@ -1624,7 +1648,9 @@ The current list is:
 \NC pdf_mem_size\NC              pdf memory size      \NC \AR
 \NC largest_used_mark\NC         max referenced marks class        \NC \AR
 \NC filename\NC                  name of the current input file    \NC \AR
+\NC inputid\NC                   numeric id of the current input    \NC \AR
 \NC linenumber\NC                location in the current input file\NC\AR
+\NC lasterrorstring\NC           last error string\NC \AR
 \NC luabytecodes\NC              number of active luabytecode registers\NC\AR
 \NC luabytecode_bytes\NC         number of bytes in luabytecode registers\NC\AR
 \NC luastates\NC                 number of active lua interpreters\NC\AR
