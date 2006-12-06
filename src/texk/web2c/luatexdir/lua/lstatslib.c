@@ -20,8 +20,13 @@ char *getbanner (void) {
 }
 
 char *getfilename (void) {
-  return makecstring(getcurrentfilenamestring());
+  return makecstring(getcurrentname());
 }
+
+char *getlasterror (void) {
+  return makecstring(lasterror);
+}
+
 
 extern int luabytecode_max;
 extern int luabytecode_bytes;
@@ -91,7 +96,9 @@ static struct statistic stats[] = {
   //
 
   { "filename",                  'S', &getfilename     },
+  { "inputid",                   'G', &getcurrentname  },
   { "linenumber",                'g', &line            },
+  { "lasterrorstring",           'S', &getlasterror    },
   
   // 
   { "luabytecodes",              'g', &luabytecode_max   },
