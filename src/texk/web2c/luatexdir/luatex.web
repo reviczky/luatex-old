@@ -1852,6 +1852,12 @@ routine when it knows that this is safe. (The present implementation
 assumes that it is always safe to print a visible ASCII character.)
 @^system dependencies@>
 
+The highest 256 entries in the 17th unicode plane are used for a
+special trick: when \TeX\ has to print items in that range, it will
+instead print the character that results from substracting @"10FF00
+from that value. This allows byte-oriented output to things like
+\.{\\specials} and \.{\\pdfliterals}.
+
 @d print_lc_hex(#)==l:=#;
    if l<10 then print_char(l+"0") else print_char(l-10+"a");
 
@@ -1902,15 +1908,16 @@ procedure print(@!s:integer); {prints string |s|}
 label exit;
 var j:pool_pointer; {current character code position}
 @!nl:integer; {new-line character to restore}
+@!v:integer; { a unicode char }
 begin if s>=str_ptr then s:="???" {this can't happen}
 @.???@>
 else if s<string_offset then
   if s<0 then s:="???" {can't happen}
   else begin 
-    {TH not sure about this!}
-    {if selector>pseudo then}
-      {begin print_char(s); return; {internal strings are not expanded}}
-      {end;}
+    {TH not sure about this, disabled for now!}
+    if (false)and(selector>pseudo) then
+      begin print_char(s); return; {internal strings are not expanded}
+      end;
     if (@<Character |s| is the current new-line character@>) then
       if selector<pseudo then
         begin print_ln; return;
@@ -1925,17 +1932,30 @@ else if s<string_offset then
       print_char(@"E0 + (s div @"1000));
       print_char(@"80 + ((s mod @"1000) div @"40));
       print_char(@"80 + ((s mod @"1000) mod @"40));
-    end else begin
-      print_char(@"F0 + (s div @"40000));
-      print_char(@"80 + ((s mod @"40000) div @"1000));
-      print_char(@"80 + (((s mod @"40000) mod @"1000) div @"40));
-      print_char(@"80 + (((s mod @"40000) mod @"1000) mod @"40));
+      end 
+    else begin 
+      if s>=@"10FF00 then 
+	    print_char(s-@"10FF00)
+      else begin
+        print_char(@"F0 + (s div @"40000));
+        print_char(@"80 + ((s mod @"40000) div @"1000));
+        print_char(@"80 + (((s mod @"40000) mod @"1000) div @"40));
+        print_char(@"80 + (((s mod @"40000) mod @"1000) mod @"40));
+        end;
       end;
     return;
     end;
 j:=str_start_macro(s);
 while j<str_start_macro(s+1) do
-  begin print_char(str_pool[j]); incr(j);
+  begin 
+    if (str_pool[j]=@"F7)and(j<str_start_macro(s+4))and
+       (str_pool[j+1]=@"BF)and(str_pool[j+2]>=@"BC) then begin
+	  v := (((7*64+63)*64)+ (str_pool[j+2]-128))*64 +(str_pool[j+3]-128);
+	  print_char(v-@"10FF00); j := j+4;
+      end
+    else begin
+      print_char(str_pool[j]); incr(j);
+    end;
   end;
 exit:end;
 
@@ -2274,12 +2294,7 @@ callback_id:integer;
 begin if history<error_message_issued then history:=error_message_issued;
 print_char("."); 
 callback_id := callback_defined('show_error_hook') ;
-if callback_id>0 then begin
-  if name<string_offset then
-    t := run_callback(callback_id,'sdd->',last_error,name,line)
-  else
-    t := run_callback(callback_id,'ssd->',last_error,name,line);
-end;
+if callback_id>0 then t := run_callback(callback_id,'->');
 show_context;
 if interaction=error_stop_mode then @<Get user's advice and |return|@>;
 incr(error_count);
@@ -17458,9 +17473,9 @@ begin
   get_hash_size:= hash_size;
 end;
 
-function get_current_filename_string: str_number;
+function get_current_name: str_number;
 begin
-  get_current_filename_string:= name;
+  get_current_name:= name;
 end;
 
 
