@@ -218,7 +218,7 @@ static boolean writepk (internalfontnumber f)
       name = xmalloc(mallocsize);
       snprintf(name,mallocsize,"%ddpi/%s.%dpk",fixedpkresolution,cur_file_name,dpi);
 	  if(runcallback(callback_id,"S->S",name,&ftemp)) {
-		if(ftemp!=NULL) {
+		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(name);
 		  name = xstrdup(ftemp);
 		  free(ftemp);

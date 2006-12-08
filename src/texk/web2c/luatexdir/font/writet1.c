@@ -265,7 +265,7 @@ void load_enc (char *enc_name, char **glyph_names)
 	callback_id=callbackdefined("find_enc_file");
 	if (callback_id>0) {
 	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
-		if(ftemp!=NULL) {
+		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(nameoffile);
 		  namelength = strlen(ftemp);
 		  nameoffile = xmalloc(namelength+2);
@@ -960,7 +960,7 @@ static boolean t1_open_fontfile (const char *open_name_prefix)
 	  callback_id=callbackdefined("find_type1_file");
 	  if (callback_id>0) {
 		if(runcallback(callback_id,"S->S",ff->ff_path,&ftemp)) {
-		  if(ftemp!=NULL) {
+		  if(ftemp!=NULL&&strlen(ftemp)) {
 			strcpy(ff->ff_path,ftemp);
 		  }
 		}

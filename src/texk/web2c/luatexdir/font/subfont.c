@@ -140,7 +140,7 @@ static sfd_entry *read_sfd (char *sfd_name)
 	callback_id=callbackdefined("find_sfd_file");
 	if (callback_id>0) {
 	  if(runcallback(callback_id,"S->S",cur_file_name,&ftemp)) {
-		if(ftemp!=NULL) {
+		if(ftemp!=NULL&&strlen(ftemp)) {
 		  if (cur_file_name)
 			free(cur_file_name);
 		  cur_file_name = xstrdup(ftemp);

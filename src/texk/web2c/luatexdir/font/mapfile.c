@@ -600,7 +600,7 @@ void fm_read_info ()
 		callback_id=callbackdefined("find_map_file");
 		if (callback_id>0) {
 		  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
-			if(ftemp!=NULL) {
+			if(ftemp!=NULL&&strlen(ftemp)) {
 			  free(nameoffile);
 			  namelength = strlen(ftemp);
 			  nameoffile = xmalloc(namelength+2);
@@ -774,6 +774,8 @@ ff_entry *check_ff_exist (fm_entry * fm)
 	    callback_id=callbackdefined("find_truetype_file");
 	    if (callback_id>0) {
 	      runcallback(callback_id,"S->S",fm->ff_name,&filepath);
+		  if (filepath && strlen(filepath)==0)
+			filepath=NULL;
 	      ff->ff_path = filepath;
 	    } else {
 	      ff->ff_path = kpse_find_file (fm->ff_name, kpse_truetype_format, 0);
@@ -782,6 +784,8 @@ ff_entry *check_ff_exist (fm_entry * fm)
 	    callback_id=callbackdefined("find_type1_file");
 	    if (callback_id>0) {
 	      runcallback(callback_id,"S->S",fm->ff_name,&filepath);
+		  if (filepath && strlen(filepath)==0)
+			filepath=NULL;
 	      ff->ff_path = filepath;
 	    } else {
 	      ff->ff_path = kpse_find_file (fm->ff_name, kpse_type1_format, 0);
@@ -839,7 +843,7 @@ static boolean used_tfm (fm_entry * p)
         strcmp (p->tfm_name, nontfm) != 0) {
         if (p->tfm_avail == TFM_UNCHECKED) {
 	  callback_id = callbackdefined("find_font_file");
-	  if ((callback_id>0 && runcallback(callback_id,"S->S",p->tfm_name,&tfm_ret) && tfm_ret!=NULL)
+	  if ((callback_id>0 && runcallback(callback_id,"S->S",p->tfm_name,&tfm_ret) && tfm_ret!=NULL && strlen(tfm_ret))
 	      || 
 	      (kpse_find_file (p->tfm_name, kpse_tfm_format, 0) != NULL)) {
                 avail_tfm_found = p;

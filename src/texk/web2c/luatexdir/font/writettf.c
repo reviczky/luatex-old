@@ -1309,7 +1309,7 @@ void writettf ()
 	callback_id=callbackdefined("find_truetype_file");
 	if (callback_id>0) {
 	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
-		if(ftemp!=NULL) {
+		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(nameoffile);
 		  namelength = strlen(ftemp);
 		  nameoffile = xmalloc(namelength+2);
@@ -1393,7 +1393,7 @@ void writeotf ()
 	callback_id=callbackdefined("find_opentype_file");
 	if (callback_id>0) {
 	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
-		if(ftemp!=NULL) {
+		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(nameoffile);
 		  namelength = strlen(ftemp);
 		  nameoffile = xmalloc(namelength+2);
