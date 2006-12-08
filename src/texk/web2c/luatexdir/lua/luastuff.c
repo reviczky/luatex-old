@@ -6,6 +6,7 @@
 lua_State *Luas[65536];
 
 extern char *startup_filename;
+extern int safer_option;
 
 int luastate_max = 0;
 int luastate_bytes = 0;
@@ -121,6 +122,25 @@ luainterpreter (int n) {
   }
   luaopen_lua(L,n,startup_filename);
   luaopen_stats(L);
+  if (safer_option) {
+	/* disable some stuff if --safer */
+	(void)hide_lua_value(L, "os","execute");
+	(void)hide_lua_value(L, "os","rename");
+	(void)hide_lua_value(L, "os","remove");
+	(void)hide_lua_value(L, "io","popen");
+	/* make io.open only read files */
+	luaL_checkstack(L,2,"out of stack space");
+	lua_getglobal(L,"io");
+	lua_getfield(L,-1,"open_ro");	
+	lua_setfield(L,-2,"open");	
+	(void)hide_lua_value(L, "io","tmpfile");
+	(void)hide_lua_value(L, "io","output");
+	(void)hide_lua_value(L, "lfs","chdir");
+	(void)hide_lua_value(L, "lfs","lock");
+	(void)hide_lua_value(L, "lfs","touch");
+	(void)hide_lua_value(L, "lfs","rmdir");
+	(void)hide_lua_value(L, "lfs","mkdir");
+  }
   Luas[n] = L;
 }
 
@@ -145,7 +165,7 @@ int hide_lua_value(lua_State *L, char *name, char *item) {
   int r=0;
   lua_getglobal(L,name);
   if(lua_istable(L,-1)) {
-	lua_getfield(Luas[0],-1,item);
+	lua_getfield(L,-1,item);
     r = luaL_ref(L,LUA_REGISTRYINDEX);
     lua_pushnil(L);
     lua_setfield(L,-2,item);
