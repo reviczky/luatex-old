@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20061204' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20061208' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -978,7 +978,7 @@ begin
   if callback_id>0 then begin
     fnam:=0;
     test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),address_of(fnam));
-    if (test)and(fnam<>0) then begin
+    if (test)and(fnam<>0)and(length(fnam)>0) then begin
       @<Fixup |name_of_file| after callback@>;
       callback_id:=callback_defined('open_read_file');
       if callback_id >0 then begin
@@ -1033,7 +1033,7 @@ begin
   if callback_id>0 then begin
     fnam:=0;
     test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),address_of(fnam));
-    if (test)and(fnam<>0) then begin
+    if (test)and(fnam<>0)and(length(fnam)>0) then begin
       @<Fixup |name_of_file| after callback@>;
       lua_a_open_out := do_a_open_out(f);
 	  name_file_pointer := f;
@@ -1061,7 +1061,7 @@ begin
   if callback_id>0 then begin
     fnam:=0;
     test:=run_callback(callback_id,'S->s',stringcast(name_of_file+1),address_of(fnam));
-    if (test)and(fnam<>0) then begin
+    if (test)and(fnam<>0)and(length(fnam)>0) then begin
       @<Fixup |name_of_file| after callback@>;
       lua_b_open_out := do_b_open_out(f);
 	  name_file_pointer := f;
@@ -13559,7 +13559,7 @@ the font.
 
 @ Here now is the (rather formidable) array of font arrays.
 
-@d non_char==qi(too_big_char) {a code that can't match a real character}
+@d non_char==65536 {a code that can't match a real character}
 @d non_address=0 {a spurious |bchar_label|}
 
 @<Glob...@>=
@@ -14805,6 +14805,7 @@ information is stored; |null_ocp| is returned in this case.
 label done,bad_ocp,not_found;
 var 
 @!file_opened:boolean; {was |ocp_file| successfully opened?}
+@!k:integer;
 @!res:boolean;
 @!callback_id:integer;
 @!fnam:str_number;
@@ -14883,7 +14884,7 @@ ocp_cur:=0; ocp_buffer:=0; ocp_size:=0;
 callback_id:=callback_defined('find_ocp_file');
 if callback_id>0 then begin
   res := run_callback(callback_id,'S->s',stringcast(name_of_file+1), address_of(fnam));
-  if (res)and(fnam<>0) then begin
+  if (res)and(fnam<>0)and(length(fnam)>0) then begin
     @<Fixup |name_of_file| after callback@>;
     end;
   end;
@@ -19902,7 +19903,7 @@ vf_cur:=0; vf_buffer:=0; vf_size:=0;
 callback_id:=callback_defined('find_vf_file');
 if callback_id>0 then begin
   res := run_callback(callback_id,'S->s',stringcast(name_of_file+1), address_of(fnam));
-  if (res)and(fnam<>0) then begin
+  if (res)and(fnam<>0)and(length(fnam)>0) then begin
     @<Fixup |name_of_file| after callback@>;
     end;
   end;
@@ -21028,6 +21029,7 @@ var s: str_number;
     data_cur:integer; {index into |data_buffer|}
     data_buffer:^real_eight_bits; {byte buffer for data files}
     file_opened:boolean;
+    k:integer;
     res:boolean;
 	fnam: str_number;
     callback_id:integer;
@@ -21050,7 +21052,7 @@ begin
 	    callback_id:=callback_defined('find_data_file');
 	    if callback_id>0 then begin
     	  res := run_callback(callback_id,'S->s',stringcast(name_of_file+1),address_of(fnam));
-	      if (res)and(fnam<>0) then begin
+	      if (res)and(fnam<>0)and(length(fnam)>0) then begin
 	        @<Fixup |name_of_file| after callback@>;
 		 	end;
           end;
