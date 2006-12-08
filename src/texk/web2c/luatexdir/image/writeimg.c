@@ -286,6 +286,8 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
     
     callback_id=callbackdefined("find_image_file");
     if (callback_id>0 && runcallback(callback_id,"S->S",cur_file_name,&imagename)) {
+	  if (imagename && !strlen(imagename))
+		imagename == NULL;
       img_name (img) = imagename;
     } else {
       img_name (img) = kpse_find_file (cur_file_name, kpse_tex_format, true);
