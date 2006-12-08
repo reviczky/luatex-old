@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2006-12-04}
+\TitlePage{Snapshot 2006-12-08}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -419,14 +419,24 @@ register the callbacks you need.
 
 You can use the \type{--safer} switch to disable some commands that
 can easily be abused by a malicious document. At the moment, this
-switch \type{nil}s the following:
+switch \type{nil}s the following functions:
 
 \starttable[|l|l|]
-\NC the whole \type{os} table\NC\AR
+\NC \type{os.execute()}\NC\AR
+\NC \type{os.rename()}\NC\AR
+\NC \type{os.remove()}\NC\AR
 \NC \type{io.popen()}\NC\AR
-\NC the whole \type{lfs} table\NC\AR
+\NC \type{io.output()}\NC\AR
+\NC \type{io.tmpfile()}\NC\AR
+\NC \type{lfs.rmdir()}\NC\AR
+\NC \type{lfs.mkdir()}\NC\AR
+\NC \type{lfs.chdir()}\NC\AR
+\NC \type{lfs.lock()}\NC\AR
+\NC \type{lfs.touch()}\NC\AR
 \stoptable
 
+And it makes \type{io.open()} fail on files that are opened for
+anything besides reading.
 
 Unless the \type{texconfig} table tells it not to start kpathsea at
 all (set \type{texconfig.kpse_init} to \type{false} for that), it also
@@ -1083,6 +1093,7 @@ don't, you will have to manually fix the name for the log file and
 output file, and an eventual format filename will become mangled,
 since these depend on the jobname.
 
+Return \type{nil} if the file cannot be found.
 \stopitemize
 
 \subsubsection{\callback{find_font_file}}
@@ -1095,6 +1106,7 @@ You callback function should have the following conventions:
 
 The  \type{asked_name} is an OTF or TFM font metrics file.
 
+Return \type{nil} if the file cannot be found.
 
 \subsubsection{\callback{find_output_file}}
 
@@ -1932,13 +1944,15 @@ mostly used \type{getc} calls), it can be quite a bit faster
 \chapter{Known bugs}
 
 \startitemize
-\item Under some conditions, the {\bf autoexpand} font feature can crash the
-executable.
 
 \item {\bf Hyphenation} can only deal with the Base Multilingual Plane (BMP)
 
 \item There are (sometimes?) UTF-8 encoded UTF-8 bytes in the
 pseudo-buffer lines that are shown during error()
+
+\item \type{tex.print()} and \type{tex.sprint()} do not work if 
+\type{\directlua} is used in an OTP file (in the output of an 
+\type{expression} rule).
 
 \stopitemize
 
