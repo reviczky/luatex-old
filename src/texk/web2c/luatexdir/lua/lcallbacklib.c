@@ -55,8 +55,9 @@ callbackdefined (char *name) {
   cb_tmp.name = name;
   cb = (callback_info *)avl_find(callback_list, &cb_tmp);
   if (cb != NULL) {
-	if (cb->is_set)
+	if (cb->is_set) {
 	  return cb->number;
+	}
   }
   return 0;
 }
@@ -266,7 +267,8 @@ do_run_callback (int special, char *values, va_list vl) {
 	  lua_pushlstring(L,&cs, 1);
       break;
     case CALLBACK_STRING: /* C string */ 
-      lua_pushstring(L, va_arg(vl, char *));
+	  s = va_arg(vl, char *);
+      lua_pushstring(L, s);
       break;
     case CALLBACK_INTEGER: /* int */ 
       lua_pushnumber(L, va_arg(vl, int));
@@ -359,10 +361,7 @@ do_run_callback (int special, char *values, va_list vl) {
       if (s==NULL) /* |len| can be zero */
 		*va_arg(vl, int *) = 0;
       else {
-		ss = xmalloc(len+1);
-		(void)memcpy(ss,s,(len+1));
-		*va_arg(vl, int *) = maketexlstring(ss,len);
-		free(ss);
+		*va_arg(vl, int *) = maketexlstring(s,len);
       }
       break;
     case CALLBACK_STRING:  /* C string aka buffer */
