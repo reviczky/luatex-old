@@ -190,13 +190,12 @@ lua_initialize(int ac, char **av)
     /* parse commandline */
     parse_options(ac, av);
 
+	/* make sure that the locale is 'sane' (for lua) */
+	putenv("LC_CTYPE=C");
+	putenv("LC_COLLATE=C");
+	putenv("LC_NUMERIC=C");
+
     luainterpreter(0);
-	/* disable some stuff if --safer */
-	if (safer_option) {
-	  (void)hide_lua_table(Luas[0], "os");
-	  (void)hide_lua_value(Luas[0], "io","popen");
-	  (void)hide_lua_table(Luas[0], "lfs");
-	}
 	   
     /* hide the 'tex' and 'pdf' table */
     tex_table_id = hide_lua_table(Luas[0], "tex");
