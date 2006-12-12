@@ -626,7 +626,7 @@ static int utfcharacters_aux (lua_State *L) {
   for (j=0;j<4;j++) {
     if ((c&mask[j])==mequ[j]) {
       int k;
-      if (ind+1+j>=ls) return utf_failed(L,ls); /* will not fit */
+      if (ind+1+j>ls) return utf_failed(L,ls); /* will not fit */
       for (k=1; k<=j; k++) {
         c = (unsigned) s[ind+k];
         if ((c&0xC0)!=0x80) return utf_failed(L,ind+k); /* bad follow */
