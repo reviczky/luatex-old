@@ -157,7 +157,7 @@ static int io_open (lua_State *L) {
 static int io_open_ro (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   const char *mode = luaL_optstring(L, 2, "r");
-  if ((strcmp(mode,"r") != NULL)&&(strcmp(mode,"rb")!=NULL))
+  if ((strcmp(mode,"r")!= 0)&&(strcmp(mode,"rb")!=0))
 	return pushresult(L, 0, filename);
   FILE **pf = newfile(L);
   *pf = fopen(filename, mode);
