@@ -51,6 +51,8 @@ font/writefont.o \
 font/writet1.o \
 font/writet3.o \
 font/writettf.o \
+font/texfont.o \
+font/tfmofm.o \
 image/epdf.o \
 image/pdftoepdf.o \
 image/writeimg.o \
@@ -76,6 +78,10 @@ writezip.o
 all: libpdf.a makecpool
 
 pdftosrc.o: $(srcdir)/pdftosrc.cc
+
+font/texfont.o: font/texfont.h
+
+font/tfmofm.o: font/texfont.h
 
 libpdf.a: $(OBJS)
 	rm -f $@

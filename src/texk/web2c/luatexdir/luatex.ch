@@ -111,8 +111,6 @@ versions of the program.
 @!stack_size=200; {maximum number of simultaneous input sources}
 @!max_in_open=6; {maximum number of input files and error insertions that
   can be going on simultaneously}
-@!font_max=75; {maximum internal font number; must not exceed |max_quarterword|
-  and must be at most |font_base+256|}
 @!param_size=60; {maximum number of simultaneous macro parameters}
 @!nest_size=40; {maximum number of semantic levels simultaneously active}
 @!max_strings=3000; {maximum number of strings; must not exceed |max_halfword|}
@@ -142,8 +140,6 @@ versions of the program.
 
 @d ssup_hyph_size == 65535 {Changing this requires changing (un)dumping!}
 @d iinf_hyphen_size == 610 {Must be not less than |hyph_prime|!}
-
-@d font_max=65530 { not maxed out so that the web tests still work without warning}
 
 @<Constants...@>=
 @!hash_offset=514; {smallest index in hash array, i.e., |hash_base| }
@@ -776,22 +772,6 @@ are debugging.)
  {The debug memory arrays have not been mallocated yet.}
 @!debug @!free: packed array [0..9] of boolean; {free cells}
 @t\hskip10pt@>@!was_free: packed array [0..9] of boolean;
-@z
-
-@x
-        begin if (font(p)<font_base)or(font(p)>font_max) then
-@y
-        begin if (font(p)>font_max) then
-@z
-
-@x
-@p procedure print_font_and_char(@!p:integer); {prints |char_node| data}
-begin if p>mem_end then print_esc("CLOBBERED.")
-else  begin if (font(p)<font_base)or(font(p)>font_max) then print_char("*")
-@y
-@p procedure print_font_and_char(@!p:integer); {prints |char_node| data}
-begin if p>mem_end then print_esc("CLOBBERED.")
-else  begin if (font(p)>font_max) then print_char("*")
 @z
 
 @x
@@ -1608,24 +1588,6 @@ if name=str_ptr-1 then {we can conserve string pool space now}
   begin flush_string; name:=cur_name;
   end;
 @y
-@z
-
-@x
-@!internal_font_number=font_base..font_max; {|font| in a |char_node|}
-@!font_index=integer; {index into |font_info|}
-@y
-@!internal_font_number=integer; {|font| in a |char_node|}
-@!font_index=integer; {index into |font_info|}
-@!nine_bits=min_quarterword..non_char;
-@z
-
-@x
-if aire="" then pack_file_name(nom,TEX_font_area,".ofm")
-else pack_file_name(nom,aire,".ofm");
-@y
-{|kpse_find_file| will append the |".ofm"| or |".tfm"|, 
- and avoid searching the disk before the font alias files as well.}
-pack_file_name(nom,aire,"");
 @z
 
 @x
@@ -2671,13 +2633,15 @@ end;
 
 @x
 @ @<Undump the array info for internal font number |k|@>=
-begin undump_font_table(k);@/
+begin undump_font(k);@/
 end
 @y
 @ This module should now be named `Undump all the font arrays'.
 
+@d font_max==number_fonts
+
 @<Undump the array info for internal font number |k|@>=
-begin undump_font_table(k);@/
+begin undump_font(k);@/
 end;
 {Allocate the font arrays}
 pdf_char_used:=xmalloc_array(char_used_array, font_max);

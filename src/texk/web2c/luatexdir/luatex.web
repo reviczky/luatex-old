@@ -458,8 +458,6 @@ in production versions of \TeX.
 @!stack_size=200; {maximum number of simultaneous input sources}
 @!max_in_open=6; {maximum number of input files and error insertions that
   can be going on simultaneously}
-@!font_max=75; {maximum internal font number; must not exceed |max_quarterword|
-  and must be at most |font_base+256|}
 @!param_size=60; {maximum number of simultaneous macro parameters}
 @!nest_size=40; {maximum number of semantic levels simultaneously active}
 @!max_strings=3000; {maximum number of strings; must not exceed |max_halfword|}
@@ -527,7 +525,7 @@ emphasize this distinction.
 @d number_chars=1114112 {2097152} {|biggest_char+1|}
 @d string_offset=2097152
 @d font_biggest=5535 {the real biggest font}
-@d number_fonts=font_biggest-font_base+2
+@d number_fonts=font_biggest-font_base+1
 @d number_math_fonts=768
 @d math_font_biggest=767
 @d biggest_lang=255
@@ -2258,7 +2256,18 @@ in reverse order, i.e., with |help_line[0]| appearing last.
 @d help5==@+begin help_ptr:=5; hlp5 {use this with five help lines}
 @d help6==@+begin help_ptr:=6; hlp6 {use this with six help lines}
 
-@<Glob...@>=
+@p 
+procedure dohelp5 (@!a,b,c,d,e:str_number);
+begin
+  help5(a)(b)(c)(d)(e);
+end;
+
+procedure do_print_err (s:str_number);
+begin
+  print_err(s);
+end;
+
+@ @<Glob...@>=
 @!help_line:array[0..5] of str_number; {helps for the next |error|}
 @!help_ptr:0..6; {the number of help lines present}
 @!use_err_help:boolean; {should the |err_help| list be shown?}
@@ -3246,8 +3255,7 @@ if (min_quarterword<min_halfword)or@|
   (max_quarterword>max_halfword) then bad:=13;
 if (mem_min<min_halfword)or(mem_max>=max_halfword)or@|
   (mem_bot-mem_min>max_halfword+1) then bad:=14;
-if (font_base<min_quarterword)or(font_max>max_quarterword) then bad:=15;
-if font_max>font_base+@"10000 then bad:=16;
+if font_base<min_quarterword then bad:=15;
 if (save_size>max_halfword)or(max_strings>max_halfword) then bad:=17;
 if buf_size>max_halfword then bad:=18;
 if max_quarterword-min_quarterword<@"FFFF then bad:=19;
@@ -4393,7 +4401,7 @@ begin while p>mem_min do
   begin if is_char_node(p) then
     begin if p<=mem_end then
       begin if font(p)<>font_in_short_display then
-        begin if (font(p)<font_base)or(font(p)>font_max) then
+        begin if not is_valid_font(font(p)) then
           print_char("*")
 @.*\relax@>
         else @<Print the font identifier for |font(p)|@>;
@@ -4432,7 +4440,7 @@ its reference count, and one to print a rule dimension.
 
 @p procedure print_font_and_char(@!p:integer); {prints |char_node| data}
 begin if p>mem_end then print_esc("CLOBBERED.")
-else  begin if (font(p)<font_base)or(font(p)>font_max) then print_char("*")
+else  begin if not is_valid_font(font(p)) then print_char("*")
 @.*\relax@>
   else @<Print the font identifier for |font(p)|@>;
   print_char(" "); print_ASCII(qo(character(p)));
@@ -7361,7 +7369,7 @@ begin
     print_esc(font_id_text(font(p)));
     if pdf_tracing_fonts > 0 then begin
         print(" (");
-        print(font_name(font(p)));
+        print(tex_font_name(font(p)));
         if font_size(font(p)) <> font_dsize(font(p)) then begin
             print("@@");
             print_scaled(font_size(font(p)));
@@ -10723,10 +10731,7 @@ else begin if cur_chr=glue_val then cur_val:=zero_glue@+else cur_val:=0;
   end
 
 @ @<Fetch a font dimension@>=
-begin find_font_dimen(false);
-font_info(dimen_font)(font_file_size(dimen_font)).sc:=0;
-scanned_result(font_info(dimen_font)(cur_val).sc)(dimen_val);
-end
+get_font_dimen
 
 @ @<Fetch a font integer@>=
 begin scan_font_ident;
@@ -11934,7 +11939,7 @@ meaning_code: print_meaning;
 etex_code: print(eTeX_version_string);
 omega_code: print(Omega_version_string);
 aleph_code: print(Aleph_version_string);
-font_name_code: begin print(font_name(cur_val));
+font_name_code: begin print(tex_font_name(cur_val));
   if font_size(cur_val)<>font_dsize(cur_val) then
     begin print(" at "); print_scaled(font_size(cur_val));
     print("pt");
@@ -13221,1243 +13226,38 @@ but other programs know about them too.
 @:TFM files}{\.{TFM} files@>
 @^font metric files@>
 
-The information in a \.{TFM} file appears in a sequence of 8-bit bytes.
-Since the number of bytes is always a multiple of 4, we could
-also regard the file as a sequence of 32-bit words, but \TeX\ uses the
-byte interpretation. The format of \.{TFM} files was designed by
-Lyle Ramshaw in 1980. The intent is to convey a lot of different kinds
-@^Ramshaw, Lyle Harold@>
-of information in a compact but useful form.
-
-$\Omega$ is capable of reading not only \.{TFM} files, but also
-\.{OFM} files, which can describe fonts with up to 65536 characters
-and with huge lig/kern tables.  These fonts will often be virtual
-fonts built up from real fonts with 256 characters, but $\Omega$
-is not aware of this.  
-
-The documentation below describes \.{TFM} files, with slight additions
-to show where \.{OFM} files differ.
-
-@<Glob...@>=
-@!tfm_file:byte_file;
-
-@ The first 24 bytes (6 words) of a \.{TFM} file contain twelve 16-bit
-integers that give the lengths of the various subsequent portions
-of the file. These twelve integers are, in order:
-$$\vbox{\halign{\hfil#&$\null=\null$#\hfil\cr
-|lf|&length of the entire file, in words;\cr
-|lh|&length of the header data, in words;\cr
-|bc|&smallest character code in the font;\cr
-|ec|&largest character code in the font;\cr
-|nw|&number of words in the width table;\cr
-|nh|&number of words in the height table;\cr
-|nd|&number of words in the depth table;\cr
-|ni|&number of words in the italic correction table;\cr
-|nl|&number of words in the lig/kern table;\cr
-|nk|&number of words in the kern table;\cr
-|ne|&number of words in the extensible character table;\cr
-|np|&number of font parameter words.\cr}}$$
-They are all nonnegative and less than $2^{15}$. We must have |bc-1<=ec<=255|,
-and
-$$\hbox{|lf=6+lh+(ec-bc+1)+nw+nh+nd+ni+nl+nk+ne+np|.}$$
-Note that a \.{TFM} font may contain as many as 256 characters 
-(if |bc=0| and |ec=255|), and as few as 0 characters (if |bc=ec+1|).
-
-Incidentally, when two or more 8-bit bytes are combined to form an integer of
-16 or more bits, the most significant bytes appear first in the file.
-This is called BigEndian order.
-@!@^BigEndian order@>
-
-The first 52 bytes (13 words) of an \.{OFM} file contains thirteen
-32-bit integers that give the lengths of the various subsequent
-portions of the file.  The first word is 0 (future versions of
-\.{OFM} files could have different values;  what is important is that
-the first two bytes be 0 to differentiate \.{TFM} and \.{OFM} files).
-The next twelve integers are as above, all nonegative and less
-than~$2^{31}$.  We must have |bc-1<=ec<=65535|, and
-$$\hbox{|lf=13+lh+2*(ec-bc+1)+nw+nh+nd+ni+nl+nk+ne+np|.}$$
-Note that an \.{OFM} font may contain as many as 65536 characters 
-(if |bc=0| and |ec=65535|), and as few as 0 characters (if |bc=ec+1|).
-
-@ The rest of the \.{TFM} file may be regarded as a sequence of ten data
-arrays having the informal specification
-$$\def\arr$[#1]#2${\&{array} $[#1]$ \&{of} #2}
-\vbox{\halign{\hfil\\{#}&$\,:\,$\arr#\hfil\cr
-header&|[0..lh-1]@t\\{stuff}@>|\cr
-char\_info&|[bc..ec]char_info_word|\cr
-width&|[0..nw-1]fix_word|\cr
-height&|[0..nh-1]fix_word|\cr
-depth&|[0..nd-1]fix_word|\cr
-italic&|[0..ni-1]fix_word|\cr
-lig\_kern&|[0..nl-1]lig_kern_command|\cr
-kern&|[0..nk-1]fix_word|\cr
-exten&|[0..ne-1]extensible_recipe|\cr
-param&|[1..np]fix_word|\cr}}$$
-The most important data type used here is a |@!fix_word|, which is
-a 32-bit representation of a binary fraction. A |fix_word| is a signed
-quantity, with the two's complement of the entire word used to represent
-negation. Of the 32 bits in a |fix_word|, exactly 12 are to the left of the
-binary point; thus, the largest |fix_word| value is $2048-2^{-20}$, and
-the smallest is $-2048$. We will see below, however, that all but two of
-the |fix_word| values must lie between $-16$ and $+16$.
-
-@ The first data array is a block of header information, which contains
-general facts about the font. The header must contain at least two words,
-|header[0]| and |header[1]|, whose meaning is explained below.
-Additional header information of use to other software routines might
-also be included, but \TeX82 does not need to know about such details.
-For example, 16 more words of header information are in use at the Xerox
-Palo Alto Research Center; the first ten specify the character coding
-scheme used (e.g., `\.{XEROX text}' or `\.{TeX math symbols}'), the next five
-give the font identifier (e.g., `\.{HELVETICA}' or `\.{CMSY}'), and the
-last gives the ``face byte.'' The program that converts \.{DVI} files
-to Xerox printing format gets this information by looking at the \.{TFM}
-file, which it needs to read anyway because of other information that
-is not explicitly repeated in \.{DVI}~format.
-
-\yskip\hang|header[0]| is a 32-bit check sum that \TeX\ will copy into
-the \.{DVI} output file. Later on when the \.{DVI} file is printed,
-possibly on another computer, the actual font that gets used is supposed
-to have a check sum that agrees with the one in the \.{TFM} file used by
-\TeX. In this way, users will be warned about potential incompatibilities.
-(However, if the check sum is zero in either the font file or the \.{TFM}
-file, no check is made.)  The actual relation between this check sum and
-the rest of the \.{TFM} file is not important; the check sum is simply an
-identification number with the property that incompatible fonts almost
-always have distinct check sums.
-@^check sum@>
-
-\yskip\hang|header[1]| is a |fix_word| containing the design size of
-the font, in units of \TeX\ points. This number must be at least 1.0; it is
-fairly arbitrary, but usually the design size is 10.0 for a ``10 point''
-font, i.e., a font that was designed to look best at a 10-point size,
-whatever that really means. When a \TeX\ user asks for a font
-`\.{at} $\delta$ \.{pt}', the effect is to override the design size
-and replace it by $\delta$, and to multiply the $x$ and~$y$ coordinates
-of the points in the font image by a factor of $\delta$ divided by the
-design size.  {\sl All other dimensions in the\/ \.{TFM} file are
-|fix_word|\kern-1pt\ numbers in design-size units}, with the exception of
-|param[1]| (which denotes the slant ratio). Thus, for example, the value
-of |param[6]|, which defines the \.{em} unit, is often the |fix_word| value
-$2^{20}=1.0$, since many fonts have a design size equal to one em.
-The other dimensions must be less than 16 design-size units in absolute
-value; thus, |header[1]| and |param[1]| are the only |fix_word|
-entries in the whole \.{TFM} file whose first byte might be something
-besides 0 or 255.
-
-@ Next comes the |char_info| array, which contains one |@!char_info_word|
-per character. Each word in this part of a \.{TFM} file contains six fields
-packed into four bytes as follows.
-
-\yskip\hang first byte: |@!width_index| (8 bits)\par
-\hang second byte: |@!height_index| (4 bits) times 16, plus |@!depth_index|
-  (4~bits)\par
-\hang third byte: |@!italic_index| (6 bits) times 4, plus |@!tag|
-  (2~bits)\par
-\hang fourth byte: |@!remainder| (8 bits)\par
-\yskip\noindent
-The actual width of a character is \\{width}|[width_index]|, in design-size
-units; this is a device for compressing information, since many characters
-have the same width. Since it is quite common for many characters
-to have the same height, depth, or italic correction, the \.{TFM} format
-imposes a limit of 16 different heights, 16 different depths, and
-64 different italic corrections.
-
-For \.{OFM} files, two words (eight bytes) are used. 
-The arrangement is as follows.
-
-\yskip\hang first and second bytes: |@!width_index| (16 bits)\par
-\hang third byte: |@!height_index| (8 bits)\par
-\hang fourth byte: |@!depth_index| (8~bits)\par
-\hang fifth and sixth bytes: 
-|@!italic_index| (14 bits) times 4, plus |@!tag| (2~bits)\par
-\hang seventh and eighth bytes: |@!remainder| (16 bits)\par
-\yskip\noindent
-Therefore the \.{OFM} format imposes a limit of 256 different heights,
-256 different depths, and 16384 different italic corrections.
-
-@!@^italic correction@>
-The italic correction of a character has two different uses.
-(a)~In ordinary text, the italic correction is added to the width only if
-the \TeX\ user specifies `\.{\\/}' after the character.
-(b)~In math formulas, the italic correction is always added to the width,
-except with respect to the positioning of subscripts.
-
-Incidentally, the relation $\\{width}[0]=\\{height}[0]=\\{depth}[0]=
-\\{italic}[0]=0$ should always hold, so that an index of zero implies a
-value of zero.  The |width_index| should never be zero unless the
-character does not exist in the font, since a character is valid if and
-only if it lies between |bc| and |ec| and has a nonzero |width_index|.
-
-@ The |tag| field in a |char_info_word| has four values that explain how to
-interpret the |remainder| field.
-
-\yskip\hangg|tag=0| (|no_tag|) means that |remainder| is unused.\par
-\hangg|tag=1| (|lig_tag|) means that this character has a ligature/kerning
-program starting at position |remainder| in the |lig_kern| array.\par
-\hangg|tag=2| (|list_tag|) means that this character is part of a chain of
-characters of ascending sizes, and not the largest in the chain.  The
-|remainder| field gives the character code of the next larger character.\par
-\hangg|tag=3| (|ext_tag|) means that this character code represents an
-extensible character, i.e., a character that is built up of smaller pieces
-so that it can be made arbitrarily large. The pieces are specified in
-|@!exten[remainder]|.\par
-\yskip\noindent
-Characters with |tag=2| and |tag=3| are treated as characters with |tag=0|
-unless they are used in special circumstances in math formulas. For example,
-the \.{\\sum} operation looks for a |list_tag|, and the \.{\\left}
-operation looks for both |list_tag| and |ext_tag|.
-
-@d no_tag=0 {vanilla character}
-@d lig_tag=1 {character has a ligature/kerning program}
-@d list_tag=2 {character has a successor in a charlist}
-@d ext_tag=3 {character is extensible}
-
-@ The |lig_kern| array contains instructions in a simple programming language
-that explains what to do for special letter pairs. Each word in this array,
-in a \.{TFM} file, is a |@!lig_kern_command| of four bytes.
-
-\yskip\hang first byte: |skip_byte|, indicates that this is the final program
-  step if the byte is 128 or more, otherwise the next step is obtained by
-  skipping this number of intervening steps.\par
-\hang second byte: |next_char|, ``if |next_char| follows the current character,
-  then perform the operation and stop, otherwise continue.''\par
-\hang third byte: |op_byte|, indicates a ligature step if less than~128,
-  a kern step otherwise.\par
-\hang fourth byte: |remainder|.\par
-\yskip\noindent
-In an \.{OFM} file, eight bytes are used, two bytes for each field.
-
-In a kern step, an
-additional space equal to |kern[256*(op_byte-128)+remainder]| is inserted
-between the current character and |next_char|. This amount is
-often negative, so that the characters are brought closer together
-by kerning; but it might be positive.
-
-There are eight kinds of ligature steps, having |op_byte| codes $4a+2b+c$ where
-$0\le a\le b+c$ and $0\le b,c\le1$. The character whose code is
-|remainder| is inserted between the current character and |next_char|;
-then the current character is deleted if $b=0$, and |next_char| is
-deleted if $c=0$; then we pass over $a$~characters to reach the next
-current character (which may have a ligature/kerning program of its own).
-
-If the very first instruction of the |lig_kern| array has |skip_byte=255|,
-the |next_char| byte is the so-called right boundary character of this font;
-the value of |next_char| need not lie between |bc| and~|ec|.
-If the very last instruction of the |lig_kern| array has |skip_byte=255|,
-there is a special ligature/kerning program for a left boundary character,
-beginning at location |256*op_byte+remainder|.
-The interpretation is that \TeX\ puts implicit boundary characters
-before and after each consecutive string of characters from the same font.
-These implicit characters do not appear in the output, but they can affect
-ligatures and kerning.
-
-If the very first instruction of a character's |lig_kern| program has
-|skip_byte>128|, the program actually begins in location
-|256*op_byte+remainder|. This feature allows access to large |lig_kern|
-arrays, because the first instruction must otherwise
-appear in a location |<=255| in a \.{TFM} file, |<=65535| in an \.{OFM} file.
-
-Any instruction with |skip_byte>128| in the |lig_kern| array must satisfy
-the condition
-$$\hbox{|256*op_byte+remainder<nl|.}$$
-If such an instruction is encountered during
-normal program execution, it denotes an unconditional halt; no ligature
-or kerning command is performed.
-
-@d stop_flag==qi(128) {value indicating `\.{STOP}' in a lig/kern program}
-@d kern_flag==qi(128) {op code for a kern step}
-@d top_skip_byte(#)==(#.b0 div 256)
-@d skip_byte(#)==(#.b0 mod 256)
-@d next_char_end(#)==#.b1
-@d next_char(#)==font_offset(#)+next_char_end
-@d op_byte(#)==#.b2
-@d rem_byte(#)==#.b3
-@d rem_char_byte_end(#)==#.b3
-@d rem_char_byte(#)==font_offset(#)+rem_char_byte_end
-@d rem_top_byte(#)==(#.b3 div 256)
-@d rem_bot_byte(#)==(#.b3 mod 256)
-
-@ Extensible characters are specified by an |@!extensible_recipe|, which
-consists of four bytes in a \.{TFM} file, 
-called |@!top|, |@!mid|, |@!bot|, and |@!rep| (in this order). 
-In an \.{OFM} file, each field takes two bytes, for eight in total.
-These bytes are the character codes of individual pieces used to
-build up a large symbol.  If |top|, |mid|, or |bot| are zero, they are not
-present in the built-up result. For example, an extensible vertical line is
-like an extensible bracket, except that the top and bottom pieces are missing.
-
-Let $T$, $M$, $B$, and $R$ denote the respective pieces, or an empty box
-if the piece isn't present. Then the extensible characters have the form
-$TR^kMR^kB$ from top to bottom, for some |k>=0|, unless $M$ is absent;
-in the latter case we can have $TR^kB$ for both even and odd values of~|k|.
-The width of the extensible character is the width of $R$; and the
-height-plus-depth is the sum of the individual height-plus-depths of the
-components used, since the pieces are butted together in a vertical list.
-
-@d ext_top_end(#)==#.b0 {|top| piece in a recipe}
-@d ext_top(#)==font_offset(#)+ext_top_end
-@d ext_mid_end(#)==#.b1 {|mid| piece in a recipe}
-@d ext_mid(#)==font_offset(#)+ext_mid_end
-@d ext_bot_end(#)==#.b2 {|bot| piece in a recipe}
-@d ext_bot(#)==font_offset(#)+ext_bot_end
-@d ext_rep_end(#)==#.b3 {|rep| piece in a recipe}
-@d ext_rep(#)==font_offset(#)+ext_rep_end
-
-@ The final portion of a \.{TFM} file is the |param| array, which is another
-sequence of |fix_word| values.
-
-\yskip\hang|param[1]=slant| is the amount of italic slant, which is used
-to help position accents. For example, |slant=.25| means that when you go
-up one unit, you also go .25 units to the right. The |slant| is a pure
-number; it's the only |fix_word| other than the design size itself that is
-not scaled by the design size.
-
-\hang|param[2]=space| is the normal spacing between words in text.
-Note that character |" "| in the font need not have anything to do with
-blank spaces.
-
-\hang|param[3]=space_stretch| is the amount of glue stretching between words.
-
-\hang|param[4]=space_shrink| is the amount of glue shrinking between words.
-
-\hang|param[5]=x_height| is the size of one ex in the font; it is also
-the height of letters for which accents don't have to be raised or lowered.
-
-\hang|param[6]=quad| is the size of one em in the font.
-
-\hang|param[7]=extra_space| is the amount added to |param[2]| at the
-ends of sentences.
-
-\yskip\noindent
-If fewer than seven parameters are present, \TeX\ sets the missing parameters
-to zero. Fonts used for math symbols are required to have
-additional parameter information, which is explained later.
-
-@d slant_code=1
-@d space_code=2
-@d space_stretch_code=3
-@d space_shrink_code=4
-@d x_height_code=5
-@d quad_code=6
-@d extra_space_code=7
-
-@ So that is what \.{TFM} files hold. Since \TeX\ has to absorb such information
-about lots of fonts, it stores most of the data in a large array called
-|font_info|. Each item of |font_info| is a |memory_word|; the |fix_word|
-data gets converted into |scaled| entries, while everything else goes into
-words of type |four_quarters|.
-
-When the user defines \.{\\font\\f}, say, \TeX\ assigns an internal number
+@ When the user defines \.{\\font\\f}, say, \TeX\ assigns an internal number
 to the user's font~\.{\\f}. Adding this number to |font_id_base| gives the
 |eqtb| location of a ``frozen'' control sequence that will always select
 the font.
 
 @<Types...@>=
-@!internal_font_number=font_base..font_max; {|font| in a |char_node|}
+@!internal_font_number=integer; {|font| in a |char_node|}
 @!font_index=integer; {index into |font_info|}
 
-@ Here now is the (rather formidable) array of font arrays.
-
-@d non_char==65536 {a code that can't match a real character}
-@d non_address=0 {a spurious |bchar_label|}
-
-@<Glob...@>=
+@ @<Glob...@>=
 @!font_ptr:internal_font_number; {largest internal font number in use}
-
-@ Besides the arrays just enumerated, we have directory arrays that make it
-easy to get at the individual entries in |font_info|. For example, the
-|char_info| data for character |c| in font |f| will be in
-|font_info(f)(char_base(f)+c).qqqq|; and if |w| is the |width_index|
-part of this word (the |b0| field), the width of the character is
-|font_info(f)(width_base(f)+w).sc|. (These formulas assume that
-|min_quarterword| has already been added to |c| and to |w|, since \TeX\
-stores its quarterwords that way.)
-
-@d font_info_end(#)==#]
-@d font_info(#)==font_tables[#,font_info_end
-@d offset_file_size=0
-@d offset_check=1
-@d offset_offset=offset_check+4
-@d offset_size=offset_offset+1
-@d offset_dsize=offset_size+1
-@d offset_params=offset_dsize+1
-@d offset_name_sort=offset_params+1
-@d offset_name=offset_name_sort+1
-@d offset_area=offset_name+1
-@d offset_bc=offset_area+1
-@d offset_ec=offset_bc+1
-@d offset_glue=offset_ec+1
-@d offset_used=offset_glue+1
-@d offset_hyphen=offset_used+1
-@d offset_skew=offset_hyphen+1
-@d offset_bchar_label=offset_skew+1
-@d offset_bchar=offset_bchar_label+1
-@d offset_false_bchar=offset_bchar+1
-@d offset_natural_dir=offset_false_bchar+1
-@d offset_ivalues_start=offset_natural_dir+1
-@d offset_fvalues_start=offset_ivalues_start+1
-@d offset_mvalues_start=offset_fvalues_start+1
-@d offset_rules_start=offset_mvalues_start+1
-@d offset_glues_start=offset_rules_start+1
-@d offset_penalties_start=offset_glues_start+1
-@d offset_ivalues_base=offset_penalties_start+1
-@d offset_fvalues_base=offset_ivalues_base+1
-@d offset_mvalues_base=offset_fvalues_base+1
-@d offset_rules_base=offset_mvalues_base+1
-@d offset_glues_base=offset_rules_base+1
-@d offset_penalties_base=offset_glues_base+1
-@d offset_char_base=offset_penalties_base+1
-@d offset_char_attr_base=offset_char_base+1
-@d offset_width_base=offset_char_attr_base+1
-@d offset_height_base=offset_width_base+1
-@d offset_depth_base=offset_height_base+1
-@d offset_italic_base=offset_depth_base+1
-@d offset_lig_kern_base=offset_italic_base+1
-@d offset_kern_base=offset_lig_kern_base+1
-@d offset_exten_base=offset_kern_base+1
-@d offset_param_base=offset_exten_base+1
-@d offset_charinfo_base=offset_param_base+1
-@d font_file_size(#)==font_info(#)(offset_file_size).int
-@d font_check_0(#)==font_info(#)(offset_check).int
-@d font_check_1(#)==font_info(#)(offset_check+1).int
-@d font_check_2(#)==font_info(#)(offset_check+2).int
-@d font_check_3(#)==font_info(#)(offset_check+3).int
-@d font_offset(#)==font_info(#)(offset_offset).int
-@d font_size(#)==font_info(#)(offset_size).int
-@d font_dsize(#)==font_info(#)(offset_dsize).int
-@d font_params(#)==font_info(#)(offset_params).int
-@d font_name_sort(#)==font_info(#)(offset_name_sort).int
-@d font_name(#)==font_info(#)(offset_name).int
-@d font_area(#)==font_info(#)(offset_area).int
-@d font_bc(#)==font_info(#)(offset_bc).int
-@d font_ec(#)==font_info(#)(offset_ec).int
-@d font_glue(#)==font_info(#)(offset_glue).int
-@d font_used(#)==font_info(#)(offset_used).int
-@d hyphen_char(#)==font_info(#)(offset_hyphen).int
-@d skew_char(#)==font_info(#)(offset_skew).int
-@d bchar_label(#)==font_info(#)(offset_bchar_label).int
-@d font_bchar(#)==font_info(#)(offset_bchar).int
-@d font_false_bchar(#)==font_info(#)(offset_false_bchar).int
-@d font_natural_dir(#)==font_info(#)(offset_natural_dir).int
-@d ivalues_start(#)==font_info(#)(offset_ivalues_start).int
-@d fvalues_start(#)==font_info(#)(offset_fvalues_start).int
-@d mvalues_start(#)==font_info(#)(offset_mvalues_start).int
-@d rules_start(#)==font_info(#)(offset_rules_start).int
-@d glues_start(#)==font_info(#)(offset_glues_start).int
-@d penalties_start(#)==font_info(#)(offset_penalties_start).int
-@d ivalues_base(#)==font_info(#)(offset_ivalues_base).int
-@d fvalues_base(#)==font_info(#)(offset_fvalues_base).int
-@d mvalues_base(#)==font_info(#)(offset_mvalues_base).int
-@d rules_base(#)==font_info(#)(offset_rules_base).int
-@d glues_base(#)==font_info(#)(offset_glues_base).int
-@d penalties_base(#)==font_info(#)(offset_penalties_base).int
-@d char_attr_base(#)==font_info(#)(offset_char_attr_base).int
-@d char_base(#)==font_info(#)(offset_char_base).int
-@d width_base(#)==font_info(#)(offset_width_base).int
-@d height_base(#)==font_info(#)(offset_height_base).int
-@d depth_base(#)==font_info(#)(offset_depth_base).int
-@d italic_base(#)==font_info(#)(offset_italic_base).int
-@d lig_kern_base(#)==font_info(#)(offset_lig_kern_base).int
-@d kern_base(#)==font_info(#)(offset_kern_base).int
-@d exten_base(#)==font_info(#)(offset_exten_base).int
-@d param_base(#)==font_info(#)(offset_param_base).int
-
-@<Glob...@>=
-@!dimen_font:integer;
 
 @ \TeX\ always knows at least one font, namely the null font. It has no
 characters, and its seven parameters are all equal to zero.
 
 @<Initialize table...@>=
+create_null_font;
 font_ptr:=null_font;
-allocate_font_table(null_font,offset_charinfo_base+108);
-font_file_size(null_font):=offset_charinfo_base+108;
-font_used(null_font):=false;
-font_name(null_font):="nullfont"; font_area(null_font):="";
-hyphen_char(null_font):="-"; skew_char(null_font):=-1;
-bchar_label(null_font):=non_address;
-font_bchar(null_font):=non_char; font_false_bchar(null_font):=non_char;
-font_bc(null_font):=1; font_ec(null_font):=0;
-font_size(null_font):=0; font_dsize(null_font):=0;
-char_base(null_font):=offset_charinfo_base;
-char_attr_base(null_font):=offset_charinfo_base;
-ivalues_start(null_font):=offset_charinfo_base;
-fvalues_start(null_font):=offset_charinfo_base;
-mvalues_start(null_font):=offset_charinfo_base;
-rules_start(null_font):=offset_charinfo_base;
-glues_start(null_font):=offset_charinfo_base;
-penalties_start(null_font):=offset_charinfo_base;
-ivalues_base(null_font):=offset_charinfo_base;
-fvalues_base(null_font):=offset_charinfo_base;
-mvalues_base(null_font):=offset_charinfo_base;
-rules_base(null_font):=offset_charinfo_base;
-glues_base(null_font):=offset_charinfo_base;
-penalties_base(null_font):=offset_charinfo_base;
-width_base(null_font):=offset_charinfo_base;
-height_base(null_font):=offset_charinfo_base;
-depth_base(null_font):=offset_charinfo_base;
-italic_base(null_font):=offset_charinfo_base;
-lig_kern_base(null_font):=offset_charinfo_base;
-kern_base(null_font):=offset_charinfo_base;
-exten_base(null_font):=offset_charinfo_base;
-font_glue(null_font):=null;
-font_params(null_font):=7;
-param_base(null_font):=offset_charinfo_base-1;
-font_offset(null_font):=0;
-for k:=1 to 7 do font_info(null_font)(param_base(null_font)+k).sc:=0;
 
 @ @<Put each...@>=
 primitive("nullfont",set_font,null_font);
 @!@:null_font_}{\.{\\nullfont} primitive@>
 text(frozen_null_font):="nullfont"; eqtb[frozen_null_font]:=eqtb[cur_val];
 
-@ Of course we want to define macros that suppress the detail of how font
-information is actually packed, so that we don't have to write things like
-$$\hbox{|font_info(f)(width_base(f)+font_info(f)(char_base(f)+c).qqqq.b0).sc|}$$
-too often. The \.{WEB} definitions here make |char_info(f)(c)| the
-|four_quarters| word of font information corresponding to character
-|c| of font |f|. If |q| is such a word, |char_width(f)(q)| will be
-the character's width; hence the long formula above is at least
-abbreviated to
-$$\hbox{|char_width(f)(char_info(f)(c))|.}$$
-Usually, of course, we will fetch |q| first and look at several of its
-fields at the same time.
-
-The italic correction of a character will be denoted by
-|char_italic(f)(q)|, so it is analogous to |char_width|.  But we will get
-at the height and depth in a slightly different way, since we usually want
-to compute both height and depth if we want either one.  The value of
-|height_depth(q)| will be the 16-bit quantity
-$$b=|height_index|\times256+|depth_index|,$$ and if |b| is such a byte we
-will write |char_height(f)(b)| and |char_depth(f)(b)| for the height and
-depth of the character |c| for which |q=char_info(f)(c)|. Got that?
-
-The tag field will be called |char_tag(q)|; the remainder byte will be
-called |rem_byte(q)|, using a macro that we have already defined above.
-
-Access to a character's |width|, |height|, |depth|, and |tag| fields is
-part of \TeX's inner loop, so we want these macros to produce code that is
-as fast as possible under the circumstances.
-@^inner loop@>
-
-@d char_info_end(#)==#].qqqq
-@d char_info(#)==font_tables[#,char_base(#)-font_offset(#)+char_info_end
-@d char_width_end(#)==#.b0].sc
-@d char_width(#)==font_tables[#,width_base(#)+char_width_end
-@d char_exists(#)==(#.b0>min_quarterword)
-@d char_italic_end(#)==(qo(#.b2)) div 256].sc
-@d char_italic(#)==font_tables[#,italic_base(#)+char_italic_end
-@d height_depth(#)==qo(#.b1)
-@d char_height_end(#)==(#) div 256].sc
-@d char_height(#)==font_tables[#,height_base(#)+char_height_end
-@d char_depth_end(#)==(#) mod 256].sc
-@d char_depth(#)==font_tables[#,depth_base(#)+char_depth_end
-@d char_tag(#)==((qo(#.b2)) mod 4)
-
-@ The global variable |null_character| is set up to be a word of
-|char_info| for a character that doesn't exist. Such a word provides a
-convenient way to deal with erroneous situations.
-
-@<Glob...@>=
-@!null_character:four_quarters; {nonexistent character information}
-@!tfm_buffer:^real_eight_bits; {byte buffer for tfm files}
-@!tfm_size:integer; {total size of the tfm file}
-@!tfm_byte:integer; {index into |tfm_buffer|}
-
-@ @<Set init...@>=
-null_character.b0:=min_quarterword; null_character.b1:=min_quarterword;
-null_character.b2:=min_quarterword; null_character.b3:=min_quarterword;
-tfm_buffer:=0; tfm_size:=0; tfm_byte:=0;
-
-@ Here are some macros that help process ligatures and kerns.
-We write |char_kern(f)(j)| to find the amount of kerning specified by
-kerning command~|j| in font~|f|. If |j| is the |char_info| for a character
-with a ligature/kern program, the first instruction of that program is either
-|i=font_info(f)(lig_kern_start(f)(j))| or
-|font_info(f)(lig_kern_restart(f)(i))|,
-depending on whether or not |skip_byte(i)<=stop_flag|.
-
-The constant |kern_base_offset| should be simplified, for \PASCAL\ compilers
-that do not do local optimization.
-@^system dependencies@>
-
-@d char_kern_end(#)==256*op_byte(#)+rem_byte(#)].sc
-@d char_kern(#)==font_tables[#,kern_base(#)+char_kern_end
-@d kern_base_offset==256*(128+min_quarterword)
-@d lig_kern_start(#)==lig_kern_base(#)+rem_byte {beginning of lig/kern program}
-@d lig_kern_restart_end(#)==256*op_byte(#)+rem_byte(#)+32768-kern_base_offset
-@d lig_kern_restart(#)==lig_kern_base(#)+lig_kern_restart_end
-
-@d attr_zero_char_ivalue_end(#)==#].int].int
-@d attr_zero_char_ivalue(#)==
-   font_tables[#,font_tables[#,char_attr_base(#)+attr_zero_char_ivalue_end
-@d attr_zero_ivalue_end(#)==#].int
-@d attr_zero_ivalue(#)==font_tables[#,ivalues_base(#)+attr_zero_ivalue_end
-@d attr_zero_penalty_end(#)==#].int
-@d attr_zero_penalty(#)==font_tables[#,penalties_base(#)+attr_zero_penalty_end
-@d attr_zero_kern_end(#)==#].int
-@d attr_zero_kern(#)==font_tables[#,mvalues_base(#)+attr_zero_kern_end
-
-@ Font parameters are referred to as |slant(f)|, |space(f)|, etc.
-
-@d slant(#)==font_info(#)(param_base(#)+slant_code).sc
-   {slant to the right, per unit distance upward}
-@d space(#)==font_info(#)(param_base(#)+space_code).sc
-   {normal space between words}
-@d space_stretch(#)==font_info(#)(param_base(#)+space_stretch_code).sc
-   {stretch between words}
-@d space_shrink(#)==font_info(#)(param_base(#)+space_shrink_code).sc
-   {shrink between words}
-@d x_height(#)==font_info(#)(param_base(#)+x_height_code).sc
-   {one ex}
-@d quad(#)==font_info(#)(param_base(#)+quad_code).sc
-   {one em}
-@d extra_space(#)==font_info(#)(param_base(#)+extra_space_code).sc
-   {additional space at end of sentence}
-
-@<The em width for |cur_font|@>=quad(cur_font)
+@ @<The em width for |cur_font|@>=quad(cur_font)
 
 @ @<The x-height for |cur_font|@>=x_height(cur_font)
-
-@ \TeX\ checks the information of a \.{TFM} file for validity as the
-file is being read in, so that no further checks will be needed when
-typesetting is going on. The somewhat tedious subroutine that does this
-is called |read_font_info|. It has four parameters: the user font
-identifier~|u|, the file name and area strings |nom| and |aire|, and the
-``at'' size~|s|. If |s|~is negative, it's the negative of a scale factor
-to be applied to the design size; |s=-1000| is the normal case.
-Otherwise |s| will be substituted for the design size; in this
-case, |s| must be positive and less than $2048\rm\,pt$
-(i.e., it must be less than $2^{27}$ when considered as an integer).
-
-The subroutine opens and closes a global file variable called |tfm_file|.
-It returns the value of the internal font number that was just loaded.
-If an error is detected, an error message is issued and no font
-information is stored; |null_font| is returned in this case.
-
-@d bad_tfm=11 {label for |read_font_info|}
-@d abort==goto bad_tfm {do this when the \.{TFM} data is wrong}
-
-@p function read_font_info(@!u:pointer;@!nom,@!aire:str_number;
-   @!s:scaled;offset:quarterword;natural_dir:integer):internal_font_number; 
-   {input a \.{TFM} file}
-label done,bad_tfm,not_found;
-var k:font_index; {index into |font_info|}
-@!file_opened:boolean; {was |tfm_file| successfully opened?}
-@!res:boolean; {was the callback successful?}
-@!callback_id:integer;
-@!lf,@!lh,@!bc,@!ec,@!nw,@!nh,@!nd,@!ni,@!nl,@!nk,@!ne,@!np:halfword;
-  {sizes of subfiles}
-@!font_dir:halfword;
-  {sizes of subfiles}
-@!f:internal_font_number; {the new font's number}
-@!g:internal_font_number; {the number to return}
-@!a,@!b,@!c,@!d:integer; {byte variables}
-@!i,@!k_param,@!param,@!font_counter:integer; {counters}
-@!font_level,@!header_length:integer;
-@!nco,@!ncw,@!npc,@!nlw,@!neew:integer;
-@!nki,@!nwi,@!nkf,@!nwf,@!nkm,@!nwm:integer;
-@!nkr,@!nwr,@!nkg,@!nwg,@!nkp,@!nwp:integer;
-@!table_size:array [0..31] of integer;
-@!bytes_per_entry,@!extra_char_bytes:integer;
-@!repeat_no,@!table_counter:integer;
-@!qw:four_quarters;@!sw:scaled; {accumulators}
-@!bch_label:integer; {left boundary start location, or infinity}
-@!bchar:0..too_big_char; {right boundary character, or |too_big_char|}
-@!first_two:integer;
-@!z:scaled; {the design size or the ``at'' size}
-@!alpha:integer;@!beta:1..16;
-  {auxiliary quantities used in fixed-point multiplication}
-begin g:=null_font;@/
-@<Read and check the font data; |abort| if the \.{TFM} file is
-  malformed; if there's no room for this font, say so and |goto
-  done|; otherwise |incr(font_ptr)| and |goto done|@>;
-bad_tfm: @<Report that the font won't be loaded@>;
-done:
-read_font_info:=g;
-end;
-
-@ There are programs called \.{TFtoPL} and \.{PLtoTF} that convert
-between the \.{TFM} format and a symbolic property-list format
-that can be easily edited. These programs contain extensive
-diagnostic information, so \TeX\ does not have to bother giving
-precise details about why it rejects a particular \.{TFM} file.
-@.TFtoPL@> @.PLtoTF@>
-
-@d start_font_error_message==print_err("Font "); sprint_cs(u);
-  print_char("="); print_file_name(nom,aire,"");
-  if s>=0 then
-    begin print(" at "); print_scaled(s); print("pt");
-    end
-  else if s<>-1000 then
-    begin print(" scaled "); print_int(-s);
-    end
-
-@<Report that the font won't be loaded@>=
-start_font_error_message;
-@.Font x=xx not loadable...@>
-if file_opened then print(" not loadable: Bad metric (TFM/OFM) file")
-else print(" not loadable: Metric (TFM/OFM) file not found");
-help5("I wasn't able to read the size data for this font,")@/
-("so I will ignore the font specification.")@/
-("[Wizards can fix TFM files using TFtoPL/PLtoTF.]")@/
-("You might try inserting a different font spec;")@/
-("e.g., type `I\font<same font id>=<substitute font name>'.");
-error
-
-@ @<Read and check the font data...@>=
-@<Open |tfm_file| for input@>;
-@<Read the {\.{TFM}} size fields@>;
-@<Use size fields to allocate font information@>;
-@<Read the {\.{TFM}} header@>;
-@<Read character data@>;
-@<Read box dimensions@>;
-@<Read ligature/kern program@>;
-@<Read extensible character recipes@>;
-@<Read font parameters@>;
-@<Make final adjustments and |goto done|@>
-
-@ @<Open |tfm_file| for input@>=
-file_opened:=false;
-if aire="" then pack_file_name(nom,TEX_font_area,".ofm")
-else pack_file_name(nom,aire,".ofm");
-if tfm_buffer<>0 then libc_free(tfm_buffer);
-tfm_byte:=0; tfm_buffer:=0; tfm_size:=0;
-callback_id:=callback_defined('read_font_file');
-if callback_id>0 then begin
-   res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
-          address_of(file_opened), address_of(tfm_buffer),address_of(tfm_size));
-  if not res then abort;
-  if not file_opened then abort; 
-  if not tfm_size>0 then abort; 
-  end
-else begin
-  if not ofm_open_in(tfm_file) then abort;
-  file_opened:=true; { for the error message }
-  res := read_tfm_file(tfm_file,address_of(tfm_buffer),address_of(tfm_size));
-  b_close(tfm_file);
-  if not res then abort;
-end
-
-@ Note: A malformed \.{TFM} file might be shorter than it claims to be;
-thus |eof(tfm_file)| might be true when |read_font_info| refers to
-|tfm_file^| or when it says |get(tfm_file)|. If such circumstances
-cause system error messages, you will have to defeat them somehow,
-for example by defining |fget| to be `\ignorespaces|begin get(tfm_file);|
-|if eof(tfm_file) then abort; end|\unskip'.
-@^system dependencies@>
-
-@d fget==incr(tfm_byte)
-@d fbyte==tfm_buffer[tfm_byte]
-@d read_sixteen(#)==begin #:=fbyte;
-  if #>127 then abort;
-  fget; #:=#*@'400+fbyte;
-  end
-@d read_sixteen_unsigned(#)==begin #:=fbyte;
-  fget; #:=#*@'400+fbyte;
-  end
-@d read_thirtytwo(#)==begin #:=fbyte;
-  if #>127 then abort;
-  fget; #:=#*@'400+fbyte;
-  fget; #:=#*@'400+fbyte;
-  fget; #:=#*@'400+fbyte;
-  end
-@d store_four_bytes(#)==begin fget; a:=fbyte; qw.b0:=a;
-  fget; b:=fbyte; qw.b1:=b;
-  fget; c:=fbyte; qw.b2:=c;
-  fget; d:=fbyte; qw.b3:=d;
-  #:=qw;
-  end
-@d store_char_info(#)==begin if (font_level<>-1) then
-  begin fget; read_sixteen_unsigned(a); qw.b0:=a;
-        fget; read_sixteen_unsigned(b); qw.b1:=b;
-        fget; read_sixteen_unsigned(c); qw.b2:=c;
-        fget; read_sixteen_unsigned(d); qw.b3:=d;
-        #:=qw
-  end
-else 
-  begin fget; a:=fbyte; qw.b0:=a;
-        fget; b:=fbyte; b:=((b div 16)*256)+(b mod 16); qw.b1:=b;
-        fget; c:=fbyte; c:=((c div 4)*256)+(c mod 4); qw.b2:=c;
-        fget; d:=fbyte; qw.b3:=d;
-        #:=qw
-  end
-end
-@d store_four_quarters(#)==begin if (font_level<>-1) then
-  begin fget; read_sixteen_unsigned(a); qw.b0:=a;
-        fget; read_sixteen_unsigned(b); qw.b1:=b;
-        fget; read_sixteen_unsigned(c); qw.b2:=c;
-        fget; read_sixteen_unsigned(d); qw.b3:=d;
-        #:=qw
-  end
-else 
-  begin fget; a:=fbyte; qw.b0:=a;
-        fget; b:=fbyte; qw.b1:=b;
-        fget; c:=fbyte; qw.b2:=c;
-        fget; d:=fbyte; qw.b3:=d;
-        #:=qw
-  end
-end
-
-@ @<Read the {\.{TFM}} size fields@>=
-nco:=0; ncw:=0; npc:=0;
-nki:=0; nwi:=0; nkf:=0; nwf:=0; nkm:=0; nwm:=0;
-nkr:=0; nwr:=0; nkg:=0; nwg:=0; nkp:=0; nwp:=0;
-read_sixteen(first_two);
-if first_two<>0 then begin
-  font_level:=-1;
-  lf:=first_two;
-  fget; read_sixteen(lh);
-  fget; read_sixteen(bc);
-  fget; read_sixteen(ec);
-  if (bc>ec+1)or(ec>255) then abort;
-  if bc>255 then {|bc=256| and |ec=255|}
-    begin bc:=1; ec:=0;
-    end;
-  fget; read_sixteen(nw);
-  fget; read_sixteen(nh);
-  fget; read_sixteen(nd);
-  fget; read_sixteen(ni);
-  fget; read_sixteen(nl);
-  fget; read_sixteen(nk);
-  fget; read_sixteen(ne);
-  fget; read_sixteen(np);
-  header_length:=6;
-  ncw:=(ec-bc+1);
-  nlw:=nl;
-  neew:=ne;
-  end
-else begin
-  fget; read_sixteen(font_level);
-  if (font_level<>0) and (font_level<>1) then abort;
-  fget; read_thirtytwo(lf);
-  fget; read_thirtytwo(lh);
-  fget; read_thirtytwo(bc);
-  fget; read_thirtytwo(ec);
-  if (bc>ec+1)or(ec>biggest_char) then abort;
-  if bc>65535 then {|bc=65536| and |ec=65535|}
-    begin bc:=1; ec:=0;
-    end;
-  fget; read_thirtytwo(nw);
-  fget; read_thirtytwo(nh);
-  fget; read_thirtytwo(nd);
-  fget; read_thirtytwo(ni);
-  fget; read_thirtytwo(nl);
-  fget; read_thirtytwo(nk);
-  fget; read_thirtytwo(ne);
-  fget; read_thirtytwo(np);
-  fget; read_thirtytwo(font_dir);
-  nlw:=2*nl;
-  neew:=2*ne;
-  if font_level=0 then begin
-    header_length:=14;
-    ncw:=2*(ec-bc+1);
-    end
-  else begin
-    header_length:=29;
-    fget; read_thirtytwo(nco);
-    fget; read_thirtytwo(ncw);
-    fget; read_thirtytwo(npc);
-    fget; read_thirtytwo(nki); {Kinds of font ivalues}
-    fget; read_thirtytwo(nwi); {Words of font ivalues}
-    fget; read_thirtytwo(nkf); {Kinds of font fvalues}
-    fget; read_thirtytwo(nwf); {Words of font fvalues}
-    fget; read_thirtytwo(nkm); {Kinds of font mvalues}
-    fget; read_thirtytwo(nwm); {Words of font mvalues}
-    fget; read_thirtytwo(nkr); {Kinds of font rules}
-    fget; read_thirtytwo(nwr); {Words of font rules}
-    fget; read_thirtytwo(nkg); {Kinds of font glues}
-    fget; read_thirtytwo(nwg); {Words of font glues}
-    fget; read_thirtytwo(nkp); {Kinds of font penalties}
-    fget; read_thirtytwo(nwp); {Words of font penalties}
-   end
-  end;
-if lf<>(header_length+lh+ncw+nw+nh+nd+ni+nlw+nk+neew+np+
-        nki+nwi+nkf+nwf+nkm+nwm+nkr+nwr+nkg+nwg+nkp+nwp) then abort;
-
-@ The preliminary settings of the index-offset variables |char_base|,
-|width_base|, |lig_kern_base|, |kern_base|, and |exten_base| will be
-corrected later by subtracting |min_quarterword| from them; and we will
-subtract 1 from |param_base| too. It's best to forget about such anomalies
-until later.
-
-@<Use size fields to allocate font information@>=
-case font_level of
--1:  lf:=lf-6-lh; {|lf| words should be loaded into |font_info|}
- 0:  lf:=lf-14-lh-(ec-bc+1)-nl-ne;
-   {some of the sections contain pairs of
-    words that become single |memory_word|s}
- 1:  lf:=lf-29-lh-ncw+(1+npc)*(ec-bc+1)-nl-ne;
-   {We explode the characters}
-end;
-if np<7 then lf:=lf+7-np; {at least seven parameters will appear}
-if (font_ptr=font_max) then
-  @<Apologize for not loading the font, |goto done|@>;
-f:=font_ptr+1;
-allocate_font_table(f,offset_charinfo_base+lf+100);
-    {leave room for 100 extra parameters -- potential bug}
-font_file_size(f):=offset_charinfo_base+lf+100;
-font_used(f):=false;
-font_offset(f):=offset;
-font_natural_dir(f):=natural_dir;
-char_base(f):=offset_charinfo_base-bc;
-char_attr_base(f):=char_base(f)+ec+1;
-ivalues_start(f):=char_attr_base(f)+npc*(ec-bc+1);
-fvalues_start(f):=ivalues_start(f)+nki;
-mvalues_start(f):=fvalues_start(f)+nkf;
-rules_start(f):=mvalues_start(f)+nkm;
-glues_start(f):=rules_start(f)+nkr;
-penalties_start(f):=glues_start(f)+nkg;
-ivalues_base(f):=penalties_start(f)+nkp;
-fvalues_base(f):=ivalues_base(f)+nwi;
-mvalues_base(f):=fvalues_base(f)+nwf;
-rules_base(f):=mvalues_base(f)+nwm;
-glues_base(f):=rules_base(f)+nwr;
-penalties_base(f):=glues_base(f)+nwg;
-width_base(f):=penalties_base(f)+nwp;
-height_base(f):=width_base(f)+nw;
-depth_base(f):=height_base(f)+nh;
-italic_base(f):=depth_base(f)+nd;
-lig_kern_base(f):=italic_base(f)+ni;
-kern_base(f):=lig_kern_base(f)+nl-kern_base_offset;
-exten_base(f):=kern_base(f)+kern_base_offset+nk;
-param_base(f):=exten_base(f)+ne;
-
-@ @<Apologize for not loading the font...@>=
-begin start_font_error_message;
-print(" not loaded: Not enough room left");
-@.Font x=xx not loaded...@>
-help4("I'm afraid I won't be able to make use of this font,")@/
-("because my memory for character-size data is too small.")@/
-("If you're really stuck, ask a wizard to enlarge me.")@/
-("Or maybe try `I\font<same font id>=<name of loaded font>'.");
-error; goto done;
-end
-
-@ Only the first two words of the header are needed by \TeX82.
-
-@<Read the {\.{TFM}} header@>=
-begin if lh<2 then abort;
-fget; font_check_0(f):=fbyte;
-fget; font_check_1(f):=fbyte;
-fget; font_check_2(f):=fbyte;
-fget; font_check_3(f):=fbyte;
-fget; read_sixteen(z); {this rejects a negative design size}
-fget; z:=z*@'400+fbyte; fget; z:=(z*@'20)+(fbyte div@'20);
-if z<unity then abort;
-while lh>2 do
-  begin fget;fget;fget;fget;decr(lh); {ignore the rest of the header}
-  end;
-font_dsize(f):=z;
-if s<>-1000 then
-  if s>=0 then z:=s
-  else z:=xn_over_d(z,-s,1000);
-font_size(f):=z;
-end
-
-@ @<Read character data@>=
-if font_level=1 then begin
-  i:=0;
-  k:=ivalues_start(f);
-  font_counter:=ivalues_base(f);
-  while k<fvalues_start(f) do       {IVALUE starts}
-    begin
-    read_thirtytwo(param);
-    font_info(f)(k).int := font_counter;
-    font_counter:=font_counter+param;
-    table_size[i]:=1;
-    incr(i); incr(k);
-    end;
-  while k<mvalues_start(f) do       {FVALUE starts}
-    begin
-    read_thirtytwo(param);
-    font_info(f)(k).int := font_counter;
-    font_counter:=font_counter+param;
-    table_size[i]:=1;
-    incr(i); incr(k);
-    end;
-  while k<rules_start(f) do         {MVALUE starts}
-    begin
-    read_thirtytwo(param);
-    font_info(f)(k).int := font_counter;
-    font_counter:=font_counter+param;
-    table_size[i]:=1;
-    incr(i); incr(k);
-    end;
-  while k<glues_start(f) do         {RULE starts}
-    begin
-    read_thirtytwo(param);
-    font_info(f)(k).int := font_counter;
-    font_counter:=font_counter+param*3;
-    table_size[i]:=3;
-    incr(i); incr(k);
-    end;
-  while k<penalties_start(f) do     {GLUE starts}
-    begin
-    read_thirtytwo(param);
-    font_info(f)(k).int := font_counter;
-    font_counter:=font_counter+param*4;
-    table_size[i]:=4;
-    incr(i); incr(k);
-    end;
-  while k<ivalues_base(f) do        {PENALTY starts}
-    begin
-    read_thirtytwo(param);
-    font_info(f)(k).int := font_counter;
-    font_counter:=font_counter+param*1;
-    table_size[i]:=1;
-    incr(i); incr(k);
-    end;
-  while k<fvalues_base(f) do        {IVALUE entries}
-    begin
-    read_thirtytwo(font_info(f)(k).int);
-    incr(k);
-    end;
-  while k<mvalues_base(f) do        {FVALUE entries}
-    begin
-    read_thirtytwo(font_info(f)(k).sc);
-    incr(k);
-    end;
-  while k<rules_base(f) do          {MVALUE entries}
-    begin
-    read_thirtytwo(font_info(f)(k).int);
-    incr(k);
-    end;
-  while k<glues_base(f) do          {RULE entries}
-    begin
-    store_scaled(font_info(f)(k).sc);
-    store_scaled(font_info(f)(k+1).sc);
-    store_scaled(font_info(f)(k+2).sc);
-    k:=k+3;
-    end;
-  while k<penalties_base(f) do      {GLUE entries}
-    begin
-    fget; read_sixteen(font_info(f)(k).hh.lhfield);
-    fget; read_sixteen(font_info(f)(k).hh.rh);
-    store_scaled(font_info(f)(k+1).sc);
-    store_scaled(font_info(f)(k+2).sc);
-    store_scaled(font_info(f)(k+3).sc);
-    k:=k+4;
-    end;
-  while k<offset_charinfo_base do      {PENALTY entries}
-    begin
-    read_thirtytwo(font_info(f)(k).int);
-    incr(k);
-    end;
-  end;
-k:=char_base(f)+bc;
-k_param:=char_attr_base(f);
-bytes_per_entry:=(12 + 2*npc) div 4 * 4;
-extra_char_bytes:=bytes_per_entry - (10 + 2*npc);
-while k<char_attr_base(f) do begin
-  store_char_info(font_info(f)(k).qqqq);
-  if (a>=nw)or((b div @"100)>=nh)or((b mod @"100)>=nd)or
-     ((c div @"100)>=ni) then abort;
-  case c mod 4 of
-    lig_tag: if d>=nl then abort;
-    ext_tag: if d>=ne then abort;
-    list_tag: @<Check for charlist cycle@>;
-    othercases do_nothing {|no_tag|}
-    endcases;
-  incr(k);
-  if font_level=1 then begin
-    fget; read_sixteen_unsigned(repeat_no);
-    for i:=0 to npc-1 do begin
-      fget; read_sixteen(param);
-      font_info(f)(k_param).int :=
-         font_info(f)(ivalues_start(f)+i).int + param*table_size[i];
-      incr(k_param);
-      end;
-    for i:=1 to extra_char_bytes do fget;
-    for i:=1 to repeat_no do begin
-      font_info(f)(k):=font_info(f)(k-1);
-      incr(k);
-      for table_counter:=0 to npc-1 do begin
-        font_info(f)(k_param).int := font_info(f)(k_param-npc).int;
-        incr(k_param);
-        end;
-      end;
-    end;
-  end
-
-@ We want to make sure that there is no cycle of characters linked together
-by |list_tag| entries, since such a cycle would get \TeX\ into an endless
-loop. If such a cycle exists, the routine here detects it when processing
-the largest character code in the cycle.
-
-@d check_byte_range(#)==begin if (#<bc)or(#>ec) then abort@+end
-@d current_character_being_worked_on==k-char_base(f)
-
-@<Check for charlist cycle@>=
-begin check_byte_range(d);
-while d<current_character_being_worked_on do
-  begin qw:=char_info(f)(d);
-  {N.B.: not |qi(d)|, since |char_base(f)| hasn't been adjusted yet}
-  if char_tag(qw)<>list_tag then goto not_found;
-  d:=qo(rem_byte(qw)); {next character on the list}
-  end;
-if d=current_character_being_worked_on then abort; {yes, there's a cycle}
-not_found:end
-
-@ A |fix_word| whose four bytes are $(a,b,c,d)$ from left to right represents
-the number
-$$x=\left\{\vcenter{\halign{$#$,\hfil\qquad&if $#$\hfil\cr
-b\cdot2^{-4}+c\cdot2^{-12}+d\cdot2^{-20}&a=0;\cr
--16+b\cdot2^{-4}+c\cdot2^{-12}+d\cdot2^{-20}&a=255.\cr}}\right.$$
-(No other choices of |a| are allowed, since the magnitude of a number in
-design-size units must be less than 16.)  We want to multiply this
-quantity by the integer~|z|, which is known to be less than $2^{27}$.
-If $|z|<2^{23}$, the individual multiplications $b\cdot z$,
-$c\cdot z$, $d\cdot z$ cannot overflow; otherwise we will divide |z| by 2,
-4, 8, or 16, to obtain a multiplier less than $2^{23}$, and we can
-compensate for this later. If |z| has thereby been replaced by
-$|z|^\prime=|z|/2^e$, let $\beta=2^{4-e}$; we shall compute
-$$\lfloor(b+c\cdot2^{-8}+d\cdot2^{-16})\,z^\prime/\beta\rfloor$$
-if $a=0$, or the same quantity minus $\alpha=2^{4+e}z^\prime$ if $a=255$.
-This calculation must be done exactly, in order to guarantee portability
-of \TeX\ between computers.
-
-@d store_scaled(#)==begin fget; a:=fbyte; fget; b:=fbyte;
-  fget; c:=fbyte; fget; d:=fbyte;@/
-  sw:=(((((d*z)div@'400)+(c*z))div@'400)+(b*z))div beta;
-  if a=0 then #:=sw@+else if a=255 then #:=sw-alpha@+else abort;
-  end
-
-@<Read box dimensions@>=
-begin @<Replace |z| by $|z|^\prime$ and compute $\alpha,\beta$@>;
-for k:=width_base(f) to lig_kern_base(f)-1 do
-  store_scaled(font_info(f)(k).sc);
-if font_info(f)(width_base(f)).sc<>0 then abort; {\\{width}[0] must be zero}
-if font_info(f)(height_base(f)).sc<>0 then abort; {\\{height}[0] must be zero}
-if font_info(f)(depth_base(f)).sc<>0 then abort; {\\{depth}[0] must be zero}
-if font_info(f)(italic_base(f)).sc<>0 then abort; {\\{italic}[0] must be zero}
-end
-
-@ @<Replace |z|...@>=
-begin alpha:=16;
-while z>=@'40000000 do
-  begin z:=z div 2; alpha:=alpha+alpha;
-  end;
-beta:=256 div alpha; alpha:=alpha*z;
-end
-
-@ @d check_existence(#)==@t@>@;@/
-  begin check_byte_range(#);
-  qw:=char_info(f)(#+font_offset(f)); {N.B.: not |qi(#)|}
-  if not char_exists(qw) then abort;
-  end
-
-@<Read ligature/kern program@>=
-bch_label:=nl {infinity}; bchar:=too_big_char;
-if nl>0 then
-  begin for k:=lig_kern_base(f) to kern_base(f)+kern_base_offset-1 do
-    begin store_four_quarters(font_info(f)(k).qqqq);
-    if a>128 then
-      begin if 256*c+d>=nl then abort;
-      if a=255 then if k=lig_kern_base(f) then bchar:=b;
-      end
-    else begin if b<>bchar then check_existence(b);
-      if c<128 then check_existence(d) {check ligature}
-      else if 256*(c-128)+d>=nk then abort; {check kern}
-      if a<128 then if k-lig_kern_base(f)+a+1>=nl then abort;
-      end;
-    end;
-  if a=255 then bch_label:=256*c+d;
-  end;
-for k:=kern_base(f)+kern_base_offset to exten_base(f)-1 do
-  store_scaled(font_info(f)(k).sc);
-
-@ @<Read extensible character recipes@>=
-for k:=exten_base(f) to param_base(f)-1 do
-  begin store_four_quarters(font_info(f)(k).qqqq);
-  if a<>0 then check_existence(a);
-  if b<>0 then check_existence(b);
-  if c<>0 then check_existence(c);
-  check_existence(d);
-  end
-
-@ We check to see that the \.{TFM} file doesn't end prematurely; but
-no error message is given for files having more than |lf| words.
-
-@<Read font parameters@>=
-begin for k:=1 to np do
-  if k=1 then {the |slant| parameter is a pure number}
-    begin fget; sw:=fbyte; if sw>127 then sw:=sw-256;
-    fget; sw:=sw*@'400+fbyte; fget; sw:=sw*@'400+fbyte;
-    fget; font_info(f)(param_base(f)).sc:=
-      (sw*@'20)+(fbyte div@'20);
-    end
-  else store_scaled(font_info(f)(param_base(f)+k-1).sc);
-if tfm_byte<tfm_size-1 then abort;
-for k:=np+1 to 7 do font_info(f)(param_base(f)+k-1).sc:=0;
-end
-
-@ Now to wrap it up, we have checked all the necessary things about the \.{TFM}
-file, and all we need to do is put the finishing touches on the data for
-the new font.
-
-@d adjust(#)==#(f):=qo(#(f))
-  {correct for the excess |min_quarterword| that was added}
-
-@<Make final adjustments...@>=
-if np>=7 then font_params(f):=np@+else font_params(f):=7;
-font_offset(f):=offset;
-hyphen_char(f):=default_hyphen_char+offset;
-skew_char(f):=default_skew_char+offset;
-bchar:=bchar+offset;
-if bch_label<nl then bchar_label(f):=bch_label+lig_kern_base(f)
-else bchar_label(f):=non_address;
-font_bchar(f):=qi(bchar);
-font_false_bchar(f):=qi(bchar);
-if bchar<=ec then if bchar>=bc then
-  begin qw:=char_info(f)(bchar); {N.B.: not |qi(bchar)|}
-  if char_exists(qw) then font_false_bchar(f):=non_char;
-  end;
-font_name(f):=nom;
-font_area(f):=aire;
-font_bc(f):=bc; font_ec(f):=ec; font_glue(f):=null;
-font_bc(f):=bc+offset; font_ec(f):=ec+offset; font_glue(f):=null;
-adjust(char_base); adjust(width_base); adjust(lig_kern_base);
-adjust(kern_base); adjust(exten_base);
-decr(param_base(f));
-font_ptr:=f; g:=f; goto done
 
 @ Before we forget about the format of these tables, let's deal with two
 of \TeX's basic scanning routines related to font information.
 
 @<Declare procedures that scan font-related stuff@>=
-function test_no_ligatures(f: internal_font_number): integer;
-label exit;
-var c:integer;
-begin
- test_no_ligatures:= 1;
- for c := font_bc(f) to font_ec(f) do
-    if char_exists(char_info(f)(c)) then
-      if odd(char_tag(char_info(f)(c))) then begin
-        test_no_ligatures:= 0;
-        return;
-      end;
- exit:
-end;
-
-function get_tag_code(f: internal_font_number; c: eight_bits): integer;
-var i:small_number;
-begin
-    if is_valid_char(c) then
-      begin i := char_tag(char_info(f)(c));
-      if i = lig_tag then
-        get_tag_code := 1
-          else if i = list_tag then
-        get_tag_code := 2
-          else if i = ext_tag then
-        get_tag_code := 4
-          else
-            get_tag_code := 0;
-      end
-   else
-       get_tag_code := -1;
-end;
 procedure scan_font_ident;
 var f:internal_font_number;
 @!m:halfword;
@@ -14481,45 +13281,66 @@ The boolean parameter |writing| is set |true| if the calling program
 intends to change the parameter value.
 
 @<Declare procedures that scan font-related stuff@>=
-procedure find_font_dimen(@!writing:boolean);
-  {sets |cur_val| to |font_info| location}
+procedure set_font_dimen;forward;
+procedure get_font_dimen;forward;
+
+@ @p
+procedure set_font_dimen;
+label exit;
 var f:internal_font_number;
 @!n:integer; {the parameter number}
 begin scan_int; n:=cur_val; scan_font_ident; f:=cur_val;
-dimen_font:=f;
-if n<=0 then cur_val:=font_file_size(f)
-else  begin if writing and(n<=space_shrink_code)and@|
-    (n>=space_code)and(font_glue(f)<>null) then
-    begin delete_glue_ref(font_glue(f));
-    font_glue(f):=null;
+  if n<=0 then
+    @<Issue a font parameter error message, and return@>
+  else begin
+    if (n<=space_shrink_code)and(n>=space_code)and((font_glue(f)<>null)and(font_glue(f)<>0)) then
+      begin delete_glue_ref(font_glue(f));
+      set_font_glue(f,null);
+      end;
+    if n>font_params(f) then
+      if f<font_ptr then @<Issue a font parameter error message, and return@>
+      else @<Increase the number of parameters in the font@>;
     end;
-  if n>font_params(f) then
-    if f<font_ptr then cur_val:=font_file_size(f)
-    else @<Increase the number of parameters in the last font@>
-  else cur_val:=n+param_base(f);
-  end;
-@<Issue an error message if |cur_val=font_file_size(f)|@>;
+  scan_optional_equals; scan_normal_dimen;
+  set_font_param(f,n,cur_val);
+exit:
+end;
+@#
+procedure get_font_dimen;
+label exit;
+var f:internal_font_number;
+@!n:integer; {the parameter number}
+begin scan_int; n:=cur_val; scan_font_ident; f:=cur_val;
+  cur_val:=0; { initialize return value }
+  if n<=0 then 
+    @<Issue a font parameter error message, and return@>
+  else begin
+    if n>font_params(f) then
+      if f<font_ptr then @<Issue a font parameter error message, and return@>
+      else @<Increase the number of parameters in the font@>;
+    end;
+  cur_val:=font_param(f,n);
+exit:
+  scanned_result(cur_val)(dimen_val);
 end;
 
-@ @<Issue an error message if |cur_val=font_file_size(f)|@>=
-if cur_val=font_file_size(f) then
-  begin print_err("Font "); print_esc(font_id_text(f));
+@ @<Issue a font parameter error message, and return@>=
+begin print_err("Font "); print_esc(font_id_text(f));
   print(" has only "); print_int(font_params(f));
   print(" fontdimen parameters");
 @.Font x has only...@>
   help2("To increase the number of font parameters, you must")@/
     ("use \fontdimen immediately after the \font is loaded.");
   error;
-  end
+  return;
+end
 
 @ @<Increase the number of parameters...@>=
-begin if n+font_params(f)>font_file_size(f) then
-  begin print_nl("Out of font parameter space"); succumb; end;
-repeat
-font_info(f)(param_base(f)+font_params(f)).sc:=0; incr(font_params(f));
+begin repeat
+  set_font_param(f,(font_params(f)+1),0);
 until n=font_params(f);
-cur_val:=param_base(f)+font_params(f);
 end
+
 
 @ When \TeX\ wants to typeset a character that doesn't exist, the
 character node is not created; thus the output routine can assume
@@ -14535,7 +13356,7 @@ begin if tracing_lost_chars>0 then
   print_nl("Missing character: There is no ");
 @.Missing character@>
   print_ASCII(c); print(" in font ");
-  slow_print(font_name(f)); print_char("!"); end_diagnostic(false);
+  slow_print(tex_font_name(f)); print_char("!"); end_diagnostic(false);
   end;
  tracing_online:=old_setting;
  end;
@@ -14548,8 +13369,7 @@ given character in a given font. If that character doesn't exist,
 @p function new_character(@!f:internal_font_number;@!c:eight_bits):pointer;
 label exit;
 var p:pointer; {newly allocated node}
-begin if font_bc(f)<=c then if font_ec(f)>=c then
-  if char_exists(char_info(f)(qi(c))) then
+begin if char_exists(f,c) then
     begin p:=get_avail; font(p):=f; character(p):=qi(c);
     new_character:=p; return;
     end;
@@ -16005,23 +14825,28 @@ end
 
 @p procedure dvi_font_def(@!f:internal_font_number);
 var k:pool_pointer; {index into |str_pool|}
+fa,fn:str_number;
 begin
 oval:=f-font_base-1; ocmd:= fnt_def1; out_cmd;@/
-dvi_out(qo(font_check_0(f)));
-dvi_out(qo(font_check_1(f)));
-dvi_out(qo(font_check_2(f)));
-dvi_out(qo(font_check_3(f)));@/
+dvi_out(font_check_0(f));
+dvi_out(font_check_1(f));
+dvi_out(font_check_2(f));
+dvi_out(font_check_3(f));@/
 dvi_four(font_size(f));
 dvi_four(font_dsize(f));@/
-dvi_out(length(font_area(f)));
-dvi_out(length(font_name(f)));
+fa := tex_font_area(f);
+fn := tex_font_name(f);
+dvi_out(length(fa));
+dvi_out(length(fn));
 @<Output the font name whose internal number is |f|@>;
+flush_string;
+flush_string;
 end;
 
 @ @<Output the font name whose internal number is |f|@>=
-for k:=str_start_macro(font_area(f)) to str_start_macro(font_area(f)+1)-1 do
+for k:=str_start_macro(fa) to str_start_macro(fa+1)-1 do
   dvi_out(so(str_pool[k]));
-for k:=str_start_macro(font_name(f)) to str_start_macro(font_name(f)+1)-1 do
+for k:=str_start_macro(fn) to str_start_macro(fn+1)-1 do
   dvi_out(so(str_pool[k]))
 
 @ Versions of \TeX\ intended for small computers might well choose to omit
@@ -16097,8 +14922,8 @@ of motion, and |o| is either |down1| or |right1|. We use the fact that
 the command codes have convenient arithmetic properties: |y1-down1=w1-right1|
 and |z1-down1=x1-right1|.
 
-@d dvi_set(#)==oval:=#-font_offset(f); ocmd:=set1; out_cmd
-@d dvi_put(#)==oval:=#-font_offset(f); ocmd:=put1; out_cmd
+@d dvi_set(#)==oval:=#; ocmd:=set1; out_cmd
+@d dvi_put(#)==oval:=#; ocmd:=put1; out_cmd
 @d dvi_set_rule_end(#)==dvi_four(#)
 @d dvi_set_rule(#)==dvi_out(set_rule); dvi_four(#); dvi_set_rule_end
 @d dvi_put_rule_end(#)==dvi_four(#)
@@ -16429,8 +15254,6 @@ label reswitch, move_past, fin_rule, next_p;
 var base_line: scaled; {the baseline coordinate for this box}
 c_wd,c_ht,c_dp: scaled;
   {the real width, height and depth of the character}
-c_htdp: quarterword; {height-depth entry in |char_info|}
-c_info: four_quarters; {|char_info| entry}
 edge_v: scaled;
 edge_h: scaled;
 effective_horizontal: scaled;
@@ -16489,16 +15312,14 @@ reswitch: if is_char_node(p) then
   begin synch_h; synch_v;
   repeat f:=font(p); c:=character(p);
   if f<>dvi_f then @<Change font |dvi_f| to |f|@>;
-  c_info:=char_info(f)(c);
-  c_htdp:=height_depth(c_info);
   if is_rotated(dvi_direction) then begin
-    c_ht:=char_width(f)(c_info) div 2;
-    c_wd:=char_height(f)(c_htdp)+char_depth(f)(c_htdp);
+    c_ht:=char_width(f,c) div 2;
+    c_wd:=char_height(f,c)+char_depth(f,c);
     end
   else begin
-    c_ht:=char_height(f)(c_htdp);
-    c_dp:=char_depth(f)(c_htdp);
-    c_wd:=char_width(f)(c_info);
+    c_ht:=char_height(f,c);
+    c_dp:=char_depth(f,c);
+    c_wd:=char_width(f,c);
     end;
   cur_h:=cur_h+c_wd;
   if (font_natural_dir(f)<>-1) then
@@ -16613,7 +15434,7 @@ else @<Output the non-|char_node| |p| for |hlist_out|
 
 @ @<Change font |dvi_f| to |f|@>=
 begin if not font_used(f) then
-  begin dvi_font_def(f); font_used(f):=true;
+  begin dvi_font_def(f); set_font_used(f,true);
   end;
 oval:=f-font_base-1; ocmd:=fnt1; out_cmd;@/
 dvi_f:=f;
@@ -17392,8 +16213,7 @@ in C.
 
 @d flushable(#) == (# = str_ptr - 1)
 
-@d is_valid_char(#)==((font_bc(f) <= #) and (# <= font_ec(f)) and
-                      char_exists(char_info(f)(#)))
+@d is_valid_char(#) == char_exists(f,#)
 
 @p function get_pdf_compress_level: integer;
 begin
@@ -17433,7 +16253,7 @@ end;
 function get_charwidth(f: internal_font_number; c: eight_bits): scaled;
 begin
     if is_valid_char(c) then
-        get_charwidth := char_width(f)(char_info(f)(c))
+        get_charwidth := char_width(f,c)
     else
         get_charwidth := 0;
 end;
@@ -17441,7 +16261,7 @@ end;
 function get_charheight(f: internal_font_number; c: eight_bits): scaled;
 begin
     if is_valid_char(c) then
-        get_charheight := char_height(f)(height_depth(char_info(f)(c)))
+        get_charheight := char_height(f,c)
     else
         get_charheight := 0;
 end;
@@ -17449,7 +16269,7 @@ end;
 function get_chardepth(f: internal_font_number; c: eight_bits): scaled;
 begin
     if is_valid_char(c) then
-        get_chardepth := char_depth(f)(height_depth(char_info(f)(c)))
+        get_chardepth := char_depth(f,c)
     else
         get_chardepth := 0;
 end;
@@ -17466,7 +16286,7 @@ end;
 
 function new_dummy_font: internal_font_number;
 begin
-    new_dummy_font := read_font_info(null_cs, "dummy", "", -1000, 0, -1);
+    new_dummy_font := read_font_info(null_cs, "dummy", "", -1000, -1);
 end;
 
 function get_hash_size: integer;
@@ -17494,7 +16314,7 @@ while p>mem_min do
   begin if is_char_node(p) then
     begin if p<=mem_end then
       begin if font(p)<>font_in_short_display then
-        begin if font(p)>font_max then
+        begin if not is_valid_font(font(p)) then
           print_char("*")
 @.*\relax@>
         else @<Print the font identifier for |font(p)|@>;
@@ -18092,13 +16912,13 @@ procedure adv_char_width(f: internal_font_number; c: eight_bits); {update |pdf_h
 by character width |w| from font |f|}
 var w: scaled;
 begin
-    w := char_width(f)(char_info(f)(c));
+    w := char_width(f,c);
     if hasfmentry(f) then begin
         call_func(divide_scaled(w, pdf_font_size[f], 4));
         pdf_h := pdf_h + scaled_out;
     end
     else
-        pdf_h := pdf_h + get_pk_char_width(f, w);
+        pdf_h := pdf_h + get_pk_char_width(f,c);
 end;
 
 procedure pdf_print_real(m, d: integer); {print $m/10^d$ as real}
@@ -19158,24 +17978,34 @@ procedure scan_pdf_ext_toks; forward;
 @ Here come some subroutines to deal with expanded fonts for HZ-algorithm.
 
 @p
+function get_default_hyphen_char:integer;
+begin
+	get_default_hyphen_char:=default_hyphen_char; 
+end;
+@#
+function get_default_skew_char:integer;
+begin
+	get_default_skew_char:=default_skew_char; 
+end;
+@#
 procedure set_tag_code(f: internal_font_number; c: eight_bits; i: integer);
 var fixedi:integer;
 begin
     if is_valid_char(c) then
     begin fixedi := abs(fix_int(i,-7,0));
       if fixedi >= 4 then begin
-          if char_tag(char_info(f)(c)) = ext_tag then
-          op_byte(char_info(f)(c)) := (op_byte(char_info(f)(c))) - ext_tag;
+          if char_tag(f,c) = ext_tag then
+ 	         set_char_tag(f,c,(char_tag(f,c)- ext_tag));
         fixedi := fixedi - 4;
       end;
       if fixedi >= 2 then begin
-        if char_tag(char_info(f)(c)) = list_tag then
-          op_byte(char_info(f)(c)) := (op_byte(char_info(f)(c))) - list_tag;
+          if char_tag(f,c) = list_tag then
+ 	         set_char_tag(f,c,(char_tag(f,c)- list_tag));
         fixedi := fixedi - 2;
       end;
       if fixedi >= 1 then begin
-        if char_tag(char_info(f)(c)) = lig_tag then
-          op_byte(char_info(f)(c)) := (op_byte(char_info(f)(c))) - lig_tag;
+          if char_tag(f,c) = lig_tag then
+ 	         set_char_tag(f,c,(char_tag(f,c)- lig_tag));
     end;
   end;
 end;
@@ -19184,9 +18014,9 @@ procedure set_no_ligatures(f: internal_font_number);
 var c:integer;
 begin
     for c := font_bc(f) to font_ec(f) do
-        if char_exists(char_info(f)(c)) then
-            if char_tag(char_info(f)(c))=lig_tag then
-                op_byte(char_info(f)(c)) := (op_byte(char_info(f)(c))) - lig_tag;
+        if char_exists(f,c) then
+            if char_tag(f,c)=lig_tag then
+	            set_char_tag(f,c,char_tag(f,c)-lig_tag);
 end;
 
 function init_font_base(v: integer): integer;
@@ -19342,7 +18172,7 @@ function expand_font_name(f: internal_font_number; e: integer): str_number;
 var old_setting:0..max_selector; {holds |selector| setting}
 begin
     old_setting:=selector; selector:=new_string;
-    print(font_name(f));
+    print(tex_font_name(f));
     if e > 0 then
         print("+"); {minus sign will be printed by |print_int|}
     print_int(e);
@@ -19352,58 +18182,22 @@ end;
 
 function auto_expand_font(f: internal_font_number; e: integer): internal_font_number;
 {creates an expanded font from the base font; doesn't load expanded tfm at all}
-{TH: TODO , this whole routine needs fixing!}
 var k: internal_font_number;
-    nw, nk, ni, i: integer;
-	lf: integer;
+    i: integer;
 begin
-    k := font_ptr + 1;
-    {TH: |lf| should be the total size of font |(f)| }
-    incr(font_ptr);
-    if (font_ptr >= font_max) then
-        overflow("maximum internal font number (font_max)", font_max);
-	lf := @"1000;
-    allocate_font_table(k,offset_charinfo_base+lf);
-    font_offset(k) := font_offset(f);
-    font_natural_dir(k) := font_natural_dir(f);
-    font_name(k) := expand_font_name(f, e);
-    font_area(k) := font_area(f);
+	k := copy_font(f);
     font_id_text(k) := font_id_text(f);
-    hyphen_char(k) := hyphen_char(f);
-    skew_char(k) := skew_char(f);
-    font_bchar(k) := font_bchar(f);
-    font_false_bchar(k) := font_false_bchar(f);
-    font_bc(k) := font_bc(f);
-    font_ec(k) := font_ec(f);
-    font_size(k) := font_size(f);
-    font_dsize(k) := font_dsize(f);
-    font_params(k) := font_params(f);
-    font_glue(k) := font_glue(f);
-    bchar_label(k) := bchar_label(f);
-
-    char_base(k) := char_base(f);
-    height_base(k) := height_base(f);
-    depth_base(k) := depth_base(f);
-    lig_kern_base(k) := lig_kern_base(f);
-    exten_base(k) := exten_base(f);
-    param_base(k) := param_base(f);
-
-    nw := height_base(f) - width_base(f);
-    ni := lig_kern_base(f) - italic_base(f);
-    nk := exten_base(f) - (kern_base(f) + kern_base_offset);
-    italic_base(k) := width_base(k) + nw;
-    kern_base(k) := italic_base(k) + ni - kern_base_offset;
-
-    for i := 0 to nw - 1 do
-        font_info(k)(width_base(k) + i).sc :=
-           round_xn_over_d(font_info(f)(width_base(f) + i).sc, 1000 + e, 1000);
-    for i := 0 to ni - 1 do
-        font_info(k)(italic_base(k) + i).sc :=
-           round_xn_over_d(font_info(f)(italic_base(f) + i).sc, 1000 + e, 1000);
-    for i := 0 to nk - 1 do
-        font_info(k)(kern_base(k) + kern_base_offset + i).sc :=
-           round_xn_over_d(font_info(f)(kern_base(f) + kern_base_offset + i).sc, 1000 + e, 1000);
-
+    set_tex_font_name(k,expand_font_name(f, e));
+    for i := 0 to font_widths(k) do begin
+      set_font_width(k,i,round_xn_over_d(font_width(f,i), 1000 + e, 1000));
+      end;
+    for i := 0 to font_italics(k) do begin
+      set_font_italic(k,i, round_xn_over_d(font_italic(f,i), 1000 + e, 1000));
+      end;
+    for i := 0 to font_kerns(k) do begin
+      set_font_kern(k,i, round_xn_over_d(font_kern(f,i), 1000 + e, 1000));
+      end;
+	incr(font_ptr);
     auto_expand_font := k;
 end;
 
@@ -19446,7 +18240,7 @@ var k: internal_font_number;
 begin
     if fs <> 0 then begin
         for k := font_base + 1 to font_ptr do
-            if str_eq_str(font_name(k), s) and (font_size(k) = fs) then begin
+            if str_eq_str(tex_font_name(k), s) and (font_size(k) = fs) then begin
                 flush_str(s);
                 tfm_lookup := k;
                 return;
@@ -19454,7 +18248,7 @@ begin
     end
     else begin
         for k := font_base + 1 to font_ptr do
-            if str_eq_str(font_name(k), s) then begin
+            if str_eq_str(tex_font_name(k), s) then begin
                 flush_str(s);
                 tfm_lookup := k;
                 return;
@@ -19476,7 +18270,7 @@ begin
         if pdf_font_auto_expand[f] then
             k := auto_expand_font(f, e)
         else
-           k := read_font_info(null_cs, s, "", font_size(f), font_offset(f), font_natural_dir(f)); 
+           k := read_font_info(null_cs, s, "", font_size(f), font_natural_dir(f)); 
     end;
     set_expand_param(k, f, e);
     load_expand_font := k;
@@ -19660,7 +18454,7 @@ if pdf_resname_prefix <> 0 then
 begin
     call_func(divide_scaled(font_size(f), one_hundred_bp, 6));
     pdf_font_size[f] := scaled_out;
-    font_used(f) := true;
+    set_font_used(f,true);
     pdf_font_num[f] := fontnum;
     if pdf_move_chars > 0 then begin
         pdf_warning(0,"Primitive \pdfmovechars is obsolete.",true);
@@ -19676,7 +18470,7 @@ begin
         if hasfmentry(f) then begin
         {this font is scaleable, so different sizes can share a single font object}
             k := tfm_of_fm(pdf_font_map[f]);
-            if (k <> f) and str_eq_str(font_name(k), font_name(f)) then begin
+            if (k <> f) and str_eq_str(tex_font_name(k), tex_font_name(f)) then begin
                 pdf_use_font(f, -k);
                 return;
             end;
@@ -19766,9 +18560,9 @@ processing with an error message}
 @!vf_z: integer; {multiplier}
 @!vf_alpha: integer; {correction for negative values}
 @!vf_beta: 1..16; {divisor}
-@!vf_buffer:^real_eight_bits; {byte buffer for tfm files}
-@!vf_size:integer; {total size of the tfm file}
-@!vf_cur:integer; {index into |tfm_buffer|}
+@!vf_buffer:^real_eight_bits; {byte buffer for vf files}
+@!vf_size:integer; {total size of the vf file}
+@!vf_cur:integer; {index into |vf_buffer|}
 
 
 @ @<Set init...@>=
@@ -19808,9 +18602,9 @@ procedure vf_local_font_warning(f, k: internal_font_number; s: str_number);
 begin
     print_nl(s);
     print(" in local font ");
-    print(font_name(k));
+    print(tex_font_name(k));
     print(" in virtual font ");
-    print(font_name(f));
+    print(tex_font_name(f));
     print(".vf ignored.");
 end;
 
@@ -19840,7 +18634,7 @@ begin
     s := make_string;
     k := tfm_lookup(s, fs);
     if k = null_font then
-        k := read_font_info(null_cs, s, "", fs, 0, -1);
+        k := read_font_info(null_cs, s, "", fs, -1);
     if k <> null_font then begin
         if ((cs.b0 <> 0) or (cs.b1 <> 0) or (cs.b2 <> 0) or (cs.b3 <> 0)) and
            ((font_check_0(k) <> 0) or (font_check_1(k) <> 0) or
@@ -19888,7 +18682,7 @@ begin
     return;
 vf_error:
     print_nl("Error in processing VF font (");
-    print(font_name(f));
+    print(tex_font_name(f));
     print(".vf): ");
     print(vf_err_str);
     print(", virtual font will be ignored");
@@ -19897,7 +18691,7 @@ vf_error:
 end;
 
 @ @<Open |vf_file|, return if not found@>=
-pack_file_name(font_name(f), "", ".vf");
+pack_file_name(tex_font_name(f), "", ".vf");
 if vf_buffer<>0 then libc_free(vf_buffer);
 vf_cur:=0; vf_buffer:=0; vf_size:=0;
 callback_id:=callback_defined('find_vf_file');
@@ -19941,12 +18735,12 @@ if ((tmp_b0 <> 0) or (tmp_b1 <> 0) or (tmp_b2 <> 0) or (tmp_b3 <> 0)) and
    ((tmp_b0 <> font_check_0(f)) or (tmp_b1 <> font_check_1(f)) or
     (tmp_b2 <> font_check_2(f)) or (tmp_b3 <> font_check_3(f))) then begin
     print_nl("checksum mismatch in font ");
-    print(font_name(f));
+    print(tex_font_name(f));
     print(".vf ignored");
 end;
 if vf_read(4) div @'20 <> font_dsize(f) then begin
     print_nl("design size mismatch in font ");
-    print(font_name(f));
+    print(tex_font_name(f));
     print(".vf ignored");
 end;
 update_terminal;
@@ -19989,9 +18783,9 @@ if vf_packet_length < 0 then
     bad_vf("negative packet length");
 if vf_packet_length > vf_max_packet_length then
     bad_vf("packet length too long");
-if (tfm_width <> char_width(f)(char_info(f)(cc))) then begin
+if (tfm_width <> char_width(f,cc)) then begin
     print_nl("character width mismatch in font ");
-    print(font_name(f));
+    print(tex_font_name(f));
     print(".vf ignored");
 end;
 str_room(vf_packet_length);
@@ -20320,7 +19114,7 @@ if is_valid_char(c) then
 else
     char_warning(f, c);
 if char_move then
-    cur_h := cur_h + char_width(f)(char_info(f)(c))
+    cur_h := cur_h + char_width(f,c)
 
 @* \[32f] PDF shipping out.
 To ship out a \TeX\ box to PDF page description we need to implement
@@ -20444,7 +19238,7 @@ reswitch: if is_char_node(p) then
       output_one_char(c)
   else
       char_warning(f, c);
-  cur_h:=cur_h+char_width(f)(char_info(f)(c));
+  cur_h:=cur_h+char_width(f,c);
   prev_p:=link(prev_p); {N.B.: not |prev_p:=p|, |p| might be |lig_trick|}
   p:=link(p);
   until not is_char_node(p);
@@ -22226,7 +21020,7 @@ begin
     k := pdf_font_stretch[f];
     ef := get_ef_code(f, c);
     if (k <> null_font) and (ef > 0) then begin
-        dw := char_width(k)(char_info(k)(c)) - char_width(f)(char_info(f)(c));
+        dw := char_width(k,c) - char_width(f,c);
         if dw > 0 then
             char_stretch := round_xn_over_d(dw, ef, 1000);
     end;
@@ -22241,44 +21035,10 @@ begin
     k := pdf_font_shrink[f];
     ef := get_ef_code(f, c);
     if (k <> null_font) and (ef > 0) then begin
-        dw := char_width(f)(char_info(f)(c)) - char_width(k)(char_info(k)(c));
+        dw := char_width(f,c) - char_width(k,c);
         if dw > 0 then
             char_shrink := round_xn_over_d(dw, ef, 1000);
     end;
-end;
-
-function get_kern(f: internal_font_number; lc, rc: eight_bits): scaled;
-label continue;
-var i: four_quarters;
-    j: four_quarters;
-    k: font_index;
-begin
-    get_kern := 0;
-    i := char_info(f)(lc);
-    if char_tag(i) <> lig_tag then
-        return;
-    k := lig_kern_start(f)(i);
-    j := font_info(f)(k).qqqq;
-    if skip_byte(j) <= stop_flag then
-        goto continue + 1;
-    k := lig_kern_restart(f)(j);
-continue:
-    j := font_info(f)(k).qqqq;
-continue + 1:
-    if (next_char(f)(j) = rc) and (skip_byte(j) <= stop_flag) and
-       (op_byte(j) >= kern_flag)
-    then begin
-        get_kern := char_kern(f)(j);
-        return;
-    end;
-    if skip_byte(j) = qi(0) then
-        incr(k)
-    else begin
-        if skip_byte(j) >= stop_flag then
-            return;
-        k := k + qo(skip_byte(j)) + 1;
-    end;
-    goto continue;
 end;
 
 function kern_stretch(p: pointer): scaled;
@@ -22440,7 +21200,6 @@ var r:pointer; {the box node that will be returned}
 @!o:glue_ord; {order of infinity}
 @!f:internal_font_number; {the font in a |char_node|}
 @!i:four_quarters; {font information about a |char_node|}
-@!hd:eight_bits; {height and depth indices for a character}
 @!dir_tmp,@!dir_ptr:pointer; {for managing the direction stack}
 @!hpack_dir:integer; {the current direction}
 font_stretch: scaled;
@@ -22625,22 +21384,22 @@ if m >= cal_expand_ratio then begin
         do_subst_font(p, font_expand_ratio);
     endcases;
 end;
-f:=font(p); i:=char_info(f)(character(p)); hd:=height_depth(i);
+f:=font(p); 
 if is_rotated(hpack_dir) then begin
-  x:=x+char_height(f)(hd)+char_depth(f)(hd);@/
-  s:=char_width(f)(i) div 2;@+if s>h then h:=s;
-  s:=char_width(f)(i) div 2;@+if s>d then d:=s;
+  x:=x+char_height(f,character(p))+char_depth(f,character(p));@/
+  s:=char_width(f,character(p)) div 2;@+if s>h then h:=s;
+  s:=char_width(f,character(p)) div 2;@+if s>d then d:=s;
   end
 else if dir_opposite(dir_tertiary[hpack_dir])(dir_tertiary[box_dir(r)])
   then begin
-  x:=x+char_width(f)(i);@/
-  s:=char_depth(f)(hd);@+if s>h then h:=s;
-  s:=char_height(f)(hd);@+if s>d then d:=s;
+  x:=x+char_width(f,character(p));@/
+  s:=char_depth(f,character(p));@+if s>h then h:=s;
+  s:=char_height(f,character(p));@+if s>d then d:=s;
   end
 else begin
-  x:=x+char_width(f)(i);@/
-  s:=char_height(f)(hd);@+if s>h then h:=s;
-  s:=char_depth(f)(hd);@+if s>d then d:=s;
+  x:=x+char_width(f,character(p));@/
+  s:=char_height(f,character(p));@+if s>h then h:=s;
+  s:=char_depth(f,character(p));@+if s>d then d:=s;
   end;
 p:=link(p);
 end
@@ -23527,8 +22286,8 @@ following macros, which take a size code as their parameter; for example,
 @^parameters for symbols@>
 @^font parameters@>
 
-@d mathsy_end(#)==sc
-@d mathsy(#)==font_info(fam_fnt(2+cur_size))(#+param_base(fam_fnt(2+cur_size))).mathsy_end
+@d mathsy_end(#)==
+@d mathsy(#)==font_param(fam_fnt(2+cur_size),#) mathsy_end
 @d math_x_height==mathsy(5) {height of `\.x'}
 @d math_quad==mathsy(6) {\.{18mu}}
 @d num1==mathsy(8) {numerator shift-up in display styles}
@@ -23554,7 +22313,7 @@ omitted (since it is always |cur_size| when we refer to such parameters).
 @^parameters for symbols@>
 @^font parameters@>
 
-@d mathex(#)==font_info(fam_fnt(3+cur_size))(#+param_base(fam_fnt(3+cur_size))).sc
+@d mathex(#)==font_param(fam_fnt(3+cur_size),#)
 @d default_rule_thickness==mathex(8) {thickness of \.{\\over} bars}
 @d big_op_spacing1==mathex(9) {minimum clearance above a displayed op}
 @d big_op_spacing2==mathex(10) {minimum clearance below a displayed op}
@@ -23630,7 +22389,6 @@ var b:pointer; {the box that will be constructed}
 @!m,@!n: integer; {the number of extensible pieces}
 @!u: scaled; {height-plus-depth of a tentative character}
 @!w: scaled; {largest height-plus-depth so far}
-@!q: four_quarters; {character info}
 @!hd: eight_bits; {height-depth byte}
 @!r: four_quarters; {extensible pieces}
 @!z: integer; {runs through font family members}
@@ -23672,20 +22430,19 @@ if (z<>0)or(x<>min_quarterword) then
 
 @ @<Look at the list of characters starting with |x|...@>=
 begin y:=x;
-if (qo(y)>=font_bc(g))and(qo(y)<=font_ec(g)) then
-  begin continue: q:=char_info(g)(y);
-  if char_exists(q) then
-    begin if char_tag(q)=ext_tag then
+if (y>=font_bc(g))and(y<=font_ec(g)) then
+  begin continue:
+  if char_exists(g,y) then
+    begin if char_tag(g,y)=ext_tag then
       begin f:=g; c:=y; goto found;
       end;
-    hd:=height_depth(q);
-    u:=char_height(g)(hd)+char_depth(g)(hd);
+    u:=char_height(g,y)+char_depth(g,y);
     if u>w then
       begin f:=g; c:=y; w:=u;
       if u>=v then goto found;
       end;
-    if char_tag(q)=list_tag then
-      begin y:=rem_byte(q); goto continue;
+    if char_tag(g,y)=list_tag then
+      begin y:=char_remainder(g,y); goto continue;
       end;
     end;
   end;
@@ -23699,12 +22456,10 @@ may deliver a slightly different result than |hpack| would produce.
 
 @<Declare subprocedures for |var_delimiter|@>=
 function char_box(@!f:internal_font_number;@!c:quarterword):pointer;
-var q:four_quarters;
-@!hd:eight_bits; {|height_depth| byte}
-@!b,@!p:pointer; {the new box and its character node}
-begin q:=char_info(f)(c); hd:=height_depth(q);
-b:=new_null_box; width(b):=char_width(f)(q)+char_italic(f)(q);
-height(b):=char_height(f)(hd); depth(b):=char_depth(f)(hd);
+var @!b,@!p:pointer; {the new box and its character node}
+begin 
+b:=new_null_box; width(b):=char_width(f,c)+char_italic(f,c);
+height(b):=char_height(f,c); depth(b):=char_depth(f,c);
 p:=get_avail; character(p):=c; font(p):=f; list_ptr(b):=p; char_box:=b;
 end;
 
@@ -23712,7 +22467,7 @@ end;
 |ext_tag| if and only if a built-up symbol is supposed to be returned.
 
 @<Make variable |b| point to a box for |(f,c)|@>=
-if char_tag(q)=ext_tag then
+if char_tag(f,c)=ext_tag then
   @<Construct an extensible character in a new box |b|,
     using recipe |rem_byte(q)| and font |f|@>
 else b:=char_box(f,c)
@@ -23734,28 +22489,25 @@ a given character:
 
 @<Declare subprocedures for |var_delimiter|@>=
 function height_plus_depth(@!f:internal_font_number;@!c:quarterword):scaled;
-var q:four_quarters;
-@!hd:eight_bits; {|height_depth| byte}
-begin q:=char_info(f)(c); hd:=height_depth(q);
-height_plus_depth:=char_height(f)(hd)+char_depth(f)(hd);
+begin
+height_plus_depth:=char_height(f,c)+char_depth(f,c);
 end;
 
 @ @<Construct an extensible...@>=
 begin b:=new_null_box;
 type(b):=vlist_node;
-r:=font_info(f)(exten_base(f)+rem_byte(q)).qqqq;@/
 @<Compute the minimum suitable height, |w|, and the corresponding
   number of extension steps, |n|; also set |width(b)|@>;
-c:=ext_bot(f)(r);
+c:=ext_bot(f,c);
 if c<>min_quarterword then stack_into_box(b,f,c);
-c:=ext_rep(f)(r);
+c:=ext_rep(f,c);
 for m:=1 to n do stack_into_box(b,f,c);
-c:=ext_mid(f)(r);
+c:=ext_mid(f,c);
 if c<>min_quarterword then
-  begin stack_into_box(b,f,c); c:=ext_rep(f)(r);
+  begin stack_into_box(b,f,c); c:=ext_rep(f,c);
   for m:=1 to n do stack_into_box(b,f,c);
   end;
-c:=ext_top(f)(r);
+c:=ext_top(f,c);
 if c<>min_quarterword then stack_into_box(b,f,c);
 depth(b):=w-height(b);
 end
@@ -23766,15 +22518,15 @@ we don't use any copies of it, otherwise we use as few as possible
 (in groups of two if there is a middle part).
 
 @<Compute the minimum suitable height, |w|, and...@>=
-c:=ext_rep(f)(r); u:=height_plus_depth(f,c);
-w:=0; q:=char_info(f)(c); width(b):=char_width(f)(q)+char_italic(f)(q);@/
-c:=ext_bot(f)(r);@+if c<>min_quarterword then w:=w+height_plus_depth(f,c);
-c:=ext_mid(f)(r);@+if c<>min_quarterword then w:=w+height_plus_depth(f,c);
-c:=ext_top(f)(r);@+if c<>min_quarterword then w:=w+height_plus_depth(f,c);
+c:=ext_rep(f,c); u:=height_plus_depth(f,c);
+w:=0; width(b):=char_width(f,c)+char_italic(f,c);@/
+c:=ext_bot(f,c);@+if c<>min_quarterword then w:=w+height_plus_depth(f,c);
+c:=ext_mid(f,c);@+if c<>min_quarterword then w:=w+height_plus_depth(f,c);
+c:=ext_top(f,c);@+if c<>min_quarterword then w:=w+height_plus_depth(f,c);
 n:=0;
 if u>0 then while w<v do
   begin w:=w+u; incr(n);
-  if (ext_mid(f)(r))<>min_quarterword then w:=w+u;
+  if (ext_mid(f,c))<>min_quarterword then w:=w+u;
   end
 
 @ The next subroutine is much simpler; it is used for numerators and
@@ -23798,7 +22550,7 @@ begin if (width(b)<>w)and(list_ptr(b)<>null) then
   begin if type(b)=vlist_node then b:=hpack(b,natural);
   p:=list_ptr(b);
   if (is_char_node(p))and(link(p)=null) then
-    begin f:=font(p); v:=char_width(f)(char_info(f)(character(p)));
+    begin f:=font(p); v:=char_width(f,character(p));
     if v<>width(b) then link(p):=new_kern(width(b)-v);
     end;
   free_node(b,box_node_size);
@@ -23934,24 +22686,22 @@ if is_char_node(q) then
 field to an ``unpacked'' form. The |fetch| routine sets |cur_f|, |cur_c|,
 and |cur_i| to the font code, character code, and character information bytes of
 a given noad field. It also takes care of issuing error messages for
-nonexistent characters; in such cases, |char_exists(cur_i)| will be |false|
+nonexistent characters; in such cases, |char_exists(cur_f,cur_c)| will be |false|
 after |fetch| has acted, and the field will also have been reset to |empty|.
 
 @p procedure fetch(@!a:pointer); {unpack the |math_char| field |a|}
 begin cur_c:=character(a); cur_f:=fam_fnt(fam(a)+cur_size);
 if cur_f=null_font then
-  @<Complain about an undefined family and set |cur_i| null@>
-else  begin if (qo(cur_c)>=font_bc(cur_f))and(qo(cur_c)<=font_ec(cur_f)) then
-    cur_i:=char_info(cur_f)(cur_c)
-  else cur_i:=null_character;
-  if not(char_exists(cur_i)) then
+  @<Complain about an undefined family@>
+else  begin 
+  if not(char_exists(cur_f,cur_c)) then
     begin char_warning(cur_f,qo(cur_c));
     math_type(a):=empty;
     end;
   end;
 end;
 
-@ @<Complain about an undefined family...@>=
+@ @<Complain about an undefined family@>=
 begin print_err(""); print_size(cur_size); print_char(" ");
 print_int(fam(a)); print(" is undefined (character ");
 print_ASCII(qo(cur_c)); print_char(")");
@@ -23959,7 +22709,7 @@ help4("Somewhere in the math formula just ended, you used the")@/
 ("stated character from an undefined font family. For example,")@/
 ("plain TeX doesn't allow \it or \sl in subscripts. Proceed,")@/
 ("and I'll try to forget that I needed that character.");
-error; cur_i:=null_character; math_type(a):=empty;
+error; math_type(a):=empty;
 end
 
 @ The outputs of |fetch| are placed in global variables.
@@ -23967,8 +22717,6 @@ end
 @<Glob...@>=
 @!cur_f:internal_font_number; {the |font| field of a |math_char|}
 @!cur_c:quarterword; {the |character| field of a |math_char|}
-@!cur_i:four_quarters; {the |char_info| of a |math_char|,
-  or a lig/kern instruction}
 
 @ We need to do a lot of different things, so |mlist_to_hlist| makes two
 passes over the given mlist.
@@ -24225,14 +22973,13 @@ var p,@!x,@!y:pointer; {temporary registers for box construction}
 @!a:integer; {address of lig/kern instruction}
 @!c:quarterword; {accent character}
 @!f:internal_font_number; {its font}
-@!i:four_quarters; {its |char_info|}
 @!s:scaled; {amount to skew the accent to the right}
 @!h:scaled; {height of character being accented}
 @!delta:scaled; {space to remove between accent and accentee}
 @!w:scaled; {width of the accentee, not including sub/superscripts}
 begin fetch(accent_chr(q));
-if char_exists(cur_i) then
-  begin i:=cur_i; c:=cur_c; f:=cur_f;@/
+if char_exists(cur_f,cur_c) then
+  begin c:=cur_c; f:=cur_f;@/
   @<Compute the amount of skew@>;
   x:=clean_box(nucleus(q),cramped_style(cur_style)); w:=width(x); h:=height(x);
   @<Switch to a larger accent if available and appropriate@>;
@@ -24257,11 +23004,10 @@ height(y):=h;
 end
 
 @ @<Switch to a larger accent if available and appropriate@>=
-loop@+  begin if char_tag(i)<>list_tag then goto done;
-  y:=rem_byte(i);
-  i:=char_info(f)(y);
-  if not char_exists(i) then goto done;
-  if char_width(f)(i)>w then goto done;
+loop@+  begin if char_tag(f,c)<>list_tag then goto done;
+  y:=char_remainder(f,c);
+  if not char_exists(f,y) then goto done;
+  if char_width(f,y)>w then goto done;
   c:=y;
   end;
 done:
@@ -24270,23 +23016,7 @@ done:
 s:=0;
 if math_type(nucleus(q))=math_char then
   begin fetch(nucleus(q));
-  if char_tag(cur_i)=lig_tag then
-    begin a:=lig_kern_start(cur_f)(cur_i);
-    cur_i:=font_info(cur_f)(a).qqqq;
-    if skip_byte(cur_i)>stop_flag then
-      begin a:=lig_kern_restart(cur_f)(cur_i);
-      cur_i:=font_info(cur_f)(a).qqqq;
-      end;
-    loop@+ begin if qo((next_char(cur_f)(cur_i)))=skew_char(cur_f) then
-        begin if op_byte(cur_i)>=kern_flag then
-          if skip_byte(cur_i)<=stop_flag then s:=char_kern(cur_f)(cur_i);
-        goto done1;
-        end;
-      if skip_byte(cur_i)>=stop_flag then goto done1;
-      a:=a+qo(skip_byte(cur_i))+1;
-      cur_i:=font_info(cur_f)(a).qqqq;
-      end;
-    end;
+  s := get_kern(cur_f,cur_c,skew_char(cur_f));
   end;
 done1:
 
@@ -24410,13 +23140,13 @@ begin if (subtype(q)=normal)and(cur_style<text_style) then
   subtype(q):=limits;
 if math_type(nucleus(q))=math_char then
   begin fetch(nucleus(q));
-  if (cur_style<text_style)and(char_tag(cur_i)=list_tag) then {make it larger}
-    begin c:=rem_byte(cur_i); i:=char_info(cur_f)(c);
-    if char_exists(i) then
-      begin cur_c:=c; cur_i:=i; character(nucleus(q)):=c;
+  if (cur_style<text_style)and(char_tag(cur_f,cur_c)=list_tag) then {make it larger}
+    begin c:=char_remainder(cur_f,cur_c);
+    if char_exists(cur_f,c) then
+      begin cur_c:=c; character(nucleus(q)):=c;
       end;
     end;
-  delta:=char_italic(cur_f)(cur_i); x:=clean_box(nucleus(q),cur_style);
+  delta:=char_italic(cur_f,cur_c); x:=clean_box(nucleus(q),cur_style);
   if (math_type(subscr(q))<>empty)and(subtype(q)<>limits) then
     width(x):=width(x)-delta; {remove italic correction}
   shift_amount(x):=half(height(x)-depth(x)) - axis_height(cur_size);
@@ -24494,21 +23224,18 @@ if math_type(subscr(q))=empty then if math_type(supscr(q))=empty then
     if fam(nucleus(p))=fam(nucleus(q)) then
       begin math_type(nucleus(q)):=math_text_char;
       fetch(nucleus(q));
-      if char_tag(cur_i)=lig_tag then
-        begin a:=lig_kern_start(cur_f)(cur_i);
+      if char_tag(cur_f,cur_c)=lig_tag then
+        begin a:=lig_kern_start(cur_f,cur_c);
         cur_c:=character(nucleus(p));
-        cur_i:=font_info(cur_f)(a).qqqq;
-        if skip_byte(cur_i)>stop_flag then
-          begin a:=lig_kern_restart(cur_f)(cur_i);
-          cur_i:=font_info(cur_f)(a).qqqq;
+        if skip_byte(cur_f,a)>stop_flag then
+          begin a:=lig_kern_restart(cur_f,a);
           end;
         loop@+ begin @<If instruction |cur_i| is a kern with |cur_c|, attach
             the kern after~|q|; or if it is a ligature with |cur_c|, combine
             noads |q| and~|p| appropriately; then |return| if the cursor has
             moved past a noad, or |goto restart|@>;
-          if skip_byte(cur_i)>=stop_flag then return;
-          a:=a+qo(skip_byte(cur_i))+1;
-          cur_i:=font_info(cur_f)(a).qqqq;
+          if skip_byte(cur_f,a)>=stop_flag then return;
+          a:=a+qo(skip_byte(cur_f,a))+1;
           end;
         end;
       end;
@@ -24524,29 +23251,29 @@ ligatures only when this convention makes sense.
 \chardef\?='174 % vertical line to indicate character retention
 
 @<If instruction |cur_i| is a kern with |cur_c|, ...@>=
-if (next_char(cur_f)(cur_i))=cur_c then if skip_byte(cur_i)<=stop_flag then
-  if op_byte(cur_i)>=kern_flag then
-    begin p:=new_kern(char_kern(cur_f)(cur_i));
+if next_char(cur_f,a)=cur_c then if skip_byte(cur_f,a)<=stop_flag then
+  if op_byte(cur_f,a)>=kern_flag then
+    begin p:=new_kern(char_kern(cur_f,a));
     link(p):=link(q); link(q):=p; return;
     end
   else  begin check_interrupt; {allow a way out of infinite ligature loop}
-    case op_byte(cur_i) of
-  qi(1),qi(5): character(nucleus(q)):=rem_byte(cur_i); {\.{=:\?}, \.{=:\?>}}
-  qi(2),qi(6): character(nucleus(p)):=rem_byte(cur_i); {\.{\?=:}, \.{\?=:>}}
+    case op_byte(cur_f,a) of
+  qi(1),qi(5): character(nucleus(q)):=rem_byte(cur_f,a); {\.{=:\?}, \.{=:\?>}}
+  qi(2),qi(6): character(nucleus(p)):=rem_byte(cur_f,a); {\.{\?=:}, \.{\?=:>}}
   qi(3),qi(7),qi(11):begin r:=new_noad; {\.{\?=:\?}, \.{\?=:\?>}, \.{\?=:\?>>}}
-      character(nucleus(r)):=rem_byte(cur_i);
+      character(nucleus(r)):=rem_byte(cur_f,a);
       fam(nucleus(r)):=fam(nucleus(q));@/
       link(q):=r; link(r):=p;
-      if op_byte(cur_i)<qi(11) then math_type(nucleus(r)):=math_char
+      if op_byte(cur_f,a)<qi(11) then math_type(nucleus(r)):=math_char
       else math_type(nucleus(r)):=math_text_char; {prevent combination}
       end;
     othercases begin link(q):=link(p);
-      character(nucleus(q)):=rem_byte(cur_i); {\.{=:}}
+      character(nucleus(q)):=rem_byte(cur_f,a); {\.{=:}}
       mem[subscr(q)]:=mem[subscr(p)]; mem[supscr(q)]:=mem[supscr(p)];@/
       free_node(p,noad_size);
       end
     endcases;
-    if op_byte(cur_i)>qi(3) then return;
+    if op_byte(cur_f,a)>qi(3) then return;
     math_type(nucleus(q)):=math_char; goto restart;
     end
 
@@ -24586,8 +23313,8 @@ make_scripts(q,delta)
 
 @ @<Create a character node |p| for |nucleus(q)|...@>=
 begin fetch(nucleus(q));
-if char_exists(cur_i) then
-  begin delta:=char_italic(cur_f)(cur_i); p:=new_character(cur_f,qo(cur_c));
+if char_exists(cur_f,cur_c) then
+  begin delta:=char_italic(cur_f,cur_c); p:=new_character(cur_f,qo(cur_c));
   if (math_type(nucleus(q))=math_text_char)and(space(cur_f)<>0) then
     delta:=0; {no italic correction in mid-word of text font}
   if (math_type(subscr(q))=empty)and(delta<>0) then
@@ -26597,12 +25324,11 @@ only character nodes, kern nodes, ligature nodes, and box or rule nodes.
 if is_char_node(v) then
   begin f:=font(v);
   if is_rotated(line_break_dir) then begin
-    break_c_htdp:=height_depth(char_info(f)(character(v)));
-    break_width[1]:=break_width[1]-char_height(f)(break_c_htdp)
-                                  -char_depth(f)(break_c_htdp);
+    break_width[1]:=break_width[1]-char_height(f,character(v))
+                                  -char_depth(f,character(v));
     end
   else
-    break_width[1]:=break_width[1]-char_width(f)(char_info(f)(character(v)));
+    break_width[1]:=break_width[1]-char_width(f,character(v));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := v;
       sub_char_stretch(break_width[8])(character(v));
@@ -26612,13 +25338,12 @@ if is_char_node(v) then
 else  case type(v) of
   ligature_node: begin f:=font(lig_char(v));@/
    if is_rotated(line_break_dir) then begin
-     break_c_htdp:=height_depth(char_info(f)(character(lig_char(v))));
-     break_width[1]:=break_width[1]-char_height(f)(break_c_htdp)
-                                   -char_depth(f)(break_c_htdp);
+     break_width[1]:=break_width[1]-char_height(f,character(lig_char(v)))
+                                   -char_depth(f,character(lig_char(v)));
      end
    else
      break_width[1]:=@|break_width[1]-
-       char_width(f)(char_info(f)(character(lig_char(v))));
+       char_width(f,character(lig_char(v)));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := v;
         sub_char_stretch(break_width[8])(character(lig_char(v)));
@@ -26648,12 +25373,11 @@ else  case type(v) of
 if is_char_node(s) then
   begin f:=font(s);
   if is_rotated(line_break_dir) then begin
-    break_c_htdp:=height_depth(char_info(f)(character(s)));
-    break_width[1]:=break_width[1]+char_height(f)(break_c_htdp)
-                                  +char_depth(f)(break_c_htdp);
+    break_width[1]:=break_width[1]+char_height(f,character(s))
+                                  +char_depth(f,character(s));
     end
   else
-    break_width[1]:=@|break_width[1]+char_width(f)(char_info(f)(character(s)));
+    break_width[1]:=@|break_width[1]+char_width(f,character(s));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
       add_char_stretch(break_width[8])(character(s));
@@ -26663,13 +25387,12 @@ if is_char_node(s) then
 else  case type(s) of
   ligature_node: begin f:=font(lig_char(s));
    if is_rotated(line_break_dir) then begin
-     break_c_htdp:=height_depth(char_info(f)(character(lig_char(s))));
-     break_width[1]:=break_width[1]+char_height(f)(break_c_htdp)
-                                   +char_depth(f)(break_c_htdp);
+     break_width[1]:=break_width[1]+char_height(f,character(lig_char(s)))
+                                   +char_depth(f,character(lig_char(s)));
      end
    else
      break_width[1]:=break_width[1]+
-       char_width(f)(char_info(f)(character(lig_char(s))));
+       char_width(f,character(lig_char(s)));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := s;
         add_char_stretch(break_width[8])(character(lig_char(s)));
@@ -27253,12 +25976,11 @@ kern_node: if subtype(cur_p)=explicit then kern_break
   end;
 ligature_node: begin f:=font(lig_char(cur_p));
   if is_rotated(line_break_dir) then begin
-    break_c_htdp:=height_depth(char_info(f)(character(lig_char(cur_p))));
-    act_width:=act_width+char_height(f)(break_c_htdp)
-                        +char_depth(f)(break_c_htdp);
+    act_width:=act_width+char_height(f,character(lig_char(cur_p)))
+                        +char_depth(f,character(lig_char(cur_p)));
     end
   else
-    act_width:=act_width+char_width(f)(char_info(f)(character(lig_char(cur_p))));
+    act_width:=act_width+char_width(f,character(lig_char(cur_p)));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := cur_p;
       add_char_stretch(active_width[8])(character(lig_char(cur_p)));
@@ -27287,12 +26009,11 @@ character node.
 begin prev_p:=cur_p;
 repeat f:=font(cur_p);
 if is_rotated(line_break_dir) then begin
-    break_c_htdp:=height_depth(char_info(f)(character(cur_p)));
-    act_width:=act_width+char_height(f)(break_c_htdp)
-                        +char_depth(f)(break_c_htdp);
+    act_width:=act_width+char_height(f,character(cur_p))
+                        +char_depth(f,character(cur_p));
   end
 else
-  act_width:=act_width+char_width(f)(char_info(f)(character(cur_p)));
+  act_width:=act_width+char_width(f,character(cur_p));
 if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
     prev_char_p := cur_p;
     add_char_stretch(active_width[8])(character(cur_p));
@@ -27344,12 +26065,11 @@ end
 if is_char_node(s) then
   begin f:=font(s);
   if is_rotated(line_break_dir) then begin
-      break_c_htdp:=height_depth(char_info(f)(character(s)));
-      disc_width[1]:=disc_width[1]+char_height(f)(break_c_htdp)
-                            +char_depth(f)(break_c_htdp);
+      disc_width[1]:=disc_width[1]+char_height(f,character(s))
+                            +char_depth(f,character(s));
     end
   else
-    disc_width[1]:=disc_width[1]+char_width(f)(char_info(f)(character(s)));
+    disc_width[1]:=disc_width[1]+char_width(f,character(s));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
       add_char_stretch(disc_width[8])(character(s));
@@ -27359,13 +26079,12 @@ if is_char_node(s) then
 else  case type(s) of
   ligature_node: begin f:=font(lig_char(s));
     if is_rotated(line_break_dir) then begin
-        break_c_htdp:=height_depth(char_info(f)(character(lig_char(s))));
-        disc_width[1]:=disc_width[1]+char_height(f)(break_c_htdp)
-                              +char_depth(f)(break_c_htdp);
+        disc_width[1]:=disc_width[1]+char_height(f,character(lig_char(s)))
+                              +char_depth(f,character(lig_char(s)));
       end
     else
       disc_width[1]:=disc_width[1]+
-        char_width(f)(char_info(f)(character(lig_char(s))));
+        char_width(f,character(lig_char(s)));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := s;
         add_char_stretch(disc_width[8])(character(lig_char(s)));
@@ -27394,12 +26113,11 @@ else  case type(s) of
 if is_char_node(s) then
   begin f:=font(s);
   if is_rotated(line_break_dir) then begin
-      break_c_htdp:=height_depth(char_info(f)(character(s)));
-      act_width:=act_width+char_height(f)(break_c_htdp)
-                          +char_depth(f)(break_c_htdp);
+      act_width:=act_width+char_height(f,character(s))
+                          +char_depth(f,character(s));
     end
   else
-    act_width:=act_width+char_width(f)(char_info(f)(character(s)));
+    act_width:=act_width+char_width(f,character(s));
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
       add_char_stretch(active_width[8])(character(s));
@@ -27409,13 +26127,12 @@ if is_char_node(s) then
 else  case type(s) of
   ligature_node: begin f:=font(lig_char(s));
     if is_rotated(line_break_dir) then begin
-        break_c_htdp:=height_depth(char_info(f)(character(lig_char(s))));
-        act_width:=act_width+char_height(f)(break_c_htdp)
-                            +char_depth(f)(break_c_htdp);
+        act_width:=act_width+char_height(f,character(lig_char(s)))
+                            +char_depth(f,character(lig_char(s)));
       end
     else
       act_width:=act_width+
-        char_width(f)(char_info(f)(character(lig_char(s))));
+        char_width(f,character(lig_char(s)));
     if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
         prev_char_p := s;
         add_char_stretch(active_width[8])(character(lig_char(s)));
@@ -28263,17 +26980,17 @@ in the program, so we'd better not try to look for both at once.)
 @<If there's a ligature or kern at the cursor position, update...@>=
 if cur_l=non_char then
   begin k:=bchar_label(hf);
-  if k=non_address then goto done@+else q:=font_info(hf)(k).qqqq;
+  if k=non_address then goto done@+else {q:=font_lig_kern(hf,k);}
   end
-else begin q:=char_info(hf)(cur_l);
-  if char_tag(q)<>lig_tag then goto done;
-  k:=lig_kern_start(hf)(q); q:=font_info(hf)(k).qqqq;
-  if skip_byte(q)>stop_flag then
-    begin k:=lig_kern_restart(hf)(q); q:=font_info(hf)(k).qqqq;
+else begin
+  if char_tag(hf,cur_l)<>lig_tag then goto done;
+  k:=lig_kern_start(hf,cur_l); {q:=font_lig_kern(hf,k);}
+  if skip_byte(hf,k)>stop_flag then
+    begin k:=lig_kern_restart(hf,k);  {q:=font_lig_kern(hf,k);}
     end;
   end; {now |k| is the starting address of the lig/kern program}
 if cur_rh<non_char then test_char:=cur_rh@+else test_char:=cur_r;
-loop@+begin if (next_char(hf)(q))=test_char then if skip_byte(q)<=stop_flag then
+loop@+begin if (next_char(hf,k))=test_char then if skip_byte(hf,k)<=stop_flag then
     if cur_rh<non_char then
       begin hyphen_passed:=j; hchar:=non_char; cur_rh:=non_char;
       goto continue;
@@ -28281,17 +26998,17 @@ loop@+begin if (next_char(hf)(q))=test_char then if skip_byte(q)<=stop_flag then
     else begin if hchar<non_char then if odd(hyf[j]) then
         begin hyphen_passed:=j; hchar:=non_char;
         end;
-      if op_byte(q)<kern_flag then
+      if op_byte(hf,k)<kern_flag then
       @<Carry out a ligature replacement, updating the cursor structure
         and possibly advancing~|j|; |goto continue| if the cursor doesn't
         advance, otherwise |goto done|@>;
-      w:=char_kern(hf)(q); goto done; {this kern will be inserted below}
+      w:=char_kern(hf,k); goto done; {this kern will be inserted below}
      end;
-  if skip_byte(q)>=stop_flag then
+  if skip_byte(hf,k)>=stop_flag then
     if cur_rh=non_char then goto done
     else begin cur_rh:=non_char; goto continue;
       end;
-  k:=k+qo(skip_byte(q))+1; q:=font_info(hf)(k).qqqq;
+  k:=k+qo(skip_byte(hf,k))+1;
   end;
 done:
 
@@ -28327,11 +27044,11 @@ if lig_stack>null then
 begin if cur_l=non_char then lft_hit:=true;
 if j=n then if lig_stack=null then rt_hit:=true;
 check_interrupt; {allow a way out in case there's an infinite ligature loop}
-case op_byte(q) of
-qi(1),qi(5):begin cur_l:=rem_byte(q); {\.{=:\?}, \.{=:\?>}}
+case op_byte(hf,k) of
+qi(1),qi(5):begin cur_l:=rem_byte(hf,k); {\.{=:\?}, \.{=:\?>}}
   ligature_present:=true;
   end;
-qi(2),qi(6):begin cur_r:=rem_byte(q); {\.{\?=:}, \.{\?=:>}}
+qi(2),qi(6):begin cur_r:=rem_byte(hf,k); {\.{\?=:}, \.{\?=:>}}
   if lig_stack>null then character(lig_stack):=cur_r
   else begin lig_stack:=new_lig_item(cur_r);
     if j=n then bchar:=non_char
@@ -28340,20 +27057,20 @@ qi(2),qi(6):begin cur_r:=rem_byte(q); {\.{\?=:}, \.{\?=:>}}
       end;
     end;
   end;
-qi(3):begin cur_r:=rem_byte(q); {\.{\?=:\?}}
+qi(3):begin cur_r:=rem_byte(hf,k); {\.{\?=:\?}}
   p:=lig_stack; lig_stack:=new_lig_item(cur_r); link(lig_stack):=p;
   end;
 qi(7),qi(11):begin wrap_lig(false); {\.{\?=:\?>}, \.{\?=:\?>>}}
-  cur_q:=t; cur_l:=rem_byte(q); ligature_present:=true;
+  cur_q:=t; cur_l:=rem_byte(hf,k); ligature_present:=true;
   end;
-othercases begin cur_l:=rem_byte(q); ligature_present:=true; {\.{=:}}
+othercases begin cur_l:=rem_byte(hf,k); ligature_present:=true; {\.{=:}}
   if lig_stack>null then pop_lig_stack
   else if j=n then goto done
   else begin append_charnode_to_t(cur_r); incr(j); set_cur_r;
     end;
   end
 endcases;
-if op_byte(q)>qi(4) then if op_byte(q)<>qi(7) then goto done;
+if op_byte(hf,k)>qi(4) then if op_byte(hf,k)<>qi(7) then goto done;
 goto continue;
 end
 
@@ -30730,8 +29447,7 @@ new_left_ghost:=false; new_right_ghost:=false;
 if(cur_chr<font_bc(main_f))or(cur_chr>font_ec(main_f)) then
   begin char_warning(main_f,cur_chr); free_avail(lig_stack); goto big_switch;
   end;
-main_i:=char_info(main_f)(cur_l);
-if not char_exists(main_i) then
+if not char_exists(main_f,cur_l) then
   begin char_warning(main_f,cur_chr); free_avail(lig_stack); goto big_switch;
   end;
 if pdf_prepend_kern > 0 then
@@ -30749,7 +29465,7 @@ main_p:=lig_ptr(lig_stack);
 if main_p>null then tail_append(main_p);
 temp_ptr:=lig_stack; lig_stack:=link(temp_ptr);
 free_node(temp_ptr,small_node_size);
-main_i:=char_info(main_f)(cur_l); ligature_present:=true;
+ligature_present:=true;
 if lig_stack=null then
   if main_p>null then goto main_loop_lookahead
   else cur_r:=bchar
@@ -30799,69 +29515,21 @@ At the beginning of this code we have |main_i=char_info(main_f)(cur_l)|.
 
 @<If there's a ligature/kern command...@>=
 if new_right_ghost or left_ghost then goto main_loop_wrapup;
-if char_tag(main_i)<>lig_tag then goto main_loop_wrapup;
-main_k:=lig_kern_start(main_f)(main_i);
-main_j:=font_info(main_f)(main_k).qqqq;
-if skip_byte(main_j)<=stop_flag then goto main_lig_loop+2;
-main_k:=lig_kern_restart(main_f)(main_j);
-main_lig_loop+1: main_j:=font_info(main_f)(main_k).qqqq;
-main_lig_loop+2:if top_skip_byte(main_j)=0 then begin
-    if next_char(main_f)(main_j)=cur_r then
-      if skip_byte(main_j)<=stop_flag then
+if char_tag(main_f,cur_l)<>lig_tag then goto main_loop_wrapup;
+main_k:=lig_kern_start(main_f,cur_l); {main_j:=main_k;}
+if skip_byte(main_f,main_k)<=stop_flag then goto main_lig_loop+2;
+main_k:=lig_kern_restart(main_f,main_k);
+main_lig_loop+1: do_nothing; {main_j:=main_k;}
+main_lig_loop+2:
+    if next_char(main_f,main_k)=cur_r then
+      if skip_byte(main_f,main_k)<=stop_flag then
         @<Do ligature or kern command, returning to |main_lig_loop|
           or |main_loop_wrapup| or |main_loop_move|@>;
-    end
-  else begin
-    if (font_bc(main_f)<=cur_r) then
-      if (font_ec(main_f)>=cur_r) then
-        if (char_exists(char_info(main_f)(cur_r))) then
-          if cur_r<>bchar then
-            if next_char(main_f)(main_j)=
-               attr_zero_char_ivalue(main_f)(cur_r) then
-              @<Do glue or penalty command@>;
-    end;
-if skip_byte(main_j)=qi(0) then incr(main_k)
-else begin if skip_byte(main_j)>=stop_flag then goto main_loop_wrapup;
-  main_k:=main_k+qo(skip_byte(main_j))+1;
+if skip_byte(main_f,main_k)=qi(0) then incr(main_k)
+else begin if skip_byte(main_f,main_k)>=stop_flag then goto main_loop_wrapup;
+  main_k:=main_k+qo(skip_byte(main_f,main_k))+1;
   end;
 goto main_lig_loop+1
-
-@ There are currently three commands.  Command 17 will add a penalty
-node between the two characters.  Command 18 will add a glue
-node between the two characters.  Command 19 will add a penalty node,
-then a glue node between the two characters.  Command 20
-will add a kern nore between the two characters.
-
-@<Do glue or penalty command@>=
-begin
-if new_left_ghost or right_ghost then goto main_loop_wrapup;
-case op_byte(main_j) of
-  qi(20): begin wrapup(rt_hit);
-    tail_append(new_kern(attr_zero_kern(main_f)(rem_byte(main_j))));
-    end;
-  qi(18): begin wrapup(rt_hit);
-    k_glue:=glues_base(main_f) + (rem_byte(main_j)*4);
-    font_glue_spec:=new_spec(zero_glue);
-    width(font_glue_spec):= font_info(main_f)(k_glue+1).sc;
-    stretch(font_glue_spec):=font_info(main_f)(k_glue+2).sc;
-    shrink(font_glue_spec):=font_info(main_f)(k_glue+3).sc;
-    tail_append(new_glue(font_glue_spec));
-    end;
-  qi(19): begin wrapup(rt_hit);
-    tail_append(new_penalty(attr_zero_penalty(main_f)(rem_top_byte(main_j))));
-    k_glue:=glues_base(main_f) + (rem_bot_byte(main_j)*4);
-    font_glue_spec:=new_spec(zero_glue);
-    width(font_glue_spec):= font_info(main_f)(k_glue+1).sc;
-    stretch(font_glue_spec):=font_info(main_f)(k_glue+2).sc;
-    shrink(font_glue_spec):=font_info(main_f)(k_glue+3).sc;
-    tail_append(new_glue(font_glue_spec));
-    end;
-  qi(17): begin wrapup(rt_hit);
-    tail_append(new_penalty(attr_zero_penalty(main_f)(rem_byte(main_j))));
-    end;
-  end;
-goto main_loop_move;
-end
 
 @ When a ligature or kern instruction matches a character, we know from
 |read_font_info| that the character exists in the font, even though we
@@ -30873,9 +29541,9 @@ This section could be made into a subroutine, if the code inside
 \chardef\?='174 % vertical line to indicate character retention
 
 @<Do ligature or kern command...@>=
-begin if op_byte(main_j)>=kern_flag then
+begin if op_byte(main_f,main_k)>=kern_flag then
   begin wrapup(rt_hit);
-  tail_append(new_kern(char_kern(main_f)(main_j)));
+  tail_append(new_kern(char_kern(main_f,main_k)));
   if new_left_ghost or right_ghost then begin
     subtype(tail):=explicit;
     end;
@@ -30885,11 +29553,11 @@ if new_left_ghost or right_ghost then goto main_loop_wrapup;
 if cur_l=non_char then lft_hit:=true
 else if lig_stack=null then rt_hit:=true;
 check_interrupt; {allow a way out in case there's an infinite ligature loop}
-case op_byte(main_j) of
-qi(1),qi(5):begin cur_l:=rem_char_byte(main_f)(main_j); {\.{=:\?}, \.{=:\?>}}
-  main_i:=char_info(main_f)(cur_l); ligature_present:=true;
+case op_byte(main_f,main_k) of
+qi(1),qi(5):begin cur_l:=rem_byte(main_f,main_k); {\.{=:\?}, \.{=:\?>}}
+  ligature_present:=true;
   end;
-qi(2),qi(6):begin cur_r:=rem_char_byte(main_f)(main_j); {\.{\?=:}, \.{\?=:>}}
+qi(2),qi(6):begin cur_r:=rem_byte(main_f,main_k); {\.{\?=:}, \.{\?=:>}}
   if lig_stack=null then {right boundary character is being consumed}
     begin lig_stack:=new_lig_item(cur_r); bchar:=non_char;
     end
@@ -30899,22 +29567,22 @@ qi(2),qi(6):begin cur_r:=rem_char_byte(main_f)(main_j); {\.{\?=:}, \.{\?=:>}}
     end
   else character(lig_stack):=cur_r;
   end;
-qi(3):begin cur_r:=rem_char_byte(main_f)(main_j); {\.{\?=:\?}}
+qi(3):begin cur_r:=rem_byte(main_f,main_k); {\.{\?=:\?}}
   main_p:=lig_stack; lig_stack:=new_lig_item(cur_r);
   link(lig_stack):=main_p;
   end;
 qi(7),qi(11):begin wrapup(false); {\.{\?=:\?>}, \.{\?=:\?>>}}
-  cur_q:=tail; cur_l:=rem_char_byte(main_f)(main_j);
-  main_i:=char_info(main_f)(cur_l); ligature_present:=true;
+  cur_q:=tail; cur_l:=rem_byte(main_f,main_k);
+  ligature_present:=true;
   end;
-othercases begin cur_l:=rem_char_byte(main_f)(main_j); 
-                 ligature_present:=true; {\.{=:}}
+othercases begin cur_l:=rem_byte(main_f,main_k); 
+ ligature_present:=true; {\.{=:}}
   if lig_stack=null then goto main_loop_wrapup
   else goto main_loop_move+1;
   end
 endcases;
-if op_byte(main_j)>qi(4) then
-  if op_byte(main_j)<>qi(7) then goto main_loop_wrapup;
+if op_byte(main_f,main_k)>qi(4) then
+  if op_byte(main_f,main_k)<>qi(7) then goto main_loop_wrapup;
 if cur_l<non_char then goto main_lig_loop;
 main_k:=bchar_label(main_f); goto main_lig_loop+1;
 end
@@ -30944,19 +29612,17 @@ goto big_switch
 
 @ Having |font_glue| allocated for each text font saves both time and memory.
 If any of the three spacing parameters are subsequently changed by the
-use of \.{\\fontdimen}, the |find_font_dimen| procedure deallocates the
+use of \.{\\fontdimen}, the |set_font_dimen| procedure deallocates the
 |font_glue| specification allocated here.
 
 @<Find the glue specification...@>=
 begin main_p:=font_glue(cur_font);
-if main_p=null then
-  begin main_p:=new_spec(zero_glue); main_k:=param_base(cur_font)+space_code;
-  width(main_p):=font_info(cur_font)(main_k).sc; {that's |space(cur_font)|}
-  stretch(main_p):=font_info(cur_font)(main_k+1).sc;
-     {and |space_stretch(cur_font)|}
-  shrink(main_p):=font_info(cur_font)(main_k+2).sc;
-     {and |space_shrink(cur_font)|}
-  font_glue(cur_font):=main_p;
+if (main_p=null)or(main_p=0) then
+  begin main_p:=new_spec(zero_glue);
+  width(main_p):=space(cur_font);
+  stretch(main_p):=space_stretch(cur_font);
+  shrink(main_p):=space_shrink(cur_font);
+  set_font_glue(cur_font,main_p);
   end;
 end
 
@@ -32124,7 +30790,7 @@ begin if tail<>head then
   else if type(tail)=ligature_node then p:=lig_char(tail)
   else return;
   f:=font(p);
-  tail_append(new_kern(char_italic(f)(char_info(f)(character(p)))));
+  tail_append(new_kern(char_italic(f,character(p))));
   subtype(tail):=explicit;
   end;
 exit:end;
@@ -32288,7 +30954,7 @@ begin scan_char_num; f:=cur_font; p:=new_character(f,cur_val);
 if p<>null then
   begin x:=x_height(f); s:=slant(f)/float_constant(65536);
 @^real division@>
-  a:=char_width(f)(char_info(f)(character(p)));@/
+  a:=char_width(f,character(p));@/
   do_assignments;@/
   @<Create a character node |q| for the next character,
     but set |q:=null| if problems arise@>;
@@ -32317,8 +30983,8 @@ because the user cannot remove these nodes nor access them via \.{\\lastkern}.
 @<Append the accent with appropriate kerns...@>=
 begin t:=slant(f)/float_constant(65536);
 @^real division@>
-i:=char_info(f)(character(q));
-w:=char_width(f)(i); h:=char_height(f)(height_depth(i));
+w:=char_width(f,character(q)); 
+h:=char_height(f,character(q));
 if h<>x then {the accent must be shifted up or down}
   begin p:=hpack(p,natural); shift_amount(p):=x-h;
   end;
@@ -32585,7 +31251,7 @@ done:
 
 @ @<Let |d| be the natural width of node |p|...@>=
 reswitch: if is_char_node(p) then
-  begin f:=font(p); d:=char_width(f)(char_info(f)(character(p)));
+  begin f:=font(p); d:=char_width(f,character(p));
   goto found;
   end;
 case type(p) of
@@ -34355,10 +33021,7 @@ hyph_data: if cur_chr=1 then
 the interaction mode, and the hyphenation tables; these are strictly global.
 
 @<Assignments@>=
-assign_font_dimen: begin find_font_dimen(true); k:=cur_val;
-  scan_optional_equals; scan_normal_dimen;
-  font_info(dimen_font)(k).sc:=cur_val;
-  end;
+assign_font_dimen: set_font_dimen;
 assign_font_int: begin 
 {TH: leave this alone for now}
 {  if (cur_chr=no_lig_code) or (cur_chr=tag_code) then
@@ -34369,7 +33032,7 @@ assign_font_int: begin
   if n = no_lig_code then set_no_ligatures(f)
   else if n < lp_code_base then begin
     scan_optional_equals; scan_int;
-    if n=0 then hyphen_char(f):=cur_val@+else skew_char(f):=cur_val;
+    if n=0 then set_hyphen_char(f,cur_val)@+else set_skew_char(f,cur_val);
   end
   else begin
     scan_char_num; p := cur_val;
@@ -34478,7 +33141,7 @@ else natural_dir:=-1;
 name_in_progress:=false;
 @<If this font has already been loaded, set |f| to the internal
   font number and |goto common_ending|@>;
-f:=read_font_info(u,cur_name,cur_area,s,offset,natural_dir);
+f:=read_font_info(u,cur_name,cur_area,s,natural_dir);
 common_ending: equiv(u):=f; eqtb[font_id_base+f]:=eqtb[u]; font_id_text(f):=t;
 end;
 
@@ -34518,8 +33181,8 @@ the new name becomes the font identifier of record. Font names `\.{xyz}' and
 @<If this font has already been loaded...@>=
 flushable_string:=str_ptr-1;
 for f:=font_base+1 to font_ptr do begin
-  if str_eq_str(font_name(f),cur_name) and
-     str_eq_str(font_area(f),cur_area) then
+  if str_eq_str(tex_font_name(f),cur_name) and
+     str_eq_str(tex_font_area(f),cur_area) then
     begin if cur_name=flushable_string then
       begin flush_string; cur_name:=font_name(f);
       end;
@@ -35218,21 +33881,21 @@ print_ln; print_int(font_ptr-font_base); print(" preloaded font");
 if font_ptr<>font_base+1 then print_char("s")
 
 @ @<Undump the font information@>=
-undump_size(font_base)(font_max)('font max')(font_ptr);
+undump_int(font_ptr);
 for k:=null_font to font_ptr do
   @<Undump the array info for internal font number |k|@>
 
 @ @<Dump the array info for internal font number |k|@>=
-begin dump_font_table(k,param_base(k)+font_params(k)+1);
+begin dump_font(k);
 print_nl("\font"); print_esc(font_id_text(k)); print_char("=");
-print_file_name(font_name(k),font_area(k),"");
+print_file_name(tex_font_name(k),tex_font_area(k),"");
 if font_size(k)<>font_dsize(k) then
   begin print(" at "); print_scaled(font_size(k)); print("pt");
   end;
 end
 
 @ @<Undump the array info for internal font number |k|@>=
-begin undump_font_table(k);@/
+begin undump_font(k);@/
 end
 
 @ @<Dump the active ocp information@>=
@@ -39597,13 +38260,13 @@ font_char_wd_code,
 font_char_ht_code,
 font_char_dp_code,
 font_char_ic_code: begin scan_font_ident; q:=cur_val; scan_char_num;
-  if (font_bc(q)<=cur_val)and(font_ec(q)>=cur_val) then
-    begin i:=char_info(q)(qi(cur_val));
+  if char_exists(q,cur_val) then
+    begin
     case m of
-    font_char_wd_code: cur_val:=char_width(q)(i);
-    font_char_ht_code: cur_val:=char_height(q)(height_depth(i));
-    font_char_dp_code: cur_val:=char_depth(q)(height_depth(i));
-    font_char_ic_code: cur_val:=char_italic(q)(i);
+    font_char_wd_code: cur_val:=char_width(q,cur_val);
+    font_char_ht_code: cur_val:=char_height(q,cur_val);
+    font_char_dp_code: cur_val:=char_depth(q,cur_val);
+    font_char_ic_code: cur_val:=char_italic(q,cur_val);
     end; {there are no other cases}
     end
   else cur_val:=0;
@@ -40228,9 +38891,7 @@ if_abs_dim_code, if_abs_num_code: begin
   end;
   end;
 if_font_char_code:begin scan_font_ident; n:=cur_val; scan_char_num;
-  if (font_bc(n)<=cur_val)and(font_ec(n)>=cur_val) then
-    b:=char_exists(char_info(n)(qi(cur_val)))
-  else b:=false;
+  b:=char_exists(n,cur_val);
   end;
 
 @ The |protected| feature of \eTeX\ defines the \.{\\protected} prefix
@@ -41276,31 +39937,6 @@ end;
 function get_cur_h: integer;
 begin
     get_cur_h := cur_h;
-end;
-
-function get_font_ec(f:internal_font_number):integer;
-begin
-  get_font_ec := font_ec(f);
-end;
-
-function get_font_bc(f:internal_font_number):integer;
-begin
-  get_font_bc := font_bc(f);
-end;
-
-function get_font_dsize(f:internal_font_number):integer;
-begin
-  get_font_dsize := font_dsize(f);
-end;
-
-function get_font_used(f:internal_font_number):boolean;
-begin
-  get_font_used := font_used(f);
-end;
-
-function get_font_name(f:internal_font_number):str_number;
-begin
-  get_font_name := font_name(f);
 end;
 
 @* \[54] $\Omega$ changes.

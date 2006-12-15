@@ -113,12 +113,6 @@ $Id $
 @define procedure btestin ;
 
 
-@define var fonttables;
-
-@define procedure allocatefonttable ();
-@define procedure dumpfonttable ();
-@define procedure undumpfonttable ();
-
 @define function readtfmfile();
 @define function nextvfbyte;
 @define function readvffile();
@@ -133,6 +127,138 @@ $Id $
 @define procedure runexternalocp ();
 
 @define function loadpoolstrings();
+
+{ 'texfont' library definitions }
+
+@define var fonttables;
+@define procedure dumpfont ();
+@define procedure undumpfont ();
+@define function isvalidfont();
+@define function copyfont();
+@define procedure createnullfont;
+
+@define function fontname();
+@define procedure setfontname();
+@define function fontarea();
+@define function fontbc();
+@define function fontec();
+
+@define function texfontname();
+@define function texfontarea();
+@define procedure settexfontname();
+
+@define function fontglue();
+@define procedure setfontglue();
+
+@define function fontcheck0();
+@define function fontcheck1();
+@define function fontcheck2();
+@define function fontcheck3();
+
+@define function fontsize();
+@define function fontused();
+@define procedure setfontused();
+
+@define function fontdsize();
+@define function fontnaturaldir();
+
+@define function fontbchar();
+@define function fontfalsebchar();
+
+
+@define function fontparams();
+@define function fontparam();
+@define procedure setfontparams();
+@define procedure setfontparam();
+@define function slant();
+@define function quad();
+@define function xheight();
+@define function space();
+@define function extraspace();
+@define function spacestretch();
+@define function spaceshrink();
+
+@define function fontkerns();
+@define function fontkern();
+@define procedure setfontkerns();
+@define procedure setfontkern();
+
+@define function fontitalics();
+@define function fontitalic();
+@define procedure setfontitalics();
+@define procedure setfontitalic();
+
+@define function fontextens();
+@define function fontexten();
+@define procedure setfontextens();
+@define procedure setfontexten();
+
+
+@define function fontwidths();
+@define function fontwidth();
+@define procedure setfontwidths();
+@define procedure setfontwidth();
+
+@define function fontheights();
+@define function fontheight();
+@define procedure setfontheights();
+@define procedure setfontheight();
+
+@define function fontdepths();
+@define function fontdepth();
+@define procedure setfontdepths();
+@define procedure setfontdepth();
+
+@define function fontligkerns();
+@define function fontligkern();
+
+@define function exttop();
+@define function extmid();
+@define function extbot();
+@define function extrep();
+
+
+@define var spaceshrinkcode;
+@define var spacestretchcode;
+@define var spacecode;
+@define var exttag;
+@define var ligtag;
+@define var listtag;
+@define var nonchar;
+@define var nonaddress;
+
+@define function hyphenchar();
+@define function skewchar();
+@define procedure sethyphenchar();
+@define procedure setskewchar();
+@define function charexists();
+
+@define function charwidth();
+@define function charheight();
+@define function chardepth();
+@define function charitalic();
+@define function chartag();
+@define procedure setchartag();
+@define function charremainder();
+
+@define function readfontinfo();
+
+@define function testnoligatures();
+@define function gettagcode();
+@define function getkern();
+
+@define function bcharlabel();
+@define function ligkernstart();
+@define function ligkernrestart();
+@define function skipbyte();
+@define function nextchar();
+@define function opbyte();
+@define function rembyte();
+
+@define var stopflag;
+@define var kernflag;
+
+@define function charkern();
 
 { functions from mapfile.c }
 @define function hasfmentry();

@@ -285,4 +285,6 @@ extern void writezip (boolean);
 extern void avlputobj (integer, integer);
 extern integer avlfindobj (integer, integer, integer);
 
+#include "font/texfont.h"
+
 #endif                          /* LUATEXLIB */
