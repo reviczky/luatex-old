@@ -682,7 +682,7 @@ static fm_entry *mk_ex_fm (internalfontnumber f, fm_entry * basefm, int ex)
     fm->extend = roundxnoverd (e, 1000 + ex, 1000);     /* modify ExtentFont to simulate expansion */
     if (fm->extend == 1000)
         fm->extend = 0;
-    fm->tfm_name = xstrdup (makecstring (getfontname(f)));
+    fm->tfm_name = xstrdup (get_font_name(f));
     if (basefm->ps_name != NULL)
         fm->ps_name = xstrdup (basefm->ps_name);
     fm->ff_name = xstrdup (basefm->ff_name);
@@ -713,7 +713,7 @@ static fmentryptr fmlookup (internalfontnumber f)
     int ai, e;
     if (tfm_tree == NULL)
         fm_read_info ();        /* only to read default map file */
-    tfm = makecstring (getfontname(f));
+    tfm = get_font_name(f);
     assert (strcmp (tfm, nontfm) != 0);
 
     /* Look up for full <tfmname>[+-]<expand> */
@@ -723,7 +723,7 @@ static fmentryptr fmlookup (internalfontnumber f)
         init_fm (fm, f);
         return (fmentryptr) fm;
     }
-    tfm = mk_base_tfm (makecstring (getfontname(f)), &e);
+    tfm = mk_base_tfm (get_font_name(f), &e);
     if (tfm == NULL)            /* not an expanded font, nothing to do */
         return (fmentryptr) dummy_fm_entry ();
 
@@ -914,8 +914,7 @@ static fm_entry *lookup_ps_name (fm_entry * fm)
         p = loaded_tfm_found;
     else if (avail_tfm_found != NULL) {
         p = avail_tfm_found;
-        p->tfm_num = readfontinfo (getnullcs (), maketexstring (p->tfm_name),
-                                   getnullstr (), -1000, 0, -1);
+        p->tfm_num = readfontinfo (getnullcs (), maketexstring(p->tfm_name),  getnullstr (), -1000, -1);
         p->tfm_avail = TFM_FOUND;
     } else if (non_tfm_found != NULL) {
         p = non_tfm_found;
