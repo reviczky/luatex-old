@@ -37,7 +37,7 @@
 % Version 2.1 corrected anomalies in discretionary breaks (January 1987).
 % Version 2.2 corrected "(Please type...)" with null \endlinechar (April 1987).
 % Version 2.3 avoided incomplete page in premature termination (August 1987).
-% Version 2.4 fixed \noaligned rules in indented displays (August 1987).
+% Version 2.4 fixed \noaliogned rules in indented displays (August 1987).
 % Version 2.5 saved cur_order when expanding tokens (September 1987).
 % Version 2.6 added 10sp slop when shipping leaders (November 1987).
 % Version 2.7 improved rounding of negative-width characters (November 1987).
@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20061208' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20061221' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -2064,7 +2064,8 @@ is now subsumed by |print|. We retain the old name here as a possible aid to
 future software arch\ae ologists.
 
 @d print_ASCII == print
-
+@d print_font_name(#)==begin print(tex_font_name(#)); flush_string; end
+ 
 @ Roman numerals are produced by the |print_roman_int| routine.  Readers
 who like puzzles might enjoy trying to figure out how this tricky code
 works; therefore no explanation will be given. Notice that 1990 yields
@@ -7369,7 +7370,7 @@ begin
     print_esc(font_id_text(font(p)));
     if pdf_tracing_fonts > 0 then begin
         print(" (");
-        print(tex_font_name(font(p)));
+        print_font_name(font(p));
         if font_size(font(p)) <> font_dsize(font(p)) then begin
             print("@@");
             print_scaled(font_size(font(p)));
@@ -11939,7 +11940,7 @@ meaning_code: print_meaning;
 etex_code: print(eTeX_version_string);
 omega_code: print(Omega_version_string);
 aleph_code: print(Aleph_version_string);
-font_name_code: begin print(tex_font_name(cur_val));
+font_name_code: begin print_font_name(cur_val);
   if font_size(cur_val)<>font_dsize(cur_val) then
     begin print(" at "); print_scaled(font_size(cur_val));
     print("pt");
@@ -13237,6 +13238,7 @@ the font.
 
 @ @<Glob...@>=
 @!font_ptr:internal_font_number; {largest internal font number in use}
+@!font_bytes:integer;
 
 @ \TeX\ always knows at least one font, namely the null font. It has no
 characters, and its seven parameters are all equal to zero.
@@ -13244,6 +13246,7 @@ characters, and its seven parameters are all equal to zero.
 @<Initialize table...@>=
 create_null_font;
 font_ptr:=null_font;
+font_bytes:=0;
 
 @ @<Put each...@>=
 primitive("nullfont",set_font,null_font);
@@ -13293,10 +13296,6 @@ begin scan_int; n:=cur_val; scan_font_ident; f:=cur_val;
   if n<=0 then
     @<Issue a font parameter error message, and return@>
   else begin
-    if (n<=space_shrink_code)and(n>=space_code)and((font_glue(f)<>null)and(font_glue(f)<>0)) then
-      begin delete_glue_ref(font_glue(f));
-      set_font_glue(f,null);
-      end;
     if n>font_params(f) then
       if f<font_ptr then @<Issue a font parameter error message, and return@>
       else @<Increase the number of parameters in the font@>;
@@ -13356,7 +13355,8 @@ begin if tracing_lost_chars>0 then
   print_nl("Missing character: There is no ");
 @.Missing character@>
   print_ASCII(c); print(" in font ");
-  slow_print(tex_font_name(f)); print_char("!"); end_diagnostic(false);
+  print_font_name(f);
+  print_char("!"); end_diagnostic(false);
   end;
  tracing_online:=old_setting;
  end;
@@ -14825,7 +14825,7 @@ end
 
 @p procedure dvi_font_def(@!f:internal_font_number);
 var k:pool_pointer; {index into |str_pool|}
-fa,fn:str_number;
+fa:^packed_ASCII_code;
 begin
 oval:=f-font_base-1; ocmd:= fnt_def1; out_cmd;@/
 dvi_out(font_check_0(f));
@@ -14834,20 +14834,16 @@ dvi_out(font_check_2(f));
 dvi_out(font_check_3(f));@/
 dvi_four(font_size(f));
 dvi_four(font_dsize(f));@/
-fa := tex_font_area(f);
-fn := tex_font_name(f);
-dvi_out(length(fa));
-dvi_out(length(fn));
+dvi_out(strlen(font_name(f)));
+dvi_out(strlen(font_area(f)));
 @<Output the font name whose internal number is |f|@>;
-flush_string;
-flush_string;
 end;
 
 @ @<Output the font name whose internal number is |f|@>=
-for k:=str_start_macro(fa) to str_start_macro(fa+1)-1 do
-  dvi_out(so(str_pool[k]));
-for k:=str_start_macro(fn) to str_start_macro(fn+1)-1 do
-  dvi_out(so(str_pool[k]))
+fa := font_name(f); k := 0;
+while fa[k]<>0 do begin dvi_out(fa[k]); incr(k); end;
+fa := font_area(f); k := 0;
+while fa[k]<>0 do begin dvi_out(fa[k]); incr(k); end
 
 @ Versions of \TeX\ intended for small computers might well choose to omit
 the ideas in the next few parts of this program, since it is not really
@@ -17988,36 +17984,6 @@ begin
 	get_default_skew_char:=default_skew_char; 
 end;
 @#
-procedure set_tag_code(f: internal_font_number; c: eight_bits; i: integer);
-var fixedi:integer;
-begin
-    if is_valid_char(c) then
-    begin fixedi := abs(fix_int(i,-7,0));
-      if fixedi >= 4 then begin
-          if char_tag(f,c) = ext_tag then
- 	         set_char_tag(f,c,(char_tag(f,c)- ext_tag));
-        fixedi := fixedi - 4;
-      end;
-      if fixedi >= 2 then begin
-          if char_tag(f,c) = list_tag then
- 	         set_char_tag(f,c,(char_tag(f,c)- list_tag));
-        fixedi := fixedi - 2;
-      end;
-      if fixedi >= 1 then begin
-          if char_tag(f,c) = lig_tag then
- 	         set_char_tag(f,c,(char_tag(f,c)- lig_tag));
-    end;
-  end;
-end;
-
-procedure set_no_ligatures(f: internal_font_number);
-var c:integer;
-begin
-    for c := font_bc(f) to font_ec(f) do
-        if char_exists(f,c) then
-            if char_tag(f,c)=lig_tag then
-	            set_char_tag(f,c,char_tag(f,c)-lig_tag);
-end;
 
 function init_font_base(v: integer): integer;
 var i, j: integer;
@@ -18172,7 +18138,7 @@ function expand_font_name(f: internal_font_number; e: integer): str_number;
 var old_setting:0..max_selector; {holds |selector| setting}
 begin
     old_setting:=selector; selector:=new_string;
-    print(tex_font_name(f));
+    print_font_name(f);
     if e > 0 then
         print("+"); {minus sign will be printed by |print_int|}
     print_int(e);
@@ -18195,7 +18161,7 @@ begin
       set_font_italic(k,i, round_xn_over_d(font_italic(f,i), 1000 + e, 1000));
       end;
     for i := 0 to font_kerns(k) do begin
-      set_font_kern(k,i, round_xn_over_d(font_kern(f,i), 1000 + e, 1000));
+      adjust_font_kern(k,i, round_xn_over_d(font_kern_sc(f,i), 1000 + e, 1000));
       end;
 	incr(font_ptr);
     auto_expand_font := k;
@@ -18240,7 +18206,7 @@ var k: internal_font_number;
 begin
     if fs <> 0 then begin
         for k := font_base + 1 to font_ptr do
-            if str_eq_str(tex_font_name(k), s) and (font_size(k) = fs) then begin
+            if cmp_font_name(k, s) and (font_size(k) = fs) then begin
                 flush_str(s);
                 tfm_lookup := k;
                 return;
@@ -18248,11 +18214,12 @@ begin
     end
     else begin
         for k := font_base + 1 to font_ptr do
-            if str_eq_str(tex_font_name(k), s) then begin
+            if cmp_font_name(k, s) then begin
+	            flush_string; {font_name}
                 flush_str(s);
                 tfm_lookup := k;
                 return;
-            end;
+            end else flush_string;
     end;
     tfm_lookup := null_font;
 end;
@@ -18470,10 +18437,11 @@ begin
         if hasfmentry(f) then begin
         {this font is scaleable, so different sizes can share a single font object}
             k := tfm_of_fm(pdf_font_map[f]);
-            if (k <> f) and str_eq_str(tex_font_name(k), tex_font_name(f)) then begin
+            if (k <> f) and cmp_font_name(k, tex_font_name(f)) then begin
+	            flush_string; {font_name}
                 pdf_use_font(f, -k);
                 return;
-            end;
+            end else flush_string;
         end;
         pdf_create_obj(obj_type_font, f);
         pdf_use_font(f, obj_ptr);
@@ -18602,9 +18570,9 @@ procedure vf_local_font_warning(f, k: internal_font_number; s: str_number);
 begin
     print_nl(s);
     print(" in local font ");
-    print(tex_font_name(k));
+    print_font_name(k);
     print(" in virtual font ");
-    print(tex_font_name(f));
+    print_font_name(f);
     print(".vf ignored.");
 end;
 
@@ -18682,7 +18650,7 @@ begin
     return;
 vf_error:
     print_nl("Error in processing VF font (");
-    print(tex_font_name(f));
+    print_font_name(f);
     print(".vf): ");
     print(vf_err_str);
     print(", virtual font will be ignored");
@@ -18691,7 +18659,9 @@ vf_error:
 end;
 
 @ @<Open |vf_file|, return if not found@>=
-pack_file_name(tex_font_name(f), "", ".vf");
+fnam := tex_font_name(f);
+pack_file_name(fnam, "", ".vf");
+flush_str(fnam);
 if vf_buffer<>0 then libc_free(vf_buffer);
 vf_cur:=0; vf_buffer:=0; vf_size:=0;
 callback_id:=callback_defined('find_vf_file');
@@ -18735,12 +18705,12 @@ if ((tmp_b0 <> 0) or (tmp_b1 <> 0) or (tmp_b2 <> 0) or (tmp_b3 <> 0)) and
    ((tmp_b0 <> font_check_0(f)) or (tmp_b1 <> font_check_1(f)) or
     (tmp_b2 <> font_check_2(f)) or (tmp_b3 <> font_check_3(f))) then begin
     print_nl("checksum mismatch in font ");
-    print(tex_font_name(f));
-    print(".vf ignored");
+    print_font_name(f);
+    print(".vf ignored ");
 end;
 if vf_read(4) div @'20 <> font_dsize(f) then begin
     print_nl("design size mismatch in font ");
-    print(tex_font_name(f));
+    print_font_name(f);
     print(".vf ignored");
 end;
 update_terminal;
@@ -18785,7 +18755,7 @@ if vf_packet_length > vf_max_packet_length then
     bad_vf("packet length too long");
 if (tfm_width <> char_width(f,cc)) then begin
     print_nl("character width mismatch in font ");
-    print(tex_font_name(f));
+    print_font_name(f);
     print(".vf ignored");
 end;
 str_room(vf_packet_length);
@@ -23213,8 +23183,10 @@ No boundary characters enter into these ligatures.
 @<Declare math...@>=
 procedure make_ord(@!q:pointer);
 label restart,exit;
-var a:integer; {address of lig/kern instruction}
+var a:integer; { the left-side character for lig/kern testing }
 @!p,@!r:pointer; {temporary registers for list manipulation}
+k:scaled; { a kern }
+lig:liginfo; { a ligature }
 begin restart:@t@>@;@/
 if math_type(subscr(q))=empty then if math_type(supscr(q))=empty then
  if math_type(nucleus(q))=math_char then
@@ -23223,20 +23195,13 @@ if math_type(subscr(q))=empty then if math_type(supscr(q))=empty then
     if math_type(nucleus(p))=math_char then
     if fam(nucleus(p))=fam(nucleus(q)) then
       begin math_type(nucleus(q)):=math_text_char;
-      fetch(nucleus(q));
-      if char_tag(cur_f,cur_c)=lig_tag then
-        begin a:=lig_kern_start(cur_f,cur_c);
-        cur_c:=character(nucleus(p));
-        if skip_byte(cur_f,a)>stop_flag then
-          begin a:=lig_kern_restart(cur_f,a);
-          end;
-        loop@+ begin @<If instruction |cur_i| is a kern with |cur_c|, attach
-            the kern after~|q|; or if it is a ligature with |cur_c|, combine
+      fetch(nucleus(q)); a:=cur_c;
+      if (has_kern(cur_f,a))or(has_lig(cur_f,a)) then
+        begin cur_c:=character(nucleus(p));
+          @<If character |a| has a kern with |cur_c|, attach
+            the kern after~|q|; or if it has a ligature with |cur_c|, combine
             noads |q| and~|p| appropriately; then |return| if the cursor has
             moved past a noad, or |goto restart|@>;
-          if skip_byte(cur_f,a)>=stop_flag then return;
-          a:=a+qo(skip_byte(cur_f,a))+1;
-          end;
         end;
       end;
   end;
@@ -23250,32 +23215,39 @@ ligatures only when this convention makes sense.
 
 \chardef\?='174 % vertical line to indicate character retention
 
-@<If instruction |cur_i| is a kern with |cur_c|, ...@>=
-if next_char(cur_f,a)=cur_c then if skip_byte(cur_f,a)<=stop_flag then
-  if op_byte(cur_f,a)>=kern_flag then
-    begin p:=new_kern(char_kern(cur_f,a));
-    link(p):=link(q); link(q):=p; return;
-    end
-  else  begin check_interrupt; {allow a way out of infinite ligature loop}
-    case op_byte(cur_f,a) of
-  qi(1),qi(5): character(nucleus(q)):=rem_byte(cur_f,a); {\.{=:\?}, \.{=:\?>}}
-  qi(2),qi(6): character(nucleus(p)):=rem_byte(cur_f,a); {\.{\?=:}, \.{\?=:>}}
-  qi(3),qi(7),qi(11):begin r:=new_noad; {\.{\?=:\?}, \.{\?=:\?>}, \.{\?=:\?>>}}
-      character(nucleus(r)):=rem_byte(cur_f,a);
+@<If character |a| has a kern with |cur_c|, ...@>=
+begin
+if has_lig(cur_f,a) then begin
+  lig:=get_ligature(cur_f,a,cur_c);
+  if is_ligature(lig) then begin
+	check_interrupt; {allow a way out of infinite ligature loop}
+    case lig_type(lig) of
+    qi(1),qi(5): character(nucleus(q)):=lig_replacement(lig); {\.{=:\?}, \.{=:\?>}}
+    qi(2),qi(6): character(nucleus(p)):=lig_replacement(lig); {\.{\?=:}, \.{\?=:>}}
+    qi(3),qi(7),qi(11):begin r:=new_noad; {\.{\?=:\?}, \.{\?=:\?>}, \.{\?=:\?>>}}
+      character(nucleus(r)):=lig_replacement(lig);
       fam(nucleus(r)):=fam(nucleus(q));@/
       link(q):=r; link(r):=p;
-      if op_byte(cur_f,a)<qi(11) then math_type(nucleus(r)):=math_char
+      if lig_type(lig)<qi(11) then math_type(nucleus(r)):=math_char
       else math_type(nucleus(r)):=math_text_char; {prevent combination}
       end;
     othercases begin link(q):=link(p);
-      character(nucleus(q)):=rem_byte(cur_f,a); {\.{=:}}
+      character(nucleus(q)):=lig_replacement(lig); {\.{=:}}
       mem[subscr(q)]:=mem[subscr(p)]; mem[supscr(q)]:=mem[supscr(p)];@/
       free_node(p,noad_size);
       end
     endcases;
-    if op_byte(cur_f,a)>qi(3) then return;
+    if lig_type(lig)>qi(3) then return;
     math_type(nucleus(q)):=math_char; goto restart;
-    end
+    end;
+  end;
+if has_kern(cur_f,a) then begin
+  k:=get_kern(cur_f,a,cur_c);
+  if k<>0 then begin 
+    p:=new_kern(k); link(p):=link(q); link(q):=p; return;
+	end;
+  end;
+end
 
 @ When we get to the following part of the program, we have ``fallen through''
 from cases that did not lead to |check_dimensions| or |done_with_noad| or
@@ -26919,7 +26891,8 @@ var @!p:pointer; {temporary register for list manipulation}
 @!cur_rh:halfword; {hyphen character for ligature testing}
 @!test_char:halfword; {hyphen or other character for ligature testing}
 @!w:scaled; {amount of kerning}
-@!k:font_index; {position of current lig/kern instruction}
+@!k:integer; {position of current lig/kern instruction}
+@!lig:liginfo; {a ligature structure}
 begin hyphen_passed:=0; t:=hold_head; w:=0; link(hold_head):=null;
  {at this point |ligature_present=lft_hit=rt_hit=false|}
 @<Set up data structures with the cursor following position |j|@>;
@@ -26980,37 +26953,40 @@ in the program, so we'd better not try to look for both at once.)
 @<If there's a ligature or kern at the cursor position, update...@>=
 if cur_l=non_char then
   begin k:=bchar_label(hf);
-  if k=non_address then goto done@+else {q:=font_lig_kern(hf,k);}
+  if k=non_address then goto done;
   end
-else begin
-  if char_tag(hf,cur_l)<>lig_tag then goto done;
-  k:=lig_kern_start(hf,cur_l); {q:=font_lig_kern(hf,k);}
-  if skip_byte(hf,k)>stop_flag then
-    begin k:=lig_kern_restart(hf,k);  {q:=font_lig_kern(hf,k);}
-    end;
-  end; {now |k| is the starting address of the lig/kern program}
-if cur_rh<non_char then test_char:=cur_rh@+else test_char:=cur_r;
-loop@+begin if (next_char(hf,k))=test_char then if skip_byte(hf,k)<=stop_flag then
-    if cur_rh<non_char then
-      begin hyphen_passed:=j; hchar:=non_char; cur_rh:=non_char;
-      goto continue;
-      end
-    else begin if hchar<non_char then if odd(hyf[j]) then
-        begin hyphen_passed:=j; hchar:=non_char;
-        end;
-      if op_byte(hf,k)<kern_flag then
+else
+  k:=cur_l;
+begin
+  if cur_rh<non_char then test_char:=cur_rh@+else test_char:=cur_r;
+  if has_lig(hf,k) then begin
+	lig:=get_ligature(hf,k,test_char);
+    if is_ligature(lig) then begin
+	  @<Update |hyphen_passed| and |hchar|, maybe goto continue@>;
       @<Carry out a ligature replacement, updating the cursor structure
         and possibly advancing~|j|; |goto continue| if the cursor doesn't
         advance, otherwise |goto done|@>;
-      w:=char_kern(hf,k); goto done; {this kern will be inserted below}
-     end;
-  if skip_byte(hf,k)>=stop_flag then
-    if cur_rh=non_char then goto done
-    else begin cur_rh:=non_char; goto continue;
       end;
-  k:=k+qo(skip_byte(hf,k))+1;
+    end
+  else begin if has_kern(hf,k) then
+	  {TH: this 'Update ..' should not be needed ? }
+	  @<Update |hyphen_passed| and |hchar|, maybe goto continue@>;
+	  w:=get_kern(hf,k,test_char);
+    end;
   end;
 done:
+
+@ @<Update |hyphen_passed| and |hchar|, maybe goto continue@>=
+if cur_rh<non_char then begin 
+  hyphen_passed:=j; hchar:=non_char; cur_rh:=non_char; 
+  goto continue;
+  end
+else begin
+  if hchar<non_char then if odd(hyf[j]) then
+    begin hyphen_passed:=j; hchar:=non_char;
+    end;
+  end
+
 
 @ @d wrap_lig(#)==if ligature_present then
     begin p:=new_ligature(hf,cur_l,link(cur_q));
@@ -27044,11 +27020,11 @@ if lig_stack>null then
 begin if cur_l=non_char then lft_hit:=true;
 if j=n then if lig_stack=null then rt_hit:=true;
 check_interrupt; {allow a way out in case there's an infinite ligature loop}
-case op_byte(hf,k) of
-qi(1),qi(5):begin cur_l:=rem_byte(hf,k); {\.{=:\?}, \.{=:\?>}}
+case lig_type(lig) of
+qi(1),qi(5):begin cur_l:=lig_replacement(lig); {\.{=:\?}, \.{=:\?>}}
   ligature_present:=true;
   end;
-qi(2),qi(6):begin cur_r:=rem_byte(hf,k); {\.{\?=:}, \.{\?=:>}}
+qi(2),qi(6):begin cur_r:=lig_replacement(lig); {\.{\?=:}, \.{\?=:>}}
   if lig_stack>null then character(lig_stack):=cur_r
   else begin lig_stack:=new_lig_item(cur_r);
     if j=n then bchar:=non_char
@@ -27057,22 +27033,23 @@ qi(2),qi(6):begin cur_r:=rem_byte(hf,k); {\.{\?=:}, \.{\?=:>}}
       end;
     end;
   end;
-qi(3):begin cur_r:=rem_byte(hf,k); {\.{\?=:\?}}
+qi(3):begin cur_r:=lig_replacement(lig); {\.{\?=:\?}}
   p:=lig_stack; lig_stack:=new_lig_item(cur_r); link(lig_stack):=p;
   end;
 qi(7),qi(11):begin wrap_lig(false); {\.{\?=:\?>}, \.{\?=:\?>>}}
-  cur_q:=t; cur_l:=rem_byte(hf,k); ligature_present:=true;
+  cur_q:=t; cur_l:=lig_replacement(lig); ligature_present:=true;
   end;
-othercases begin cur_l:=rem_byte(hf,k); ligature_present:=true; {\.{=:}}
+othercases begin cur_l:=lig_replacement(lig); ligature_present:=true; {\.{=:}}
   if lig_stack>null then pop_lig_stack
   else if j=n then goto done
   else begin append_charnode_to_t(cur_r); incr(j); set_cur_r;
     end;
   end
 endcases;
-if op_byte(hf,k)>qi(4) then if op_byte(hf,k)<>qi(7) then goto done;
+if lig_type(lig)>qi(4) then if lig_type(lig)<>qi(7) then goto done;
 goto continue;
 end
+
 
 @ Okay, we're ready to insert the potential hyphenations that were found.
 When the following program is executed, we want to append the word
@@ -29256,6 +29233,7 @@ label big_switch,reswitch,main_loop,main_loop_wrapup,
   main_lig_loop,main_lig_loop+1,main_lig_loop+2,
   append_normal_space,exit;
 var@!t:integer; {general-purpose temporary variable}
+lig:liginfo; { a ligature }
 begin if every_job<>null then begin_token_list(every_job,every_job_text);
 big_switch: get_x_token;@/
 reswitch: @<Give diagnostic information, if requested@>;
@@ -29343,7 +29321,6 @@ Several additional global variables are needed.
 @!new_right_ghost:boolean; {character right of cursor is a right ghost}
 @!ins_disc:boolean; {should we insert a discretionary node?}
 @!k_glue:integer;
-@!font_glue_spec:pointer;
 
 @ The boolean variables of the main loop are normally false, and always reset
 to false before the loop is left. That saves us the extra work of initializing
@@ -29511,25 +29488,28 @@ Computer Modern Roman showed that about 40 per cent of all characters
 actually encountered in practice had a lig/kern program, and that about four
 lig/kern commands were investigated for every such character.
 
-At the beginning of this code we have |main_i=char_info(main_f)(cur_l)|.
-
 @<If there's a ligature/kern command...@>=
 if new_right_ghost or left_ghost then goto main_loop_wrapup;
-if char_tag(main_f,cur_l)<>lig_tag then goto main_loop_wrapup;
-main_k:=lig_kern_start(main_f,cur_l); {main_j:=main_k;}
-if skip_byte(main_f,main_k)<=stop_flag then goto main_lig_loop+2;
-main_k:=lig_kern_restart(main_f,main_k);
-main_lig_loop+1: do_nothing; {main_j:=main_k;}
-main_lig_loop+2:
-    if next_char(main_f,main_k)=cur_r then
-      if skip_byte(main_f,main_k)<=stop_flag then
-        @<Do ligature or kern command, returning to |main_lig_loop|
-          or |main_loop_wrapup| or |main_loop_move|@>;
-if skip_byte(main_f,main_k)=qi(0) then incr(main_k)
-else begin if skip_byte(main_f,main_k)>=stop_flag then goto main_loop_wrapup;
-  main_k:=main_k+qo(skip_byte(main_f,main_k))+1;
+if (not has_lig(main_f,cur_l))and 
+   (not has_kern(main_f,cur_l))then goto main_loop_wrapup;
+main_lig_loop+1:
+if has_lig(main_f,cur_l) then begin
+  lig:=get_ligature(main_f,cur_l,cur_r);
+  if is_ligature(lig) then 
+    @<Do ligature command and goto somewhere@>;
   end;
-goto main_lig_loop+1
+if has_kern(main_f,cur_l) then begin
+  main_k:=get_kern(main_f,cur_l,cur_r);
+  if main_k<>0 then begin 
+    wrapup(rt_hit);
+    tail_append(new_kern(main_k));
+    if new_left_ghost or right_ghost then begin
+      subtype(tail):=explicit;
+      end;
+    goto main_loop_move;
+    end;
+  end;
+goto main_loop_wrapup
 
 @ When a ligature or kern instruction matches a character, we know from
 |read_font_info| that the character exists in the font, even though we
@@ -29540,24 +29520,16 @@ This section could be made into a subroutine, if the code inside
 
 \chardef\?='174 % vertical line to indicate character retention
 
-@<Do ligature or kern command...@>=
-begin if op_byte(main_f,main_k)>=kern_flag then
-  begin wrapup(rt_hit);
-  tail_append(new_kern(char_kern(main_f,main_k)));
-  if new_left_ghost or right_ghost then begin
-    subtype(tail):=explicit;
-    end;
-  goto main_loop_move;
-  end;
-if new_left_ghost or right_ghost then goto main_loop_wrapup;
+@<Do ligature command...@>=
+begin if new_left_ghost or right_ghost then goto main_loop_wrapup;
 if cur_l=non_char then lft_hit:=true
 else if lig_stack=null then rt_hit:=true;
 check_interrupt; {allow a way out in case there's an infinite ligature loop}
-case op_byte(main_f,main_k) of
-qi(1),qi(5):begin cur_l:=rem_byte(main_f,main_k); {\.{=:\?}, \.{=:\?>}}
+case lig_type(lig) of
+qi(1),qi(5):begin cur_l:=lig_replacement(lig); {\.{=:\?}, \.{=:\?>}}
   ligature_present:=true;
   end;
-qi(2),qi(6):begin cur_r:=rem_byte(main_f,main_k); {\.{\?=:}, \.{\?=:>}}
+qi(2),qi(6):begin cur_r:=lig_replacement(lig); {\.{\?=:}, \.{\?=:>}}
   if lig_stack=null then {right boundary character is being consumed}
     begin lig_stack:=new_lig_item(cur_r); bchar:=non_char;
     end
@@ -29567,22 +29539,22 @@ qi(2),qi(6):begin cur_r:=rem_byte(main_f,main_k); {\.{\?=:}, \.{\?=:>}}
     end
   else character(lig_stack):=cur_r;
   end;
-qi(3):begin cur_r:=rem_byte(main_f,main_k); {\.{\?=:\?}}
+qi(3):begin cur_r:=lig_replacement(lig); {\.{\?=:\?}}
   main_p:=lig_stack; lig_stack:=new_lig_item(cur_r);
   link(lig_stack):=main_p;
   end;
 qi(7),qi(11):begin wrapup(false); {\.{\?=:\?>}, \.{\?=:\?>>}}
-  cur_q:=tail; cur_l:=rem_byte(main_f,main_k);
+  cur_q:=tail; cur_l:=lig_replacement(lig);
   ligature_present:=true;
   end;
-othercases begin cur_l:=rem_byte(main_f,main_k); 
+othercases begin cur_l:=lig_replacement(lig); 
  ligature_present:=true; {\.{=:}}
   if lig_stack=null then goto main_loop_wrapup
   else goto main_loop_move+1;
   end
 endcases;
-if op_byte(main_f,main_k)>qi(4) then
-  if op_byte(main_f,main_k)<>qi(7) then goto main_loop_wrapup;
+if lig_type(lig)>qi(4) then
+  if lig_type(lig)<>qi(7) then goto main_loop_wrapup;
 if cur_l<non_char then goto main_lig_loop;
 main_k:=bchar_label(main_f); goto main_lig_loop+1;
 end
@@ -29610,20 +29582,16 @@ if pdf_adjust_interword_glue > 0 then
 link(tail):=temp_ptr; tail:=temp_ptr;
 goto big_switch
 
-@ Having |font_glue| allocated for each text font saves both time and memory.
-If any of the three spacing parameters are subsequently changed by the
-use of \.{\\fontdimen}, the |set_font_dimen| procedure deallocates the
-|font_glue| specification allocated here.
+@ From Knuth: ``Having |font_glue| allocated for each text font saves
+both time and memory.''  That may be true, but it also punches through
+the API wall for fonts, so I removed it -- Taco.
 
 @<Find the glue specification...@>=
-begin main_p:=font_glue(cur_font);
-if (main_p=null)or(main_p=0) then
-  begin main_p:=new_spec(zero_glue);
-  width(main_p):=space(cur_font);
-  stretch(main_p):=space_stretch(cur_font);
-  shrink(main_p):=space_shrink(cur_font);
-  set_font_glue(cur_font,main_p);
-  end;
+begin 
+main_p:=new_spec(zero_glue);
+width(main_p):=space(cur_font);
+stretch(main_p):=space_stretch(cur_font);
+shrink(main_p):=space_shrink(cur_font);
 end
 
 @ @<Declare act...@>=
@@ -33023,11 +32991,6 @@ the interaction mode, and the hyphenation tables; these are strictly global.
 @<Assignments@>=
 assign_font_dimen: set_font_dimen;
 assign_font_int: begin 
-{TH: leave this alone for now}
-{  if (cur_chr=no_lig_code) or (cur_chr=tag_code) then
-    if abs(mode)<>vmode then
-      if font_used(cur_font) then
-        report_illegal_case; }
   n:=cur_chr; scan_font_ident; f:=cur_val;
   if n = no_lig_code then set_no_ligatures(f)
   else if n < lp_code_base then begin
@@ -33181,10 +33144,10 @@ the new name becomes the font identifier of record. Font names `\.{xyz}' and
 @<If this font has already been loaded...@>=
 flushable_string:=str_ptr-1;
 for f:=font_base+1 to font_ptr do begin
-  if str_eq_str(tex_font_name(f),cur_name) and
-     str_eq_str(tex_font_area(f),cur_area) then
+  if cmp_font_name(f,cur_name) and
+     cmp_font_area(f,cur_area) then
     begin if cur_name=flushable_string then
-      begin flush_string; cur_name:=font_name(f);
+      begin flush_string; cur_name:=tex_font_name(f);
       end;
     if s>0 then
       begin if s=font_size(f) then goto common_ending;
@@ -33195,7 +33158,7 @@ for f:=font_base+1 to font_ptr do begin
   end
 
 @ @<Cases of |print_cmd_chr|...@>=
-set_font:begin print("select font "); slow_print(font_name(chr_code));
+set_font:begin print("select font "); print_font_name(chr_code);
   if font_size(chr_code)<>font_dsize(chr_code) then
     begin print(" at "); print_scaled(font_size(chr_code));
     print("pt");
@@ -33889,6 +33852,7 @@ for k:=null_font to font_ptr do
 begin dump_font(k);
 print_nl("\font"); print_esc(font_id_text(k)); print_char("=");
 print_file_name(tex_font_name(k),tex_font_area(k),"");
+flush_string; flush_string;
 if font_size(k)<>font_dsize(k) then
   begin print(" at "); print_scaled(font_size(k)); print("pt");
   end;
@@ -34252,8 +34216,9 @@ if log_opened then
     ' words of memory out of ',mem_end+1-mem_min:1);@/
   wlog_ln(' ',cs_count:1,' multiletter control sequences out of ',
     hash_size:1);@/
-  wlog(font_ptr-font_base:1,' font');
+  wlog(' ',font_ptr-font_base:1,' font');
   if font_ptr<>font_base+1 then wlog('s');
+  wlog_ln(' using ', font_bytes:1, ' bytes');
   wlog(' ',hyph_count:1,' hyphenation exception');
   if hyph_count<>1 then wlog('s');
   wlog_ln(' out of ',hyph_size:1);@/

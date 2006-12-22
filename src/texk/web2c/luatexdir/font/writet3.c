@@ -129,7 +129,7 @@ static void t3_write_glyph (internalfontnumber f)
             pdftex_warn ("invalid glyph preamble: `%s'", t3_line_array);
             return;
         }
-        if (glyph_index < getfontbc(f) || glyph_index > getfontec(f))
+        if (glyph_index < font_bc(f) || glyph_index > font_ec(f))
             return;
     } else
         return;
@@ -211,9 +211,9 @@ static boolean writepk (internalfontnumber f)
 
 	if (callback_id>0) {
       dpi = round (fixedpkresolution *
-		   (((float) pdffontsize[f]) / getfontdsize(f)));
+		   (((float) pdffontsize[f]) / get_font_dsize(f)));
       /* <base>.dpi/<fontname>.<tdpi>pk */
-      cur_file_name = get_font_name(f);
+      cur_file_name = font_name(f);
       mallocsize = strlen(cur_file_name)+24+9;
       name = xmalloc(mallocsize);
       snprintf(name,mallocsize,"%ddpi/%s.%dpk",fixedpkresolution,cur_file_name,dpi);
@@ -228,9 +228,9 @@ static boolean writepk (internalfontnumber f)
       dpi =
         kpse_magstep_fix (round
                           (fixedpkresolution *
-                           (((float) pdffontsize[f]) / getfontdsize(f))),
+                           (((float) pdffontsize[f]) / get_font_dsize(f))),
                           fixedpkresolution, NULL);
-      cur_file_name = get_font_name(f);
+      cur_file_name = font_name(f);
       name = kpse_find_pk (cur_file_name, (unsigned) dpi, &font_ret);
       if (name == NULL ||
         !FILESTRCASEEQ (cur_file_name, font_ret.name) ||
@@ -333,7 +333,7 @@ void writet3 (int objnum, internalfontnumber f)
         t3_char_procs[i] = 0;
         t3_char_widths[i] = 0;
     }
-    packfilename (getfontname(f), getnullstr (), maketexstring (".pgc"));
+    packfilename (tex_font_name(f), getnullstr (), maketexstring (".pgc"));
     cur_file_name = makecstring (makenamestring ());
     is_pk_font = false;
 
@@ -347,11 +347,11 @@ void writet3 (int objnum, internalfontnumber f)
 	  cur_file_name = NULL;
 	  return;
 	}
-    for (i = getfontbc(f); i <= getfontec(f); i++)
+    for (i = font_bc(f); i <= font_ec(f); i++)
         if (pdfcharmarked (f, i))
             break;
     first_char = i;
-    for (i = getfontec(f); i > first_char; i--)
+    for (i = font_ec(f); i > first_char; i--)
         if (pdfcharmarked (f, i))
             break;
     last_char = i;

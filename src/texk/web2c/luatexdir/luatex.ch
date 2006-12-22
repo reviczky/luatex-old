@@ -2286,7 +2286,7 @@ flushable_string:=str_ptr-1;
 
 @x
     begin if cur_name=flushable_string then
-      begin flush_string; cur_name:=font_name(f);
+      begin flush_string; cur_name:=tex_font_name(f);
       end;
     if s>0 then
       begin if s=font_size(f) then goto common_ending;
@@ -2297,12 +2297,12 @@ flushable_string:=str_ptr-1;
 @y
     begin
     if pdf_font_step[f] = 0 then begin
-       if s>0 then
-         begin if s=font_size(f) then goto common_ending;
-         end
-       else if font_size(f)=xn_over_d(font_dsize(f),-s,1000) then
-         goto common_ending;
-       end
+      if s>0 then
+        begin if s=font_size(f) then goto common_ending;
+        end
+      else if font_size(f)=xn_over_d(font_dsize(f),-s,1000) then
+        goto common_ending;
+      end;
     end
 @z
 

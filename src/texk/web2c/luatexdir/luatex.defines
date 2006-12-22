@@ -135,6 +135,7 @@ $Id $
 @define procedure undumpfont ();
 @define function isvalidfont();
 @define function copyfont();
+@define function scalefont();
 @define procedure createnullfont;
 
 @define function fontname();
@@ -146,6 +147,9 @@ $Id $
 @define function texfontname();
 @define function texfontarea();
 @define procedure settexfontname();
+
+@define function cmpfontarea();
+@define function cmpfontname();
 
 @define function fontglue();
 @define procedure setfontglue();
@@ -180,8 +184,10 @@ $Id $
 
 @define function fontkerns();
 @define function fontkern();
+@define function fontkernsc();
 @define procedure setfontkerns();
 @define procedure setfontkern();
+@define procedure adjustfontkern();
 
 @define function fontitalics();
 @define function fontitalic();
@@ -212,6 +218,16 @@ $Id $
 @define function fontligkerns();
 @define function fontligkern();
 
+@define function haslig();
+@define function haskern();
+
+@define type liginfo;
+
+@define function getligature();
+@define function isligature();
+@define function ligtype();
+@define function ligreplacement();
+
 @define function exttop();
 @define function extmid();
 @define function extbot();
@@ -222,7 +238,6 @@ $Id $
 @define var spacestretchcode;
 @define var spacecode;
 @define var exttag;
-@define var ligtag;
 @define var listtag;
 @define var nonchar;
 @define var nonaddress;
@@ -245,18 +260,12 @@ $Id $
 
 @define function testnoligatures();
 @define function gettagcode();
+@define procedure setnoligatures();
+@define procedure settagcode();
+
 @define function getkern();
 
 @define function bcharlabel();
-@define function ligkernstart();
-@define function ligkernrestart();
-@define function skipbyte();
-@define function nextchar();
-@define function opbyte();
-@define function rembyte();
-
-@define var stopflag;
-@define var kernflag;
 
 @define function charkern();
 

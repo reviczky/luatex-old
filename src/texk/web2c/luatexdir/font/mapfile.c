@@ -250,7 +250,7 @@ int avl_do_entry (fm_entry * fp, int mode)
                      fp->tfm_name);
                 goto exit;
             } else {            /* mode == FM_REPLACE / FM_DELETE */
-			  if (getfontused(p->tfm_num)) {
+			  if (font_used(p->tfm_num)) {
                     pdftex_warn
                         ("fontmap entry for `%s' has been used, replace/delete not allowed",
                          fp->tfm_name);
@@ -282,7 +282,7 @@ int avl_do_entry (fm_entry * fp, int mode)
                      fp->ps_name);
                 goto exit;
             } else {            /* mode == FM_REPLACE / FM_DELETE */
-			  if (getfontused(p->tfm_num)) {
+			  if (font_used(p->tfm_num)) {
                     /* REPLACE/DELETE not allowed */
                     pdftex_warn
                         ("fontmap entry for `%s' has been used, replace/delete not allowed",
@@ -682,7 +682,7 @@ static fm_entry *mk_ex_fm (internalfontnumber f, fm_entry * basefm, int ex)
     fm->extend = roundxnoverd (e, 1000 + ex, 1000);     /* modify ExtentFont to simulate expansion */
     if (fm->extend == 1000)
         fm->extend = 0;
-    fm->tfm_name = xstrdup (get_font_name(f));
+    fm->tfm_name = xstrdup (font_name(f));
     if (basefm->ps_name != NULL)
         fm->ps_name = xstrdup (basefm->ps_name);
     fm->ff_name = xstrdup (basefm->ff_name);
@@ -713,7 +713,7 @@ static fmentryptr fmlookup (internalfontnumber f)
     int ai, e;
     if (tfm_tree == NULL)
         fm_read_info ();        /* only to read default map file */
-    tfm = get_font_name(f);
+    tfm = font_name(f);
     assert (strcmp (tfm, nontfm) != 0);
 
     /* Look up for full <tfmname>[+-]<expand> */
@@ -723,7 +723,7 @@ static fmentryptr fmlookup (internalfontnumber f)
         init_fm (fm, f);
         return (fmentryptr) fm;
     }
-    tfm = mk_base_tfm (get_font_name(f), &e);
+    tfm = mk_base_tfm (font_name(f), &e);
     if (tfm == NULL)            /* not an expanded font, nothing to do */
         return (fmentryptr) dummy_fm_entry ();
 
@@ -817,7 +817,7 @@ static boolean used_tfm (fm_entry * p)
         return false;
 
     /* check whether this font has been used */
-    if (getfontused(p->tfm_num))
+    if (font_used(p->tfm_num))
         return true;
     assert (p->tfm_name != NULL);
 
@@ -1029,7 +1029,7 @@ fm_entry *lookup_fontmap (char *bname)
             pdffontmap[i] = (fmentryptr) fm;
         if (fm->ff_objnum == 0 && is_included (fm))
             fm->ff_objnum = pdfnewobjnum ();
-        if (!getfontused(i))
+        if (!font_used(i))
             pdfinitfont (i);
         return fm;
     }

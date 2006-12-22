@@ -1,0 +1,23 @@
+#! /usr/bin/env bash
+# $Id$
+# builds new pdftex binaries
+MAKE=make
+STRIP=strip
+# this deletes all previous builds. 
+# comment out the rm and mkdir if you want to keep them (and uncomment and
+# change the $MAKE distclean below)
+cd build-linux || exit
+# clean up (uncomment the next line if you have commented out the rm and
+# mkdir above)
+# $MAKE distclean;
+# do a configure without all the things we don't need
+
+NATIVE=`pwd`
+export NATIVE
+(cd texk/web2c; $MAKE luatex) || exit 1
+# go back
+cd ..
+unset NATIVE
+
+# show the results
+ls -l build-linux/texk/web2c/luatex

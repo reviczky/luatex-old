@@ -53,6 +53,7 @@ font/writet3.o \
 font/writettf.o \
 font/texfont.o \
 font/tfmofm.o \
+font/luafont.o \
 image/epdf.o \
 image/pdftoepdf.o \
 image/writeimg.o \
@@ -66,6 +67,7 @@ lua/lpdflib.o \
 lua/lstatslib.o \
 lua/ltexiolib.o \
 lua/ltexlib.o \
+lua/lfontlib.o \
 lua/luainit.o \
 lua/luastuff.o \
 lua/luatex.o \

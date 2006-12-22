@@ -22,29 +22,39 @@ $Id$
 
 #include "ptexlib.h"
 
+#include "luatex-api.h"
 
-static FILE *tfm_file   = NULL;
-static unsigned char *tfm_buffer = NULL; /* byte buffer for tfm files */
-static integer tfm_size = 0; /* total size of the tfm file */
-static integer tfm_byte = 0; /* index into |tfm_buffer| */
+/* Here are some macros that help process ligatures and kerns */
 
-/* not in headers yet */
+#define lig_kern_start(f,c)   char_remainder(f,c)
+#define stop_flag 128 /* value indicating `\.{STOP}' in a lig/kern program */
+#define kern_flag 128 /* op code for a kern step */
+
+#define skip_byte(z)         lig_kerns[z].b0
+#define next_char(z)         lig_kerns[z].b1
+#define op_byte(z)           lig_kerns[z].b2
+#define rem_byte(z)          lig_kerns[z].b3
+#define lig_kern_restart(c)  (256*op_byte(c)+rem_byte(c))
+
+/* some pascal interfacing (underscore-glue) macros */
 
 #define name_of_file nameoffile
 #define internal_font_number internalfontnumber
 #define four_quarters fourquarters
 #define font_ptr fontptr
 #define unity 65536
-#define default_hyphen_char getdefaulthyphenchar
-#define default_skew_char getdefaultskewchar
-
-#define print_err(s) { doprinterr(maketexstring(s)); flushstr(last_tex_string); }
-#define print_string(s) { print(maketexstring(s)); flushstr(last_tex_string); }
+#define get_default_hyphen_char getdefaulthyphenchar
+#define get_default_skew_char getdefaultskewchar
 #define sprint_cs sprintcs
 #define print_file_name printfilename
 #define print_scaled printscaled
 #define print_int printint
 #define xn_over_d xnoverd 
+
+/* a bit more interfacing is needed for proper error reporting */
+
+#define print_err(s) { doprinterr(maketexstring(s)); flushstr(last_tex_string); }
+#define print_string(s) { print(maketexstring(s)); flushstr(last_tex_string); }
 
 void do_error(char *msg, char **hlp) {
   strnumber msgmsg = 0,aa = 0,bb = 0,cc = 0,dd = 0,ee = 0;
@@ -397,7 +407,16 @@ additional parameter information, which is explained later.
 
 */
 
-#define abort    { tfm_error(u, nom, aire, s, file_opened); return 0; }
+#define tfm_abort { if (tfm_buffer!=NULL) free(tfm_buffer);	       \
+		    if (lig_kerns!=NULL) free(lig_kerns);	       \
+		    if (kerns!=NULL) free(kerns);		       \
+		    return 0; }
+
+#define tfm_success { if (tfm_buffer!=NULL) free(tfm_buffer);	       \
+		      if (lig_kerns!=NULL) free(lig_kerns);	       \
+		      if (kerns!=NULL) free(kerns);		       \
+		      return 1; }
+
 
 static void
 start_font_error_message (pointer u, strnumber nom, strnumber aire, scaled s) {
@@ -412,35 +431,20 @@ start_font_error_message (pointer u, strnumber nom, strnumber aire, scaled s) {
   }
 }
 
-static void 
-tfm_error  (pointer u, strnumber nom, strnumber aire, scaled s, boolean file_opened) {
-  start_font_error_message(u, nom, aire, s);
-  char *help[] = {"I wasn't able to read the size data for this font,",
-		  "so I will ignore the font specification.",
-		  "[Wizards can fix TFM files using TFtoPL/PLtoTF.]",
-		  "You might try inserting a different font spec;",
-		  "e.g., type `I\font<same font id>=<substitute font name>'.",
-		  NULL } ;
-  if (file_opened) 
-    do_error(" not loadable: Bad metric (TFM/OFM) file",help);
-  else 
-    do_error(" not loadable: Metric (TFM/OFM) file not found",help);
-}
-
 int
-open_tfm_file(strnumber nom, strnumber aire, unsigned char **tfm_buf, integer *tfm_siz) {
+open_tfm_file(char *nom, char *aire, unsigned char **tfm_buf, integer *tfm_siz) {
   boolean res; /* was the callback successful? */
   boolean opened; /* was |tfm_file| successfully opened?*/
   integer callback_id;
   FILE *tfm_file;
-  packfilename(nom,aire,getnullstr());
-  if (tfm_buffer!=NULL)
-    free(tfm_buffer);
+  /* packfilename(nom,aire,getnullstr()); */
+  name_of_file = malloc(strlen(nom)+2);
+  strcpy(stringcast(name_of_file+1),nom);
   callback_id=callbackdefined("read_font_file");
   if (callback_id>0) {
         res = runcallback(callback_id,"S->bSd",stringcast(name_of_file+1),
-                                          &opened, tfm_buf,tfm_siz);
-        if (res && opened && tfm_siz>0) {
+                                          &opened, tfm_buf, tfm_siz);
+        if (res && opened && (*tfm_siz>0)) {
           return 1;
 	}
         if (!opened)
@@ -475,7 +479,7 @@ open_tfm_file(strnumber nom, strnumber aire, unsigned char **tfm_buf, integer *t
 
 #define read_sixteen(a)                                                 \
   { a=tfm_buffer[tfm_byte++];                                           \
-    if (a>127) { abort; }                                               \
+    if (a>127) { tfm_abort; }                                               \
     a=(a*256)+tfm_buffer[tfm_byte]; }
 
 #define read_sixteen_unsigned(a)                                        \
@@ -484,7 +488,7 @@ open_tfm_file(strnumber nom, strnumber aire, unsigned char **tfm_buf, integer *t
 
 #define read_thirtytwo(a)                                               \
   { a=tfm_buffer[++tfm_byte];                                           \
-    if (a>127) { abort; }                                               \
+    if (a>127) { tfm_abort; }                                               \
     a=(a*256)+tfm_buffer[++tfm_byte];                                   \
     a=(a*256)+tfm_buffer[++tfm_byte];                                   \
     a=(a*256)+tfm_buffer[++tfm_byte]; }
@@ -508,6 +512,8 @@ open_tfm_file(strnumber nom, strnumber aire, unsigned char **tfm_buf, integer *t
       ci._tag=c%4;							\
       fget; read_sixteen_unsigned(d);					\
       ci._remainder=d;							\
+      ci._kern_index=0;							\
+      ci._lig_index=0;							\
       set_char_info(f,z,ci);						\
     } else {                                                            \
       a=tfm_buffer[++tfm_byte];						\
@@ -520,6 +526,8 @@ open_tfm_file(strnumber nom, strnumber aire, unsigned char **tfm_buf, integer *t
       ci._tag=c%4;							\
       d=tfm_buffer[++tfm_byte];						\
       ci._remainder=d;							\
+      ci._kern_index=0;							\
+      ci._lig_index=0;							\
       set_char_info(f,z,ci);						\
     } }
 
@@ -536,7 +544,7 @@ open_tfm_file(strnumber nom, strnumber aire, unsigned char **tfm_buf, integer *t
       d=tfm_buffer[++tfm_byte]; q.b3=d;                                \
     } }
 
-#define check_byte_range(z)  { if ((z<bc)||(z>ec)) abort ; }
+#define check_byte_range(z)  { if ((z<bc)||(z>ec)) tfm_abort ; }
 
 
 /* A |fix_word| whose four bytes are $(a,b,c,d)$ from left to right represents
@@ -562,29 +570,59 @@ open_tfm_file(strnumber nom, strnumber aire, unsigned char **tfm_buf, integer *t
   { fget; a=fbyte; fget; b=fbyte;                                       \
     fget; c=fbyte; fget; d=fbyte;                                       \
     sw=(((((d*z)>>8)+(c*z))>>8)+(b*z)) / beta;                          \
-    if (a==0) { zz=sw; } else if (a==255) { zz=sw-alpha; } else abort;	\
+    if (a==0) { zz=sw; } else if (a==255) { zz=sw-alpha; } else tfm_abort;	\
   }
 
 #define  check_existence(z)                                             \
   { check_byte_range(z);                                                \
-    if (!char_exists(f,z)) abort;					\
+    if (!char_exists(f,z)) tfm_abort;					\
   }
 
+int 
+read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
+               integer natural_dir) {
+  internal_font_number f; /* the new font's number */
+  char *cnom, *caire;
+  int success;
+
+  cnom  = xstrdup(makecstring(nom));
+  caire = xstrdup(makecstring(aire));
+  f = new_font((font_ptr+1));
+  if (read_tfm_info(f,cnom,caire,s)) {
+    set_font_name(f,xstrdup(makecstring(nom)));
+    set_font_area(f,xstrdup(makecstring(aire)));
+    set_font_natural_dir(f,natural_dir);  
+    set_hyphen_char(f,get_default_hyphen_char());
+    set_skew_char(f,get_default_skew_char());
+    font_ptr++;
+    return f;
+  } else {
+    start_font_error_message(u, nom, aire, s);
+    char *help[] = {"I wasn't able to read the size data for this font,",
+		    "so I will ignore the font specification.",
+		    "[Wizards can fix TFM files using TFtoPL/PLtoTF.]",
+		    "You might try inserting a different font spec;",
+		    "e.g., type `I\font<same font id>=<substitute font name>'.",
+		    NULL } ;
+    do_error(" not loadable: Metric (TFM/OFM) file not found or bad",help);
+    /* todo: delete the stucture */
+    return  0;
+  }
+}
 
 int 
-read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
-               integer natural_dir) {
+read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
   integer k; /* index into |font_info| */
-  boolean file_opened; /* was |tfm_file| successfully opened?*/
   halfword lf,lh,bc,ec,nw,nh,nd,ni,nl,nk,ne,np;  /* sizes of subfiles */
-  halfword font_dir;  /* sizes of subfiles*/
-  internal_font_number f; /* the new font's number */
+  halfword font_dir;
   integer a,b,c,d; /* byte variables */
   integer i; /* counter */
   integer font_level,header_length;
   integer nco,ncw,npc,nlw,neew;
   characterinfo ci;
   four_quarters qw; 
+  four_quarters *lig_kerns;
+  scaled *kerns;
   scaled sw; /* accumulators */
   integer bch_label; /* left boundary start location, or infinity */
   int bchar; /* :0..too_big_char; */ /* right boundary character, or |too_big_char| */
@@ -592,17 +630,18 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
   scaled z; /* the design size or the ``at'' size */
   integer alpha; 
   char beta; /* :1..16*/
-  char *cnom, *caire;
-  /* auxiliary quantities used in fixed-point multiplication */
-  tfm_byte=0; 
-  /* tfm_buffer=NULL; */
-  tfm_size=0;
-  file_opened=0;
-  cnom  = xstrdup(makecstring(nom));
-  caire = xstrdup(makecstring(aire));
-  i = open_tfm_file(nom,aire,&tfm_buffer,&tfm_size);
-  if(i>=0) file_opened=1; 
-  if (i!=1)  abort;
+  int fligs, fkerns, fchars; /* aux. for ligkern processing */
+  integer tfm_byte = 0; /* index into |tfm_buffer| */
+  unsigned char *tfm_buffer = NULL; /* byte buffer for tfm files */
+  integer tfm_size = 0; /* total size of the tfm file */
+
+  lig_kerns = NULL;
+  kerns = NULL;
+
+  font_dir = 0;
+
+  if(open_tfm_file(cnom,caire,&tfm_buffer,&tfm_size)!=1)
+     tfm_abort;
 
   /* @<Read the {\.{TFM}} size fields@>; */
   nco=0; ncw=0; npc=0;
@@ -613,7 +652,7 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
     fget; read_sixteen(lh);
     fget; read_sixteen(bc);
     fget; read_sixteen(ec);
-    if ((bc>ec+1)||(ec>255))  abort;
+    if ((bc>ec+1)||(ec>255))  tfm_abort;
     if (bc>255) { /* |bc=256| and |ec=255| */
       bc=1; ec=0;
     };
@@ -631,12 +670,12 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
     neew=ne;
   } else {
     fget; read_sixteen(font_level);
-    if (font_level!=0) abort;
+    if (font_level!=0) tfm_abort;
     read_thirtytwo(lf);
     read_thirtytwo(lh);
     read_thirtytwo(bc);
     read_thirtytwo(ec);
-    if ((bc>ec+1)||(ec>65535))  abort;
+    if ((bc>ec+1)||(ec>65535))  tfm_abort;
     if (bc>65535) { /* |bc=65536| and |ec=65535| */
       bc=1; ec=0;
     };
@@ -648,40 +687,25 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
     read_thirtytwo(nk);
     read_thirtytwo(ne);
     read_thirtytwo(np);
-    read_thirtytwo(font_dir);
+    read_thirtytwo(font_dir); /* junk */
     nlw=2*nl;
     neew=2*ne;
     header_length=14;
     ncw=2*(ec-bc+1);
   };
-  if (lf!=(header_length+lh+ncw+nw+nh+nd+ni+nlw+nk+neew+np)) abort;
+  if (lf!=(header_length+lh+ncw+nw+nh+nd+ni+nlw+nk+neew+np)) tfm_abort;
 
   /* @<Use size fields to allocate font information@>; */
-  /*
-    The preliminary settings of the index-offset variables |char_base|,
-    |width_base|, |lig_kern_base|, |kern_base|, and |exten_base| will be
-    corrected later by subtracting |min_quarterword| from them; and we will
-    subtract 1 from |param_base| too. It's best to forget about such anomalies
-    until later.
-  */
 
-  f = new_font((font_ptr+1));
-
-  set_font_name(f,cnom);
-  set_font_area(f,caire);
-
+  set_font_natural_dir(f,font_dir);
   set_font_bc(f,bc); 
   set_font_ec(f,ec); 
 
-  set_font_natural_dir(f,natural_dir);
-  
   set_font_widths(f,nw);
   set_font_heights(f,nh);
   set_font_depths(f,nd);
   set_font_italics(f,ni);
   
-  /*  set_font_lig_kerns(f,nl);*/
-  set_font_kerns(f,nk);
   set_font_extens(f,ne);
 
   if (np>7)
@@ -691,11 +715,11 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 
   /* Only the first two words of the header are needed by \TeX82. */
   if (lh<2) 
-    abort;
+    tfm_abort;
   store_four_bytes(font_checksum(f));
   fget; read_sixteen(z); /* this rejects a negative design size */
   fget; z=z*256+fbyte; fget; z=(z*16)+(fbyte>>4);
-  if (z<unity) abort;
+  if (z<unity) tfm_abort;
   while (lh>2) {
     fget;fget;fget;fget;
     lh--; /* ignore the rest of the header */
@@ -705,17 +729,17 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
     z = (s>=0 ? s : xn_over_d(z,-s,1000));
   }
   set_font_size(f,z);
-
+  
   /* @<Read character data@>; */
   set_char_infos(f,(ec+1));
   for (k=bc;k<=ec;k++) {
     store_char_info(k);
     if (ci._width_index>=nw||ci._height_index>=nh||
-	ci._depth_index>=nd||ci._italic_index>=ni) abort;
+	ci._depth_index>=nd||ci._italic_index>=ni) tfm_abort;
     d = ci._remainder;
     switch (ci._tag) {
-    case lig_tag: if (d>=nl) abort; break;
-    case ext_tag: if (d>=ne) abort; break;
+    case lig_tag: if (d>=nl) tfm_abort; break;
+    case ext_tag: if (d>=ne) tfm_abort; break;
     case list_tag: 
       /* We want to make sure that there is no cycle of characters linked together
          by |list_tag| entries, since such a cycle would get \TeX\ into an endless
@@ -728,7 +752,7 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 	  goto NOT_FOUND; /* not a cycle */
 	d=char_remainder(f,d); /* next character on the list */
       };
-      if (d==k) abort; /* yes, there's a cycle */
+      if (d==k) tfm_abort; /* yes, there's a cycle */
     NOT_FOUND:
       break;
     }
@@ -743,43 +767,153 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
   beta=256/alpha; alpha=alpha*z;
 
   for (k=0;k<nw;k++) { store_scaled(font_width(f,k));  }
-  if (font_width(f,0)!=0) abort; /* \\{width}[0] must be zero */
+  if (font_width(f,0)!=0) tfm_abort; /* \\{width}[0] must be zero */
   for (k=0;k<nh;k++) { store_scaled(font_height(f,k));  }
-  if (font_height(f,0)!=0) abort; /* \\{height}[0] must be zero */
+  if (font_height(f,0)!=0) tfm_abort; /* \\{height}[0] must be zero */
   for (k=0;k<nd;k++) { store_scaled(font_depth(f,k));  }
-  if (font_depth(f,0)!=0)  abort; /* \\{depth}[0] must be zero */
+  if (font_depth(f,0)!=0)  tfm_abort; /* \\{depth}[0] must be zero */
   for (k=0;k<ni;k++) { store_scaled(font_italic(f,k));  }
-  if (font_italic(f,0)!=0) abort; /* \\{italic}[0] must be zero */
+  if (font_italic(f,0)!=0) tfm_abort; /* \\{italic}[0] must be zero */
 
   /* @<Read ligature/kern program@>; */
   
   bch_label=nl; /* infinity*/ 
   bchar=65536;
   if (nl>0) {
-    set_font_lig_kerns(f,nl);
+    lig_kerns = xmalloc(nl*sizeof(four_quarters));
+    /* set_font_lig_kerns(f,nl); */
     for (k=0;k<nl;k++) { 
       read_four_quarters(qw);
-      set_font_lig_kern(f,k,qw);
+      lig_kerns[k] = qw;
+      /* set_font_lig_kern(f,k,qw); */
       if (a>128) { 
-        if (256*c+d>=nl)  abort;
+        if (256*c+d>=nl)  tfm_abort;
         if (a==255 && k==0) bchar=b;
       } else { 
         if (b!=bchar) check_existence(b);
         if (c<128) { 
           check_existence(d); /* check ligature */
         } else if (256*(c-128)+d>=nk) {
-          abort; /* check kern */
+          tfm_abort; /* check kern */
         }
-        if ((a<128) && (k-0+a+1>=nl)) abort;
+        if ((a<128) && (k-0+a+1>=nl)) tfm_abort;
       };
     };
     if (a==255) bch_label=256*c+d;
   };
 
   /* the actual kerns */
+  kerns = xmalloc(nk*sizeof(scaled));
   for (k=0;k<nk;k++) {
-    store_scaled(font_kern(f,k));
+    store_scaled(sw);
+    kerns[k] = sw;
+    /* ; */
   }
+  
+  /* now interpret the lig_kern commands */
+
+  /* Luatex treats ligatures and kerning differently from TeX82, so
+     the Knuthian ligkern arrays has to be massaged into the right
+     data structure. 
+
+     The easiest way is to loop through the available commands twice:
+     first to find the upper bound of the lig and kern sizes,
+     again to actually fille in the structure data
+  */
+
+  fligs=0;
+  fkerns=0;
+  fchars=0;
+
+  /* first pass: count ligs and kerns */
+  for (i=bc;i<=ec;i++) {
+    if (char_tag(f,i) == lig_tag) {
+      fchars++;
+      k = lig_kern_start(f,i);
+      if (skip_byte(k) > stop_flag)
+	k = lig_kern_restart(k);
+      /* now k is the start index */
+      while (1) {
+	if (skip_byte(k) <= stop_flag) {
+	  if(op_byte(k) >= kern_flag) {	 /* kern */
+	    fkerns++;
+	  } else {  /* lig */
+	    fligs++;
+	  }
+	}
+	if (skip_byte(k) == 0) {
+	  k++;
+	} else {
+	  if (skip_byte(k) >= stop_flag) 
+	    break;
+	  k += skip_byte(k) + 1;
+	}
+      }
+    }
+  }
+
+  /* Adding |fchars| this is almost certainly too much, but better safe
+     than sorry. Calculating the exact size here is a bit hard, because 
+     at this point the |has_lig()| and |has_kern()| macros are not functional 
+     yet. Much easier to shrink it back to size after the second pass.
+  */
+
+  if (fligs>0) {
+    set_font_ligs(f,(fligs+1+fchars));
+    set_font_lig(f,0,0,0,0);
+  }
+  if (fkerns>0) {
+    set_font_kerns(f,(fkerns+1+fchars));
+    set_font_kern(f,0,0,0);
+  }
+
+  fligs = 1;
+  fkerns = 1;
+  for (i=bc;i<=ec;i++) {
+    if (char_tag(f,i) == lig_tag) {
+      k = lig_kern_start(f,i);
+      if (skip_byte(k) > stop_flag)
+	k = lig_kern_restart(k);
+      /* now k is the start index */
+      while (1) {
+	if (skip_byte(k) <= stop_flag) {
+	  if(op_byte(k) >= kern_flag) {  /* kern */
+	    set_font_kern(f,fkerns,next_char(k),kerns[256*(op_byte(k)-128)+rem_byte(k)]);
+	    if (!has_kern(f,i))
+	      set_char_kern(f,i, fkerns);
+	    fkerns++;
+	  } else {  /* lig */
+	    set_font_lig(f,fligs,(op_byte(k)*2+1),next_char(k),rem_byte(k));
+	    if (!has_lig(f,i)) 
+	      set_char_lig(f,i,fligs);
+	    fligs++;
+	  }
+	}
+	if (skip_byte(k) == 0) {
+	  k++;
+	} else {
+	  if (skip_byte(k) >= stop_flag) 
+	    break;
+	  k += skip_byte(k) + 1;
+	}
+      }
+      if (has_kern(f,i)){
+	set_font_kern(f,fkerns,end_ligkern,0);
+	fkerns++;
+      }
+      if (has_lig(f,i)){
+	set_font_lig(f,fligs,0,end_ligkern,0);
+	fligs++;
+      }
+      /* next is not really needed, but nicer */
+      set_char_remainder(f,i,0); 
+    }
+  }
+
+  /* This makes the lig and kern structures fit snugly */
+
+  set_font_ligs(f,fligs);
+  set_font_kerns(f,fkerns);
 
   /* @<Read extensible character recipes@>; */
   for (k=0;k<ne;k++) {
@@ -814,7 +948,7 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
      no error message is given for files having more than |lf| words.
   */
 
-  if (tfm_byte<tfm_size-1) abort;
+  if (tfm_byte<tfm_size-1) tfm_abort;
 
   /* @<Make final adjustments and |goto done|@> */
 
@@ -823,8 +957,6 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
      the new font.
   */
   
-  set_hyphen_char(f,default_hyphen_char());
-  set_skew_char(f,default_skew_char());
   if (bch_label<nl) {
     set_bchar_label(f,bch_label);
   } else {
@@ -836,7 +968,6 @@ read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
   } else {
     set_font_false_bchar(f,bchar);
   }
-  font_ptr=f;
-  return f;
+  tfm_success;
 }
 

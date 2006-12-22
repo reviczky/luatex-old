@@ -37,8 +37,20 @@ typedef struct characterinfo {
   unsigned short _depth_index ;
   unsigned short _italic_index;
   unsigned short _tag;
-  unsigned short _remainder;
+  integer _lig_index;
+  integer _kern_index;
+  integer _remainder;
 } characterinfo;
+
+typedef struct liginfo {
+  integer type_char;
+  integer lig;
+} liginfo;
+
+typedef struct kerninfo {
+  integer adj;
+  scaled sc;
+} kerninfo;
 
 typedef struct texfont {
   integer _font_size ;
@@ -47,7 +59,6 @@ typedef struct texfont {
   char * _font_area ;
   integer _font_ec ;
   integer _font_checksum ;   /* internal information */
-  integer _font_glue ;       /* internal information */
   boolean _font_used ;       /* internal information */
   integer _font_bc ;
   integer _hyphen_char ;
@@ -75,12 +86,12 @@ typedef struct texfont {
   integer _font_italics;
   integer *_italic_base;
 
-  integer _font_lig_kerns;
-  fourquarters *_lig_kern_base;
+  integer _font_ligs;
+  liginfo *_lig_base;
 
   integer _font_kerns;
-  integer *_kern_base;
-
+  kerninfo *_kern_base;
+  
   integer _font_extens;
   fourquarters *_exten_base;
 
@@ -91,9 +102,9 @@ typedef struct texfont {
 #define set_font_checksum(a,b)    font_checksum(a) = b
 
 #define font_check_0(a)           ((font_tables[a]->_font_checksum&0xFF000000)>>24)
-#define font_check_1(a)           ((font_tables[a]->_font_checksum&0x0FF00000)>>16)
+#define font_check_1(a)           ((font_tables[a]->_font_checksum&0x00FF0000)>>16)
 #define font_check_2(a)           ((font_tables[a]->_font_checksum&0x0000FF00)>>8)
-#define font_check_3(a)           (font_tables[a]->_font_checksum&0x000000FF)
+#define font_check_3(a)            (font_tables[a]->_font_checksum&0x000000FF)
 
 #define font_size(a)              font_tables[a]->_font_size
 #define set_font_size(a,b)        font_size(a) = b
@@ -107,10 +118,14 @@ typedef struct texfont {
 #define tex_font_name(a)          maketexstring(font_name(a))
 #define set_tex_font_name(a,b)    font_name(a) = makecstring(b)
 
+boolean cmp_font_name (integer, strnumber);
+
 #define font_area(a)              font_tables[a]->_font_area
 #define set_font_area(f,b)        font_area(f) = b
 #define tex_font_area(a)          maketexstring(font_area(a))
 #define set_tex_font_area(a,b)    font_area(a) = makecstring(b)
+
+boolean cmp_font_area (integer, strnumber);
 
 #define font_bc(a)                font_tables[a]->_font_bc
 #define get_font_bc               font_bc
@@ -118,8 +133,6 @@ typedef struct texfont {
 #define font_ec(a)                font_tables[a]->_font_ec
 #define get_font_ec               font_ec
 #define set_font_ec(f,b)          font_ec(f) = b
-#define font_glue(a)              font_tables[a]->_font_glue
-#define set_font_glue(a,b)        font_glue(a) = b
 
 #define font_used(a)              font_tables[a]->_font_used
 #define get_font_used             font_used
@@ -144,12 +157,13 @@ typedef struct texfont {
 #define char_base(a)              font_tables[a]->_char_base
 #define char_info(f,b)            font_tables[f]->_char_base[b]
 
-#define set_char_infos(f,b)					\
-  { if (char_infos(f)!=b) {					\
-      do_realloc(char_base(f), b, characterinfo);		\
+#define set_char_infos(f,b)						\
+  { if (char_infos(f)!=b) {						\
+      fontbytes += (b-char_infos(f))*sizeof(characterinfo);		\
+      do_realloc(char_base(f), b, characterinfo);			\
       char_infos(f) = b; } }
 
-#define set_char_info(f,n,b)                                   \
+#define set_char_info(f,n,b)				       \
   { if (char_infos(f)<n) set_char_infos(f,n);		       \
     char_info(f,n) = b; }
 
@@ -159,9 +173,10 @@ typedef struct texfont {
 #define param_base(a)        font_tables[a]->_param_base
 #define font_param(a,b)      font_tables[a]->_param_base[b]
 
-#define set_font_params(f,b)                                    \
-  { if (font_params(f)!=b) {                                    \
-      do_realloc(param_base(f), (b+1), scaled);			\
+#define set_font_params(f,b)						\
+  { if (font_params(f)!=b) {						\
+      fontbytes += (b-font_params(f))*sizeof(scaled);			\
+      do_realloc(param_base(f), (b+1), integer);			\
       font_params(f) = b;  } }
 
 #define set_font_param(f,n,b)                                   \
@@ -175,9 +190,10 @@ typedef struct texfont {
 #define width_base(a)        font_tables[a]->_width_base
 #define font_width(a,b)      font_tables[a]->_width_base[b]
 
-#define set_font_widths(f,b)                                    \
-  { if (font_widths(f)!=b) {                                    \
-      do_realloc(width_base(f), b, scaled);			\
+#define set_font_widths(f,b)						\
+  { if (font_widths(f)!=b) {						\
+      fontbytes += (b-font_widths(f))*sizeof(integer);			\
+      do_realloc(width_base(f), b, integer);				\
       font_widths(f) = b;  } }
 
 #define set_font_width(f,n,b)                                   \
@@ -191,9 +207,10 @@ typedef struct texfont {
 #define height_base(a)        font_tables[a]->_height_base
 #define font_height(a,b)      font_tables[a]->_height_base[b]
 
-#define set_font_heights(f,b)                                    \
-  { if (font_heights(f)!=b) {                                    \
-      do_realloc(height_base(f), b, scaled);			 \
+#define set_font_heights(f,b)						\
+  { if (font_heights(f)!=b) {						\
+      fontbytes += (b-font_heights(f))*sizeof(integer);			\
+      do_realloc(height_base(f), b, integer);				\
       font_heights(f) = b;  } }
 
 #define set_font_height(f,n,b)                                   \
@@ -206,12 +223,13 @@ typedef struct texfont {
 #define depth_base(a)        font_tables[a]->_depth_base
 #define font_depth(a,b)      font_tables[a]->_depth_base[b]
 
-#define set_font_depths(f,b)                                    \
-  { if (font_depths(f)!=b) {                                    \
-      do_realloc(depth_base(f), b, scaled);			\
+#define set_font_depths(f,b)						\
+  { if (font_depths(f)!=b) {						\
+      fontbytes += (b-font_depths(f))*sizeof(integer);			\
+      do_realloc(depth_base(f), b, integer);				\
       font_depths(f) = b;  } }
 
-#define set_font_depth(f,n,b)                                   \
+#define set_font_depth(f,n,b)					\
   { if (font_depths(f)<n) set_font_depths(f,n);			\
     font_depth(f,n) = b; }
 
@@ -222,45 +240,70 @@ typedef struct texfont {
 #define italic_base(a)        font_tables[a]->_italic_base
 #define font_italic(a,b)      font_tables[a]->_italic_base[b]
 
-#define set_font_italics(f,b)                                    \
-  { if (font_italics(f)!=b) {                                    \
-      do_realloc(italic_base(f), b, scaled);			 \
+#define set_font_italics(f,b)						\
+  { if (font_italics(f)!=b) {						\
+      fontbytes += (b-font_italics(f))*sizeof(integer);			\
+      do_realloc(italic_base(f), b, integer);				\
       font_italics(f) = b;  } }
 
 #define set_font_italic(f,n,b)                                   \
   { if (font_italics(f)<n) set_font_italics(f,n);		 \
     font_italic(f,n) = b; }
 
-/* character ligkerns */
-
-#define font_lig_kerns(a)    font_tables[a]->_font_lig_kerns
-#define lig_kern_base(a)     font_tables[a]->_lig_kern_base
-#define font_lig_kern(a,b)   font_tables[a]->_lig_kern_base[b]
-
-#define set_font_lig_kerns(f,b)					 \
-  { if (font_lig_kerns(f)!=b) {					 \
-      do_realloc(lig_kern_base(f), b, fourquarters);		 \
-      font_lig_kerns(f) = b;  } }
-
-#define set_font_lig_kern(f,n,b)				 \
-  { if (font_lig_kerns(f)<n) set_font_lig_kerns(f,n);		 \
-    font_lig_kern(f,n) = b; }
-
-
 /* character kerns */
 
 #define font_kerns(a)       font_tables[a]->_font_kerns
 #define kern_base(a)        font_tables[a]->_kern_base
 #define font_kern(a,b)      font_tables[a]->_kern_base[b]
+#define font_kern_sc(a,b)   font_tables[a]->_kern_base[b].sc
 
 #define set_font_kerns(f,b)					 \
   { if (font_kerns(f)!=b) {					 \
-      do_realloc(kern_base(f), b, scaled);			 \
+      fontbytes += (b-font_kerns(f))*sizeof(kerninfo);		 \
+      do_realloc(kern_base(f), b, kerninfo);			 \
       font_kerns(f) = b;  } }
 
-#define set_font_kern(f,n,b)				 \
+#define set_font_kern(f,n,b,c)				 \
   { if (font_kerns(f)<n) set_font_kerns(f,n);		 \
-    font_kern(f,n) = b; }
+    font_kern(f,n).adj = b;				 \
+    font_kern(f,n).sc = c; }
+
+#define adjust_font_kern(f,n,c)				 \
+  { font_kern(f,n).sc = c; }
+
+#define kern_char(f,b)       font_kern(f,b).adj
+#define kern_kern(f,b)       font_kern(f,b).sc
+
+ /* disabled item has bit 24 set */ 
+#define kern_disabled(f,b)   (font_kern(f,b).adj > end_ligkern)
+#define kern_end(f,b)        (font_kern(f,b).adj == end_ligkern)
+
+/* character ligatures */
+
+#define font_ligs(a)       font_tables[a]->_font_ligs
+#define lig_base(a)        font_tables[a]->_lig_base
+#define font_lig(a,b)      font_tables[a]->_lig_base[b]
+
+#define set_font_ligs(f,b)					 \
+  { if (font_ligs(f)!=b) {					 \
+      fontbytes += (b-font_ligs(f))*sizeof(liginfo);		 \
+      do_realloc(lig_base(f), b, liginfo);			 \
+      font_ligs(f) = b;  } }
+
+#define set_font_lig(f,n,b,c,d)				 \
+  { if (font_ligs(f)<n) set_font_ligs(f,n);		 \
+    font_lig(f,n).type_char = ((b<<24)+c);		 \
+    font_lig(f,n).lig = d; }
+
+#define is_ligature(a)        (a.type_char&0xFF000000!=0)
+#define lig_type(a)           ((a.type_char&0xFF000000)>>25)
+#define lig_char(a)           (a.type_char&0x00FFFFFF)
+#define lig_replacement(a)     a.lig
+
+#define lig_end(u)          (lig_char(u) == end_ligkern)
+
+ /* disabled item has bit 24 set */ 
+#define lig_disabled(u)     (lig_char(u) > end_ligkern)
 
 
 /* extensibles */
@@ -269,12 +312,13 @@ typedef struct texfont {
 #define exten_base(a)        font_tables[a]->_exten_base
 #define font_exten(a,b)      font_tables[a]->_exten_base[b]
 
-#define set_font_extens(f,b)					 \
-  { if (font_extens(f)!=b) {					 \
-      do_realloc(exten_base(f), b, fourquarters);		 \
+#define set_font_extens(f,b)						\
+  { if (font_extens(f)!=b) {						\
+      fontbytes += (b-font_extens(f))*sizeof(fourquarters);		\
+      do_realloc(exten_base(f), b, fourquarters);			\
       font_extens(f) = b;  } }
 
-#define set_font_exten(f,n,b)                                   \
+#define set_font_exten(f,n,b)					\
   { if (font_extens(f)<n) set_font_extens(f,n);			\
     font_exten(f,n) = b; }
 
@@ -302,7 +346,9 @@ typedef struct texfont {
 #define non_char 65536 /* a code that can't match a real character */
 #define non_address 0  /* a spurious |bchar_label| */
 
-extern characterinfo null_character;
+#define end_ligkern     0x7FFFFF /* otherchar value meaning "stop" */
+#define ignored_ligkern 0x800000 /* otherchar value meaning "disabled" */
+
 
 #define no_tag 0   /* vanilla character */
 #define lig_tag 1  /* character has a ligature/kerning program */
@@ -313,32 +359,32 @@ extern characterinfo null_character;
 #define height_index(f,c)     (char_info(f,c))._height_index
 #define depth_index(f,c)      (char_info(f,c))._depth_index
 #define italic_index(f,c)     (char_info(f,c))._italic_index
+#define kern_index(f,c)       (char_info(f,c))._kern_index
+#define lig_index(f,c)        (char_info(f,c))._lig_index
 
 #define char_width(f,b)       font_width (f,width_index(f,b))
 #define char_height(f,b)      font_height(f,height_index(f,b))
 #define char_depth(f,b)       font_depth (f,depth_index(f,b))
 #define char_italic(f,b)      font_italic(f,italic_index(f,b))
-#define char_tag(f,b)         (char_info(f,b))._tag
-
-#define set_char_tag(f,b,c)   char_tag(f,b) = c
+#define char_kern(f,b)        font_kern  (f,kern_index(f,b))
+#define char_lig(f,b)         font_lig   (f,lig_index(f,b))
 
 #define char_remainder(f,b)   (char_info(f,b))._remainder
+#define char_tag(f,b)         (char_info(f,b))._tag
+
+#define set_char_tag(f,b,c)       char_tag(f,b) = c
+#define set_char_remainder(f,b,c) char_remainder(f,b) = c
+
+#define set_char_kern(f,b,c)  kern_index(f,b) = c
+#define set_char_lig(f,b,c)   lig_index(f,b) = c
 
 #define char_exists(f,b)     ((b<=font_ec(f))&&(b>=font_bc(f))&&	\
 			      (width_index(f,b)>0))
+#define has_lig(f,b)          (lig_index(f,b)>0)
+#define has_kern(f,b)         (kern_index(f,b)>0)
 
-#define skip_byte(f,z)        font_lig_kern(f,z).b0
-#define next_char(f,z)        font_lig_kern(f,z).b1
-#define op_byte(f,z)          font_lig_kern(f,z).b2
-#define rem_byte(f,z)         font_lig_kern(f,z).b3
-
-#define stop_flag 128 /* value indicating `\.{STOP}' in a lig/kern program */
-#define kern_flag 128 /* op code for a kern step */
-
-#define char_kern(f,z)        font_kern(f,256*op_byte(f,z)+rem_byte(f,z))
-
-#define lig_kern_start(f,c)   char_remainder(f,c)
-#define lig_kern_restart(f,c) (256*op_byte(f,c)+rem_byte(f,c))
+scaled get_kern(internalfontnumber f, integer lc, integer rc);
+liginfo get_ligature(internalfontnumber f, integer lc, integer rc);
 
 #define ext_top(f,c)          font_exten(f,char_remainder(f,c)).b0
 #define ext_mid(f,c)          font_exten(f,char_remainder(f,c)).b1
@@ -349,7 +395,9 @@ extern texfont **font_tables;
 
 integer new_font (integer id) ;
 integer copy_font (integer id) ;
+integer scale_font (integer id, integer atsize) ;
 void create_null_font (void);
+void delete_font(integer id);
 boolean is_valid_font (integer id);
 
 void dump_font (int font_number);
@@ -358,11 +406,14 @@ void undump_font (int font_number);
 integer test_no_ligatures (internalfontnumber f) ;
 integer get_tag_code (internalfontnumber f, eightbits c);
 
+int read_tfm_info(internalfontnumber f, char *nom, char *aire, scaled s);
+
 int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 		   integer natural_dir);
 
 /* Everything below here will hopefully go away soon */
 
+#define adjustfontkern                   adjust_font_kern
 #define bcharlabel                       bchar_label
 #define charbase                         char_base
 #define chardepth                        char_depth
@@ -374,6 +425,8 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define charremainder                    char_remainder
 #define chartag                          char_tag
 #define charwidth                        char_width
+#define cmpfontarea                      cmp_font_area
+#define cmpfontname                      cmp_font_name
 #define copyfont                         copy_font
 #define createnullfont                   create_null_font
 #define depthbase                        depth_base
@@ -401,13 +454,13 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define fontexten                        font_exten
 #define fontextens                       font_extens
 #define fontfalsebchar                   font_false_bchar
-#define fontglue                         font_glue
 #define fontheight                       font_height
 #define fontheights                      font_heights
 #define fontitalic                       font_italic
 #define fontitalics                      font_italics
 #define fontkern                         font_kern
 #define fontkerns                        font_kerns
+#define fontkernsc                       font_kern_sc
 #define fontligkern                      font_lig_kern
 #define fontligkerns                     font_lig_kerns
 #define fontname                         font_name
@@ -419,34 +472,32 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define fontused                         font_used
 #define fontwidth                        font_width
 #define fontwidths                       font_widths
-#define getfontbc                        get_font_bc
-#define getfontdsize                     get_font_dsize
-#define getfontec                        get_font_ec
-#define getfontname                      get_font_name
-#define getfontused                      get_font_used
 #define getkern                          get_kern
+#define getligature                      get_ligature
 #define gettagcode                       get_tag_code
+#define haslig                           has_lig
+#define haskern                          has_kern
 #define heightbase                       height_base
 #define hyphenchar                       hyphen_char
+#define isligature                       is_ligature
 #define isvalidfont                      is_valid_font
 #define italicbase                       italic_base
 #define kernbase                         kern_base
 #define kernflag                         kern_flag
-#define ligkernbase                      lig_kern_base
-#define ligkernrestart                   lig_kern_restart
-#define ligkernstart                     lig_kern_start
 #define ligtag                           lig_tag
+#define ligreplacement                   lig_replacement
+#define ligtype                          lig_type
 #define listtag                          list_tag
 #define nextchar                         next_char
 #define nonaddress                       non_address
 #define nonchar                          non_char
 #define notag                            no_tag
-#define nullcharacter                    null_character
 #define opbyte                           op_byte
 #define parambase                        param_base
 #define quadcode                         quad_code
 #define readfontinfo                     read_font_info
 #define rembyte                          rem_byte
+#define scalefont                        scale_font
 #define setbcharlabel                    set_bchar_label
 #define setcharinfo                      set_char_info
 #define setchartag                       set_char_tag
@@ -461,7 +512,6 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define setfontexten                     set_font_exten
 #define setfontextens                    set_font_extens
 #define setfontfalsebchar                set_font_false_bchar
-#define setfontglue                      set_font_glue
 #define setfontheight                    set_font_height
 #define setfontheights                   set_font_heights
 #define setfontitalic                    set_font_italic
@@ -479,7 +529,9 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define setfontwidth                     set_font_width
 #define setfontwidths                    set_font_widths
 #define sethyphenchar                    set_hyphen_char
+#define setnoligatures                   set_no_ligatures
 #define setskewchar                      set_skew_char
+#define settagcode                       set_tag_code
 #define settexfontname                   set_tex_font_name
 #define skewchar                         skew_char
 #define skipbyte                         skip_byte

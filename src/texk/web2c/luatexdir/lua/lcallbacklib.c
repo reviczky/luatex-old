@@ -181,7 +181,8 @@ runsavedcallback (int r, char *name, char *values, ...) {
   va_start(args,values);
   luaL_checkstack(L,2,"out of stack space");
   lua_rawgeti(L,LUA_REGISTRYINDEX,r);
-  lua_getfield(L,-1,name);
+  lua_pushstring(L,name);
+  lua_rawget(L,-2);
   if (!lua_isfunction(L,-1)) {
     ret = 0;
   } else {
