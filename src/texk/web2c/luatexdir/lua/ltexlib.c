@@ -188,17 +188,17 @@ static int dimen_to_number (lua_State *L,char *s){
   char *d;
   int j;
   v = strtod(s,&d);
-  if      (strcmp (d,"in") == 0) { j = (int)((v*7227)/100)   *65536; }
-  else if (strcmp (d,"pc") == 0) { j = (int)(v*12)           *65536; } 
-  else if (strcmp (d,"cm") == 0) { j = (int)((v*7227)/254)   *65536; }
-  else if (strcmp (d,"mm") == 0) { j = (int)((v*7227)/2540)  *65536; }
-  else if (strcmp (d,"bp") == 0) { j = (int)((v*7227)/7200)  *65536; }
-  else if (strcmp (d,"dd") == 0) { j = (int)((v*1238)/1157)  *65536; }
-  else if (strcmp (d,"cc") == 0) { j = (int)((v*14856)/1157) *65536; }
-  else if (strcmp (d,"nd") == 0) { j = (int)((v*21681)/20320)*65536; }
-  else if (strcmp (d,"nc") == 0) { j = (int)((v*65043)/5080) *65536; }
-  else if (strcmp (d,"pt") == 0) { j = (int)v                *65536; }
-  else if (strcmp (d,"sp") == 0) { j = (int)v; }
+  if      (strcmp (d,"in") == 0) { j = (int)(((v*7227)/100)   *65536); }
+  else if (strcmp (d,"pc") == 0) { j = (int)((v*12)           *65536); } 
+  else if (strcmp (d,"cm") == 0) { j = (int)(((v*7227)/254)   *65536); }
+  else if (strcmp (d,"mm") == 0) { j = (int)(((v*7227)/2540)  *65536); }
+  else if (strcmp (d,"bp") == 0) { j = (int)(((v*7227)/7200)  *65536); }
+  else if (strcmp (d,"dd") == 0) { j = (int)(((v*1238)/1157)  *65536); }
+  else if (strcmp (d,"cc") == 0) { j = (int)(((v*14856)/1157) *65536); }
+  else if (strcmp (d,"nd") == 0) { j = (int)(((v*21681)/20320)*65536); }
+  else if (strcmp (d,"nc") == 0) { j = (int)(((v*65043)/5080) *65536); }
+  else if (strcmp (d,"pt") == 0) { j = (int)(v                *65536); }
+  else if (strcmp (d,"sp") == 0) { j = (int)(v); }
   else {
 	lua_pushstring(L, "unknown dimension specifier");
 	lua_error(L);
