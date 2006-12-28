@@ -54,6 +54,7 @@ font/writettf.o \
 font/texfont.o \
 font/tfmofm.o \
 font/luafont.o \
+font/dofont.o \
 image/epdf.o \
 image/pdftoepdf.o \
 image/writeimg.o \

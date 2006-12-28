@@ -26,6 +26,7 @@ static const char *const callbacknames[] = {
   "process_input_buffer",
   "start_page_number",  "stop_page_number",
   "start_run",          "stop_run",
+  "define_font",
   NULL };
 
 typedef struct {

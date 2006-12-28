@@ -119,13 +119,12 @@ count_hash_items (lua_State *L){
   return n;
 }
 
-int
-font_from_lua (lua_State *L) {
-  int f,i,k,n;
+boolean
+font_from_lua (lua_State *L, int f) {
+  int i,k,n;
   scaled j;
   int bc,ec,nc,nk,nl,ne;
   char *s;
-  f = new_font(fontptr+1);
   
   /* at -1, there is a table */
   lua_getfield(L,-1,"area");
@@ -146,7 +145,7 @@ font_from_lua (lua_State *L) {
 	lua_pop(L,1);
 	/* fatal */
 	lua_pop(L,1);
-	return 0;
+	return false;
   }
 
   lua_getfield(L,-1,"designsize");
@@ -413,7 +412,6 @@ font_from_lua (lua_State *L) {
   } else {
 	/* jikes, no characters */
   }
-	
-  return 1;
+  return true;
 }
 

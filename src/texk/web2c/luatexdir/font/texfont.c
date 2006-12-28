@@ -129,6 +129,8 @@ void delete_font (integer f) {
   }
 }
 
+/* this code is an experiment waiting for completion. */
+
 integer
 scale_font (integer oldf, integer atsize) {
   integer f;
