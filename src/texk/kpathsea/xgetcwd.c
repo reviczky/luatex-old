@@ -50,7 +50,8 @@ xgetcwd P1H(void)
        large programs like tex.  If your system needs this define and it
        is not detected by configure, let me know.
                                        -- Olaf Weber <infovore@xs4all.nl */
-#if defined (HAVE_GETCWD) && !defined (GETCWD_FORKS)
+  /*  && !defined (GETCWD_FORKS) */
+#if defined (HAVE_GETCWD)
     string path = (string)xmalloc(PATH_MAX + 1);
   
     if (getcwd (path, PATH_MAX + 1) == 0) {
