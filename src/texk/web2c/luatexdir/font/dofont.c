@@ -87,8 +87,8 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
   boolean res; /* was the callback successful? */
   integer callback_id;
   res = 0;
-  cnom  = makecstring(nom);
-  caire = makecstring(aire);
+  cnom  = xstrdup(makecstring(nom));
+  caire = xstrdup(makecstring(aire));
   callback_id=callbackdefined("define_font");
   if (callback_id>0) {
     callback_id = runandsavecallback(callback_id,"SSd->",cnom,caire,s);
