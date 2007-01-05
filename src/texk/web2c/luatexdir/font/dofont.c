@@ -96,8 +96,8 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
       luaL_checkstack(Luas[0],1,"out of stack space");
       lua_rawgeti(Luas[0],LUA_REGISTRYINDEX, callback_id);
       if (lua_istable(Luas[0],-1)) {
-	f = new_font((font_ptr+1));
-	res = font_from_lua(Luas[0],f);	
+		f = new_font((font_ptr+1));
+		res = font_from_lua(Luas[0],f);	
       }
       lua_pop(Luas[0],1);
     }

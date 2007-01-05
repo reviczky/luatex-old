@@ -107,14 +107,14 @@ static int
 count_hash_items (lua_State *L){
   int n = 0;
   if (!lua_isnil(L,-1)) {
-	if (lua_istable(L,-1)) {
-	  /* now find the number */
-	  lua_pushnil(L);  /* first key */
-	  while (lua_next(L, -2) != 0) {
-		n++;
-		lua_pop(L,1);
-	  }
-	}
+    if (lua_istable(L,-1)) {
+      /* now find the number */
+      lua_pushnil(L);  /* first key */
+      while (lua_next(L, -2) != 0) {
+	n++;
+	lua_pop(L,1);
+      }
+    }
   }
   return n;
 }
@@ -125,7 +125,7 @@ font_from_lua (lua_State *L, int f) {
   scaled j;
   int bc,ec,nc,nk,nl,ne;
   char *s;
-  
+  int adj, krn;
   /* at -1, there is a table */
   lua_getfield(L,-1,"area");
   if (lua_isstring(L,-1)) {
@@ -236,6 +236,7 @@ font_from_lua (lua_State *L, int f) {
 	  lua_pop(L,1);
 	}
   } /* else clause handled by new_font() */
+  lua_pop(L,1);
 
   /* characters */
 
@@ -251,31 +252,31 @@ font_from_lua (lua_State *L, int f) {
 	while (lua_next(L, -2) != 0) {
 	  /* value is now -1, new key at -2 */
 	  if (lua_isnumber(L,-2)) {
-		i = lua_tonumber(L,-2);
-		if (i>=0) {
-		  if (lua_istable(L,-1)) {
-			nc++;
-			if (i>ec) ec = i;
-			if (bc<0) bc = i;
-			if (bc>=0 && i<bc) bc = i;
-			lua_getfield(L,-1,"extensible");
-			if (!lua_isnil(L,-1)) {
-			  ne++;
-			}
-			lua_pop(L,1);
-			
-			lua_getfield(L,-1,"kerns");
-			k = count_hash_items(L);
-			if (k>0) nk += k+1; 
-			lua_pop(L,1);
-
-			lua_getfield(L,-1,"ligatures");
-			k = count_hash_items(L);
-			if (k>0) nl += k+1; 
-			lua_pop(L,1);
-
-		  }
+	    i = lua_tonumber(L,-2);
+	    if (i>=0) {
+	      if (lua_istable(L,-1)) {
+		nc++;
+		if (i>ec) ec = i;
+		if (bc<0) bc = i;
+		if (bc>=0 && i<bc) bc = i;
+		lua_getfield(L,-1,"extensible");
+		if (!lua_isnil(L,-1)) {
+		  ne++;
 		}
+		lua_pop(L,1);
+		
+		lua_getfield(L,-1,"kerns");
+		k = count_hash_items(L);
+		if (k>0) nk += k+1; 
+		lua_pop(L,1);
+		
+		lua_getfield(L,-1,"ligatures");
+		k = count_hash_items(L);
+		if (k>0) nl += k+1; 
+		lua_pop(L,1);
+		
+	      }
+	    }
 	  }
 	  lua_pop(L, 1);
 	}
@@ -288,120 +289,146 @@ font_from_lua (lua_State *L, int f) {
 	  set_font_heights(f,(nc+1));
 	  set_font_depths(f,(nc+1));
 	  set_font_italics(f,(nc+1));
-	  if (nk>0)	set_font_kerns(f,(nk+1));
+	  if (nk>0) set_font_kerns(f,(nk+1));
 	  if (nl>0) set_font_ligs(f,(nl+1));
-	  if (ne>0)	set_font_extens(f,ne);
-	  /* second loop ... */
-
-	  nc = 0; ne = 0; nk = 1; nl = 1;
+	  if (ne>0) set_font_extens(f,(ne+1));
 	  set_font_width(f,0,0);
 	  set_font_height(f,0,0);
 	  set_font_depth(f,0,0);
 	  set_font_italic(f,0,0);
-	  set_font_kern(f,0,0,0);
-	  set_font_lig(f,0,0,0,0);
+	  if (nk>0) set_font_kern(f,0,0,0);
+	  if (nl>0) set_font_lig(f,0,0,0,0);
+
+	  /* fprintf(stderr,"%s:bc=%d,ec=%d,nc=%d,nk=%d,nl=%d,ne=%d\n",font_name(f),bc,ec,nc,nk,nl,ne);*/
+	  /* second loop ... */
+
+	  nc = 0; ne = 1; nk = 1; nl = 1;
 	  lua_pushnil(L);  /* first key */
 	  while (lua_next(L, -2) != 0) {
-		if (lua_isnumber(L,-2)) {
-		  i = lua_tonumber(L,-2);
-		  if (i>=0) {
-			if (lua_istable(L,-1)) {
-			  nc++;
-			  /* character table */
-			  lua_getfield(L,-1,"width");
-			  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0;			 
-			  set_font_width(f,nc,j);  width_index(f,i) = nc;
-			  lua_pop(L,1);
+	    if (lua_isnumber(L,-2)) {
+	      i = lua_tonumber(L,-2);
+	      if (i>=0) {
+		if (lua_istable(L,-1)) {
+		  nc++;
+		  /* character table */
+		  lua_getfield(L,-1,"width");
+		  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0;			 
+		  set_font_width(f,nc,j);  width_index(f,i) = nc;
+		  lua_pop(L,1);
+		  
+		  lua_getfield(L,-1,"height");
+		  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0;			 
+		  set_font_height(f,nc,j); height_index(f,i) = nc;
+		  lua_pop(L,1);
 
-			  lua_getfield(L,-1,"height");
-			  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0;			 
-			  set_font_height(f,nc,j); height_index(f,i) = nc;
-			  lua_pop(L,1);
+		  lua_getfield(L,-1,"depth");
+		  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0; 
+		  set_font_depth(f,nc,j); depth_index(f,i) = nc;
+		  lua_pop(L,1);
 
-			  lua_getfield(L,-1,"depth");
-			  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0; 
-			  set_font_depth(f,nc,j); depth_index(f,i) = nc;
-			  lua_pop(L,1);
+		  lua_getfield(L,-1,"italic");
+		  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0; 
+		  set_font_italic(f,nc,j); italic_index(f,i) = nc;
+		  lua_pop(L,1);
 
-			  lua_getfield(L,-1,"italic");
-			  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0; 
-			  set_font_italic(f,nc,j); italic_index(f,i) = nc;
-			  lua_pop(L,1);
+		  char_tag(f,i) = 0; 
 
-			  lua_getfield(L,-1,"next");
-			  if (lua_isnumber(L,-1)) k = lua_tonumber(L,-1);  else k = 0;
-			  char_tag(f,i) = list_tag; char_remainder(f,i) = k;
-			  lua_pop(L,1);
-			  
-			  lua_getfield(L,-1,"extensible");
-			  if (lua_istable(L,-1)){ 
-				char_tag(f,i) = ext_tag; 
-				char_remainder(f,i) = ne++;
-
-				lua_getfield(L,-1,"top");
-				if (lua_isnumber(L,-1)) ext_top(f,i) = lua_tonumber(L,-1);
-                else ext_top(f,i) = 0;
-				lua_pop(L,1);
-
-				lua_getfield(L,-1,"bot");
-				if (lua_isnumber(L,-1)) ext_bot(f,i) = lua_tonumber(L,-1);
-                else ext_bot(f,i) = 0;
-				lua_pop(L,1);
-
-				lua_getfield(L,-1,"mid");
-				if (lua_isnumber(L,-1)) ext_mid(f,i) = lua_tonumber(L,-1);
-                else ext_mid(f,i) = 0;
-				lua_pop(L,1);
-
-				lua_getfield(L,-1,"rep");
-				if (lua_isnumber(L,-1)) ext_rep(f,i) = lua_tonumber(L,-1);
-                else ext_rep(f,i) = 0;
-				lua_pop(L,1);
-			  } 
-			  lua_pop(L,1);
-
-			  lua_getfield(L,-1,"kerns");
-			  if (lua_istable(L,-1)){
-				/* */
-				kern_index(f,i) = nk;
-				lua_pushnil(L);  /* first key */
-				while (lua_next(L, -2) != 0) {
-				  set_font_kern(f,nk,lua_tonumber(L,-2),lua_tonumber(L,-1));
-				  lua_pop(L,1);
-				  nk++;
-				}
-				set_font_kern(f,nk,end_ligkern,0);
-				nk++;
-			  }
-			  lua_pop(L,1);
-
-			  lua_getfield(L,-1,"ligatures");
-			  if (lua_istable(L,-1)){
-				/* do ligs */
-				lua_pushnil(L);  /* first key */
-				while (lua_next(L, -2) != 0) {
-				  /* */
-				  if (lua_istable(L,-1)){
-					/* */
-				    lig_index(f,i) = nl;
-					lua_getfield(L,-1,"type");
-					k = lua_tonumber(L,-1);
-					lua_pop(L,1);
-
-					lua_getfield(L,-1,"char");
-					set_font_lig(f,nl,k,lua_tonumber(L,-2),lua_tonumber(L,-1));
-					lua_pop(L,1);
-					nl++;
-				  }
-				  lua_pop(L,1);
-				}
-				set_font_lig(f,nl,0,end_ligkern,0);
-				nl++;
-			  }
-			  lua_pop(L,1);
-			}
+		  lua_getfield(L,-1,"next");
+		  if (lua_isnumber(L,-1)) {
+		    k = lua_tonumber(L,-1);  
+		    char_tag(f,i) = list_tag; 
+		    char_remainder(f,i) = k;
 		  }
+		  lua_pop(L,1);
+			  
+
+		  lua_getfield(L,-1,"extensible");
+		  if (lua_istable(L,-1)){ 
+		    char_tag(f,i) = ext_tag; 
+		    char_remainder(f,i) = ne++;
+		    
+		    lua_getfield(L,-1,"top");
+		    if (lua_isnumber(L,-1)) ext_top(f,i) = lua_tonumber(L,-1);
+		    else ext_top(f,i) = 0;
+		    lua_pop(L,1);
+		    
+		    lua_getfield(L,-1,"bot");
+		    if (lua_isnumber(L,-1)) ext_bot(f,i) = lua_tonumber(L,-1);
+		    else ext_bot(f,i) = 0;
+		    lua_pop(L,1);
+		    
+		    lua_getfield(L,-1,"mid");
+		    if (lua_isnumber(L,-1)) ext_mid(f,i) = lua_tonumber(L,-1);
+		    else ext_mid(f,i) = 0;
+		    lua_pop(L,1);
+		    
+		    lua_getfield(L,-1,"rep");
+		    if (lua_isnumber(L,-1)) ext_rep(f,i) = lua_tonumber(L,-1);
+		    else ext_rep(f,i) = 0;
+		    lua_pop(L,1);
+		  }
+		  lua_pop(L,1);
+		  
+		  lua_getfield(L,-1,"kerns");
+		  if (lua_istable(L,-1)){  /* there are kerns */
+		    kern_index(f,i) = nk;
+		    lua_pushnil(L);  /* first key */
+		    while (lua_next(L, -2) != 0) {
+		      adj = lua_tonumber(L,-2);
+		      krn = lua_tonumber(L,-1);
+		      /* fprintf(stderr,"char=%d,nk=%d,adj=%i,sc=%i\n",i,nk,adj,krn);*/
+		      set_font_kern(f,nk,adj,krn);
+		      lua_pop(L,1);
+		      nk++;
+		    }
+		    set_font_kern(f,nk,end_ligkern,0);
+		    nk++;
+		  } else {
+		    kern_index(f,i) = 0;
+		  }
+		  lua_pop(L,1);
+		  
+		  lua_getfield(L,-1,"ligatures");
+		  if (lua_istable(L,-1)){
+		    /* do ligs */
+		    lua_pushnil(L);  /* first key */
+		    while (lua_next(L, -2) != 0) {
+		      /* */
+		      adj = lua_tonumber(L,-2);
+		      if (lua_istable(L,-1)){ /* */
+			
+			lig_index(f,i) = nl;
+			lua_getfield(L,-1,"type");
+			if (lua_isnumber(L,-1)) {
+			  k = lua_tonumber(L,-1);
+			} else {
+			  k = 0;
+			}
+			lua_pop(L,1);
+			
+			lua_getfield(L,-1,"char");
+			if (lua_isnumber(L,-1)) {
+			  krn = lua_tonumber(L,-1);
+			  set_font_lig(f,nl,k,adj,krn);
+			  nl++;
+			} else {
+			  /* skip this */
+			}
+			lua_pop(L,1);
+
+		      }
+		      lua_pop(L,1);
+		    }
+		    set_font_lig(f,nl,0,end_ligkern,0);
+		    nl++;
+		  } else {
+		    lig_index(f,i) = 0;
+		  }
+		  lua_pop(L,1);
 		}
+	      }
+	    }
+	    lua_pop(L, 1);
 	  }
 	  lua_pop(L, 1);
 	  
