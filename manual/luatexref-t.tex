@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2006-12-08}
+\TitlePage{Snapshot 2007-01-05}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -62,7 +62,7 @@ need arises, anything can (and will) be changed without prior notice.
 \LUATEX\ consists of a number of interrelated but (still) distinguishable
  parts:
 \startitemize
-\item \PDFTEX\ version 1.40  (currently in beta)
+\item \PDFTEX\ version 1.40  (currently still the october 2006 beta)
 \item \ALEPH\ RC4 (from the \TEXLIVE\ repository)
 \item Functionality of \ETEX\ 2.2
 \item Lua 5.1.1
@@ -455,8 +455,9 @@ needs to check \type{-progname} and \type{-ini} and \type{-fmt}
 
 \section{Lua changes}
 
-Three modules that are normally external are statically linked in with
-\LUATEX: \type{slnunicode}, \type{luazip}, and \type{luafilesystem}.
+Four modules that are normally external are statically linked in with
+\LUATEX: \type{slnunicode}, \type{luazip}, \type{luafilesystem}, and 
+\type{lpeg} (version 0.2).
 
 The \type{read("*line")} function from the io library has been
 adjusted so that it is line-ending neutral: any of \type{LF}, \type
@@ -1434,6 +1435,33 @@ The final goal is the total replacement of \TEX's error handling
 routines, but that needs lots of adjustments in the web source because
 \TEX\ deals with errors in a somewhat haphazard fashion.
 
+\subsection{Font-related callbacks}
+
+\subsubsection{\callback{define_font}}
+
+\startfunctioncall
+     function (string <name>, string <area>, number <size>)
+       return table <font>
+     end 
+\stopfunctioncall
+
+The string \type{<name>} is the filename part of the font
+specification, as given by the user.
+
+The string \type{<area>} is the areaname part of the font
+specification, as given by the user.
+
+The number \type{<size>} is a bit special: 
+\startitemize
+\item if it is positive, it specifies an `at size' in scaled points. 
+\item if it is negative, its absolute value represents a `scaled'
+setting relative to the designsize of the font.
+\stopitemize
+
+The internal structure of the \type{<font>} table that is to be
+returned is explained in \in{chapter}[fonts].
+
+
 \section{The \lualib{lua} library}
 
 This library contains two read-only  items:
@@ -1724,7 +1752,147 @@ the executable after loading and executing the startup file.
 \NC halt_on_error    \NC boolean \NC false \NC Abort run on the first encountered error\NC\AR
 \stoptabulate
 
+\section{The \lualib{font} library}
 
+The font library will provide the interface into the internals of the
+font system, as well as contain some binary font loaders. At the
+moment, there is only one function pre-defined:
+
+\startfunctioncall
+     table fnt = font.read_tfm(string name, number s)
+\stopfunctioncall
+
+The number is a bit special: 
+\startitemize
+\item if it is positive, it specifies an `at size' in scaled points. 
+\item if it is negative, its absolute value represents a `scaled'
+setting relative to the designsize of the font.
+\stopitemize
+
+The font `\type{cmr10 at 12pt}' would be asked for as
+\type{font.read_tfm("cmr10", 798432)}, and the simple specification 
+`\type{cmbx10}' is \type{font.read_tfm("cmbx10", -1000)}
+
+The internal structure of the font table that is returned is explained
+in \in{chapter}[fonts]
+
+\chapter[fonts]{Font structure}
+
+\TeX\ fonts are represented as Lua tables. The top-level keys in the
+table are as follows:
+
+\starttabulate[|l|l|l|p|]
+\NC key                \NC required \NC value type \NC description \NC\FR
+\NC name               \NC yes      \NC string \NC the font's (file)name\NC\NR
+\NC area               \NC no       \NC string \NC the font's (directory)name, typically empty\NC\NR
+\NC designsize         \NC no       \NC number \NC default is 10pt \NC \NR
+\NC size               \NC no       \NC number \NC default: same as designsize \NC \NR
+\NC checksum           \NC no       \NC number \NC default: 0 \NC \NR
+\NC direction          \NC no       \NC number \NC default: 0 (LTR) \NR
+% \NC boundarychar_label \NC unused   \NC number \NC (this is a relic, will be removed)\NC \NR
+\NC boundarychar       \NC no       \NC number \NC default: 0 \NC \NR
+\NC false_boundarychar \NC no       \NC number \NC default: 0 \NC \NR
+\NC hyphenchar         \NC no       \NC number \NC default: TeX's \type{\hyphenchar} \NC \NR
+\NC skewchar           \NC no       \NC number \NC default: TeX's \type{\skewchar}  \NC \NR
+\NC parameters         \NC no       \NC array  \NC default: [1]--[7], all zeroed \NC \NR
+\NC characters         \NC no       \NC table  \NC default: no characters \NC \NR
+\stoptabulate
+
+The \type{parameters} is a Lua array: It is a table of consecutive
+integer items starting at index \type{[1]}. Holes are not allowed, and
+non-integer values are ignored.
+
+
+The \type{characters} table is a list of character hashes indexed by
+number. The number is the `internal code' TeX knows this character
+by. Holes are allowed, but non-integer values are ignored. 
+
+Each character hash itself is a hash. For example, here is the
+character `f' (decimal 102) in the font cmr10 at 10 points:
+
+\starttyping
+    [102] = {
+      ["kerns"] = {
+        [63] = 50973,
+        [93] = 50973,
+        [39] = 50973,
+        [33] = 50973,
+        [41] = 50973
+       },
+      ["italic"] = 50973,
+      ["height"] = 455111,
+      ["depth"] = 0,
+      ["ligatures"] = {
+        [102] = {
+          ["char"] = 11,
+          ["type"] = 0
+         },
+        [108] = {
+          ["char"] = 13,
+          ["type"] = 0
+         },
+        [105] = {
+          ["char"] = 12,
+          ["type"] = 0
+         }
+       },
+      ["width"] = 200250
+     }
+\stoptyping
+
+The following top-level keys can be present:
+
+\starttabulate[|l|l|p|]
+\NC key               \NC value type \NC description \NC\FR
+\NC width             \NC number \NC character's width, in sp (default 0)\NC\NR
+\NC height            \NC number \NC character's height, in sp (default 0)\NC\NR
+\NC depth             \NC number \NC character's depth, in sp (default 0)\NC\NR
+\NC italic            \NC number \NC character's italic correction, in sp (default zero)\NC\NR
+\NC next              \NC number \NC the `next larger' character index \NC\NR
+\NC extensible        \NC table  \NC the constituent bits of an extensible recipe\NC\NR
+\NC kerns             \NC table  \NC the constituent bits of an extensible recipe\NC\NR
+\NC ligatures         \NC table  \NC the constituent bits of an extensible recipe\NC\NR
+\stoptabulate
+
+The presence of \type{extensible} will overrule \type{next}, if that is also present.
+
+The \type{extensible} table is very simple:
+\starttabulate[|l|l|p|]
+\NC key               \NC value type \NC description \NC\FR
+\NC top               \NC number \NC `top' character index\NC\NR
+\NC mid               \NC number \NC `middle' character index\NC\NR
+\NC bot               \NC number \NC `bottom' character index\NC\NR
+\NC rep               \NC number \NC `repeatable' character index\NC\NR
+\stoptabulate
+
+The \type{kerns} table is a hash indexed by character index, with the values the kerning
+to be appled, in scaled points.
+
+The \type{ligatures} table is a hash indexed by character index, with the values 
+being yet another small hash, with two fields:
+\starttabulate[|l|l|p|]
+\NC key               \NC value type \NC description \NC\FR
+\NC type              \NC number \NC The type of this ligature command, default 0\NC\NR
+\NC char              \NC number \NC The character index of the resultant ligature\NC\NR
+\stoptabulate
+The \type{char} field in a ligature is required.
+
+The \type{type} field is the numerical value of one of the eight possible ligature
+types supported by \TeX:
+
+\def\|{\string|}
+\def\>{\string>}
+\starttabulate[|l|l|p|]
+\NC textual        \NC numeric value \NC result (* = final `current point')\NC\FR
+\NC l + r =:     n \NC 0       \NC *n   \NC\NR
+\NC l + r =:\|    n \NC 1       \NC *nr  \NC\NR
+\NC l + r  =:\|\>  n \NC 5       \NC n*r  \NC\NR
+\NC l + r \|=:    n \NC 2       \NC *ln  \NC\NR
+\NC l + r \|=:\>   n \NC 6       \NC l*n  \NC\NR
+\NC l + r \|=:\|   n \NC 3       \NC *lnr \NC\NR
+\NC l + r \|=:\|\>  n \NC 7       \NC l*nr \NC\NR
+\NC l + r \|=:\|\>\> n \NC 11      \NC ln*r \NC\NR
+\stoptabulate
 
 \chapter{Modifications}
 
