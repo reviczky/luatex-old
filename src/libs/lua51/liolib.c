@@ -412,7 +412,7 @@ static int io_readline (lua_State *L) {
   int sucess;
   if (f == NULL)  /* file is already closed? */
     luaL_error(L, "file is already closed");
-  sucess = read_line(L, f);
+  sucess = new_read_line(L, f);
   if (ferror(f))
     return luaL_error(L, "%s", strerror(errno));
   if (sucess) return 1;
