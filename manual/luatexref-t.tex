@@ -825,9 +825,9 @@ even macros that expand into a number)
 
 The count registers accept and return lua numbers.
 
-The dimension registers accept lua numbers (in scaled points)
-or strings (with included dimension). The result is always a number
-in scaled points.
+The dimension registers accept lua numbers (in scaled points) or
+strings (with an included absolute dimension. "em" and "ex" and "px"
+are forbidden). The result is always a number in scaled points.
 
 The token registers accept and return lua strings. Lua strings are
 converted to token lists using \type{\the\toks} style expansion.
@@ -1798,10 +1798,27 @@ table are as follows:
 \NC characters         \NC no       \NC table  \NC default: no characters \NC \NR
 \stoptabulate
 
+The \type{direction} is a number signalling the `normal' direction for
+this font. There are sixteen possibilities:
+
+\starttabulate[|l|p|l|p|]
+\NC number  \NC   meaning \NC  number \NC   meaning \NC\NR
+\NC 0       \NC LT        \NC 8       \NC TT        \NC\NR
+\NC 1       \NC LL        \NC 9       \NC TL        \NC\NR
+\NC 2       \NC LB        \NC 10      \NC TB        \NC\NR
+\NC 3       \NC LR        \NC 11      \NC TR        \NC\NR
+\NC 4       \NC RT        \NC 12      \NC BT        \NC\NR
+\NC 5       \NC RL        \NC 13      \NC BL        \NC\NR
+\NC 6       \NC RB        \NC 14      \NC BB        \NC\NR
+\NC 7       \NC RR        \NC 15      \NC BR        \NC\NR
+\stoptabulate
+These are Omega-style direction abbreviations: the first character
+indicates the `first' edge of the character glyphs (the edge that is
+seen first in the writing direction), the second the `top' side.
+
 The \type{parameters} is a Lua array: It is a table of consecutive
 integer items starting at index \type{[1]}. Holes are not allowed, and
 non-integer values are ignored.
-
 
 The \type{characters} table is a list of character hashes indexed by
 number. The number is the `internal code' TeX knows this character
@@ -2131,9 +2148,6 @@ more specific small feature requests .
 
 \startitemize
 
-\item Low-level support is still missing but needed to escape from the UTF-8
-regime when dealing with \type{\special} and \type{\pdfliteral}.
-
 \item Implement the \TEX\ primitive \type{\dimension}, cf. \type{\number}
 
 \item Change the lua table type{tex.dimen} to accept and return float
@@ -2147,6 +2161,8 @@ values instead of strings
 
 \item A way to (re?)calculate the width of a  \type{\vbox}, taking only
 the natural width of the included items into account.
+
+\item Make the number of the output box configurable.
 
 \stopitemize
 
