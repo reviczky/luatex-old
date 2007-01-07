@@ -369,62 +369,62 @@ font_from_lua (lua_State *L, int f) {
 		  }
 		  lua_pop(L,1);
 		  
+		  kern_index(f,i) = 0;
 		  lua_getfield(L,-1,"kerns");
 		  if (lua_istable(L,-1)){  /* there are kerns */
-		    kern_index(f,i) = nk;
 		    lua_pushnil(L);  /* first key */
 		    while (lua_next(L, -2) != 0) {
 		      adj = lua_tonumber(L,-2);
 		      krn = lua_tonumber(L,-1);
 		      /* fprintf(stderr,"char=%d,nk=%d,adj=%i,sc=%i\n",i,nk,adj,krn);*/
+		      if (!has_kern(f,i)) 
+			kern_index(f,i) = nk;
 		      set_font_kern(f,nk,adj,krn);
 		      lua_pop(L,1);
 		      nk++;
 		    }
 		    set_font_kern(f,nk,end_ligkern,0);
 		    nk++;
-		  } else {
-		    kern_index(f,i) = 0;
 		  }
 		  lua_pop(L,1);
 		  
+		  lig_index(f,i) = 0;
 		  lua_getfield(L,-1,"ligatures");
 		  if (lua_istable(L,-1)){
 		    /* do ligs */
+		    /* fprintf(stderr,"ligs:\n"); */
 		    lua_pushnil(L);  /* first key */
 		    while (lua_next(L, -2) != 0) {
 		      /* */
 		      adj = lua_tonumber(L,-2);
 		      if (lua_istable(L,-1)){ /* */
 			
-			lig_index(f,i) = nl;
-			lua_getfield(L,-1,"type");
-			if (lua_isnumber(L,-1)) {
-			  k = lua_tonumber(L,-1);
-			} else {
-			  k = 0;
-			}
-			lua_pop(L,1);
-			
 			lua_getfield(L,-1,"char");
 			if (lua_isnumber(L,-1)) {
 			  krn = lua_tonumber(L,-1);
-			  set_font_lig(f,nl,k,adj,krn);
-			  nl++;
-			} else {
-			  /* skip this */
-			}
-			lua_pop(L,1);
+			  lua_pop(L,1);
 
+			  lua_getfield(L,-1,"type");
+			  k = (lua_isnumber(L,-1) ? lua_tonumber(L,-1) : 0 );
+			  lua_pop(L,1);
+
+			  if (!has_lig(f,i)) 
+			    set_char_lig(f,i,nl);
+			  set_font_lig(f,nl,k,adj,krn);
+			  /*			  
+			    fprintf(stderr,"setlig[%d][%d] = { nl=%d, k=%d, adj=%d, krn=%d }\n", f, i, nl, k, adj, krn);
+			  */
+			  nl++;
+			} else { /* skip item, because it is invalid */
+			  lua_pop(L,1);  /* a nil */
+			}
 		      }
-		      lua_pop(L,1);
+		      lua_pop(L,1); /* iterator value */
 		    }
 		    set_font_lig(f,nl,0,end_ligkern,0);
 		    nl++;
-		  } else {
-		    lig_index(f,i) = 0;
 		  }
-		  lua_pop(L,1);
+		  lua_pop(L,1); /* ligatures table */
 		}
 	      }
 	    }
