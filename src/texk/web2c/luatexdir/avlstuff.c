@@ -17,7 +17,6 @@ with this file; if not, write to the Free Software Foundation, Inc.,
 
 $Id: avlstuff.c,v 1.12 2005/07/11 20:27:39 hahe Exp hahe $
 
-source code indentation by "indent -kr -nut"
 */
 
 #include "ptexlib.h"
@@ -25,33 +24,46 @@ source code indentation by "indent -kr -nut"
 #include <kpathsea/c-proto.h>
 #include "avl.h"
 
-static const char perforce_id[] =
-    "$Id: avlstuff.c,v 1.12 2005/07/11 20:27:39 hahe Exp hahe $";
-
-/* One AVL tree for each obj_type 0...pdfobjtypemax */
-
 static struct avl_table *PdfObjTree[pdfobjtypemax + 1] =
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
+/**********************************************************************/
+/* memory management functions for AVL */
 
-/* memory management functions for avl */
-
-void *avl_xmalloc (struct libavl_allocator *allocator, size_t size)
+void *avl_xmalloc(struct libavl_allocator *allocator, size_t size)
 {
-    assert (allocator != NULL && size > 0);
-    return xmalloc (size);
+    assert(allocator != NULL && size > 0);
+    return xmalloc(size);
 }
 
-void avl_xfree (struct libavl_allocator *allocator, void *block)
+void avl_xfree(struct libavl_allocator *allocator, void *block)
 {
-    assert (allocator != NULL && block != NULL);
-    xfree (block);
+    assert(allocator != NULL && block != NULL);
+    xfree(block);
 }
 
 struct libavl_allocator avl_xallocator = {
     avl_xmalloc,
     avl_xfree
 };
+
+/**********************************************************************/
+/* general AVL comparison functions */
+
+int comp_int_entry(const void *pa, const void *pb, void *p)
+{
+    cmp_return(*(const int *) pa, *(const int *) pb);
+    return 0;
+}
+
+int comp_string_entry(const void *pa, const void *pb, void *p)
+{
+    return strcmp((const char *) pa, (const char *) pb);
+}
+
+/**********************************************************************/
+/* One AVL tree for each obj_type 0...pdfobjtypemax */
+
 
 typedef struct oentry_ {
     integer int0;
@@ -60,7 +72,7 @@ typedef struct oentry_ {
 
 /* AVL sort oentry into avl_table[] */
 
-int compare_info (const void *pa, const void *pb, void *param)
+int compare_info(const void *pa, const void *pb, void *param)
 {
     integer a, b;
     int as, ae, bs, be, al, bl;
@@ -68,9 +80,9 @@ int compare_info (const void *pa, const void *pb, void *param)
     a = ((const oentry *) pa)->int0;
     b = ((const oentry *) pb)->int0;
     if (a < 0 && b < 0) {       /* string comparison */
-	  if (a <= 2097152 && b <= 2097152) {
-		a+=2097152;
-		b+=2097152;
+      if (a <= 2097152 && b <= 2097152) {
+	    a+=2097152;
+	    b+=2097152;
         as = strstart[-a];
         ae = strstart[-a + 1];  /* start of next string in pool */
         bs = strstart[-b];
@@ -87,9 +99,9 @@ int compare_info (const void *pa, const void *pb, void *param)
             if (strpool[as] > strpool[bs])
                 return 1;
         }
-	  } else {
-		pdftex_fail("avlstuff.c: compare_items() for single characters: NI");
-	  }
+      } else {
+        pdftex_fail("avlstuff.c: compare_items() for single characters: NI");
+      }
     } else {                    /* integer comparison */
         if (a < b)
             return -1;
@@ -99,28 +111,28 @@ int compare_info (const void *pa, const void *pb, void *param)
     return 0;
 }
 
-void avlputobj (integer objptr, integer t)
+void avlputobj(integer objptr, integer t)
 {
     static void **pp;
     static oentry *oe;
 
     if (PdfObjTree[t] == NULL) {
-        PdfObjTree[t] = avl_create (compare_info, NULL, &avl_xallocator);
+        PdfObjTree[t] = avl_create(compare_info, NULL, &avl_xallocator);
         if (PdfObjTree[t] == NULL)
-            pdftex_fail ("avlstuff.c: avl_create() PdfObjTree failed");
+            pdftex_fail("avlstuff.c: avl_create() PdfObjTree failed");
     }
-    oe = xtalloc (1, oentry);
+    oe = xtalloc(1, oentry);
     oe->int0 = objtab[objptr].int0;
     oe->objptr = objptr;        /* allows to relocate objtab */
-    pp = avl_probe (PdfObjTree[t], oe);
+    pp = avl_probe(PdfObjTree[t], oe);
     if (pp == NULL)
-        pdftex_fail ("avlstuff.c: avl_probe() out of memory in insertion");
+        pdftex_fail("avlstuff.c: avl_probe() out of memory in insertion");
 }
 
 
 /* replacement for linear search pascal function "find_obj()" */
 
-integer avlfindobj (integer t, integer i, integer byname)
+integer avlfindobj(integer t, integer i, integer byname)
 {
     static oentry *p;
     static oentry tmp;
@@ -131,28 +143,37 @@ integer avlfindobj (integer t, integer i, integer byname)
         tmp.int0 = i;
     if (PdfObjTree[t] == NULL)
         return 0;
-    p = (oentry *) avl_find (PdfObjTree[t], &tmp);
+    p = (oentry *) avl_find(PdfObjTree[t], &tmp);
     if (p == NULL)
         return 0;
     return p->objptr;
 }
 
 /**********************************************************************/
+
+struct avl_table *mf_tree = NULL;
+
+typedef struct {
+    char *tfm_name;
+    internalfontnumber fontnum;
+} mf_entry;
+
+/**********************************************************************/
 /* cleaning up... */
 
-static void destroy_oentry (void *pa, void *pb)
+static void destroy_oentry(void *pa, void *pb)
 {
     oentry *p = (oentry *) pa;
-    xfree (p);
+    xfree(p);
 }
 
-void PdfObjTree_free ()
+void PdfObjTree_free()
 {
     int i;
 
     for (i = 0; i <= pdfobjtypemax; i++) {
         if (PdfObjTree[i] != NULL)
-            avl_destroy (PdfObjTree[i], destroy_oentry);
+            avl_destroy(PdfObjTree[i], destroy_oentry);
     }
 }
 

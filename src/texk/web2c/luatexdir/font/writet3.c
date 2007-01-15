@@ -27,10 +27,6 @@ $Id: writet3.c,v 1.10 2005/12/26 14:26:18 hahe Exp hahe $
 
 #define T3_BUF_SIZE   1024
 
-static const char perforce_id[] =
-    "$Id: writet3.c,v 1.10 2005/12/26 14:26:18 hahe Exp hahe $";
-
-/* define t3_line_ptr, t3_line_array & t3_line_limit */
 typedef char t3_line_entry;
 define_array (t3_line);
 
@@ -373,7 +369,7 @@ void writet3 (int objnum, internalfontnumber f)
         pdf_printf ("/FontMatrix [%g 0 0 %g 0 0]\n",
                     (double) t3_font_scale, (double) t3_font_scale);
     pdf_printf ("/%s [ %i %i %i %i ]\n",
-                font_keys[FONTBBOX1_CODE].pdfname,
+                font_key[FONTBBOX1_CODE].pdfname,
                 (int) t3_b0, (int) t3_b1, (int) t3_b2, (int) t3_b3);
     pdf_printf ("/Resources << /ProcSet [ /PDF %s] >>\n",
                 t3_image_used ? "/ImageB " : "");

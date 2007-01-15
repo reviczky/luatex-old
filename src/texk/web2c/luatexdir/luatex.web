@@ -235,10 +235,10 @@ known as `\eTeX'.
 @d Aleph_revision==".0" { \.{\\Alephrevision} }
 @#
 @d pdftex_version==140 { \.{\\pdftexversion} }
-@d pdftex_revision=="0" { \.{\\pdftexrevision} }
-@d pdftex_version_string=='-1.40.0-beta-20060814' {current \pdfTeX\ version}
+@d pdftex_revision=="1" { \.{\\pdftexrevision} }
+@d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070105' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070107' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -2158,6 +2158,10 @@ amounts of user interaction:
 @d print_err(#)==begin if interaction=error_stop_mode then wake_up_terminal;
   print_nl("! "); print(#);
   last_error:=#; end
+@d print_warn(#)==begin if interaction=error_stop_mode then wake_up_terminal;
+  if prepend_nl then begin print_nl(""); print_ln end;
+  print_nl(#);
+  end
 
 @<Glob...@>=
 @!interaction:batch_mode..error_stop_mode; {current level of interaction}
@@ -4084,7 +4088,7 @@ inserted from \.{\\mkern} specifications in math formulas).
 @d kn_bc_code_base == 10
 @d kn_ac_code_base == 11
 
-@d auto_kern == explicit {please don't drop this}
+@d auto_kern == explicit
 @d no_lig_code == 6
 
 @d max_hlist_stack = 512 {maximum fill level for |hlist_stack|}
@@ -4396,7 +4400,33 @@ font will be printed.
 @ Boxes, rules, inserts, whatsits, marks, and things in general that are
 sort of ``complicated'' are indicated only by printing `\.{[]}'.
 
-@p procedure short_display(@!p:integer); {prints highlights of list |p|}
+@p
+procedure print_font_identifier(f: internal_font_number);
+begin
+    if pdf_font_blink[f] = null_font then
+        print_esc(font_id_text(f))
+    else
+        print_esc(font_id_text(pdf_font_blink[f]));
+    if pdf_tracing_fonts > 0 then begin
+        print(" (");
+        print_font_name(f);
+        if font_size(f) <> font_dsize(f) then begin
+            print("@@");
+            print_scaled(font_size(f));
+            print("pt");
+        end;
+        print(")");
+    end else
+        if pdf_font_expand_ratio[f] <> 0 then begin
+            print(" (");
+            if pdf_font_expand_ratio[f] > 0 then
+                print("+");
+            print_int(pdf_font_expand_ratio[f]);
+            print(")");
+        end;
+end;
+
+procedure short_display(@!p:integer); {prints highlights of list |p|}
 var n:integer; {for replacement counts}
 begin while p>mem_min do
   begin if is_char_node(p) then
@@ -4405,7 +4435,7 @@ begin while p>mem_min do
         begin if not is_valid_font(font(p)) then
           print_char("*")
 @.*\relax@>
-        else @<Print the font identifier for |font(p)|@>;
+        else print_font_identifier(font(p));
         print_char(" "); font_in_short_display:=font(p);
         end;
       print_ASCII(qo(character(p)));
@@ -4443,7 +4473,7 @@ its reference count, and one to print a rule dimension.
 begin if p>mem_end then print_esc("CLOBBERED.")
 else  begin if not is_valid_font(font(p)) then print_char("*")
 @.*\relax@>
-  else @<Print the font identifier for |font(p)|@>;
+  else print_font_identifier(font(p));
   print_char(" "); print_ASCII(qo(character(p)));
   end;
 end;
@@ -5124,7 +5154,9 @@ that might be expanded by `\.{\\the}'.
    {hyphenation data ( \.{\\hyphenation}, \.{\\patterns} )}
 @d set_interaction=hyph_data+1
    {define level of interaction ( \.{\\batchmode}, etc.~)}
-@d set_ocp=set_interaction+1
+@d letterspace_font=set_interaction+1
+   {letterspace a font ( \.{\\letterspacefont} )}
+@d set_ocp=letterspace_font+1
    {Place a translation process in the stream}
 @d def_ocp=set_ocp+1
    {Define and load a translation process}
@@ -5142,8 +5174,8 @@ that might be expanded by `\.{\\the}'.
    {Operations for building a list of OCPs}
 @d ocp_trace_level=ocp_list_op+1
    {Tracing of active OCPs, either 0 or 1}
-@d max_command=ocp_trace_level
-   {the largest command code seen at |big_switch|}
+@d max_command=ocp_trace_level 
+  {the largest command code seen at |big_switch|}
 
 @ The remaining command codes are extra special, since they cannot get through
 \TeX's scanner to the main control routine. They have been given values higher
@@ -5318,6 +5350,8 @@ be pushed onto |nest| if necessary.
 @!max_nest_stack:0..nest_size; {maximum of |nest_ptr| when pushing}
 @!cur_list:list_state_record; {the ``top'' semantic state}
 @!shown_mode:-mmode..mmode; {most recent mode shown by \.{\\tracingcommands}}
+@!save_tail: pointer; {save |tail| so we can examine whether we have an auto
+                       kern before a glue}
 
 @ Here is a common way to make the current list grow:
 
@@ -7218,6 +7252,8 @@ primitive("expandafter",expand_after,0);@/
 @!@:expand_after_}{\.{\\expandafter} primitive@>
 primitive("font",def_font,0);@/
 @!@:font_}{\.{\\font} primitive@>
+primitive("letterspacefont",letterspace_font,0);@/
+@!@:letterspace_font_}{\.{\\letterspacefont} primitive@>
 primitive("fontdimen",assign_font_dimen,0);@/
 @!@:font_dimen_}{\.{\\fontdimen} primitive@>
 primitive("halign",halign,0);@/
@@ -7307,6 +7343,7 @@ char_ghost: if cur_chr=0 then print_esc("leftghost")
   else print_esc("rightghost");
 cs_name: print_esc("csname");
 def_font: print_esc("font");
+letterspace_font: print_esc("letterspacefont");
 delim_num: if chr_code=0 then print_esc("delimiter") else print_esc("odelimiter") ;
 divide: print_esc("divide");
 end_cs_name: print_esc("endcsname");
@@ -10369,7 +10406,7 @@ begin m:=cur_chr;
 case cur_cmd of
 def_code: @<Fetch a character code from some table@>;
 extdef_code: @<Fetch an ext character code from some table@>;
-toks_register,assign_toks,def_family,set_font,def_font: @<Fetch a token list or
+toks_register,assign_toks,def_family,set_font,def_font,letterspace_font: @<Fetch a token list or
   font identifier, provided that |level=tok_val|@>;
 assign_int: scanned_result(eqtb[m].int)(int_val);
 assign_box_dir: begin
@@ -11844,7 +11881,7 @@ pdf_font_name_code, pdf_font_objnum_code, pdf_font_size_code: begin
     if c <> pdf_font_size_code then begin
         pdf_check_vf(cur_val);
         if not font_used(cur_val) then
-            pdf_init_font(cur_val);
+            pdf_init_font_cur_val;
     end;
 end;
 pdf_page_ref_code: begin
@@ -13265,7 +13302,7 @@ procedure scan_font_ident;
 var f:internal_font_number;
 @!m:halfword;
 begin @<Get the next non-blank non-call...@>;
-if cur_cmd=def_font then f:=cur_font
+if (cur_cmd=def_font) or (cur_cmd=letterspace_font) then f:=cur_font
 else if cur_cmd=set_font then f:=cur_chr
 else if cur_cmd=def_family then
   begin m:=cur_chr; scan_math_family_int; f:=equiv(m+cur_val);
@@ -16221,6 +16258,11 @@ begin
     get_nullfont := null_font;
 end;
 
+function get_fontbase: internal_font_number;
+begin
+    get_fontbase := font_base;
+end;
+
 function get_nullcs: pointer;
 begin
     get_nullcs := null_cs;
@@ -16313,7 +16355,7 @@ while p>mem_min do
         begin if not is_valid_font(font(p)) then
           print_char("*")
 @.*\relax@>
-        else @<Print the font identifier for |font(p)|@>;
+        else print_font_identifier(font(p));
         print_char(" "); font_in_short_display:=font(p);
         end;
       print_ASCII(qo(character(p)));
@@ -16656,7 +16698,11 @@ end;
 
 procedure pdf_warning(t, p: str_number; append_nl: boolean);
 begin
-    print_err("pdfTeX warning");
+    if interaction = error_stop_mode then
+        wake_up_terminal;
+    if prepend_nl then
+        print_ln;
+    print("pdfTeX warning");
     if t <> 0 then begin
         print(" (");
         print(t);
@@ -16906,12 +16952,25 @@ as we have to deal with scaling bitmaps as well.
 @p
 procedure adv_char_width(f: internal_font_number; c: eight_bits); {update |pdf_h|
 by character width |w| from font |f|}
-var w: scaled;
+var w, s_out: scaled;
+    s: integer;
 begin
     w := char_width(f,c);
     if hasfmentry(f) then begin
-        call_func(divide_scaled(w, pdf_font_size[f], 4));
-        pdf_h := pdf_h + scaled_out;
+        if pdf_cur_Tm_a = 0 then begin
+            call_func(divide_scaled(w, pdf_font_size[f], 4));
+            pdf_delta_h := pdf_delta_h + scaled_out;
+        end
+        else begin
+            s := divide_scaled(round_xn_over_d(w, 1000, 1000 + pdf_cur_Tm_a),
+                               pdf_font_size[f],
+                               4);
+            s_out := round_xn_over_d(round_xn_over_d(pdf_font_size[f], abs(s), 10000),
+                                     1000 + pdf_cur_Tm_a, 1000);
+            if s < 0 then
+                s_out := -s_out;
+            pdf_delta_h := pdf_delta_h + s_out;
+        end;
     end
     else
         pdf_h := pdf_h + get_pk_char_width(f,c);
@@ -16958,6 +17017,10 @@ end;
 PDF}
 @d pdf_y(#) == (pdf_origin_v - (#)) {convert $y$-coordinate from \.{DVI} to
 PDF}
+@d dvi_x(#) == ((#) + pdf_origin_h) {convert $x$-coordinate from \.{PDF} to
+DVI}
+@d dvi_y(#) == (pdf_origin_v - (#)) {convert $y$-coordinate from \.{PDF} to
+DVI}
 
 @<Glob...@>=
 @!pdf_f: internal_font_number; {the current font in PDF output page}
@@ -16978,6 +17041,13 @@ PDF}
 @!pk_scale_factor: integer;
 @!pdf_output_option: integer;
 @!pdf_output_value: integer;
+@!pdf_draftmode_option: integer;
+@!pdf_draftmode_value: integer;
+@!pdf_cur_Tm_a: integer; {|a| value of the current text matrix, ie the current
+                          horizontal scaling factor}
+@!pdf_last_f: internal_font_number; {last font in PDF output page}
+@!pdf_last_fs: internal_font_number; {last font size in PDF output page}
+
 
 @ Following procedures implement low-level subroutines to convert \TeX{}
 internal structures to PDF page description.
@@ -17028,6 +17098,41 @@ begin
     end;
 end;
 
+procedure pdf_set_textmatrix(v, v_out: scaled; f: internal_font_number);
+{set the next starting point to |cur_h|, |cur_v|}
+var pdf_new_Tm_a: integer; {|a| value of the new text matrix}
+begin
+    pdf_out(" ");
+    if f = pdf_f then
+        pdf_new_Tm_a := pdf_cur_Tm_a
+    else if not pdf_font_auto_expand[f] then
+        pdf_new_Tm_a := 0
+    else
+        pdf_new_Tm_a := pdf_font_expand_ratio[f];
+    if (pdf_new_Tm_a <> 0) or
+        ((pdf_new_Tm_a = 0) and (pdf_cur_Tm_a <> 0)) then begin
+        pdf_print_real(1000 + pdf_new_Tm_a, 3);
+        pdf_print(" 0 0 1 ");
+        pdf_print_bp(cur_h - pdf_origin_h);
+        pdf_h := pdf_origin_h + scaled_out;
+        pdf_out(" ");
+        pdf_print_bp(pdf_origin_v - cur_v);
+        pdf_v := pdf_origin_v - scaled_out;
+        pdf_print(" Tm");
+        pdf_cur_Tm_a := pdf_new_Tm_a;
+        pdfassert(pdf_cur_Tm_a > -1000);
+    end else begin
+        pdf_print_bp(cur_h - pdf_tj_start_h); {works only for unexpanded fonts}
+        pdf_h := pdf_tj_start_h + scaled_out;
+        pdf_out(" ");
+        pdf_print_real(v, fixed_decimal_digits); {use |v| and |v_out| to avoid duplicate calculation}
+        pdf_v := pdf_v - v_out;
+        pdf_print(" Td");
+    end;
+    pdf_tj_start_h := pdf_h;
+    pdf_delta_h := 0;
+end;
+
 procedure pdf_moveto(v, v_out: scaled); {set the next starting point to |cur_h|, |cur_v|}
 begin
     pdf_out(" ");
@@ -17041,23 +17146,94 @@ begin
     pdf_last_v := pdf_v;
 end;
 
-procedure pdf_print_font_tag(f: internal_font_number);
+procedure pdf_use_font(f: internal_font_number; fontnum: integer);
+{mark |f| as a used font; set |font_used[f]|, |pdf_font_size[f]| and |pdf_font_num[f]|}
 begin
-    if pdf_font_expand_ratio[f] = 0 then
-        return;
-    if pdf_font_expand_ratio[f] > 0 then
-        pdf_print("+"); {minus sign will be printed by |pdf_print_int|}
-    pdf_print_int(pdf_font_expand_ratio[f]);
+    call_func(divide_scaled(font_size[f], one_hundred_bp, 6));
+    pdf_font_size[f] := scaled_out;
+    font_used[f] := true;
+    pdfassert((fontnum > 0) or ((fontnum < 0) and (pdf_font_num[-fontnum] > 0)));
+    pdf_font_num[f] := fontnum;
+    if pdf_move_chars > 0 then begin
+        pdf_warning(0,"Primitive \pdfmovechars is obsolete.",true, true);
+        pdf_move_chars := 0; {warn only once}
+    end;
+end;
+
+@ To set PDF font we need to find out fonts with the same name, because \TeX\
+can load the same font several times for various sizes. For such fonts we
+define only one font resource. The array |pdf_font_num| holds the object
+number of font resource. A negative value of an entry of |pdf_font_num|
+indicates that the corresponding font shares the font resource with the font
+
+@d pdf_print_resname_prefix ==
+if pdf_resname_prefix <> 0 then
+    pdf_print(pdf_resname_prefix)
+
+@p procedure pdf_init_font(f: internal_font_number);
+{create a font object}
+var k, b: internal_font_number;
+    i: integer;
+begin
+    pdfassert(not font_used[f]);
+
+    {if |f| is auto expanded then ensure the base font is initialized}
+    if pdf_font_auto_expand[f] and (pdf_font_blink[f] <> null_font) then begin
+        b := pdf_font_blink[f];
+        if not hasfmentry(b) then
+            pdf_error("font expansion", "auto expansion is only possible with scalable fonts");
+        if not font_used[b] then
+            pdf_init_font(b);
+        pdf_font_map[f] := pdf_font_map[b];
+    end;
+
+    {check whether |f| can share the font object with some |k|: we have 2 cases
+    here: 1) |f| and |k| have the same tfm name (so they have been loaded at
+    different sizes, eg 'cmr10' and 'cmr10 at 11pt'); 2) |f| has been auto
+    expanded from |k|}
+    if hasfmentry(f) then begin
+        i := head_tab[obj_type_font];
+        while i <> 0 do begin
+            k := obj_info(i);
+            if hasfmentry(k) and
+               (pdf_font_map[k] = pdf_font_map[f]) and
+               (str_eq_str(font_name[k], font_name[f]) or
+                (pdf_font_auto_expand[f] and
+                 (pdf_font_blink[f] <> null_font) and
+                 str_eq_str(font_name[k], font_name[pdf_font_blink[f]]))) then
+            begin
+                pdfassert(pdf_font_num[k] <> 0);
+                if pdf_font_num[k] < 0 then
+                    pdf_use_font(f, pdf_font_num[k])
+                else
+                    pdf_use_font(f, -k);
+                return;
+            end;
+            i := obj_link(i);
+        end;
+    end;
+
+    {create a new font object for |f|}
+    pdf_create_obj(obj_type_font, f);
+    pdf_use_font(f, obj_ptr);
+end;
+
+procedure pdf_init_font_cur_val;
+begin
+    pdf_init_font(cur_val);
 end;
 
 procedure pdf_set_font(f: internal_font_number);
-label found;
+{set the actual font on PDF page}
+label found, found1;
 var p: pointer;
     k: internal_font_number;
 begin
-    if not font_used(f) then
+    if not font_used[f] then
         pdf_init_font(f);
-    set_ff(f);
+    set_ff(f); {set |ff| to the tfm number of the font sharing the font object
+                with |f|; |ff| is either |f| or some font with the same tfm name
+                at different size and/or expansion}
     k := ff;
     p := pdf_font_list;
     while p <> null do begin
@@ -17066,17 +17242,18 @@ begin
             goto found;
         p := link(p);
     end;
-    pdf_append_list(f)(pdf_font_list); {|f| not found in |pdf_font_list|}
+    pdf_append_list(f)(pdf_font_list); {|f| not found in |pdf_font_list|, append it now}
 found:
+    if (k = pdf_last_f) and (font_size[f] = pdf_last_fs) then
+        return;
     pdf_print("/F");
     pdf_print_int(k);
-    pdf_print_font_tag(f);
     pdf_print_resname_prefix;
     pdf_out(" ");
-    pdf_print_real(divide_scaled(font_size(f), one_hundred_bp, 6), 4);
+    pdf_print_real(divide_scaled(font_size[f], one_hundred_bp, 6), 4);
     pdf_print(" Tf");
-    pdf_f := f;
-    pdf_font_changed := true;
+    pdf_last_f := k;
+    pdf_last_fs := font_size[f];
 end;
 
 procedure pdf_begin_text; {begin a text section}
@@ -17085,36 +17262,43 @@ begin
     pdf_print_ln("BT");
     pdf_doing_text := true;
     pdf_f := null_font;
+    pdf_last_f := null_font;
+    pdf_last_fs := 0;
     pdf_doing_string := false;
+    pdf_cur_Tm_a := 0;
 end;
 
-@ The value of |min_font_val| is calculated only once
-for each font change.
-Division by $2000$ there sets |min_font_val| just at the
-trigger level of the |divide_scaled| operation below.
-Therefore the comparison |abs(cur_h - pdf_h)| does not
-cost precision, it just makes the |divide_scaled|
-operation happen less often.
-
-@p
+@ @p
 procedure pdf_begin_string(f: internal_font_number); {begin to draw a string}
-var s, s_out, v, v_out: scaled;
+var s_out, v, v_out: scaled;
+    s: integer;
 begin
     if not pdf_doing_text then
         pdf_begin_text;
     if f <> pdf_f then begin
         pdf_end_string;
         pdf_set_font(f);
-        min_font_val :=
-            divide_scaled(pdf_font_size[f], 2000, 0);
     end;
-    if abs(cur_h - pdf_h) >= min_font_val then begin
-        s := divide_scaled(cur_h - pdf_h, pdf_font_size[f], 3);
+    if pdf_cur_Tm_a = 0 then begin
+        s := divide_scaled(cur_h - (pdf_tj_start_h + pdf_delta_h), pdf_font_size[f], 3);
         s_out := scaled_out;
-    end else
-        s := 0;
+    end
+    else begin
+        s := divide_scaled(round_xn_over_d(cur_h - (pdf_tj_start_h + pdf_delta_h), 1000,
+                                           1000 + pdf_cur_Tm_a),
+                           pdf_font_size[f],
+                           3);
+        if abs(s) < @'100000 then begin
+            s_out := round_xn_over_d(round_xn_over_d(pdf_font_size[f], abs(s), 1000),
+                                     1000 + pdf_cur_Tm_a, 1000);
+            if s < 0 then
+                s_out := -s_out;
+        end;
+        {no need to calculate |s_out| when |abs(s) >= @'100000|, since the text
+         matrix will be reset below}
+    end;
     if abs(cur_v - pdf_v) >= min_bp_val then begin
-        v := divide_scaled(pdf_last_v - cur_v, one_hundred_bp,
+        v := divide_scaled(pdf_v - cur_v, one_hundred_bp,
                            fixed_decimal_digits + 2);
         v_out := scaled_out;
     end
@@ -17122,14 +17306,14 @@ begin
         v := 0;
         v_out := 0;
     end;
-    if pdf_font_changed or (v <> 0) or (abs(s) >= @'100000) then begin
+    if (f <> pdf_f) or (v <> 0) or (abs(s) >= @'100000) then begin
         pdf_end_string;
-        pdf_moveto(v, v_out);
-        pdf_font_changed := false;
+        pdf_set_textmatrix(v, v_out, f);
+        pdf_f := f;
         s := 0;
     end;
     if not pdf_doing_string then begin
-        pdf_out("[");
+        pdf_print(" [");
         if s = 0 then
             pdf_out("(");
     end;
@@ -17138,7 +17322,7 @@ begin
             pdf_out(")");
         pdf_print_int(-s);
         pdf_out("(");
-        pdf_h := pdf_h + s_out;
+        pdf_delta_h := pdf_delta_h + s_out;
     end;
     pdf_doing_string := true;
 end;
@@ -17948,7 +18132,6 @@ during adjusting spacing. Such fonts are linked via the |pdf_font_elink| array.
 @d virtual_font_type = 1 {virtual font}
 @d real_font_type = 2 {real font}
 @d subst_font_type = 3 {substituted font}
-@d pdf_init_font(#) == begin tmp_f := #; pdf_create_font_obj; end
 @d pdf_check_vf(#) == begin
     tmp_f := #;
     do_vf;
@@ -17965,13 +18148,25 @@ end
 @<Declare procedures that need to be declared forward for \pdfTeX@>=
 procedure pdf_create_font_obj; forward;
 procedure do_vf; forward;
+procedure pdf_init_font_cur_val; forward;
 procedure scan_pdf_ext_toks; forward;
 
 @ @<Glob...@>=
 @!pdf_font_type: ^real_eight_bits; {the type of font}
 @!pdf_font_attr: ^str_number; {pointer to additional attributes}
-@!tmp_f: internal_font_number; {for use with |pdf_init_font|}
+@!tmp_f: internal_font_number; {temporary register to pass parameter to some subroutines}
+
 @ Here come some subroutines to deal with expanded fonts for HZ-algorithm.
+
+@d set_char_and_font(#) ==
+if is_char_node(#) then begin
+    c := character(#);
+    f := font(#);
+end
+else if type(#) = ligature_node then begin
+    c := character(lig_char(#));
+    f := font(lig_char(#));
+end
 
 @p
 function get_default_hyphen_char:integer;
@@ -18053,24 +18248,30 @@ end;
 procedure adjust_interword_glue(p, g: pointer); {adjust the interword
 glue |g| after a character |p|}
 var kn, st, sh: scaled;
-    q: pointer;
-    c: eight_bits;
+    q, r: pointer;
+    c: halfword;
     f: internal_font_number;
 begin
     if not (not is_char_node(g) and type(g) = glue_node) then begin
-        pdf_warning("adjust_interword_glue", "g is not a glue", false);
+        pdf_warning("adjust_interword_glue", "g is not a glue", false, false);
         return;
     end;
-    if (not is_char_node(p)) and (type(p) <> ligature_node) then
-        return;
-    if is_char_node(p) then begin
-        c := character(p);
-        f := font(p);
-    end
-    else begin
-        c := character(lig_char(p));
-        f := font(lig_char(p));
+
+    c := non_char; {no char before interword glue yet}
+    set_char_and_font(p) {set |f| and |c| if |p| is a char or ligature}
+    else if (type(p) = kern_node) and
+            (subtype(p) = auto_kern) and
+            (save_tail <> null) then
+    begin
+        r := save_tail;
+        while (link(r) <> null) and (link(r) <> p) do
+            r := link(r);
+        if (link(r) = p) then
+            set_char_and_font(r); {set |f| and |c| if |r| is a char or ligature}
     end;
+    if (c = non_char) then
+        return;
+
     kn := get_kn_bs_code(f, c);
     st := get_st_bs_code(f, c);
     sh := get_sh_bs_code(f, c);
@@ -18084,54 +18285,32 @@ begin
     end;
 end;
 
-procedure auto_prepend_kern(p: pointer); {prepend a kern before |p| if
-|p| is a charnode with non-zero |knbccode|}
-var k: integer;
-    q: pointer;
-    c: eight_bits;
-    f: internal_font_number;
+function get_auto_kern(f: internal_font_number; l, r: halfword): pointer;
+{return a pointer to an auto kern node, or |null|}
+var tmp_w: scaled;
+    k: integer;
+    p: pointer;
 begin
-    if (not is_char_node(p)) and (type(p) <> ligature_node) then
+    pdfassert((l >= 0) and (r >= 0));
+    get_auto_kern := null;
+    if (pdf_append_kern <= 0) and (pdf_prepend_kern <= 0) then
         return;
-    if is_char_node(p) then begin
-        c := character(p);
-        f := font(p);
-    end
-    else begin
-        c := character(lig_char(p));
-        f := font(lig_char(p));
+    tmp_w := 0;
+    if (pdf_append_kern > 0) and (l < non_char) then begin
+        k := get_kn_ac_code(f, l);
+        if k <> 0 then
+            tmp_w := round_xn_over_d(quad(f), k, 1000);
     end;
-    k := get_kn_bc_code(f, c);
-    if k = 0 then
-        return;
-    q := new_kern(round_xn_over_d(quad(f), k, 1000));
-    subtype(q) := auto_kern;
-    tail_append(q);
-end;
-
-procedure auto_append_kern(p: pointer); {append a kern after |p| if
-|p| is a charnode with non-zero |knaccode|}
-var k: integer;
-    q: pointer;
-    c: eight_bits;
-    f: internal_font_number;
-begin
-    if (not is_char_node(p)) and (type(p) <> ligature_node) then
-        return;
-    if is_char_node(p) then begin
-        c := character(p);
-        f := font(p);
-    end
-    else begin
-        c := character(lig_char(p));
-        f := font(lig_char(p));
+    if (pdf_prepend_kern > 0) and (r < non_char) then begin
+        k := get_kn_bc_code(f, r);
+        if k <> 0 then
+            tmp_w := tmp_w + round_xn_over_d(quad(f), k, 1000);
     end;
-    k := get_kn_ac_code(f, c);
-    if k = 0 then
-        return;
-    q := new_kern(round_xn_over_d(quad(f), k, 1000));
-    subtype(q) := auto_kern;
-    tail_append(q);
+    if tmp_w <> 0 then begin
+        p := new_kern(tmp_w);
+        subtype(p) := auto_kern;
+        get_auto_kern := p;
+    end;
 end;
 
 function expand_font_name(f: internal_font_number; e: integer): str_number;
@@ -18167,7 +18346,10 @@ begin
     auto_expand_font := k;
 end;
 
-procedure set_expand_param(k, f: internal_font_number; e: integer);
+
+procedure copy_expand_params(k, f: internal_font_number; e: integer);
+{set expansion-related parameters for an expanded font |k|, based on the base
+font |f| and the expansion amount |e|}
 begin
     if pdf_font_rp_base[f] = 0 then
         pdf_font_rp_base[f] := init_font_base(0);
@@ -18178,7 +18360,7 @@ begin
     pdf_font_expand_ratio[k] := e;
     pdf_font_step[k] := pdf_font_step[f];
     pdf_font_auto_expand[k] := pdf_font_auto_expand[f];
-    pdf_font_blink[k] := f; {???}
+    pdf_font_blink[k] := f;
     pdf_font_lp_base[k] := pdf_font_lp_base[f];
     pdf_font_rp_base[k] := pdf_font_rp_base[f];
     pdf_font_ef_base[k] := pdf_font_ef_base[f];
@@ -18239,14 +18421,14 @@ begin
         else
            k := read_font_info(null_cs, s, "", font_size(f), font_natural_dir(f)); 
     end;
-    set_expand_param(k, f, e);
+    copy_expand_params(k, f, e);
     load_expand_font := k;
 end;
 
 function auto_expand_vf(f: internal_font_number): boolean;
 {check for a virtual auto-expanded font}
-var save_f, bf, lf, k: internal_font_number;
-    e: integer;
+var save_f, bf, lf: internal_font_number;
+    e, k: integer;
 begin
     auto_expand_vf := false;
     if (not pdf_font_auto_expand[f]) or (pdf_font_blink[f] = null_font) then
@@ -18266,9 +18448,12 @@ begin
     e := pdf_font_expand_ratio[f];
     for k := 0 to vf_local_font_num[bf] - 1 do begin
         lf := vf_default_font[bf] + k;
+        allocvffnts;
+        {copy vf local font numbers:}
         vf_e_fnts[vf_nf] := vf_e_fnts[lf];
+        {definition of local vf fonts are expanded from base fonts:}
         vf_i_fnts[vf_nf] := auto_expand_font(vf_i_fnts[lf], e);
-        set_expand_param(vf_i_fnts[vf_nf], vf_i_fnts[lf], e);
+        copy_expand_params(vf_i_fnts[vf_nf], vf_i_fnts[lf], e);
         incr(vf_nf);
     end;
     vf_packet_base[f] := vf_packet_base[bf];
@@ -18343,6 +18528,36 @@ begin
     expand_font := get_expand_font(f, e);
 end;
 
+procedure set_expand_params(f: internal_font_number; auto_expand: boolean;
+                            font_stretch, font_shrink, font_step, expand_ratio: integer);
+{expand a font with given parameters}
+begin
+    pdf_font_step[f] := font_step;
+    pdf_font_auto_expand[f] := auto_expand;
+    if font_stretch > 0 then
+        pdf_font_stretch[f] := get_expand_font(f, font_stretch);
+    if font_shrink > 0 then
+        pdf_font_shrink[f] := get_expand_font(f, -font_shrink);
+    if expand_ratio <> 0 then
+        pdf_font_expand_ratio[f] := expand_ratio;
+end;
+
+procedure vf_expand_local_fonts(f: internal_font_number);
+var lf: internal_font_number;
+    k: integer;
+begin
+    pdfassert(pdf_font_type[f] = virtual_font_type);
+    for k := 0 to vf_local_font_num[f] - 1 do begin
+        lf := vf_i_fnts[vf_default_font[f] + k];
+        set_expand_params(lf, pdf_font_auto_expand[f],
+                          pdf_font_expand_ratio[pdf_font_stretch[f]],
+                          pdf_font_expand_ratio[pdf_font_shrink[f]],
+                          pdf_font_step[f], pdf_font_expand_ratio[f]);
+        if pdf_font_type[lf] = virtual_font_type then
+            vf_expand_local_fonts(lf);
+    end;
+end;
+
 procedure read_expand_font; {read font expansion spec and load expanded font}
 var font_shrink, font_stretch, font_step: integer;
     f: internal_font_number;
@@ -18353,13 +18568,15 @@ begin
     f := cur_val;
     if f = null_font then
         pdf_error("font expansion", "invalid font identifier");
+    if pdf_font_blink[f] <> null_font then
+        pdf_error("font expansion", "\pdffontexpand cannot be used this way (the base font has been expanded or letter-spaced)");
     scan_optional_equals;
     scan_int;
     font_stretch := fix_int(cur_val, 0, 1000);
     scan_int;
-    font_shrink := fix_int(cur_val, 0, 1000);
+    font_shrink := fix_int(cur_val, 0, 500);
     scan_int;
-    font_step := fix_int(cur_val, 0, 1000);
+    font_step := fix_int(cur_val, 0, 100);
     if font_step = 0 then
         pdf_error("font expansion", "invalid step");
     font_stretch := font_stretch - font_stretch mod font_step;
@@ -18368,14 +18585,13 @@ begin
     font_shrink := font_shrink - font_shrink mod font_step;
     if font_shrink < 0 then
         font_shrink := 0;
-    if font_shrink = 1000 then
-        font_shrink := font_shrink - font_step; {don't allow zero-width font}
     if (font_stretch = 0) and (font_shrink = 0) then
-        pdf_error("font expansion", "invalid limit");
+        pdf_error("font expansion", "invalid limit(s)");
     auto_expand := false;
     if scan_keyword("autoexpand") then begin
         auto_expand := true;
-        @<Scan an optional space@>; end;
+        @<Scan an optional space@>; 
+    end;
 
     {check if the font can be expanded}
     if (pdf_font_expand_ratio[f] <> 0) then
@@ -18395,57 +18611,125 @@ begin
             pdf_error("font expansion", "font has been expanded with different parameters");
     end
     else begin
-        pdf_font_step[f] := font_step;
-        pdf_font_auto_expand[f] := auto_expand;
-        if font_stretch > 0 then
-            pdf_font_stretch[f] := get_expand_font(f, font_stretch);
-        if font_shrink > 0 then
-            pdf_font_shrink[f] := get_expand_font(f, -font_shrink);
+        if pdf_font_type[f] <> new_font_type then
+            pdf_warning("font expansion", "font should be expanded before its first use",
+                        true, true);
+        set_expand_params(f, auto_expand, font_stretch, font_shrink, font_step, 0);
+        if pdf_font_type[f] = virtual_font_type then
+            vf_expand_local_fonts(f);
     end;
 end;
 
-@ To set PDF font we need to find out fonts with the same name, because \TeX\
-can load the same font several times for various sizes. For such fonts we
-define only one font resource. The array |pdf_font_num| holds the object
-number of font resource. A negative value of an entry of |pdf_font_num|
-indicates that the corresponding font shares the font resource with the font
-whose internal number is the absolute value of the entry. For partial
-downloading we also need to hold flags indicating which characters in particular
-font are used in array |pdf_char_used|.
-
-@d pdf_print_resname_prefix ==
-if pdf_resname_prefix <> 0 then
-    pdf_print(pdf_resname_prefix)
-
-@p procedure pdf_use_font(f: internal_font_number; fontnum: integer);
+function letter_space_font(u: pointer; f: internal_font_number; e: integer): internal_font_number;
+var k: internal_font_number;
+    w, r, fs: scaled;
+    s: str_number;
+    i, nw: integer;
+    old_setting:0..max_selector;
 begin
-    call_func(divide_scaled(font_size(f), one_hundred_bp, 6));
-    pdf_font_size[f] := scaled_out;
-    set_font_used(f,true);
-    pdf_font_num[f] := fontnum;
-    if pdf_move_chars > 0 then begin
-        pdf_warning(0,"Primitive \pdfmovechars is obsolete.",true);
-        pdf_move_chars := 0; {warn only once}
+    {read a new font and expand the character widths}
+    k := read_font_info(u, font_name[f], "", font_size[f]);
+    set_no_ligatures(k); {disable ligatures for letter-spaced fonts}
+    nw := height_base[k] - width_base[k];
+    for i := 0 to nw - 1 do
+        font_info[width_base[k] + i].sc :=
+            font_info[width_base[k] + i].sc + round_xn_over_d(quad(k), e, 1000);
+
+    {append eg '+100ls' to font name}
+    flush_str(font_name[k]);
+    str_room(length(font_name[k]) + 7); {|abs(e) <= 1000|}
+    old_setting := selector;
+    selector := new_string;
+    print(font_name[k]);
+    if e > 0 then
+        print("+"); {minus sign will be printed by |print_int|}
+    print_int(e);
+    print("ls");
+    selector := old_setting;
+    font_name[k] := make_string;
+
+    {create the corresponding virtual font}
+    allocvffnts;
+    vf_e_fnts[vf_nf] := 0;
+    vf_i_fnts[vf_nf] := f;
+    incr(vf_nf);
+    vf_local_font_num[k] := 1;
+    vf_default_font[k] := vf_nf - 1;
+    pdf_font_type[k] := virtual_font_type;
+
+    fs := font_size[f];
+    vf_z := fs;
+    vf_replace_z;
+    w := round_xn_over_d(quad(f), e, 2000);
+    if w > 0 then
+        tmp_b0 := 0
+    else begin
+        tmp_b0 := 255;
+        w := vf_alpha + w;
     end;
-end;
-
-procedure pdf_create_font_obj;
-var f, k: internal_font_number;
-begin
-    f := tmp_f;
-    if not font_used(f) then begin
-        if hasfmentry(f) then begin
-        {this font is scaleable, so different sizes can share a single font object}
-            k := tfm_of_fm(pdf_font_map[f]);
-            if (k <> f) and cmp_font_name(k, tex_font_name(f)) then begin
-	            flush_string; {font_name}
-                pdf_use_font(f, -k);
-                return;
-            end else flush_string;
+    r := w*vf_beta;
+    tmp_b1 := r div vf_z;
+    r := r mod vf_z;
+    if r = 0 then
+        tmp_b2 := 0
+    else begin
+        r := r * 256;
+        tmp_b2 := r div vf_z;
+        r := r mod vf_z;
+    end;
+    if r = 0 then
+        tmp_b3 := 0
+    else begin
+        r := r * 256;
+        tmp_b3 := r div vf_z;
+    end;
+    vf_packet_base[k] := new_vf_packet(k);
+    for c := font_bc[k] to font_ec[k] do begin
+        str_room(12);
+        append_char(right1 + 3);
+        append_char(tmp_b0);
+        append_char(tmp_b1);
+        append_char(tmp_b2);
+        append_char(tmp_b3);
+        if c < set1 then
+            append_char(c)
+        else begin
+            append_char(set1);
+            append_char(c);
         end;
-        pdf_create_obj(obj_type_font, f);
-        pdf_use_font(f, obj_ptr);
+        append_char(right1 + 3);
+        append_char(tmp_b0);
+        append_char(tmp_b1);
+        append_char(tmp_b2);
+        append_char(tmp_b3);
+        s := make_string;
+        storepacket(k, c, s);
+        flush_str(s);
     end;
+    letter_space_font := k;
+end;
+
+procedure new_letterspaced_font(a: small_number);
+{letter-space a font by creating a virtual font}
+var u:pointer; {user's font identifier}
+@!t:str_number; {name for the frozen font identifier}
+@!old_setting:0..max_selector; {holds |selector| setting}
+@!f, k:internal_font_number;
+begin
+    get_r_token; u:=cur_cs;
+    if u>=hash_base then t:=text(u)
+    else if u>=single_base then
+      if u=null_cs then t:="FONT"@+else t:=u-single_base
+    else  begin old_setting:=selector; selector:=new_string;
+      print("FONT"); print(u-active_base); selector:=old_setting;
+    @.FONTx@>
+      str_room(1); t:=make_string;
+      end;
+    define(u,set_font,null_font); scan_optional_equals; scan_font_ident;
+    k := cur_val;
+    scan_int;
+    f := letter_space_font(u, k, fix_int(cur_val, -1000, 1000));
+    equiv(u):=f; eqtb[font_id_base+f]:=eqtb[u]; font_id_text(f):=t;
 end;
 
 @ We need to hold information about used characters in each font for partial
@@ -18614,7 +18898,10 @@ begin
             vf_local_font_warning(f, k, "design size mismatch");
     end;
     if pdf_font_expand_ratio[f] <> 0 then
-        set_expand_param(k, f, pdf_font_expand_ratio[f]);
+        set_expand_params(k, pdf_font_auto_expand[f],
+                          pdf_font_expand_ratio[pdf_font_stretch[f]],
+                          pdf_font_expand_ratio[pdf_font_shrink[f]],
+                          pdf_font_step[f], pdf_font_expand_ratio[f]);
     vf_def_font := k;
 end;
 
@@ -18721,6 +19008,7 @@ vf_replace_z
 cmd := vf_byte;
 save_vf_nf := vf_nf;
 while (cmd >= fnt_def1) and (cmd <= fnt_def1 + 3) do begin
+    allocvffnts;
     vf_e_fnts[vf_nf] := vf_read(cmd - fnt_def1 + 1);
     vf_i_fnts[vf_nf] := vf_def_font(f);
     incr(vf_nf);
@@ -18992,7 +19280,7 @@ else if ((fnt_num_0 <= cmd) and (cmd <= fnt_num_0 + 63)) or (cmd = fnt1) then be
           (vf_e_fnts[vf_default_font[save_vf] + n] <> k) do
         incr(n);
     if (n = vf_local_font_num[save_vf]) then
-        f := null_font
+        pdf_error("vf", "local font not found")
     else
         f := vf_i_fnts[vf_default_font[save_vf] + n];
 end
@@ -19685,7 +19973,6 @@ if pdf_font_list <> null then begin
         pdf_print("/F");
         set_ff(info(k));
         pdf_print_int(ff);
-        pdf_print_font_tag(info(k));
         pdf_print_resname_prefix;
         pdf_out(" ");
         pdf_print_int(pdf_font_num[ff]);
@@ -20375,23 +20662,34 @@ head_tab[obj_type_pages] := l
 
 @ @<Output fonts definition@>=
 for k := font_base + 1 to font_ptr do
-    if font_used(k) and hasfmentry(k) then begin
-        if pdf_font_num[k] < 0 then
-            i := -pdf_font_num[k]
-        else
-            i := tfm_of_fm(pdf_font_map[k]);
-        if i <> k then
-            for j := 0 to 255 do
-                if pdf_char_marked(k, j) then
-                    pdf_mark_char(i, j);
+    if font_used(k) and hasfmentry(k) and (pdf_font_num[k] < 0) then begin
+        i := -pdf_font_num[k];
+        pdfassert(pdf_font_num[i] > 0);
+        for j := 0 to 255 do
+            if pdf_char_marked(k, j) then
+                pdf_mark_char(i, j);
+        if (length(pdf_font_attr[i]) = 0) and (length(pdf_font_attr[k]) <> 0) then
+            pdf_font_attr[i] := pdf_font_attr[k]
+        else if (length(pdf_font_attr[k]) = 0) and (length(pdf_font_attr[i]) <> 0) then
+            pdf_font_attr[k] := pdf_font_attr[i]
+        else if (length(pdf_font_attr[i]) <> 0) and (length(pdf_font_attr[k]) <> 0) and
+           not str_eq_str(pdf_font_attr[i], pdf_font_attr[k]) then begin
+           pdf_warning("\pdffontattr", "fonts ", false, false);
+           print_font_identifier(i);
+           print(" and ");
+           print_font_identifier(k);
+           print(" has conflicting attributes"); print_ln; print_ln;
+        end;
     end;
 fixed_gen_tounicode := pdf_gen_tounicode;
 k := head_tab[obj_type_font];
 while k <> 0 do begin
     f := obj_info(k);
+    pdfassert(pdf_font_num[f] > 0);
     do_pdf_font(k, f);
     k := obj_link(k);
-end
+end;
+write_fontstuff
 
 @ We will generate in each single step the parents of all Pages/Page objects in
 the previous level. These new generated Pages object will create a new level of
@@ -29233,6 +29531,7 @@ label big_switch,reswitch,main_loop,main_loop_wrapup,
   main_lig_loop,main_lig_loop+1,main_lig_loop+2,
   append_normal_space,exit;
 var@!t:integer; {general-purpose temporary variable}
+tmp_k1, tmp_k2: pointer; {for testing whether an auto kern should be inserted}
 lig:liginfo; { a ligature }
 begin if every_job<>null then begin_token_list(every_job,every_job_text);
 big_switch: get_x_token;@/
@@ -29351,12 +29650,15 @@ are inside the individual sections.
 
 @<Append character |cur_chr|...@>=
 adjust_space_factor;@/
+save_tail := null;
 main_f:=cur_font;
 bchar:=font_bchar(main_f); false_bchar:=font_false_bchar(main_f);
 if mode>0 then if language<>clang then fix_language;
 fast_get_avail(lig_stack); font(lig_stack):=main_f; cur_l:=qi(cur_chr);
 character(lig_stack):=cur_l;@/
 cur_q:=tail;
+tmp_k1 := get_auto_kern(main_f, non_char, cur_l);
+@<If |tmp_k1| is not null then append that kern@>;
 if cancel_boundary then
   begin cancel_boundary:=false; main_k:=non_address;
   left_ghost:=new_left_ghost; right_ghost:=new_right_ghost;
@@ -29398,7 +29700,19 @@ nodes inside of other discretionaries.
   if # then if lig_stack=null then
     begin incr(subtype(main_p)); rt_hit:=false;
     end;
-  link(cur_q):=main_p; tail:=main_p; ligature_present:=false;
+  if pdf_prepend_kern > 0 then
+      tmp_k2 := get_auto_kern(main_f, non_char, cur_l)
+  else
+      tmp_k2 := null;
+  if tmp_k2 = null then begin
+      link(cur_q):=main_p; tail:=main_p; ligature_present:=false;
+  end
+  else begin
+      link(cur_q) := tmp_k2;
+      link(tmp_k2) := main_p;
+      tail := main_p;
+      ligature_present := false;
+  end
   end
 
 @d wrapup(#)==if cur_l<non_char then
@@ -29427,12 +29741,9 @@ if(cur_chr<font_bc(main_f))or(cur_chr>font_ec(main_f)) then
 if not char_exists(main_f,cur_l) then
   begin char_warning(main_f,cur_chr); free_avail(lig_stack); goto big_switch;
   end;
-if pdf_prepend_kern > 0 then
-    auto_prepend_kern(lig_stack);
 if not (left_ghost or right_ghost) then
   tail_append(lig_stack); {|main_loop_lookahead| is next}
-if pdf_append_kern > 0 then
-    auto_append_kern(lig_stack)
+
 
 @ Here we are at |main_loop_move_lig|.
 When we begin this code we have |cur_q=tail| and |cur_l=character(lig_stack)|.
@@ -29489,6 +29800,8 @@ actually encountered in practice had a lig/kern program, and that about four
 lig/kern commands were investigated for every such character.
 
 @<If there's a ligature/kern command...@>=
+tmp_k1 := get_auto_kern(main_f, cur_l, cur_r);
+@<If |tmp_k1| is not null then append that kern@>;
 if new_right_ghost or left_ghost then goto main_loop_wrapup;
 if (not has_lig(main_f,cur_l))and 
    (not has_kern(main_f,cur_l))then goto main_loop_wrapup;
@@ -29510,6 +29823,14 @@ if has_kern(main_f,cur_l) then begin
     end;
   end;
 goto main_loop_wrapup
+
+@ @<If |tmp_k1| is not null then append that kern@>=
+if tmp_k1 <> null then begin
+    wrapup(rt_hit);
+    save_tail := tail;
+    tail_append(tmp_k1);
+    goto main_loop_move;
+end
 
 @ When a ligature or kern instruction matches a character, we know from
 |read_font_info| that the character exists in the font, even though we
@@ -32194,6 +32515,7 @@ any_mode(extdef_code),
 any_mode(def_family),
 any_mode(set_font),
 any_mode(def_font),
+any_mode(letterspace_font),
 any_mode(register),
 any_mode(advance),
 any_mode(multiply),
@@ -33060,6 +33382,7 @@ endcases;
 
 @<Assignments@>=
 def_font: new_font(a);
+letterspace_font: new_letterspaced_font(a);
 
 @ @<Declare subprocedures for |prefixed_command|@>=
 procedure new_font(@!a:small_number);
@@ -34166,21 +34489,23 @@ if fixed_pdfoutput > 0 then begin
     else begin
         @<Finish the PDF file@>;
 	    if callback_id=0 then begin
-        wlog_cr;
-        wlog_ln('PDF statistics:');
-        wlog_ln(' ',obj_ptr:1,' PDF objects out of ',obj_tab_size:1,
-            ' (max. ',sup_obj_tab_size:1,')');
-        if pdf_os_cntr > 0 then begin
-            wlog(' ',((pdf_os_cntr - 1) * pdf_os_max_objs + pdf_os_objidx + 1):1,
-                ' compressed objects within ',pdf_os_cntr:1,' object stream');
-            if pdf_os_cntr > 1 then
-                wlog('s');
-            wlog_cr;
+        if log_opened then
+            begin wlog_cr;
+            wlog_ln('PDF statistics:');
+            wlog_ln(' ',obj_ptr:1,' PDF objects out of ',obj_tab_size:1,
+                ' (max. ',sup_obj_tab_size:1,')');
+            if pdf_os_cntr > 0 then begin
+                wlog(' ',((pdf_os_cntr - 1) * pdf_os_max_objs + pdf_os_objidx + 1):1,
+                    ' compressed objects within ',pdf_os_cntr:1,' object stream');
+                if pdf_os_cntr > 1 then
+                    wlog('s');
+                wlog_cr;
+            end;
+            wlog_ln(' ',pdf_dest_names_ptr:1,' named destinations out of ',dest_names_size:1,
+                ' (max. ',sup_dest_names_size:1,')');
+            wlog_ln(' ',pdf_mem_ptr:1,' words of extra memory for PDF output out of ',pdf_mem_size:1,
+                ' (max. ',sup_pdf_mem_size:1,')');
         end;
-        wlog_ln(' ',pdf_dest_names_ptr:1,' named destinations out of ',dest_names_size:1,
-            ' (max. ',sup_dest_names_size:1,')');
-        wlog_ln(' ',pdf_mem_ptr:1,' words of extra memory for PDF output out of ',pdf_mem_size:1,
-            ' (max. ',sup_pdf_mem_size:1,')');
         end;
     end;
 end
@@ -35938,7 +36263,6 @@ end
 
 @ @<Implement \.{\\pdfglyphtounicode}@>=
 begin
-    check_pdfoutput("\pdfglyphtounicode", true);
     glyph_to_unicode;
 end
 

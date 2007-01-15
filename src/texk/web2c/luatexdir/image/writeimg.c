@@ -25,9 +25,6 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writeimg.c#17 $
 #include <kpathsea/c-auto.h>
 #include <kpathsea/c-memstr.h>
 
-static const char perforce_id[] =
-    "$Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writeimg.c#17 $";
-
 #define bp2int(p)    round(p*(onehundredbp/100.0))
 
 /* define image_ptr, image_array & image_limit */
@@ -325,6 +322,11 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
         read_jpg_info (img);
         break;
     case IMAGE_TYPE_JBIG2:
+	    if (pdfversion < 4) {
+		  pdftex_fail
+		    ("JBIG2 images only possible with at least PDF 1.4; you are generating PDF 1.%i",
+		     pdfversion);
+	    }
         jbig2_ptr (img) = xtalloc (1, JBIG2_IMAGE_INFO);
         img_type (img) = IMAGE_TYPE_JBIG2;
         jbig2_ptr (img)->selected_page = page_num;
