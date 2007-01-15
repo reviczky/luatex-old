@@ -11,8 +11,8 @@ The latest version is available from ftp://ftp.tug.org/tex/texinfo.tex.}
 \fi
 @end tex
 
-@set version 7.5.5
-@set month-year June 2005
+@set version 7.5.6
+@set month-year January 2007
 
 @c Define new indices for commands in auxiliary files, filenames, and options.
 @defcodeindex cm
@@ -64,7 +64,7 @@ This file documents the installation and use of the programs in Web2c,
 an implementation of Donald Knuth's TeX system.
 
 Copyright @copyright{} 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-2004 Karl Berry & Olaf Weber.
+2004, 2005, 2007 Karl Berry & Olaf Weber.
 
 Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -2627,9 +2627,11 @@ The command run to convert @TeX{} output back to MetaPost; default is
 Likewise, for Troff; default is @samp{dmp}.
 
 @item TEX
-The command run to typeset the labels in @TeX{}; default is @samp{tex}.
-If you use @LaTeX{}, set this to @code{latex}, and supply an appropriate
-@code{verbatimtex} header in the MP source (@pxref{mpost invocation}).
+The command run to typeset the labels in @TeX{}; the default is
+@samp{etex}, set in @file{texmf.cnf}.  If you use @LaTeX{}, set this to
+@code{latex}, and supply an appropriate @code{verbatimtex} header in
+the MP source (@pxref{mpost invocation}).  Or put @samp{%&latex} as
+the first line of your @LaTeX{} source.
 
 @item TROFF
 Likewise, for Troff; default is @samp{'eqn -d\$\$ | troff -Tpost'}.  You
@@ -2640,6 +2642,14 @@ e.g., @samp{ps} or @samp{psc}; see troff(1).
 If you change this, you will also need to set the @code{TRFONTS}
 environment variable or configuration value to point to the appropriate
 font directory, traditionally @file{/usr/lib/font/dev@var{term}}.
+
+One more complication is whether the troff programs have a @samp{g}
+prefix.  On Windows, @TeX{} Live supports both ways:
+@file{makempx.exe} is built to use @file{gsoelim.exe},
+@file{geqn.exe}, and @file{gtroff.exe}, while
+@file{makempx-without-g-prefix.exe} is built to use @file{soelim.exe},
+@file{eqn.exe}, and @file{troff.exe}.  MetaPost users on Windows using
+troff for their labels should arrange to run the proper binary.
 
 @end vtable
 

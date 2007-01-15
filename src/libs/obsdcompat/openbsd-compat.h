@@ -34,7 +34,7 @@
 #ifndef _OPENBSD_COMPAT_H
 #define _OPENBSD_COMPAT_H
 
-#include "obsdcompat/includes.h"
+#include "includes.h"
 
 #define OBSDLIB_VERSION "4.3.1.1"
 #define OBSDLIB_VERNUM 0x4310

@@ -271,11 +271,13 @@ $Id $
 
 { functions from mapfile.c }
 @define function hasfmentry();
-@define function tfmoffm();
 @define procedure checkextfm();
 @define procedure pdfmapfile();
 @define procedure pdfmapline();
 @define procedure pdfinitmapfile();
+
+@define procedure allocvffnts;
+@define procedure writefontstuff;
 
 { functions from utils.c }
 @define procedure escapehex();

@@ -59,9 +59,7 @@
 #endif
 
 #ifdef WIN32
-# ifndef __STDC__
-#  define __STDC__ 1
-# endif
+#define __STDC__ 1
 #endif /* not WIN32 */
 
 /* System dependencies that are figured out by `configure'.  */
@@ -87,11 +85,7 @@
   but before "lib.h". FP.
 */
 #ifdef WIN32
-# ifndef __MINGW32__
-#   include <win32lib.h>
-# else
-#   include "win32lib.h"
-# endif
+#include <win32lib.h>
 #endif
 
 #include <kpathsea/debug.h>    /* Runtime tracing.  */

@@ -20,227 +20,332 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "ptexlib.h"
 
+#define isXdigit(c) (isdigit(c) || ('A' <= (c) && (c) <= 'F'))
+#define UNI_UNDEF          -1
+#define UNI_STRING         -2   /* string allocated by deftounicode() */
+#define UNI_EXTRA_STRING   -3   /* string allocated by set_glyph_unicode() */
+
 static struct avl_table *glyph_unicode_tree = NULL;
 
-static int comp_glyph_unicode_entry (const void *pa, const void *pb, void *p)
+static int comp_glyph_unicode_entry(const void *pa, const void *pb, void *p)
 {
-    return strcmp (((const glyph_unicode_entry *) pa)->name,
-                   ((const glyph_unicode_entry *) pb)->name);
+    return strcmp(((const glyph_unicode_entry *) pa)->name,
+                  ((const glyph_unicode_entry *) pb)->name);
 }
 
-static glyph_unicode_entry *new_glyph_unicode_entry (void)
+static glyph_unicode_entry *new_glyph_unicode_entry(void)
 {
     glyph_unicode_entry *e;
-    e = xtalloc (1, glyph_unicode_entry);
+    e = xtalloc(1, glyph_unicode_entry);
     e->name = NULL;
-    e->code = -1;
+    e->code = UNI_UNDEF;
     e->unicode_seq = NULL;
     return e;
 }
 
-static void destroy_glyph_unicode_entry (void *pa, void *pb)
+static void destroy_glyph_unicode_entry(void *pa, void *pb)
 {
     glyph_unicode_entry *e = (glyph_unicode_entry *) pa;
-    xfree (e->name);
-    if (e->code == -2) {
-        assert (e->unicode_seq != NULL);
-        xfree (e->unicode_seq);
+    xfree(e->name);
+    if (e->code == UNI_STRING) {
+        assert(e->unicode_seq != NULL);
+        xfree(e->unicode_seq);
     }
 }
 
-void glyph_unicode_free (void)
+void glyph_unicode_free(void)
 {
     if (glyph_unicode_tree != NULL)
-        avl_destroy (glyph_unicode_tree, destroy_glyph_unicode_entry);
+        avl_destroy(glyph_unicode_tree, destroy_glyph_unicode_entry);
 }
 
-void deftounicode (strnumber glyph, strnumber unistr)
+void deftounicode(strnumber glyph, strnumber unistr)
 {
     char buf[SMALL_BUF_SIZE], *p;
-    boolean valid_unistr;
+    char buf2[SMALL_BUF_SIZE], *q;
+    int valid_unistr;           /* 0: invalid; 1: unicode value; 2: string */
     int i, l;
     glyph_unicode_entry *gu, t;
     void **aa;
 
-    p = makecstring (glyph);
-    assert (strlen (p) < SMALL_BUF_SIZE);
-    strcpy (buf, p);            /* copy the result to buf before next call of makecstring() */
-    p = makecstring (unistr);
-    l = strlen (p);
-    valid_unistr = true;
-    if (l < 4 || l % 4 != 0)
-        valid_unistr = false;
-    else
-        for (i = 0; i < l; i++) {
-            if (!isxdigit (p[i])) {
-                valid_unistr = false;
-                break;
-            }
+    p = makecstring(glyph);
+    assert(strlen(p) < SMALL_BUF_SIZE);
+    strcpy(buf, p);             /* copy the result to buf before next call of makecstring() */
+    p = makecstring(unistr);
+    while (*p == ' ')
+        p++;                    /* ignore leading spaces */
+    l = strlen(p);
+    while (l > 0 && p[l - 1] == ' ')
+        l--;                    /* ignore traling spaces */
+    valid_unistr = 1;           /* a unicode value is the most common case */
+    for (i = 0; i < l; i++) {
+        if (p[i] == ' ')
+            valid_unistr = 2;   /* if a space occurs we treat this entry as a string */
+        else if (!isXdigit(p[i])) {
+            valid_unistr = 0;
+            break;
         }
-    if (!valid_unistr || strlen (buf) == 0 || strcmp (buf, notdef) == 0) {
-        pdftex_warn ("ToUnicode: invalid parameter(s): `%s' => `%s'", buf, p);
+    }
+    if (l == 0 || valid_unistr == 0 || strlen(buf) == 0
+        || strcmp(buf, notdef) == 0) {
+        pdftex_warn("ToUnicode: invalid parameter(s): `%s' => `%s'", buf, p);
         return;
     }
     if (glyph_unicode_tree == NULL) {
         glyph_unicode_tree =
-            avl_create (comp_glyph_unicode_entry, NULL, &avl_xallocator);
-        assert (glyph_unicode_tree != NULL);
+            avl_create(comp_glyph_unicode_entry, NULL, &avl_xallocator);
+        assert(glyph_unicode_tree != NULL);
     }
     t.name = buf;
     /* allow overriding existing entries */
-    if ((gu =
-         (glyph_unicode_entry *) avl_find (glyph_unicode_tree, &t)) != NULL) {
-        if (gu->code == -2) {
-            assert (gu->unicode_seq != NULL);
-            xfree (gu->unicode_seq);
+    if ((gu = (glyph_unicode_entry *) avl_find(glyph_unicode_tree, &t)) != NULL) {
+        if (gu->code == UNI_STRING) {
+            assert(gu->unicode_seq != NULL);
+            xfree(gu->unicode_seq);
         }
     } else {                    /* make new entry */
-        gu = new_glyph_unicode_entry ();
-        gu->name = xstrdup (buf);
+        gu = new_glyph_unicode_entry();
+        gu->name = xstrdup(buf);
     }
-    if (l > 4) {
-        gu->code = -2;
-        gu->unicode_seq = xstrdup (p);
+    if (valid_unistr == 2) {    /* a string with space(s) */
+        /* copy p to buf2, ignoring spaces */
+        for (q = buf2; *p != 0; p++)
+            if (*p != ' ')
+                *q++ = *p;
+        *q = 0;
+        gu->code = UNI_STRING;
+        gu->unicode_seq = xstrdup(buf2);
     } else {
-        i = sscanf (p, "%lX", &(gu->code));
-        assert (i == 1);
+        i = sscanf(p, "%lX", &(gu->code));
+        assert(i == 1);
     }
-    aa = avl_probe (glyph_unicode_tree, gu);
-    assert (aa != NULL);
+    aa = avl_probe(glyph_unicode_tree, gu);
+    assert(aa != NULL);
 }
 
-static char *str_rstr (char *str, char *substr)
+
+static long check_unicode_value(char *s, boolean multiple_value)
 {
-    char *p, *q;
-    int i, l;
+    int l = strlen(s);
+    int i;
+    long code;
 
-    l = strlen (substr);
-    if (l > strlen (str))
-        return NULL;
-    p = strend (str) - 1;
-    q = strend (substr) - 1;
-    i = l;
-    while (i > 0) {
-        if (*p != *q)
-            return NULL;
-        p--;
-        q--;
-        i--;
-    }
-    return p + 1;
-}
+    if (l == 0)
+        return UNI_UNDEF;
+    if (multiple_value && l % 4 != 0)
+        return UNI_UNDEF;
+    if (!multiple_value && !(4 <= l && l <= 6))
+        return UNI_UNDEF;
 
-/* some simple translations to unify glyph name */
-static boolean trans_glyph (char *target, char *name)
-{
-    char *p, *q;
-    boolean b;
-    assert (strlen (name) < SMALL_BUF_SIZE);
-    *target = 0;                /* for use of strncat which appends '\0' */
-
-    /* remove ".xxx" from the end of name */
-    if ((q = strrchr (name, '.')) != NULL) {
-        b = true;
-        p = q + 1;
-        while (*p) {
-            if (!islower (*p) && !isupper (*p)) {
-                b = false;
-                break;
+    for (i = 0; i < l; i++) {
+        if (!isXdigit(s[i]))
+            return UNI_UNDEF;
+        if (multiple_value) {
+            if (i % 4 == 3) {
+                if (sscanf(s + i - 3, "%4lX", &code) != 1)
+                    return UNI_UNDEF;
+                if (!((0x0000 <= code && code <= 0xD7FF) ||
+                      (0xE000 <= code && code <= 0xFFFF)))
+                    return UNI_UNDEF;
             }
-            p++;
+        } else {                /* single value */
+            if (i == l - 1) {
+                if (sscanf(s, "%lX", &code) != 1)
+                    return UNI_UNDEF;
+                if (!((0x0000 <= code && code <= 0xD7FF) ||
+                      (0xE000 <= code && code <= 0x10FFFF)))
+                    return UNI_UNDEF;
+            }
         }
-        if (b) {
-            strncat (target, name, q - name);
-            return true;
-        }
-        return false;
     }
-
-    /* remove "small", "oldstyle", "inferior" and "superior" from the end of name */
-    if ((p = str_rstr (name, "small")) != NULL ||
-        (p = str_rstr (name, "oldstyle")) != NULL ||
-        (p = str_rstr (name, "inferior")) != NULL ||
-        (p = str_rstr (name, "superior")) != NULL) {
-        strncat (target, name, p - name);
-        return true;
-    }
-
-    return false;
+    return code;
 }
 
-integer write_tounicode (char **glyph_names, char *name)
+static char *utf16be_str(long code)
+{
+    static char buf[SMALL_BUF_SIZE];
+    long v;
+    unsigned vh, vl;
+
+    assert(code >= 0);
+
+    if (code <= 0xFFFF)
+        sprintf(buf, "%04lX", code);
+    else {
+        v = code - 0x10000;
+        vh = v / 0x400 + 0xD800;
+        vl = v % 0x400 + 0xDC00;
+        sprintf(buf, "%04X%04X", vh, vl);
+    }
+    return buf;
+}
+
+
+/* this function set proper values to *gp based on s; in case it returns
+ * gp->code == UNI_EXTRA_STRING then the caller is responsible for freeing
+ * gp->unicode_seq too */
+static void set_glyph_unicode(char *s, glyph_unicode_entry * gp)
+{
+    char buf[SMALL_BUF_SIZE], buf2[SMALL_BUF_SIZE], *p;
+    long code;
+    boolean last_component;
+    glyph_unicode_entry tmp, *ptmp;
+
+    /* skip dummy entries */
+    if (s == NULL || s == notdef)
+        return;
+
+    /* strip everything after the first dot */
+    p = strchr(s, '.');
+    if (p != NULL) {
+        *buf = 0;
+        strncat(buf, s, p - s);
+        s = buf;
+    }
+
+    if (strlen(s) == 0)
+        return;
+
+    /* check for case of multiple components separated by '_' */
+    p = strchr(s, '_');
+    if (p != NULL) {
+        assert(strlen(s) < sizeof(buf));
+        if (s != buf) {
+            strcpy(buf, s);
+            p = strchr(buf, '_');
+            s = buf;
+        }
+        *buf2 = 0;
+        last_component = false;
+        for (;;) {
+            *p = 0;
+            tmp.code = UNI_UNDEF;
+            set_glyph_unicode(s, &tmp);
+            switch (tmp.code) {
+            case UNI_UNDEF:    /* not found, do nothing */
+                break;
+            case UNI_STRING:   /* s matched an entry with string value in the database */
+                assert(tmp.unicode_seq != NULL);
+                assert(strlen(buf2) + strlen(tmp.unicode_seq) < sizeof(buf2));
+                strcat(buf2, tmp.unicode_seq);
+                break;
+            case UNI_EXTRA_STRING:     /* s is a multiple value of form "uniXXXX" */
+                assert(strlen(buf2) + strlen(tmp.unicode_seq) < sizeof(buf2));
+                strcat(buf2, tmp.unicode_seq);
+                xfree(tmp.unicode_seq);
+                break;
+            default:           /* s matched an entry with numeric value in the
+                                   database, or a value derived from "uXXXX" */
+                assert(tmp.code >= 0);
+                strcat(buf2, utf16be_str(tmp.code));
+            }
+            if (last_component)
+                break;
+            s = p + 1;
+            p = strchr(s, '_');
+            if (p == NULL) {
+                p = strend(s);
+                last_component = true;
+            }
+        }
+        gp->code = UNI_EXTRA_STRING;
+        gp->unicode_seq = xstrdup(buf2);
+        return;
+    }
+
+    /* lookup for glyph name in the database */
+    tmp.name = s;
+    tmp.code = UNI_UNDEF;
+    ptmp = (glyph_unicode_entry *) avl_find(glyph_unicode_tree, &tmp);
+    if (ptmp != NULL) {
+        gp->code = ptmp->code;
+        gp->unicode_seq = ptmp->unicode_seq;
+        return;
+    }
+
+    /* check for case of "uniXXXX" (multiple 4-hex-digit values allowed) */
+    if (str_prefix(s, "uni")) {
+        p = s + strlen("uni");
+        code = check_unicode_value(p, true);
+        if (code != UNI_UNDEF) {
+            if (strlen(p) == 4) /* single value */
+                gp->code = code;
+            else {              /* multiple value */
+                gp->code = UNI_EXTRA_STRING;
+                gp->unicode_seq = xstrdup(p);
+            }
+        }
+        return;                 /* since the last case cannot happen */
+    }
+
+    /* check for case of "uXXXX" (single value up to 6 hex digits) */
+    if (str_prefix(s, "u")) {
+        p = s + strlen("u");
+        code = check_unicode_value(p, false);
+        if (code != UNI_UNDEF) {
+            assert(code >= 0);
+            gp->code = code;
+        }
+    }
+}
+
+integer write_tounicode(char **glyph_names, char *name)
 {
     char buf[SMALL_BUF_SIZE], *p;
     static char builtin_suffix[] = "-builtin";
     short range_size[257];
-    glyph_unicode_entry gtab[257], t, *pg;
+    glyph_unicode_entry gtab[257];
     integer objnum;
     int i, j;
     int bfchar_count, bfrange_count, subrange_count;
-    assert (strlen (name) + strlen (builtin_suffix) < SMALL_BUF_SIZE);
+    assert(strlen(name) + strlen(builtin_suffix) < SMALL_BUF_SIZE);
     if (glyph_unicode_tree == NULL) {
-        pdftex_warn ("no GlyphToUnicode entry has been inserted yet!");
+        pdftex_warn("no GlyphToUnicode entry has been inserted yet!");
         fixedgentounicode = 0;
         return 0;
     }
-    strcpy (buf, name);
-    if ((p = strrchr (buf, '.')) != NULL && strcmp (p, ".enc") == 0)
+    strcpy(buf, name);
+    if ((p = strrchr(buf, '.')) != NULL && strcmp(p, ".enc") == 0)
         *p = 0;                 /* strip ".enc" from encoding name */
     else
-        strcat (buf, builtin_suffix);   /* ".enc" not present, this is a builtin
+        strcat(buf, builtin_suffix);    /* ".enc" not present, this is a builtin
                                            encoding so the name is eg "cmr10-builtin" */
-    objnum = pdfnewobjnum ();
-    pdfbegindict (objnum, 0);
-    pdfbeginstream ();
-    pdf_printf ("%%!PS-Adobe-3.0 Resource-CMap\n"
-                "%%%%DocumentNeededResources: ProcSet (CIDInit)\n"
-                "%%%%IncludeResource: ProcSet (CIDInit)\n"
-                "%%%%BeginResource: CMap (TeX-%s-0)\n"
-                "%%%%Title: (TeX-%s-0 TeX %s 0)\n"
-                "%%%%Version: 1.000\n"
-                "%%%%EndComments\n"
-                "/CIDInit /ProcSet findresource begin\n"
-                "12 dict begin\n"
-                "begincmap\n"
-                "/CIDSystemInfo\n"
-                "<< /Registry (TeX)\n"
-                "/Ordering (%s)\n"
-                "/Supplement 0\n"
-                ">> def\n"
-                "/CMapName /TeX-%s-0 def\n"
-                "/CMapType 2 def\n"
-                "1 begincodespacerange\n"
-                "<00> <FF>\n" "endcodespacerange\n", buf, buf, buf, buf, buf);
+    objnum = pdfnewobjnum();
+    pdfbegindict(objnum, 0);
+    pdfbeginstream();
+    pdf_printf("%%!PS-Adobe-3.0 Resource-CMap\n"
+               "%%%%DocumentNeededResources: ProcSet (CIDInit)\n"
+               "%%%%IncludeResource: ProcSet (CIDInit)\n"
+               "%%%%BeginResource: CMap (TeX-%s-0)\n"
+               "%%%%Title: (TeX-%s-0 TeX %s 0)\n"
+               "%%%%Version: 1.000\n"
+               "%%%%EndComments\n"
+               "/CIDInit /ProcSet findresource begin\n"
+               "12 dict begin\n"
+               "begincmap\n"
+               "/CIDSystemInfo\n"
+               "<< /Registry (TeX)\n"
+               "/Ordering (%s)\n"
+               "/Supplement 0\n"
+               ">> def\n"
+               "/CMapName /TeX-%s-0 def\n"
+               "/CMapType 2 def\n"
+               "1 begincodespacerange\n"
+               "<00> <FF>\n" "endcodespacerange\n", buf, buf, buf, buf, buf);
 
     /* set gtab */
-    for (i = 0; i <= 256; ++i)
-        gtab[i].code = -1;
     for (i = 0; i < 256; ++i) {
-        if (glyph_names[i] == NULL || glyph_names[i] == notdef)
-            continue;
-        if (sscanf (glyph_names[i], "uni%lX", &gtab[i].code) == 1)
-            continue;
-        t.name = glyph_names[i];
-        pg = (glyph_unicode_entry *) avl_find (glyph_unicode_tree, &t);
-        if (pg == NULL) {       /* not found, let's try some simple name translations */
-            if (trans_glyph (buf, t.name)) {    /* something has stripped from buf,
-                                                   try to look up again */
-                t.name = buf;
-                pg = (glyph_unicode_entry *) avl_find (glyph_unicode_tree, &t);
-            }
-        }
-        if (pg != NULL) {
-            gtab[i].code = pg->code;
-            gtab[i].unicode_seq = pg->unicode_seq;
-        }
+        gtab[i].code = UNI_UNDEF;
+        set_glyph_unicode(glyph_names[i], &gtab[i]);
     }
+    gtab[256].code = UNI_UNDEF;
 
     /* set range_size */
     for (i = 0; i < 256;) {
-        if (gtab[i].code == -2) {
+        if (gtab[i].code == UNI_STRING || gtab[i].code == UNI_EXTRA_STRING) {
             range_size[i] = 1;  /* single entry */
             i++;
-        } else if (gtab[i].code == -1) {
+        } else if (gtab[i].code == UNI_UNDEF) {
             range_size[i] = 0;  /* no entry */
             i++;
         } else {                /* gtab[i].code >= 0 */
@@ -276,16 +381,16 @@ integer write_tounicode (char **glyph_names, char *name)
     else
         subrange_count = bfrange_count;
     bfrange_count -= subrange_count;
-    pdf_printf ("%i beginbfrange\n", subrange_count);
+    pdf_printf("%i beginbfrange\n", subrange_count);
     for (j = 0; j < subrange_count; j++) {
         while (range_size[i] <= 1 && i < 256)
             i++;
-        assert (i < 256);
-        pdf_printf ("<%02X> <%02X> <%04lX>\n", i, i + range_size[i] - 1,
-                    gtab[i].code);
+        assert(i < 256);
+        pdf_printf("<%02X> <%02X> <%s>\n", i, i + range_size[i] - 1,
+                   utf16be_str(gtab[i].code));
         i += range_size[i];
     }
-    pdf_printf ("endbfrange\n");
+    pdf_printf("endbfrange\n");
     if (bfrange_count > 0)
         goto write_bfrange;
 
@@ -297,7 +402,7 @@ integer write_tounicode (char **glyph_names, char *name)
     else
         subrange_count = bfchar_count;
     bfchar_count -= subrange_count;
-    pdf_printf ("%i beginbfchar\n", subrange_count);
+    pdf_printf("%i beginbfchar\n", subrange_count);
     for (j = 0; j < subrange_count; j++) {
         while (i < 256) {
             if (range_size[i] > 1)
@@ -307,21 +412,27 @@ integer write_tounicode (char **glyph_names, char *name)
             else                /* range_size[i] == 1 */
                 break;
         }
-        assert (i < 256 && gtab[i].code != -1);
-        if (gtab[i].code == -2) {
-            assert (gtab[i].unicode_seq != NULL);
-            pdf_printf ("<%02X> <%s>\n", i, gtab[i].unicode_seq);
+        assert(i < 256 && gtab[i].code != UNI_UNDEF);
+        if (gtab[i].code == UNI_STRING || gtab[i].code == UNI_EXTRA_STRING) {
+            assert(gtab[i].unicode_seq != NULL);
+            pdf_printf("<%02X> <%s>\n", i, gtab[i].unicode_seq);
         } else
-            pdf_printf ("<%02X> <%04lX>\n", i, gtab[i].code);
+            pdf_printf("<%02X> <%s>\n", i, utf16be_str(gtab[i].code));
         i++;
     }
-    pdf_printf ("endbfchar\n");
+    pdf_printf("endbfchar\n");
     if (bfchar_count > 0)
         goto write_bfchar;
 
-    pdf_printf ("endcmap\n"
-                "CMapName currentdict /CMap defineresource pop\n"
-                "end\n" "end\n" "%%%%EndResource\n" "%%%%EOF\n");
-    pdfendstream ();
+    /* free strings allocated by set_glyph_unicode() */
+    for (i = 0; i < 256; ++i) {
+        if (gtab[i].code == UNI_EXTRA_STRING)
+            xfree(gtab[i].unicode_seq);
+    }
+
+    pdf_printf("endcmap\n"
+               "CMapName currentdict /CMap defineresource pop\n"
+               "end\n" "end\n" "%%%%EndResource\n" "%%%%EOF\n");
+    pdfendstream();
     return objnum;
 }

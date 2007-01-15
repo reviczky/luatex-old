@@ -119,33 +119,33 @@ typedef struct _FILEINFO {
 
 /**********************************************************************/
 
-static int comp_file_entry (const void *, const void *, void *);
-static int comp_page_entry (const void *, const void *, void *);
-static int comp_segment_entry (const void *, const void *, void *);
-int ygetc (FILE *);
-FILEINFO *new_fileinfo ();
-PAGEINFO *new_pageinfo ();
-void initseginfo (SEGINFO *);
-void initlinkedlist (LIST *);
-LIST *litem_append (LIST *);
-void pages_maketree (LIST *);
-void segments_maketree (LIST *);
-PAGEINFO *find_pageinfo (LIST *, unsigned long);
-SEGINFO *find_seginfo (LIST *, unsigned long);
-unsigned int read2bytes (FILE *);
-unsigned long read4bytes (FILE *);
-unsigned long getstreamlen (LITEM *, boolean);
-void readfilehdr (FILEINFO *);
-boolean readseghdr (FILEINFO *, SEGINFO *);
-void writeseghdr (FILEINFO *, SEGINFO *);
-void checkseghdr (FILEINFO *, SEGINFO *);
-void checkseghdrflags (SEGINFO * sip);
-void markpage0seg (FILEINFO *, unsigned long);
-unsigned long findstreamstart (FILEINFO *);
-void rd_jbig2_info (FILEINFO *);
-void wr_jbig2 (FILEINFO *, unsigned long);
-void read_jbig2_info (integer);
-void write_jbig2 (integer);
-void flushjbig2page0objects ();
+static int comp_file_entry(const void *, const void *, void *);
+static int comp_page_entry(const void *, const void *, void *);
+static int comp_segment_entry(const void *, const void *, void *);
+int ygetc(FILE *);
+FILEINFO *new_fileinfo();
+PAGEINFO *new_pageinfo();
+void initseginfo(SEGINFO *);
+void initlinkedlist(LIST *);
+LIST *litem_append(LIST *);
+void pages_maketree(LIST *);
+void segments_maketree(LIST *);
+PAGEINFO *find_pageinfo(LIST *, unsigned long);
+SEGINFO *find_seginfo(LIST *, unsigned long);
+unsigned int read2bytes(FILE *);
+unsigned long read4bytes(FILE *);
+unsigned long getstreamlen(LITEM *, boolean);
+void readfilehdr(FILEINFO *);
+boolean readseghdr(FILEINFO *, SEGINFO *);
+void writeseghdr(FILEINFO *, SEGINFO *);
+void checkseghdr(FILEINFO *, SEGINFO *);
+void checkseghdrflags(SEGINFO * sip);
+void markpage0seg(FILEINFO *, unsigned long);
+unsigned long findstreamstart(FILEINFO *);
+void rd_jbig2_info(FILEINFO *);
+void wr_jbig2(FILEINFO *, unsigned long);
+void read_jbig2_info(integer);
+void write_jbig2(integer);
+void flushjbig2page0objects();
 
 /**********************************************************************/

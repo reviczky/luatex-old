@@ -18,9 +18,6 @@
 #include <limits.h>
 #ifndef WIN32
 #include <unistd.h>
-#ifdef __MINGW32__
-#include "oldnames.h"
-#endif
 #endif
 #include <string.h>
 #include <ctype.h>
