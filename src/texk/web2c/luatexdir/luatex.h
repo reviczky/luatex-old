@@ -132,5 +132,6 @@ extern int open_outfile(FILE **f, char *name, char *mode);
 #define doaopenout(f) open_outfile(&(f),(nameoffile+1),FOPEN_W_MODE)
 #define dobopenout(f) open_outfile(&(f),(nameoffile+1),FOPEN_WBIN_MODE)
 
+#define pdfassert assert
 
 #include <luatexdir/ptexlib.h>

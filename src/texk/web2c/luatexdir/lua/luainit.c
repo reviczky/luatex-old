@@ -121,7 +121,7 @@ parse_options(int argc, char **argv)
 	    usagehelp(LUATEX_IHELP, BUG_ADDRESS);
 
 	} else if (ARGUMENT_IS("version")) {
-	    printversionandexit(BANNER, COPYRIGHT_HOLDER, AUTHOR);
+	  printversionandexit(BANNER, COPYRIGHT_HOLDER, AUTHOR, NULL);
 
 	}
     }

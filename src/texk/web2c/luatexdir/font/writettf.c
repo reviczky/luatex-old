@@ -24,6 +24,12 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writettf.c#16 $
 #include "writettf.h"
 #include <string.h>
 
+/* sigh */
+#if defined(fontname)
+#undef fontname
+#endif
+
+
 #define DEFAULT_NTABS       14
 #define NEW_CMAP_SIZE       2
 
@@ -94,7 +100,7 @@ static TTF_USHORT nhmtxs;
 static TTF_USHORT new_ntabs;
 
 static glyph_entry *glyph_tab;
-static short *glyph_index;
+static long *glyph_index;
 static cmap_entry *cmap_tab, new_cmap_tab[NEW_CMAP_SIZE];
 static name_record *name_tab;
 static int name_record_num;
@@ -413,7 +419,7 @@ static void ttf_read_mapx (void)
         glyph->name_index = 0;
         glyph->name = (char *) notdef;
     }
-    glyph_index = xtalloc (glyphs_count, short);
+    glyph_index = xtalloc (glyphs_count, long);
     glyph_index[0] = 0;         /* index of ".notdef" glyph */
     glyph_index[1] = 1;         /* index of ".null" glyph */
 }
@@ -940,7 +946,7 @@ static void ttf_write_dirtab (void)
     char *p;
     const integer save_offset = ttf_offset ();
     ttf_seek_outbuf (TABDIR_OFF);
-    if (is_subsetted (fm_cur)) {
+    if (is_subsetted (fd_cur->fm)) {
         for (i = 0; i < DEFAULT_NTABS; i++) {
             tab = ttf_name_lookup (newtabnames[i], false);
             if (tab == NULL)
@@ -963,7 +969,7 @@ static void ttf_write_dirtab (void)
     /* adjust checkSumAdjustment */
     tmp_ulong = 0;
     checksum = 0;
-    for (p = fb_array, i = 0; i < save_offset;) {
+    for (p = fb_array, i = 0; i < (unsigned) save_offset;) {
         tmp_ulong = (tmp_ulong << 8) + *p++;
         i++;
         if (i % 4 == 0) {
@@ -983,7 +989,7 @@ static void ttf_write_dirtab (void)
 
 static void ttf_write_glyf (void)
 {
-    short *id, k;
+    long *id, k;
     TTF_USHORT idx;
     TTF_USHORT flags;
     dirtab_entry *tab = ttf_name_lookup ("glyf", true);
@@ -1132,7 +1138,7 @@ static void ttf_reindex_glyphs(void)
       append_new_glyph:
         assert(glyph > glyph_tab && glyph - glyph_tab < glyphs_count);
         if (glyph->newindex < 0) {
-            glyph_index[new_glyphs_count] = glyph - glyph_tab;
+		  glyph_index[new_glyphs_count] = (short) (glyph - glyph_tab);
             glyph->newindex = new_glyphs_count;
             new_glyphs_count++;
         }
@@ -1172,7 +1178,7 @@ static void ttf_write_hhea (void)
 
 static void ttf_write_htmx (void)
 {
-    short *id;
+    long *id;
     dirtab_entry *tab = ttf_seek_tab ("hmtx", 0);
     ttf_reset_chksm (tab);
     for (id = glyph_index; id - glyph_index < new_glyphs_count; id++) {
@@ -1184,7 +1190,7 @@ static void ttf_write_htmx (void)
 
 static void ttf_write_loca (void)
 {
-    short *id;
+    long *id;
     dirtab_entry *tab = ttf_seek_tab ("loca", 0);
     ttf_reset_chksm (tab);
     loca_format = 0;
@@ -1258,7 +1264,7 @@ static void ttf_write_post (void)
     dirtab_entry *tab = ttf_seek_tab ("post", TTF_FIXED_SIZE);
     glyph_entry *glyph;
     char *s;
-    short *id;
+    long *id;
     int l;
     ttf_reset_chksm (tab);
     if (!fd_cur->write_ttf_glyph_names || post_format == 0x00030000) {
@@ -1430,7 +1436,7 @@ void writettf(fd_entry * fd)
     cur_file_name = NULL;
 }
 
-void writeotf ()
+void writeotf(fd_entry * fd)
 {
     int callback_id;
     int file_opened = 0;

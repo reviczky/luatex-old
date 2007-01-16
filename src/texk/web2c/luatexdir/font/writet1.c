@@ -27,6 +27,12 @@ $Id $
 #  include <string.h>
 #  include "luatex-api.h"
 
+/* sigh */
+#if defined(fontname)
+#undef fontname
+#endif
+
+
 #  define t1_log(s)        if(tracefilenames) tex_printf(s)
 #  define get_length1()    t1_length1 = t1_offset() - t1_save_offset
 #  define get_length2()    t1_length2 = t1_offset() - t1_save_offset
@@ -62,7 +68,6 @@ static integer t1_curbyte = 0;
 #define t1_ungetchar(c) t1_curbyte--
 #define t1_eof()        (t1_curbyte>t1_size)
 
-#define str_prefix(s1, s2)  (strncmp(s1, s2, strlen(s2)) == 0)
 #define t1_prefix(s)        str_prefix(t1_line_array, s)
 #define t1_buf_prefix(s)    str_prefix(t1_buf_array, s)
 #define t1_suffix(s)        str_suffix(t1_line_array, t1_line_ptr, s)
@@ -152,12 +157,6 @@ extern char *fb_array;
 static fd_entry *fd_cur;
 
 static char charstringname[] = "/CharStrings";
-
-char **t1_glyph_names;
-char *t1_builtin_glyph_names[256];
-char charsetstr[0x4000];
-static boolean read_encoding_only;
-static int t1_encoding;
 
 enum { ENC_STANDARD, ENC_BUILTIN } t1_encoding;
 
@@ -278,7 +277,6 @@ static void enc_getline (void)
 
 char **load_enc_file(char *enc_name)
 {
-{
     int callback_id = 0;
     int file_opened = 0;
 	char *ftemp = NULL;
@@ -323,7 +321,8 @@ char **load_enc_file(char *enc_name)
     for (i = 0; i < 256; i++)
         glyph_names[i] = (char *) notdef;
     t1_log ("{");
-	t1_log (cur_file_name = full_file_name ());
+	set_cur_file_name ((char *)(nameoffile+1));
+	t1_log (cur_file_name);
     enc_getline ();
     if (*enc_line != '/' || (r = strchr (enc_line, '[')) == NULL) {
         remove_eol (r, enc_line);
@@ -1014,7 +1013,7 @@ static boolean t1_open_fontfile (const char *open_name_prefix)
 		   && file_opened && t1_size>0) {
 		  cur_file_name = ff->ff_path;
 		} else {
-		  set_cur_file_name (fm_cur->fm->ff_name);
+		  set_cur_file_name (fd_cur->fm->ff_name);
 		  pdftex_warn ("cannot open Type 1 font file for reading");
 		  return false;
 		}
@@ -1025,12 +1024,11 @@ static boolean t1_open_fontfile (const char *open_name_prefix)
 	  }
 	}
     else {
-        set_cur_file_name (fm_cur->fm->ff_name);
+        set_cur_file_name (fd_cur->fm->ff_name);
         pdftex_warn ("cannot open Type 1 font file for reading");
         return false;
     }
     t1_init_params (open_name_prefix);
-    fontfile_found = true;
     return true;
 }
 

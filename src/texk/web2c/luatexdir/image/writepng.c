@@ -115,7 +115,7 @@ void read_png_info (integer img)
 
 
 #define write_noninterlaced(outmac)                    \
-  for (i = 0; i < (int)png_info(img)->height; i++) {   \
+  for (i = 0; (unsigned) i < (int)png_info(img)->height; i++) {   \
     png_read_row(png_ptr(img), row, NULL);             \
     r = row;                                           \
     k = png_info(img)->rowbytes;                       \
@@ -130,7 +130,7 @@ void read_png_info (integer img)
         }
 
 #define write_interlaced(outmac)                       \
-  for (i = 0; i < (int)png_info(img)->height; i++) {   \
+  for (i = 0; (unsigned) i < (int)png_info(img)->height; i++) {   \
             row = rows[i];                             \
 	    k = png_info(img)->rowbytes;               \
 	    while(k > 0) {                             \
@@ -169,7 +169,7 @@ void write_png_palette (integer img)
             pdftex_warn
                 ("large interlaced PNG might cause out of memory (use non-interlaced PNG to fix this)");
         rows = xtalloc (png_info (img)->height, png_bytep);
-        for (i = 0; i < png_info (img)->height; i++)
+        for (i = 0; (unsigned) i < png_info (img)->height; i++)
             rows[i] = xtalloc (png_info (img)->rowbytes, png_byte);
         png_read_image (png_ptr (img), rows);
         write_interlaced (write_simple_pixel (row));
@@ -179,7 +179,7 @@ void write_png_palette (integer img)
     if (palette_objnum > 0) {
         pdfbegindict (palette_objnum, 0);
         pdfbeginstream ();
-        for (i = 0; i < png_info (img)->num_palette; i++) {
+        for (i = 0; (unsigned) i < png_info (img)->num_palette; i++) {
             pdfroom (3);
             pdfbuf[pdfptr++] = png_info (img)->palette[i].red;
             pdfbuf[pdfptr++] = png_info (img)->palette[i].green;
@@ -208,7 +208,7 @@ void write_png_gray (integer img)
             pdftex_warn
                 ("large interlaced PNG might cause out of memory (use non-interlaced PNG to fix this)");
         rows = xtalloc (png_info (img)->height, png_bytep);
-        for (i = 0; i < png_info (img)->height; i++)
+        for (i = 0; (unsigned) i < png_info (img)->height; i++)
             rows[i] = xtalloc (png_info (img)->rowbytes, png_byte);
         png_read_image (png_ptr (img), rows);
         write_interlaced (write_simple_pixel (row));
@@ -252,7 +252,7 @@ void write_png_gray_alpha (integer img)
             pdftex_warn
                 ("large interlaced PNG might cause out of memory (use non-interlaced PNG to fix this)");
         rows = xtalloc (png_info (img)->height, png_bytep);
-        for (i = 0; i < png_info (img)->height; i++)
+        for (i = 0; (unsigned) i < png_info (img)->height; i++)
             rows[i] = xtalloc (png_info (img)->rowbytes, png_byte);
         png_read_image (png_ptr (img), rows);
         if ((png_info (img)->bit_depth == 16) && fixedimagehicolor) {
@@ -306,7 +306,7 @@ void write_png_rgb (integer img)
             pdftex_warn
                 ("large interlaced PNG might cause out of memory (use non-interlaced PNG to fix this)");
         rows = xtalloc (png_info (img)->height, png_bytep);
-        for (i = 0; i < png_info (img)->height; i++)
+        for (i = 0; (unsigned) i < png_info (img)->height; i++)
             rows[i] = xtalloc (png_info (img)->rowbytes, png_byte);
         png_read_image (png_ptr (img), rows);
         write_interlaced (write_simple_pixel (row));
@@ -348,7 +348,7 @@ void write_png_rgb_alpha (integer img)
             pdftex_warn
                 ("large interlaced PNG might cause out of memory (use non-interlaced PNG to fix this)");
         rows = xtalloc (png_info (img)->height, png_bytep);
-        for (i = 0; i < png_info (img)->height; i++)
+        for (i = 0; (unsigned) i < png_info (img)->height; i++)
             rows[i] = xtalloc (png_info (img)->rowbytes, png_byte);
         png_read_image (png_ptr (img), rows);
         if ((png_info (img)->bit_depth == 16) && fixedimagehicolor) {
@@ -528,7 +528,7 @@ void write_png (integer img)
         if (palette_objnum > 0) {
             pdfbegindict (palette_objnum, 0);
             pdfbeginstream ();
-            for (i = 0; i < png_info (img)->num_palette; i++) {
+            for (i = 0; (unsigned) i < png_info (img)->num_palette; i++) {
                 pdfroom (3);
                 pdfbuf[pdfptr++] = png_info (img)->palette[i].red;
                 pdfbuf[pdfptr++] = png_info (img)->palette[i].green;

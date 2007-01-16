@@ -265,7 +265,7 @@ maininit P2C(int, ac, string *, av)
 #ifdef TeX
   /* Sanity check: -mltex, -enc, -etex only work in combination with -ini. */
   if (!iniversion) {
-#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(Aleph)
+#if !defined(Omega) && !defined(eOmega) && !defined(Aleph) && !defined(luaTeX)
     if (mltexp) {
       fprintf(stderr, "-mltex only works with -ini\n");
     }

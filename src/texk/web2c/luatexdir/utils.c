@@ -35,9 +35,19 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/utils.c#24 $
 #include <float.h>              /* for DBL_EPSILON */
 #include "zlib.h"
 #include "ptexlib.h"
+
+/* sigh */
+#if defined(fontname)
+#undef fontname
+#endif
+
 #include "openbsd-compat.h"
 #include "png.h"
 #include "xpdf/config.h"        /* just to get the xpdf version */
+
+#define check_nprintf(size_get, size_want) \
+    if ((unsigned)(size_get) >= (unsigned)(size_want)) \
+        pdftex_fail ("snprintf failed: file %s, line %d", __FILE__, __LINE__);
 
 char *cur_file_name = NULL;
 strnumber last_tex_string;
@@ -125,7 +135,6 @@ void make_subset_tag(fd_entry * fd)
             md5_append(&pms, (md5_byte_t *) glyph, strlen(glyph));
             md5_append(&pms, (md5_byte_t *) " ", 1);
         }
-        }
         md5_append(&pms, (md5_byte_t *) fd->fontname, strlen(fd->fontname));
         md5_append(&pms, (md5_byte_t *) & j, sizeof(int));      /* to resolve collision */
         md5_finish(&pms, digest);
@@ -206,7 +215,7 @@ static void safe_print (const char *str)
 
 void removepdffile (void)
 {
-    if (!kpathsea_debug && outputfilename) {
+    if (!kpathsea_debug && outputfilename && !fixedpdfdraftmode) {
         xfclose (pdffile, makecstring (outputfilename));
         remove (makecstring (outputfilename));
     }
@@ -215,14 +224,18 @@ void removepdffile (void)
 /* pdftex_fail may be called when a buffer overflow has happened/is
    happening, therefore may not call mktexstring.  However, with the
    current implementation it appears that error messages are misleading,
-   possibly because pool overflows are detected too late. */
+   possibly because pool overflows are detected too late. 
+
+   The output format of this fuction must be the same as pdf_error in
+   pdftex.web! */
+
 __attribute__ ((noreturn, format (printf, 1, 2)))
 void pdftex_fail (const char *fmt, ...)
 {
     va_list args;
     va_start (args, fmt);
     println ();
-    safe_print ("Error: ");
+    safe_print ("!pdfTeX error: ");
     safe_print (program_invocation_name);
     if (cur_file_name) {
         safe_print (" (file ");
@@ -244,13 +257,16 @@ void pdftex_fail (const char *fmt, ...)
     }
 }
 
+/* The output format of this fuction must be the same as pdf_warn in
+   pdftex.web! */
+
 __attribute__ ((format (printf, 1, 2)))
 void pdftex_warn (const char *fmt, ...) 
 {
     va_list args;
     va_start (args, fmt);
     println ();
-    tex_printf ("Warning: %s", program_invocation_name);
+    tex_printf ("pdfTeX warning: %s", program_invocation_name);
     if (cur_file_name)
         tex_printf (" (file %s)", cur_file_name);
     tex_printf (": ");
@@ -317,6 +333,7 @@ void setjobid (int year, int month, int day, int time)
 {
     char *name_string, *format_string, *s;
     size_t slen;
+	int i;
 
     if (job_id_string != NULL)
         return;
@@ -330,11 +347,12 @@ void setjobid (int year, int month, int day, int time)
         strlen (versionstring) + strlen (kpathsea_version_string);
     s = xtalloc (slen, char);
     /* The Web2c version string starts with a space.  */
-    snprintf (s, slen,
+    i = snprintf (s, slen,
              "%.4d/%.2d/%.2d %.2d:%.2d %s %s %s%s %s",
              year, month, day, time / 60, time % 60,
              name_string, format_string, ptexbanner,
              versionstring, kpathsea_version_string);
+	check_nprintf(i,slen);
     job_id_string = xstrdup (s);
     xfree (s);
     xfree (name_string);
@@ -346,6 +364,7 @@ void makepdftexbanner (void)
     static boolean pdftexbanner_init = false;
     char *s;
     size_t slen;
+	int i;
 
     if (pdftexbanner_init)
         return;
@@ -355,8 +374,9 @@ void makepdftexbanner (void)
         strlen (versionstring) + strlen (kpathsea_version_string);
     s = xtalloc (slen, char);
     /* The Web2c version string starts with a space.  */
-    snprintf (s, slen,
+    i = snprintf (s, slen,
              "%s%s %s", ptexbanner, versionstring, kpathsea_version_string);
+	check_nprintf (i, slen);
     pdftexbanner = maketexstring (s);
     xfree (s);
     pdftexbanner_init = true;
@@ -371,7 +391,7 @@ strnumber getresnameprefix (void)
         "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     char prefix[7];             /* make a tag of 6 chars long */
     unsigned long crc;
-    int i;
+    short i;
     size_t base = strlen (name_str);
     crc = crc32 (0L, Z_NULL, 0);
     crc = crc32 (crc, (Bytef *) job_id_string, strlen (job_id_string));
@@ -415,13 +435,13 @@ int xputc (int c, FILE * stream)
 
 void writestreamlength (integer length, integer offset)
 {
-    integer save_offset;
     if (jobname_cstr == NULL)
         jobname_cstr = xstrdup (makecstring (jobname));
-    save_offset = xftell (pdffile, jobname_cstr);
-    xfseek (pdffile, offset, SEEK_SET, jobname_cstr);
+	if (fixedpdfdraftmode == 0) {
+	xfseek (pdffile, offset, SEEK_SET, jobname_cstr);
     fprintf (pdffile, "%li", (long int) length);
     xfseek (pdffile, pdfoffset (), SEEK_SET, jobname_cstr);
+	}
 }
 
 scaled extxnoverd (scaled x, scaled n, scaled d)
@@ -462,15 +482,16 @@ char *convertStringToPDFString (const char *in, int len)
 {
     static char pstrbuf[MAX_PSTRING_LEN];
     char *out = pstrbuf;
-    int i, j;
+    int i, j, k;
     char buf[5];
     j = 0;
     for (i = 0; i < len; i++) {
         check_buf (j + sizeof (buf), MAX_PSTRING_LEN);
         if (((unsigned char) in[i] < '!') || ((unsigned char) in[i] > '~')) {
             /* convert control characters into oct */
-            snprintf (buf, sizeof (buf),
+            k = snprintf (buf, sizeof (buf),
                      "\\%03o", (unsigned int) (unsigned char) in[i]);
+			check_nprintf (k, sizeof (buf));
             out[j++] = buf[0];
             out[j++] = buf[1];
             out[j++] = buf[2];
@@ -505,6 +526,7 @@ void escapestring (poolpointer in)
 {
     const poolpointer out = poolptr;
     unsigned char ch;
+	int i;
     while (in < out) {
         if (poolptr + 4 >= poolsize) {
             poolptr = poolsize;
@@ -516,9 +538,10 @@ void escapestring (poolpointer in)
 
         if ((ch < '!') || (ch > '~')) {
             /* convert control characters into oct */
-            snprintf ((char *) &strpool[poolptr], 4,
+            i = snprintf ((char *) &strpool[poolptr], 5,
                      "\\%.3o", (unsigned int) ch);
-            poolptr += 4;
+			check_nprintf (i, 5);
+            poolptr += i;
             continue;
         }
         if ((ch == '(') || (ch == ')') || (ch == '\\')) {
@@ -576,6 +599,7 @@ void escapename (poolpointer in)
 {
     const poolpointer out = poolptr;
     unsigned char ch;
+	int i;
 
     while (in < out) {
         if (poolptr + 3 >= poolsize) {
@@ -588,9 +612,10 @@ void escapename (poolpointer in)
 
         if ((ch >= 1 && ch <= 32) || ch >= 127) {
             /* escape */
-            snprintf ((char *) &strpool[poolptr], 3,
+            i = snprintf ((char *) &strpool[poolptr], 4,
                      "#%.2X", (unsigned int) ch);
-            poolptr += 3;
+			check_nprintf (i, 4);
+            poolptr += i;
             continue;
         }
         switch (ch) {
@@ -609,9 +634,10 @@ void escapename (poolpointer in)
         case 123:
         case 125:
             /* escape */
-            snprintf ((char *) &strpool[poolptr], 3,
+            i = snprintf ((char *) &strpool[poolptr], 4,
                      "#%.2X", (unsigned int) ch);
-            poolptr += 3;
+			check_nprintf (i, 4);
+            poolptr += i;
             break;
         default:
             /* copy */
@@ -631,7 +657,8 @@ void escapehex (poolpointer in)
 {
     const poolpointer out = poolptr;
     unsigned char ch;
-
+	int i;
+	
     while (in < out) {
         if (poolptr + 2 >= poolsize) {
             poolptr = poolsize;
@@ -641,8 +668,8 @@ void escapehex (poolpointer in)
 
         ch = (unsigned char) strpool[in++];
 
-        snprintf ((char *) &strpool[poolptr], 3,
-                 "%.2X", (unsigned int) ch);
+        i = snprintf ((char *) &strpool[poolptr], 3,"%.2X", (unsigned int) ch);
+		check_nprintf (i, 3);
         poolptr += 2;
     }
 }
@@ -659,9 +686,9 @@ void escapehex (poolpointer in)
 void unescapehex (poolpointer in)
 {
     const poolpointer out = poolptr;
-    unsigned char ch, a;
+    unsigned char ch;
     boolean first = true;
-
+	unsigned char a = 0;        /* to avoid warning about uninitialized use of a */
     while (in < out) {
         if (poolptr + 1 >= poolsize) {
             poolptr = poolsize;
@@ -702,12 +729,13 @@ void unescapehex (poolpointer in)
  */
 static void convertStringToHexString (const char *in, char *out, int lin)
 {
-    int i, j;
+  int i, j, k;
     char buf[3];
     j = 0;
     for (i = 0; i < lin; i++) {
-        snprintf (buf, sizeof (buf),
+        k = snprintf (buf, sizeof (buf),
                  "%02X", (unsigned int) (unsigned char) in[i]);
+		check_nprintf (k, sizeof (buf));
         out[j++] = buf[0];
         out[j++] = buf[1];
     }
@@ -837,7 +865,7 @@ static void makepdftime (time_t t, char *time_str)
 
     struct tm lt, gmt;
     size_t size;
-    int off, off_hours, off_mins;
+    int i, off, off_hours, off_mins;
 
     /* get the time */
     lt = *localtime (&t);
@@ -875,8 +903,9 @@ static void makepdftime (time_t t, char *time_str)
     } else {
         off_hours = off / 60;
         off_mins = abs (off - off_hours * 60);
-        snprintf (&time_str[size], 9,
+        i = snprintf (&time_str[size], 9,
                  "%+03d'%02d'", off_hours, off_mins);
+		check_nprintf (i, 9);
     }
 }
 
@@ -907,7 +936,7 @@ void getcreationdate ()
 
     initstarttime ();
 
-    if (poolptr + len >= poolsize) {
+    if ((unsigned)(poolptr + len) >= (unsigned)poolsize) {
         poolptr = poolsize;
         /* error by str_toks that calls str_room(1) */
         return;
@@ -1562,19 +1591,19 @@ void matrixrecalculate(scaled urx)
     matrixtransformrect(last_llx, last_lly, urx, last_ury);
 }
 
-void allocvffnts(void)
+void allocvffnts(int font_max)
 {
     if (vf_e_fnts_array == NULL) {
         vf_e_fnts_array = vfefnts;
-        vf_e_fnts_limit = fontmax;
+        vf_e_fnts_limit = font_max;
         vf_e_fnts_ptr = vf_e_fnts_array;
         vf_i_fnts_array = vfifnts;
-        vf_i_fnts_limit = fontmax;
+        vf_i_fnts_limit = font_max;
         vf_i_fnts_ptr = vf_i_fnts_array;
     }
-    alloc_array(vf_e_fnts, 1, fontmax);
+    alloc_array(vf_e_fnts, 1, font_max);
     vf_e_fnts_ptr++;
-    alloc_array(vf_i_fnts, 1, fontmax);
+    alloc_array(vf_i_fnts, 1, font_max);
     vf_i_fnts_ptr++;
     if (vf_e_fnts_array != vfefnts) {
         vfefnts = vf_e_fnts_array;

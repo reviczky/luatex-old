@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="1" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070107' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070116' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -6110,7 +6110,8 @@ that will be defined later.
 @d pdf_prepend_kern_code     = pdftex_first_integer_code + 22 {prepend kern before certain characters?}
 @d pdf_append_kern_code      = pdftex_first_integer_code + 23 {append kern before certain characters?}
 @d pdf_gen_tounicode_code    = pdftex_first_integer_code + 24 {generate ToUnicode for fonts?}
-@d pdf_int_pars=pdftex_first_integer_code + 25 {total number of \pdfTeX's integer parameters}
+@d pdf_draftmode_code        = pdftex_first_integer_code + 25 {switch on draftmode if positive}
+@d pdf_int_pars=pdftex_first_integer_code + 26 {total number of \pdfTeX's integer parameters}
 @#
 @d etex_int_base=pdf_int_pars {base for \eTeX's integer parameters}
 @d tracing_assigns_code=etex_int_base {show assignments}
@@ -6225,6 +6226,7 @@ that will be defined later.
 @d pdf_image_gamma      == int_par(pdf_image_gamma_code)
 @d pdf_image_hicolor    == int_par(pdf_image_hicolor_code)
 @d pdf_image_apply_gamma == int_par(pdf_image_apply_gamma_code)
+@d pdf_draftmode        == int_par(pdf_draftmode_code)
 @#
 @d tracing_assigns==int_par(tracing_assigns_code)
 @d tracing_groups==int_par(tracing_groups_code)
@@ -6334,6 +6336,7 @@ pdf_adjust_interword_glue_code:    print_esc("pdfadjustinterwordglue");
 pdf_prepend_kern_code:    print_esc("pdfprependkern");
 pdf_append_kern_code:    print_esc("pdfappendkern");
 pdf_gen_tounicode_code:    print_esc("pdfgentounicode");
+pdf_draftmode_code:        print_esc("pdfdraftmode");
 @/@<Cases for |print_param|@>@/
 othercases begin print("[unknown integer parameter!]"); end
 endcases;
@@ -6511,6 +6514,8 @@ primitive("pdfappendkern",assign_int,int_base+pdf_append_kern_code);@/
 @!@:pdf_append_kern_}{\.{\\pdfappendkern} primitive@>
 primitive("pdfgentounicode",assign_int,int_base+pdf_gen_tounicode_code);@/
 @!@:pdf_gen_tounicode_}{\.{\\pdfgentounicode} primitive@>
+primitive("pdfdraftmode",assign_int,int_base+pdf_draftmode_code);@/
+@!@:pdf_draftmode_}{\.{\\pdfdraftmode} primitive@>
 
 @ @<Cases of |print_cmd_chr|...@>=
 assign_int: if chr_code<count_base then print_param(chr_code-int_base)
@@ -11747,8 +11752,10 @@ such that |job_name_code| remains last.
 @d pdf_ximage_bbox_code     = pdftex_first_expand_code + 13 {command code for \.{\\pdfximagebbox}}
 @d lua_code                 = pdftex_first_expand_code + 14 {command code for \.{\\directlua}}
 @d lua_escape_string_code   = pdftex_first_expand_code + 15 {command code for \.{\\luaescapestring}}
-@d pdftex_convert_codes     = pdftex_first_expand_code + 16 {end of \pdfTeX's command codes}
+@d pdf_colorstack_init_code = pdftex_first_expand_code + 16 {command code for \.{\\pdfcolorstackinit}}
+@d pdftex_convert_codes     = pdftex_first_expand_code + 17 {end of \pdfTeX's command codes}
 @d job_name_code=pdftex_convert_codes {command code for \.{\\jobname}}
+
 
 @<Put each...@>=
 primitive("number",convert,number_code);@/
@@ -11789,6 +11796,8 @@ primitive("pdfcreationdate",convert,pdf_creation_date_code);@/
 @!@:pdf_creation_date_}{\.{\\pdfcreationdate} primitive@>
 primitive("pdfuniformdeviate",convert,uniform_deviate_code);@/
 @!@:uniform_deviate_}{\.{\\pdfuniformdeviate} primitive@>
+primitive("pdfcolorstackinit",convert,pdf_colorstack_init_code);@/
+@!@:pdf_colorstack_init_}{\.{\\pdfcolorstackinit} primitive@>
 primitive("pdfnormaldeviate",convert,normal_deviate_code);@/
 @!@:normal_deviate_}{\.{\\pdfnormaldeviate} primitive@>
 primitive("directlua",convert,lua_code);@/
@@ -11825,6 +11834,7 @@ convert: case chr_code of
   right_margin_kern_code:   print_esc("rightmarginkern");
   pdf_xform_name_code:  print_esc("pdfxformname");
   pdf_creation_date_code: print_esc("pdfcreationdate");
+  pdf_colorstack_init_code: print_esc("pdfcolorstackinit");
   uniform_deviate_code:   print_esc("pdfuniformdeviate");
   normal_deviate_code:    print_esc("pdfnormaldeviate");
   pdf_insert_ht_code: print_esc("pdfinsertht");
@@ -11838,6 +11848,13 @@ convert: case chr_code of
 @ The procedure |conv_toks| uses |str_toks| to insert the token list
 for |convert| functions into the scanner; `\.{\\outer}' control sequences
 are allowed to follow `\.{\\string}' and `\.{\\meaning}'.
+
+The extra temp string |u| is needed because |pdf_scan_ext_toks| incorporates
+any pending string in its output. In order to save such a pending string,
+we have to create a temporary string that is destroyed immediately after.
+
+@d save_cur_string==if str_start[str_ptr]<pool_ptr then u:=make_string
+@d restore_cur_string==if u<>0 then begin decr(str_ptr); u:=0; end
 
 @p procedure conv_toks;
 label exit;
@@ -11854,7 +11871,9 @@ p, q: pointer;
 @!s: str_number; {first temp string}
 @!t: str_number; {second temp string}
 @!u: str_number; {third temp string}
-begin c:=cur_chr;
+begin
+c:=cur_chr;
+u:=0; { will become non-nil if a string is already being built}
 @<Scan the argument for command |c|@>;
 old_setting:=selector; selector:=new_string; b:=pool_ptr;
 @<Print the result of command |c|@>;
@@ -11907,6 +11926,39 @@ pdf_creation_date_code:
     return;
   end;
 job_name_code: if job_name=0 then open_log_file;
+pdf_colorstack_init_code:
+  begin
+    bool := scan_keyword("page");
+    if scan_keyword("direct") then
+        cur_val := direct_always
+    else
+        if scan_keyword("page") then
+            cur_val := direct_page
+        else
+            cur_val := set_origin;
+    save_scanner_status := scanner_status;
+    save_warning_index := warning_index;
+    save_def_ref := def_ref;
+    save_cur_string;
+    scan_pdf_ext_toks;
+    s := tokens_to_string(def_ref);
+    delete_token_ref(def_ref);
+    def_ref := save_def_ref;
+    warning_index := save_warning_index;
+    scanner_status := save_scanner_status;
+    cur_val := newcolorstack(s, cur_val, bool);
+    flush_str(s);
+    cur_val_level := int_val;
+    if cur_val < 0 then begin
+        print_err("Too many color stacks");
+@.Too many color stacks@>
+        help2("The number of color stacks is limited to 32768.")@/
+        ("I'll use the default color stack 0 here.");
+        error;
+        cur_val := 0;
+       restore_cur_string;
+    end;
+  end;
 uniform_deviate_code:     scan_int;
 normal_deviate_code:      do_nothing;
 lua_escape_string_code:
@@ -12026,6 +12078,7 @@ right_margin_kern_code: begin
     print("pt");
 end;
 pdf_xform_name_code: print_int(obj_info(cur_val));
+pdf_colorstack_init_code: print_int(cur_val);
 uniform_deviate_code:     print_int(unif_rand(cur_val));
 normal_deviate_code:      print_int(norm_rand);
 pdf_insert_ht_code: begin
@@ -16240,6 +16293,7 @@ pdf_image_gamma := 2200;
 pdf_image_hicolor := 1;
 pdf_image_apply_gamma := 0;
 pdf_px_dimen := one_bp;
+pdf_draftmode := 0;
 
 @ The subroutines define the corresponding macros so we can use them
 in C.
@@ -16506,6 +16560,9 @@ end
 @!fixed_image_apply_gamma: integer;
 @!epochseconds: integer;
 @!microseconds: integer;
+@!fixed_pdf_draftmode: integer; {fixed \\pdfdraftmode}
+@!fixed_pdf_draftmode_set: boolean; {|fixed_pdf_draftmode| has been set?}
+
 
 @ @<Set init...@>=
 pdf_gone := 0;
@@ -16522,6 +16579,7 @@ pdf_seek_write_length := false;
 zip_write_state := no_zip;
 pdf_minor_version_written := false;
 fixed_pdfoutput_set := false;
+fixed_pdf_draftmode_set := false;
 
 @ @p
 function fix_int(val, min, max: integer): integer;
@@ -16556,11 +16614,12 @@ begin
         fixed_image_hicolor     := fix_int(pdf_image_hicolor, 0, 1);
         fixed_image_apply_gamma := fix_int(pdf_image_apply_gamma, 0, 1);
         fixed_pdf_objcompresslevel := fix_int(pdf_objcompresslevel, 0, 3);
+        fixed_pdf_draftmode     := fix_int(pdf_draftmode, 0, 1);
         if (fixed_pdf_minor_version >= 5) and (fixed_pdf_objcompresslevel > 0) then
             pdf_os_enable := true
         else begin
             if fixed_pdf_objcompresslevel > 0 then begin
-                pdf_warning("Object streams", "\pdfobjcompresslevel > 0 requires \pdfminorversion > 4. Object streams disabled now.", true);
+                pdf_warning("Object streams", "\pdfobjcompresslevel > 0 requires \pdfminorversion > 4. Object streams disabled now.", true, true);
                 fixed_pdf_objcompresslevel := 0;
             end;
             pdf_os_enable := false;
@@ -16592,6 +16651,7 @@ begin
     if job_name = 0 then
         open_log_file;
     pack_job_name(".pdf");
+	if fixed_pdf_draftmode = 0 then
     while not lua_b_open_out(pdf_file) do
         prompt_file_name("file name for output",".pdf");
     pdf_file:=name_file_pointer;
@@ -16608,14 +16668,14 @@ begin
     if not pdf_os_mode then begin
         case zip_write_state of
             no_zip: if pdf_ptr > 0 then begin
-                write_pdf(0, pdf_ptr - 1);
+                if fixed_pdf_draftmode = 0 then write_pdf(0, pdf_ptr - 1);
                 pdf_gone := pdf_gone + pdf_ptr;
                 pdf_last_byte := pdf_buf[pdf_ptr - 1];
             end;
             zip_writing:
-                write_zip(false);
+                if fixed_pdf_draftmode = 0 then write_zip(false);
             zip_finish: begin
-                write_zip(true);
+                if fixed_pdf_draftmode = 0 then write_zip(true);
                 zip_write_state := no_zip;
             end;
         end;
@@ -16696,7 +16756,7 @@ begin
     succumb;
 end;
 
-procedure pdf_warning(t, p: str_number; append_nl: boolean);
+procedure pdf_warning(t, p: str_number; prepend_nl, append_nl: boolean);
 begin
     if interaction = error_stop_mode then
         wake_up_terminal;
@@ -16971,9 +17031,8 @@ begin
                 s_out := -s_out;
             pdf_delta_h := pdf_delta_h + s_out;
         end;
-    end
-    else
-        pdf_h := pdf_h + get_pk_char_width(f,c);
+    end else
+        pdf_delta_h := pdf_delta_h + get_pk_char_width(f, w);
 end;
 
 procedure pdf_print_real(m, d: integer); {print $m/10^d$ as real}
@@ -17026,13 +17085,13 @@ DVI}
 @!pdf_f: internal_font_number; {the current font in PDF output page}
 @!pdf_h: scaled; {current horizontal coordinate in PDF output page}
 @!pdf_v: scaled; {current vertical coordinate in PDF output page}
-@!pdf_last_h: scaled; {last horizontal coordinate in PDF output page}
-@!pdf_last_v: scaled; {last vertical coordinate in PDF output page}
+@!pdf_tj_start_h: scaled; {horizontal coordinate in PDF output page just before \.{TJ} array start}
+@!cur_delta_h: scaled; {horizontal |cur_h| offset from |pdf_tj_start_h|}
+@!pdf_delta_h: scaled; {horizontal offset from |pdf_tj_start_h|}
 @!pdf_origin_h: scaled; {current horizontal origin in PDF output page}
 @!pdf_origin_v: scaled; {current vertical origin in PDF output page}
 @!pdf_doing_string: boolean; {we are writing string to PDF file?}
 @!pdf_doing_text: boolean; {we are writing text section to PDF file?}
-@!pdf_font_changed: boolean; {current font has been changed?}
 @!min_bp_val: scaled;
 @!min_font_val: scaled; {(TJ array system)}
 @!fixed_pk_resolution: integer;
@@ -17065,9 +17124,8 @@ begin
         pdf_print_ln(" cm");
     end;
     pdf_h := pdf_origin_h;
-    pdf_last_h := pdf_origin_h;
+    pdf_tj_start_h := pdf_h;
     pdf_v := pdf_origin_v;
-    pdf_last_v := pdf_origin_v;
 end;
 
 procedure pdf_set_origin_temp(h, v: scaled); {set the origin to |h|, |v| inside group}
@@ -17133,25 +17191,12 @@ begin
     pdf_delta_h := 0;
 end;
 
-procedure pdf_moveto(v, v_out: scaled); {set the next starting point to |cur_h|, |cur_v|}
-begin
-    pdf_out(" ");
-    pdf_print_bp(cur_h - pdf_last_h);
-    pdf_h := pdf_last_h + scaled_out;
-    pdf_out(" ");
-    pdf_print_real(v, fixed_decimal_digits);
-    pdf_print(" Td");
-    pdf_v := pdf_last_v - v_out;
-    pdf_last_h := pdf_h;
-    pdf_last_v := pdf_v;
-end;
-
 procedure pdf_use_font(f: internal_font_number; fontnum: integer);
-{mark |f| as a used font; set |font_used[f]|, |pdf_font_size[f]| and |pdf_font_num[f]|}
+{mark |f| as a used font; set |font_used(f)|, |pdf_font_size[f]| and |pdf_font_num[f]|}
 begin
-    call_func(divide_scaled(font_size[f], one_hundred_bp, 6));
+    call_func(divide_scaled(font_size(f), one_hundred_bp, 6));
     pdf_font_size[f] := scaled_out;
-    font_used[f] := true;
+    set_font_used(f,true);
     pdfassert((fontnum > 0) or ((fontnum < 0) and (pdf_font_num[-fontnum] > 0)));
     pdf_font_num[f] := fontnum;
     if pdf_move_chars > 0 then begin
@@ -17175,14 +17220,14 @@ if pdf_resname_prefix <> 0 then
 var k, b: internal_font_number;
     i: integer;
 begin
-    pdfassert(not font_used[f]);
+    pdfassert(not font_used(f));
 
     {if |f| is auto expanded then ensure the base font is initialized}
     if pdf_font_auto_expand[f] and (pdf_font_blink[f] <> null_font) then begin
         b := pdf_font_blink[f];
         if not hasfmentry(b) then
             pdf_error("font expansion", "auto expansion is only possible with scalable fonts");
-        if not font_used[b] then
+        if not font_used(b) then
             pdf_init_font(b);
         pdf_font_map[f] := pdf_font_map[b];
     end;
@@ -17197,10 +17242,10 @@ begin
             k := obj_info(i);
             if hasfmentry(k) and
                (pdf_font_map[k] = pdf_font_map[f]) and
-               (str_eq_str(font_name[k], font_name[f]) or
+               (cmp_font_name(k,tex_font_name(f)) or
                 (pdf_font_auto_expand[f] and
                  (pdf_font_blink[f] <> null_font) and
-                 str_eq_str(font_name[k], font_name[pdf_font_blink[f]]))) then
+                 cmp_font_name(k,tex_font_name(pdf_font_blink[f])))) then
             begin
                 pdfassert(pdf_font_num[k] <> 0);
                 if pdf_font_num[k] < 0 then
@@ -17229,7 +17274,7 @@ label found, found1;
 var p: pointer;
     k: internal_font_number;
 begin
-    if not font_used[f] then
+    if not font_used(f) then
         pdf_init_font(f);
     set_ff(f); {set |ff| to the tfm number of the font sharing the font object
                 with |f|; |ff| is either |f| or some font with the same tfm name
@@ -17244,16 +17289,16 @@ begin
     end;
     pdf_append_list(f)(pdf_font_list); {|f| not found in |pdf_font_list|, append it now}
 found:
-    if (k = pdf_last_f) and (font_size[f] = pdf_last_fs) then
+    if (k = pdf_last_f) and (font_size(f) = pdf_last_fs) then
         return;
     pdf_print("/F");
     pdf_print_int(k);
     pdf_print_resname_prefix;
     pdf_out(" ");
-    pdf_print_real(divide_scaled(font_size[f], one_hundred_bp, 6), 4);
+    pdf_print_real(divide_scaled(font_size(f), one_hundred_bp, 6), 4);
     pdf_print(" Tf");
     pdf_last_f := k;
-    pdf_last_fs := font_size[f];
+    pdf_last_fs := font_size(f);
 end;
 
 procedure pdf_begin_text; {begin a text section}
@@ -17509,6 +17554,32 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 @d direct_page             == 1 {end text (ET) if needed, but don't change the CTM}
 @d direct_always           == 2 {don't end text, don't change the CTM}
 @d scan_special            == 3 {look into special text}
+
+@# {data structure for \.{\\pdfcolorstack}}
+@d pdf_colorstack_node_size == 3
+@d pdf_colorstack_setter_node_size == 3
+@d pdf_colorstack_getter_node_size == 2
+@d pdf_colorstack_stack(#)  == link(#+1) {stack number}
+@d pdf_colorstack_cmd(#)    == info(#+1) {command: set, push, pop, current}
+@d pdf_colorstack_data(#)   == link(#+2) {data}
+
+@# {color stack commands}
+@d colorstack_set          == 0
+@d colorstack_push         == 1
+@d colorstack_data         == 1 { last value where data field is set }
+@d colorstack_pop          == 2
+@d colorstack_current      == 3
+
+@# {data structure for \.{\\pdfsetmatrix}}
+@d pdf_setmatrix_node_size == 2
+@d pdf_setmatrix_data(#)   == link(#+1) {data}
+
+@# {data structure for \.{\\pdsave}}
+@d pdf_save_node_size      == 2
+
+@# {data structure for \.{\\pdfrestore}}
+@d pdf_restore_node_size   == 2
+
 
 @# {data structure for \.{\\latelua}}
 @d late_lua_data(#)        == link(#+1) {data}
@@ -18448,7 +18519,7 @@ begin
     e := pdf_font_expand_ratio[f];
     for k := 0 to vf_local_font_num[bf] - 1 do begin
         lf := vf_default_font[bf] + k;
-        allocvffnts;
+        allocvffnts(font_max);
         {copy vf local font numbers:}
         vf_e_fnts[vf_nf] := vf_e_fnts[lf];
         {definition of local vf fonts are expanded from base fonts:}
@@ -18628,28 +18699,26 @@ var k: internal_font_number;
     old_setting:0..max_selector;
 begin
     {read a new font and expand the character widths}
-    k := read_font_info(u, font_name[f], "", font_size[f]);
+    k := read_font_info(u, tex_font_name(f), "", font_size(f), font_natural_dir(f));
     set_no_ligatures(k); {disable ligatures for letter-spaced fonts}
-    nw := height_base[k] - width_base[k];
-    for i := 0 to nw - 1 do
-        font_info[width_base[k] + i].sc :=
-            font_info[width_base[k] + i].sc + round_xn_over_d(quad(k), e, 1000);
-
+    for i := 0 to font_widths(k) do begin
+      set_font_width(k,i,font_width(f,i)+round_xn_over_d(quad(k), e, 1000));
+      end;
     {append eg '+100ls' to font name}
-    flush_str(font_name[k]);
-    str_room(length(font_name[k]) + 7); {|abs(e) <= 1000|}
+    flush_str(tex_font_name(k));
+    str_room(length(tex_font_name(k)) + 7); {|abs(e) <= 1000|}
     old_setting := selector;
     selector := new_string;
-    print(font_name[k]);
+    print_font_name(k);
     if e > 0 then
         print("+"); {minus sign will be printed by |print_int|}
     print_int(e);
     print("ls");
     selector := old_setting;
-    font_name[k] := make_string;
+    set_tex_font_name(k, make_string);
 
     {create the corresponding virtual font}
-    allocvffnts;
+    allocvffnts(font_max);
     vf_e_fnts[vf_nf] := 0;
     vf_i_fnts[vf_nf] := f;
     incr(vf_nf);
@@ -18657,7 +18726,7 @@ begin
     vf_default_font[k] := vf_nf - 1;
     pdf_font_type[k] := virtual_font_type;
 
-    fs := font_size[f];
+    fs := font_size(f);
     vf_z := fs;
     vf_replace_z;
     w := round_xn_over_d(quad(f), e, 2000);
@@ -18684,7 +18753,7 @@ begin
         tmp_b3 := r div vf_z;
     end;
     vf_packet_base[k] := new_vf_packet(k);
-    for c := font_bc[k] to font_ec[k] do begin
+    for c := font_bc(k) to font_ec(k) do begin
         str_room(12);
         append_char(right1 + 3);
         append_char(tmp_b0);
@@ -18718,8 +18787,7 @@ var u:pointer; {user's font identifier}
 begin
     get_r_token; u:=cur_cs;
     if u>=hash_base then t:=text(u)
-    else if u>=single_base then
-      if u=null_cs then t:="FONT"@+else t:=u-single_base
+    else if u=null_cs then t:="FONT"
     else  begin old_setting:=selector; selector:=new_string;
       print("FONT"); print(u-active_base); selector:=old_setting;
     @.FONTx@>
@@ -19008,7 +19076,7 @@ vf_replace_z
 cmd := vf_byte;
 save_vf_nf := vf_nf;
 while (cmd >= fnt_def1) and (cmd <= fnt_def1 + 3) do begin
-    allocvffnts;
+    allocvffnts(font_max);
     vf_e_fnts[vf_nf] := vf_read(cmd - fnt_def1 + 1);
     vf_i_fnts[vf_nf] := vf_def_font(f);
     incr(vf_nf);
@@ -19393,6 +19461,107 @@ begin
     flush_str(s);
 end;
 
+procedure pdf_out_colorstack(p:pointer);
+var old_setting: 0..max_selector; {holds print |selector|}
+    s: str_number;
+    cmd: integer;
+    stack_no: integer;
+    literal_mode: integer;
+begin
+    cmd := pdf_colorstack_cmd(p);
+    stack_no := pdf_colorstack_stack(p);
+    if stack_no >= colorstackused then begin
+        print_nl("");
+        print("Color stack ");
+        print_int(stack_no);
+        print(" is not initialized for use!");
+        print_nl("");
+        return;
+    end;
+    case cmd of
+    colorstack_set, colorstack_push: begin
+        old_setting:=selector; selector:=new_string;
+        show_token_list(link(pdf_colorstack_data(p)),null,pool_size-pool_ptr);
+        selector:=old_setting;
+        s := make_string;
+        if cmd = colorstack_set then
+            literal_mode := colorstackset(stack_no, s)
+        else
+            literal_mode := colorstackpush(stack_no, s);
+        if length(s) > 0 then
+            literal(s, literal_mode, false);
+        flush_str(s);
+        return;
+    end;
+    colorstack_pop: literal_mode := colorstackpop(stack_no);
+    colorstack_current: literal_mode := colorstackcurrent(stack_no);
+    othercases do_nothing
+    endcases;
+    if cur_length > 0 then begin
+        s := make_string;
+        literal(s, literal_mode, false);
+        flush_str(s);
+    end
+end;
+
+procedure pdf_out_colorstack_startpage;
+var i: integer;
+    max: integer;
+    start_status: integer;
+    literal_mode: integer;
+    s: str_number;
+begin
+    i := 0;
+    max := colorstackused;
+    while i < max do begin
+        start_status := colorstackskippagestart(i);
+        if start_status = 0 then begin
+            literal_mode := colorstackcurrent(i);
+            if cur_length > 0 then begin
+                s := make_string;
+                literal(s, literal_mode, false);
+                flush_str(s);
+            end;
+        end;
+        incr(i);
+    end;
+end;
+
+procedure pdf_out_setmatrix(p:pointer);
+var old_setting:0..max_selector; {holds print |selector|}
+    s: str_number;
+begin
+    old_setting:=selector; selector:=new_string;
+    show_token_list(link(pdf_setmatrix_data(p)),null,pool_size-pool_ptr);
+    selector:=old_setting;
+    str_room(7);
+    str_pool[pool_ptr] := 0; { make C string for pdfsetmatrix }
+    pdfsetmatrix(str_start[str_ptr], cur_h, cur_page_height - cur_v);
+    str_room(7);
+    append_char(" ");
+    append_char("0");
+    append_char(" ");
+    append_char("0");
+    append_char(" ");
+    append_char("c");
+    append_char("m");
+    s := make_string;
+    literal(s, set_origin, false);
+    flush_str(s);
+end;
+
+procedure pdf_out_save(p:pointer);
+begin
+    checkpdfsave(cur_h, cur_v);
+    literal("q", set_origin, false);
+end;
+
+procedure pdf_out_restore(p:pointer);
+begin
+    checkpdfrestore(cur_h, cur_v);
+    literal("Q", set_origin, false);
+end;
+
 procedure pdf_special(p: pointer);
 var old_setting:0..max_selector; {holds print |selector|}
     s: str_number;
@@ -19459,10 +19628,10 @@ var base_line: scaled; {the baseline coordinate for this box}
 @!outer_doing_leaders:boolean; {were we doing leaders?}
 @!edge:scaled; {right edge of sub-box or leader space}
 @!prev_p:pointer; {one step behind |p|}
-@!running_link: pointer; {pointer to `running' link if exists}
 @!glue_temp:real; {glue value before rounding}
 @!cur_glue:real; {glue seen so far}
 @!cur_g:scaled; {rounded equivalent of |cur_glue| times the glue ratio}
+@!i: small_number; {index to scan |pdf_link_stack|}
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
@@ -19470,23 +19639,19 @@ incr(cur_s);
 base_line:=cur_v;
 prev_p:=this_box+list_offset;
 left_edge:=cur_h;
-running_link := null;
-@<Create link annotation for the current hbox if needed@>;
+@<Create link annotations for the current hbox if needed@>;
 while p<>null do
     @<Output node |p| for |pdf_hlist_out| and move to the next node,
     maintaining the condition |cur_v=base_line|@>;
 decr(cur_s);
 end;
 
-@ @<Create link annotation for the current hbox if needed@>=
-if running_link = null then begin
-    if is_running(pdf_link_wd) and (pdf_link_level = cur_s) then begin
-        append_link(this_box, left_edge, base_line);
-        running_link := last_link;
-    end;
+@ @<Create link annotations for the current hbox if needed@>=
+for i := 1 to pdf_link_stack_ptr do begin
+    pdfassert(is_running(pdf_width(pdf_link_stack[i].link_node)));
+    if (pdf_link_stack[i].nesting_level = cur_s) then
+        append_link(this_box, left_edge, base_line, i);
 end
-else
-    last_link := running_link
 
 @ @<Output node |p| for |pdf_hlist_out|...@>=
 reswitch: if is_char_node(p) then
@@ -19740,8 +19905,26 @@ begin
     else if fixed_pdfoutput <> pdf_output then
         pdf_error("setup",
             "\pdfoutput can only be changed before anything is written to the output");
+    if fixed_pdfoutput_set then fix_pdf_draftmode;
 end;
 
+@ |fix_pdf_draftmode| freezes |pdfdraftmode| when something has been written to
+the output and also switches somes things off when draftmode is on.
+@p procedure fix_pdf_draftmode;
+begin
+    if not fixed_pdf_draftmode_set then begin
+        fixed_pdf_draftmode := pdf_draftmode;
+        fixed_pdf_draftmode_set := true;
+    end
+    else if fixed_pdf_draftmode <> pdf_draftmode then
+        pdf_error("setup",
+            "\pdfdraftmode can only be changed before anything is written to the output");
+    if fixed_pdf_draftmode_set and fixed_pdf_draftmode > 0 then begin
+        fixed_pdf_draftmode_set := true;
+        pdf_compress_level := 0;
+        fixed_pdf_objcompresslevel := 0;
+    end;
+end;
 
 @ |pdf_ship_out| is used instead of |ship_out| to shipout a box to PDF
 output. If |shipping_page| is not set then the output will be a Form object,
@@ -19818,7 +20001,7 @@ fix_pdfoutput;
 temp_ptr:=p;
 prepare_mag;
 pdf_last_resources := pdf_new_objnum;
-@<Reset resources lists@>;
+@<Reset resource lists@>;
 if not shipping_page then begin
     pdf_xform_width := width(p);
     pdf_xform_height := height(p);
@@ -19847,7 +20030,7 @@ if not shipping_page then begin
 end;
 @<Start stream of page/form contents@>
 
-@ @<Reset resources lists@>=
+@ @<Reset resource lists@>=
 pdf_font_list := null;
 pdf_obj_list := null;
 pdf_xform_list := null;
@@ -19860,7 +20043,6 @@ pdf_annot_list := null;
 pdf_link_list := null;
 pdf_dest_list := null;
 pdf_bead_list := null;
-last_link := null;
 last_thread := null
 
 @ @<Calculate page dimensions and margins@>=
@@ -19896,7 +20078,11 @@ pdf_indirect_ln("Resources", pdf_last_resources)
 pdf_begin_stream;
 if shipping_page then begin
     @<Adjust transformation matrix for the magnification ratio@>;
-end
+end;
+pdfshipoutbegin(shipping_page);
+if shipping_page then
+    pdf_out_colorstack_startpage;
+
 
 @ @<Adjust transformation matrix for the magnification ratio@>=
 prepare_mag;
@@ -19912,21 +20098,25 @@ end
 if shipping_page then begin
     @<Write out page object@>;
 end;
-@<Flush out pending raw objects@>;
-@<Flush out pending forms@>;
-@<Flush out pending images@>;
+@<Write out resource lists@>;
 if shipping_page then begin
-    @<Flush out pending PDF marks@>;
+    @<Write out pending PDF marks@>;
 end;
 @<Write out resources dictionary@>;
-@<Flush resources lists@>;
+@<Flush resource lists@>;
 if shipping_page then begin
     @<Flush PDF mark lists@>;
 end
 
 @ @<Finish stream of page/form contents@>=
 pdf_end_text;
+pdfshipoutend(shipping_page);
 pdf_end_stream
+
+@ @<Write out resource lists@>=
+@<Write out pending raw objects@>;
+@<Write out pending forms@>;
+@<Write out pending images@>
 
 @ @<Write out resources dictionary@>=
 pdf_begin_dict(pdf_last_resources, 1);
@@ -19953,7 +20143,7 @@ have been created during the page shipping.
 
 @d delete_toks(#) == begin delete_token_ref(#); # := null; end
 
-@<Flush resources lists@>=
+@<Flush resource lists@>=
 flush_list(pdf_font_list);
 flush_list(pdf_obj_list);
 flush_list(pdf_xform_list);
@@ -20151,7 +20341,7 @@ begin
     flush_node_list(p);
 end;
 
-@ @<Flush out pending raw objects@>=
+@ @<Write out pending raw objects@>=
 if pdf_obj_list <> null then begin
     k := pdf_obj_list;
     while k <> null do begin
@@ -20161,26 +20351,26 @@ if pdf_obj_list <> null then begin
     end;
 end
 
-@ When flushing pending forms we need to save and restore resources lists
+@ When flushing pending forms we need to save and restore resource lists
   (|pdf_font_list|, |pdf_obj_list|, |pdf_xform_list| and |pdf_ximage_list|),
   which are also used by page shipping.
 
-@<Flush out pending forms@>=
+@<Write out pending forms@>=
 if pdf_xform_list <> null then begin
     k := pdf_xform_list;
     while k <> null do begin
         if not is_obj_written(info(k)) then begin
             pdf_cur_form := info(k);
-            @<Save resources lists@>;
-            @<Reset resources lists@>;
+            @<Save resource lists@>;
+            @<Reset resource lists@>;
             pdf_ship_out(obj_xform_box(pdf_cur_form), false);
-            @<Restore resources lists@>;
+            @<Restore resource lists@>;
         end;
         k := link(k);
     end;
 end
 
-@ @<Save resources lists@>=
+@ @<Save resource lists@>=
 save_font_list := pdf_font_list;
 save_obj_list := pdf_obj_list;
 save_xform_list := pdf_xform_list;
@@ -20188,7 +20378,7 @@ save_ximage_list := pdf_ximage_list;
 save_text_procset := pdf_text_procset;
 save_image_procset := pdf_image_procset
 
-@ @<Restore resources lists@>=
+@ @<Restore resource lists@>=
 pdf_font_list := save_font_list;
 pdf_obj_list := save_obj_list;
 pdf_xform_list := save_xform_list;
@@ -20204,11 +20394,11 @@ begin
         pdf_print_toks_ln(obj_ximage_attr(n));
         delete_toks(obj_ximage_attr(n));
     end;
-    write_image(obj_ximage_data(n));
+    if fixed_pdf_draftmode = 0 then write_image(obj_ximage_data(n));
     delete_image(obj_ximage_data(n));
 end;
 
-@ @<Flush out pending images@>=
+@ @<Write out pending images@>=
 if pdf_ximage_list <> null then begin
     k := pdf_ximage_list;
     while k <> null do begin
@@ -20218,15 +20408,15 @@ if pdf_ximage_list <> null then begin
     end;
 end
 
-@ @<Flush out pending PDF marks@>=
+@ @<Write out pending PDF marks@>=
 pdf_origin_h := 0;
 pdf_origin_v := cur_page_height;
-@<Flush out PDF annotations@>;
-@<Flush out PDF link annotations@>;
-@<Flush out PDF mark destinations@>;
-@<Flush out PDF bead rectangle specifications@>
+@<Write out PDF annotations@>;
+@<Write out PDF link annotations@>;
+@<Write out PDF mark destinations@>;
+@<Write out PDF bead rectangle specifications@>
 
-@ @<Flush out PDF annotations@>=
+@ @<Write out PDF annotations@>=
 if pdf_annot_list <> null then begin
     k := pdf_annot_list;
     while k <> null do begin
@@ -20240,13 +20430,8 @@ if pdf_annot_list <> null then begin
     end;
 end
 
-@ @<Flush out PDF link annotations@>=
-if pdf_link_list <> null then begin
-    @<Write out PDF link annotations@>;
-    @<Free PDF link annotations@>;
-end
-
 @ @<Write out PDF link annotations@>=
+if pdf_link_list <> null then begin
 k := pdf_link_list;
 while k <> null do begin
     i := obj_annot_ptr(info(k));
@@ -20263,20 +20448,22 @@ while k <> null do begin
     write_action(pdf_link_action(i));
     pdf_end_dict;
     k := link(k);
+    end;
+    @<Flush |pdf_start_link_node|'s created by |append_link|@>;
 end
 
-@ @<Free PDF link annotations@>=
+@ @<Flush |pdf_start_link_node|'s created by |append_link|@>=
 k := pdf_link_list;
 while k <> null do begin
     i := obj_annot_ptr(info(k));
-    {nodes with |info = null| were created by |append_link| and
+    {nodes with |info = max_halfword| were created by |append_link| and
      must be flushed here, as they are not linked in any list}
     if info(i) = max_halfword then
         flush_whatsit_node(i, pdf_start_link_node);
     k := link(k);
 end
 
-@ @<Flush out PDF mark destinations@>=
+@ @<Write out PDF mark destinations@>=
 if pdf_dest_list <> null then begin
     k := pdf_dest_list;
     while k <> null do begin
@@ -20353,7 +20540,7 @@ begin
     pdf_print_mag_bp(pdf_y(pdf_top(r)));
 end;
 
-@ @<Flush out PDF bead rectangle specifications@>=
+@ @<Write out PDF bead rectangle specifications@>=
 if pdf_bead_list <> null then begin
     k := pdf_bead_list;
     while k <> null do begin
@@ -20553,6 +20740,7 @@ if total_pages=0 then begin
         garbage_warning;
 end
 else begin
+    if fixed_pdf_draftmode = 0 then begin
     pdf_flush; {to make sure that the output file name has been already
     created}
     if total_pages mod pages_tree_kids_max <> 0 then
@@ -20590,8 +20778,10 @@ else begin
       end
     else
       res:=run_callback(callback_id,'->');
+    end;
     libpdffinish;
-    b_close(pdf_file);
+    if fixed_pdf_draftmode = 0 then b_close(pdf_file)
+    else pdf_warning(0, "\pdfdraftmode enabled, not changing output pdf", true, true)
 end
 
 @ Destinations that have been referenced but don't exists have
@@ -20602,7 +20792,7 @@ PDF browsers, so we need to fix them.
 begin
     if obj_dest_ptr(k) <> null then
         return;
-    pdf_warning("dest", "", false);
+    pdf_warning("dest", "", false, false);
     if obj_info(k) < 0 then begin
         print("name{");
         print(-obj_info(k));
@@ -20631,7 +20821,7 @@ end
 @ @<Check for non-existing pages@>=
 k := head_tab[obj_type_page];
 while obj_aux(k) = 0 do begin
-    pdf_warning("dest", "Page ", false);
+    pdf_warning("dest", "Page ", false, false);
     print_int(obj_info(k));
     print(" has been referenced but does not exist!");
     print_ln; print_ln;
@@ -34643,6 +34833,7 @@ if (format_ident=0)or(buffer[loc]="&") then
   while (loc<limit)and(buffer[loc]=" ") do incr(loc);
   end;
 if (pdf_output_option <> 0) then pdf_output := pdf_output_value;
+if (pdf_draftmode_option <> 0) then pdf_draftmode := pdf_draftmode_value;
 pdf_init_map_file('pdftex.map');
 if false then wterm_ln('entering extended mode');
 if end_line_char_inactive then decr(limit)
@@ -34901,7 +35092,11 @@ stays the same.
 @d close_lua_code              == pdftex_first_extension_code + 31
 @d save_cat_code_table_code    == pdftex_first_extension_code + 32
 @d init_cat_code_table_code    == pdftex_first_extension_code + 33
-@d pdftex_last_extension_code  == pdftex_first_extension_code + 33
+@d pdf_colorstack_node         == pdftex_first_extension_code + 34
+@d pdf_setmatrix_node          == pdftex_first_extension_code + 35
+@d pdf_save_node               == pdftex_first_extension_code + 36
+@d pdf_restore_node            == pdftex_first_extension_code + 37
+@d pdftex_last_extension_code  == pdftex_first_extension_code + 37
 
 @<Put each...@>=
 primitive("openout",extension,open_node);@/
@@ -34927,6 +35122,14 @@ primitive("pagerightoffset",assign_dimen,dimen_base+page_right_offset_code);
 primitive("pagebottomoffset",assign_dimen,dimen_base+page_bottom_offset_code);
 primitive("pdfliteral",extension,pdf_literal_node);@/
 @!@:pdf_literal_}{\.{\\pdfliteral} primitive@>
+primitive("pdfcolorstack",extension,pdf_colorstack_node);@/
+@!@:pdf_colorstack_}{\.{\\pdfcolorstack} primitive@>
+primitive("pdfsetmatrix",extension,pdf_setmatrix_node);@/
+@!@:pdf_setmatrix_}{\.{\\pdfsetmatrix} primitive@>
+primitive("pdfsave",extension,pdf_save_node);@/
+@!@:pdf_save_}{\.{\\pdfsave} primitive@>
+primitive("pdfrestore",extension,pdf_restore_node);@/
+@!@:pdf_restore_}{\.{\\pdfrestore} primitive@>
 primitive("pdfobj",extension,pdf_obj_code);@/
 @!@:pdf_obj_}{\.{\\pdfobj} primitive@>
 primitive("pdfrefobj",extension,pdf_refobj_node);@/
@@ -35018,6 +35221,10 @@ extension: case chr_code of
   pdf_include_chars_code: print_esc("pdfincludechars");
   pdf_info_code: print_esc("pdfinfo");
   pdf_literal_node: print_esc("pdfliteral");
+  pdf_colorstack_node: print_esc("pdfcolorstack");
+  pdf_setmatrix_node: print_esc("pdfsetmatrix");
+  pdf_save_node: print_esc("pdfsave");
+  pdf_restore_node: print_esc("pdfrestore");
   pdf_map_file_code: print_esc("pdfmapfile");
   pdf_map_line_code: print_esc("pdfmapline");
   pdf_names_code: print_esc("pdfnames");
@@ -35073,6 +35280,10 @@ begin case cur_chr of
   pdf_include_chars_code: @<Implement \.{\\pdfincludechars}@>;
   pdf_info_code: @<Implement \.{\\pdfinfo}@>;
   pdf_literal_node: @<Implement \.{\\pdfliteral}@>;
+  pdf_colorstack_node: @<Implement \.{\\pdfcolorstack}@>;
+  pdf_setmatrix_node: @<Implement \.{\\pdfsetmatrix}@>;
+  pdf_save_node: @<Implement \.{\\pdfsave}@>;
+  pdf_restore_node: @<Implement \.{\\pdfrestore}@>;
   pdf_map_file_code: @<Implement \.{\\pdfmapfile}@>;
   pdf_map_line_code: @<Implement \.{\\pdfmapline}@>;
   pdf_names_code: @<Implement \.{\\pdfnames}@>;
@@ -35189,10 +35400,12 @@ end
 procedure check_pdfoutput(s: str_number; is_error : boolean);
 begin
     if pdf_output <= 0 then
+        begin
         if is_error then
             pdf_error(s, "not allowed in DVI mode (\pdfoutput <= 0)")
         else
-            pdf_warning(s, "not allowed in DVI mode (\pdfoutput <= 0); ignoring it", true);
+            pdf_warning(s, "not allowed in DVI mode (\pdfoutput <= 0); ignoring it", true,true);
+        end
 end;
 
 procedure scan_pdf_ext_toks;
@@ -35213,6 +35426,89 @@ begin
     scan_pdf_ext_toks;
     pdf_literal_data(tail) := def_ref;
 end
+
+@ @<Implement \.{\\pdfcolorstack}@>=
+begin
+    check_pdfoutput("\pdfcolorstack", true);
+    {Scan and check the stack number and store in |cur_val|}
+    scan_int;
+    if cur_val >= colorstackused then begin
+        print_err("Unknown color stack number ");
+        print_int(cur_val);
+@.Unknown color stack@>
+        help3("Allocate and initialize a color stack with \\pdfcolorstackinit.")@/
+        ("I'll use default color stack 0 here.")@/
+        ("Proceed, with fingers crossed.");
+        error;
+        cur_val := 0;
+    end;
+    if cur_val < 0 then begin
+        print_err("Invalid negative color stack number");
+@.Invalid negative color stack number@>
+        help2("I'll use default color stack 0 here.")@/
+        ("Proceed, with fingers corssed.");
+        error;
+        cur_val := 0;
+    end;
+    {Scan the command and store in i, j holds the node size}
+    if scan_keyword("set") then begin
+        i := colorstack_set;
+        j := pdf_colorstack_setter_node_size;
+    end
+    else if scan_keyword("push") then begin
+        i := colorstack_push;
+        j := pdf_colorstack_setter_node_size;
+    end
+    else if scan_keyword("pop") then begin
+        i := colorstack_pop;
+        j := pdf_colorstack_getter_node_size;
+    end
+    else if scan_keyword("current") then begin
+        i := colorstack_current;
+        j := pdf_colorstack_getter_node_size;
+    end
+    else begin
+        i := -1; {error}
+    end;
+    if i >= 0 then begin
+        new_whatsit(pdf_colorstack_node, j);
+        pdf_colorstack_stack(tail) := cur_val;
+        pdf_colorstack_cmd(tail)   := i;
+        if i <= colorstack_data then begin
+            scan_pdf_ext_toks;
+            pdf_colorstack_data(tail) := def_ref;
+        end;
+    end
+    else begin
+        print_err("Color stack action is missing");
+@.Color stack action is missing@>
+        help3("The expected actions for \pdfcolorstack:")@/
+        ("    set, push, pop, current")@/
+        ("I'll ignore the color stack command.");
+        error;
+    end
+end
+
+@ @<Implement \.{\\pdfsetmatrix}@>=
+begin
+    check_pdfoutput("\pdfsetmatrix", true);
+    new_whatsit(pdf_setmatrix_node, pdf_setmatrix_node_size);
+    scan_pdf_ext_toks;
+    pdf_setmatrix_data(tail) := def_ref;
+end
+
+@ @<Implement \.{\\pdfsave}@>=
+begin
+    check_pdfoutput("\pdfsave", true);
+    new_whatsit(pdf_save_node, pdf_save_node_size);
+end
+
+@ @<Implement \.{\\pdfrestore}@>=
+begin
+    check_pdfoutput("\pdfrestore", true);
+    new_whatsit(pdf_restore_node, pdf_restore_node_size);
+end
+
 
 @ @<Implement \.{\\latelua}@>=
 begin
@@ -35257,7 +35553,7 @@ begin
             scan_int;
             k := cur_val;
             if (k <= 0) or (k > obj_ptr) or (obj_data_ptr(k) <> 0) then begin
-                pdf_warning("\pdfobj", "invalid object number being ignored", true);
+                pdf_warning("\pdfobj", "invalid object number being ignored", true, true);
                 pdf_retval := -1; {signal the problem}
                 k := -1; {will be generated again}
             end;
@@ -35405,7 +35701,7 @@ begin
     if (xr > 65535) or (yr > 65535) then begin
         xr := 0;
         yr := 0;
-        pdf_warning("ext1", "too large image resolution ignored", true);
+        pdf_warning("ext1", "too large image resolution ignored", true,true);
     end;
     if (x <= 0) or (y <= 0) or (xr < 0) or (yr < 0) then
         pdf_error("ext1", "invalid image dimensions");
@@ -35566,19 +35862,19 @@ begin
     s := tokens_to_string(def_ref);
     delete_token_ref(def_ref);
     if pdf_option_always_use_pdfpagebox <> 0 then begin
-        pdf_warning("PDF inclusion", "Primitive \pdfoptionalwaysusepdfpagebox is obsolete; use \pdfpagebox instead.", true);
+        pdf_warning("PDF inclusion", "Primitive \pdfoptionalwaysusepdfpagebox is obsolete; use \pdfpagebox instead.", true, true);
         pdf_force_pagebox := pdf_option_always_use_pdfpagebox;
         pdf_option_always_use_pdfpagebox := 0; {warn once}
         warn_pdfpagebox := false;
     end;
     if pdf_option_pdf_inclusion_errorlevel <> 0 then begin
-        pdf_warning("PDF inclusion", "Primitive \pdfoptionpdfinclusionerrorlevel is obsolete; use \pdfinclusionerrorlevel instead.", true);
+        pdf_warning("PDF inclusion", "Primitive \pdfoptionpdfinclusionerrorlevel is obsolete; use \pdfinclusionerrorlevel instead.", true, true);
         pdf_inclusion_errorlevel := pdf_option_pdf_inclusion_errorlevel;
         pdf_option_pdf_inclusion_errorlevel := 0; {warn once}
     end;
     if pdf_force_pagebox > 0 then begin
         if warn_pdfpagebox then begin
-            pdf_warning("PDF inclusion", "Primitive \pdfforcepagebox is obsolete; use \pdfpagebox instead.", true);
+            pdf_warning("PDF inclusion", "Primitive \pdfforcepagebox is obsolete; use \pdfpagebox instead.", true, true);
             warn_pdfpagebox := false;
         end;
         pagebox := pdf_force_pagebox;
@@ -35813,6 +36109,9 @@ begin
     pdf_link_action(tail) := scan_action;
     pdf_link_objnum(tail) := k;
     pdf_last_link := k;
+    {N.B.: although it is possible to set |obj_annot_ptr(k) := tail| here, it
+     is not safe if nodes are later copied/destroyed/moved; a better place
+     to do this is inside |do_link|, when the whatsit node is written out}
 end
 
 @ @<Implement \.{\\pdfendlink}@>=
@@ -35916,7 +36215,7 @@ with the same identifier already exists and give a warning if needed.
 @<Declare procedures needed in |pdf_hlist_out|, |pdf_vlist_out|@>=
 procedure warn_dest_dup(id: integer; byname: small_number; s1, s2: str_number);
 begin
-    pdf_warning(s1, "destination with the same identifier (", false);
+    pdf_warning(s1, "destination with the same identifier (", false, false);
     if byname > 0 then begin
         print("name");
         print_mark(id);
@@ -36133,7 +36432,7 @@ begin
     scan_pdf_ext_toks;
     if pdf_output > 0 then
         pdf_catalog_toks := concat_tokens(pdf_catalog_toks, def_ref);
-    if scan_keyword("openaction") then
+    if scan_keyword("openaction") then begin
         if pdf_catalog_openaction <> 0 then
             pdf_error("ext1", "duplicate of openaction")
         else begin
@@ -36145,6 +36444,7 @@ begin
             pdf_end_obj;
             delete_action_ref(p);
         end;
+    end
 end
 
 @ @<Implement \.{\\pdfnames}@>=
@@ -36309,7 +36609,7 @@ end;
 procedure pdf_fix_thread(thread: integer);
 var a: pointer;
 begin
-    pdf_warning("thread", "destination ", false);
+    pdf_warning("thread", "destination ", false, false);
     if obj_info(thread) < 0 then begin
         print("name{");
         print(-obj_info(thread));
@@ -36438,6 +36738,33 @@ pdf_literal_node: begin
     othercases confusion("literal2")
     endcases;
     print_mark(pdf_literal_data(p));
+end;
+pdf_colorstack_node: begin
+    print_esc("pdfcolorstack ");
+    print_int(pdf_colorstack_stack(p));
+    case  pdf_colorstack_cmd(p) of
+    colorstack_set:
+        print(" set ");
+    colorstack_push:
+        print(" push ");
+    colorstack_pop:
+        print(" pop");
+    colorstack_current:
+        print(" current");
+    othercases confusion("pdfcolorstack")
+    endcases;
+    if pdf_colorstack_cmd(p) <= colorstack_data then
+        print_mark(pdf_colorstack_data(p));
+end;
+pdf_setmatrix_node: begin
+    print_esc("pdfsetmatrix");
+    print_mark(pdf_setmatrix_data(p));
+end;
+pdf_save_node: begin
+    print_esc("pdfsave");
+end;
+pdf_restore_node: begin
+    print_esc("pdfrestore");
 end;
 late_lua_code: begin
     print_esc("latelua");
@@ -36621,6 +36948,30 @@ pdf_literal_node: begin
     add_token_ref(pdf_literal_data(p));
     words := write_node_size;
 end;
+pdf_colorstack_node: begin
+    if pdf_colorstack_cmd(p) <= colorstack_data then begin
+        r := get_node(pdf_colorstack_setter_node_size);
+        add_token_ref(pdf_colorstack_data(p));
+        words := pdf_colorstack_setter_node_size;
+    end
+    else begin
+        r := get_node(pdf_colorstack_getter_node_size);
+        words := pdf_colorstack_getter_node_size;
+    end;
+end;
+pdf_setmatrix_node: begin
+    r := get_node(pdf_setmatrix_node_size);
+    add_token_ref(pdf_setmatrix_data(p));
+    words := pdf_setmatrix_node_size;
+end;
+pdf_save_node: begin
+    r := get_node(pdf_save_node_size);
+    words := pdf_save_node_size;
+end;
+pdf_restore_node: begin
+    r := get_node(pdf_restore_node_size);
+    words := pdf_restore_node_size;
+end;
 late_lua_code: begin
     r := get_node(write_node_size);
     add_token_ref(late_lua_data(p));
@@ -36707,6 +37058,24 @@ dir_node: free_node(p,dir_node_size);
 pdf_literal_node: begin
     delete_token_ref(pdf_literal_data(p));
     free_node(p, write_node_size);
+end;
+pdf_colorstack_node: begin
+    if pdf_colorstack_cmd(p) <= colorstack_data then begin
+        delete_token_ref(pdf_colorstack_data(p));
+        free_node(p, pdf_colorstack_setter_node_size);
+    end
+    else
+        free_node(p, pdf_colorstack_getter_node_size);
+end;
+pdf_setmatrix_node: begin
+    delete_token_ref(pdf_setmatrix_data(p));
+    free_node(p, pdf_setmatrix_node_size);
+end;
+pdf_save_node: begin
+    free_node(p, pdf_save_node_size);
+end;
+pdf_restore_node: begin
+    free_node(p, pdf_restore_node_size);
 end;
 late_lua_code: begin
     delete_token_ref(late_lua_data(p));
@@ -37463,10 +37832,6 @@ end;
 @!pdf_obj_list: pointer; {list of objects in the current page}
 @!pdf_xform_list: pointer; {list of forms in the current page}
 @!pdf_ximage_list: pointer; {list of images in the current page}
-@!pdf_link_level: integer; {depth of nesting of box containing link annotation}
-@!last_link: pointer; {pointer to the last link annotation}
-@!pdf_link_ht, pdf_link_dp, pdf_link_wd: scaled; {dimensions of the last link
-annotation}
 @!last_thread: pointer; {pointer to the last thread}
 @!pdf_thread_ht, pdf_thread_dp, pdf_thread_wd: scaled; {dimensions of the last
 thread}
@@ -37494,12 +37859,9 @@ thread}
 @!dest_names: ^dest_name_entry;
 @!pk_dpi: integer; {PK pixel density value from \.{texmf.cnf}}
 @!image_orig_x, image_orig_y: integer; {origin of cropped PDF images}
-@!link_level_stack: pointer; {stack to save |pdf_link_level|}
 @!pdf_trailer_toks: pointer; {additional keys of Trailer dictionary}
 
 @ @<Set init...@>=
-pdf_link_level := -1;
-link_level_stack := null;
 pdf_first_outline:= 0;
 pdf_last_outline:= 0;
 pdf_parent_outline:= 0;
@@ -37611,6 +37973,14 @@ begin
         pdf_bottom(p) := y  + depth(parent_box)
     else
         pdf_bottom(p) := cur_v + d;
+    if is_shipping_page and matrixused then begin
+        matrixtransformrect(pdf_left(p), cur_page_height - pdf_bottom(p),
+                            pdf_right(p), cur_page_height - pdf_top(p));
+        pdf_left(p)   := getllx;
+        pdf_bottom(p) := cur_page_height - getlly;
+        pdf_right(p)  := geturx;
+        pdf_top(p)    := cur_page_height - getury;
+    end;
     pdf_left(p)   := pdf_left(p)   - margin;
     pdf_top(p)    := pdf_top(p)    - margin;
     pdf_right(p)  := pdf_right(p)  + margin;
@@ -37629,97 +37999,111 @@ begin
     pdf_append_list(pdf_annot_objnum(p))(pdf_annot_list);
 end;
 
-@ To implement nesting link annotations, we need a stack to save box testing
-level of each link that has been broken. Each stack entry holds the
-box nesting level and pointer the whatsit node created for
-corresponding \.{\\pdfstartlink}.
+@ To implement nesting link annotations, we need a stack to hold copy of
+|pdf_start_link_node|'s that are being written out, together with their box
+nesting level.
 
-@d link_level(#) == info(#)
-@d link_ptr(#) == info(# + 1)
+@d pdf_link_stack_top == pdf_link_stack[pdf_link_stack_ptr]
 
-@<Declare procedures needed in |pdf_hlist_out|, |pdf_vlist_out|@>=
-procedure save_link_level(l: pointer);
-var p, r: pointer;
+@<Constants...@>=
+@!pdf_max_link_level = 10; {maximum depth of link nesting}
+
+@ @<Types...@>=
+@!pdf_link_stack_record = record
+    nesting_level: small_number;
+    link_node: pointer; {holds a copy of the corresponding |pdf_start_link_node|}
+    ref_link_node: pointer; {points to original |pdf_start_link_node|, or a
+                             copy of |link_node| created by |append_link| in
+                             case of multi-line link}
+end;
+
+@ @<Glob...@>=
+@!pdf_link_stack: array[1..pdf_max_link_level] of pdf_link_stack_record;
+@!pdf_link_stack_ptr: small_number;
+
+@ @<Set init...@>=
+pdf_link_stack_ptr := 0;
+
+@ @<Declare procedures needed in |pdf_hlist_out|, |pdf_vlist_out|@>=
+procedure push_link_level(p: pointer);
 begin
-    pdf_link_level := cur_s;
-    r := copy_node_list(l);
-    pdf_link_wd := pdf_width(r);
-    pdf_link_ht := pdf_height(r);
-    pdf_link_dp := pdf_depth(r);
-    p := get_node(small_node_size);
-    link_level(p) := pdf_link_level;
-    link_ptr(p) := r;
-    link(p) := link_level_stack;
-    link_level_stack := p;
+    if pdf_link_stack_ptr >= pdf_max_link_level then
+        overflow("pdf link stack size", pdf_max_link_level);
+    pdfassert((type(p) = whatsit_node) and (subtype(p) = pdf_start_link_node));
+    incr(pdf_link_stack_ptr);
+    pdf_link_stack_top.nesting_level := cur_s;
+    pdf_link_stack_top.link_node := copy_node_list(p);
+    pdf_link_stack_top.ref_link_node := p;
+end;
+
+procedure pop_link_level;
+begin
+    pdfassert(pdf_link_stack_ptr > 0);
+    flush_node_list(pdf_link_stack_top.link_node);
+    decr(pdf_link_stack_ptr);
 end;
 
 procedure do_link(p, parent_box: pointer; x, y: scaled);
 begin
     if not is_shipping_page then
         pdf_error("ext4", "link annotations cannot be inside an XForm");
-    if type(parent_box) <> hlist_node then
-        pdf_error("ext4", "link annotations can be inside hbox only");
-    save_link_level(p);
+    pdfassert(type(parent_box) = hlist_node);
+    push_link_level(p);
     set_rect_dimens(p, parent_box, x, y,
-                    pdf_link_wd, pdf_link_ht, pdf_link_dp, pdf_link_margin);
-    last_link := p;
-    obj_annot_ptr(pdf_link_objnum(p)) := p;
+                    pdf_width(p), pdf_height(p), pdf_depth(p),
+                    pdf_link_margin);
+    obj_annot_ptr(pdf_link_objnum(p)) := p; {the reference for the pdf annot object
+                                             must be set here}
     pdf_append_list(pdf_link_objnum(p))(pdf_link_list);
 end;
 
-procedure restore_link_level;
-var p, r: pointer;
-begin
-    if link_level_stack = null then
-        pdf_error("ext4", "invalid stack of link nesting level");
-    p := link_level_stack;
-    link_level_stack := link(p);
-    r := link_ptr(p);
-    flush_node_list(r);
-    free_node(p, small_node_size);
-    p := link_level_stack;
-    if p = null then
-        pdf_link_level := -1
-    else begin
-        pdf_link_level := link_level(p);
-        r := link_ptr(p);
-        pdf_link_wd := pdf_width(r);
-        pdf_link_ht := pdf_height(r);
-        pdf_link_dp := pdf_depth(r);
-    end;
-end;
-
 procedure end_link;
+var p: pointer;
 begin
-    if pdf_link_level <> cur_s then
+    if pdf_link_stack_ptr < 1 then
+        pdf_error("ext4", "pdf_link_stack empty, \pdfendlink used without \pdfstartlink?");
+    if pdf_link_stack_top.nesting_level <> cur_s then
         pdf_error("ext4", "\pdfendlink ended up in different nesting level than \pdfstartlink");
-    if is_running(pdf_link_wd) and (last_link <> null) then
-        pdf_right(last_link) := cur_h + pdf_link_margin;
-    restore_link_level;
-    last_link := null;
+
+    {N.B.: test for running link must be done on |link_node| and not |ref_link_node|,
+     as |ref_link_node| can be set by |do_link| or |append_link| already}
+
+    if is_running(pdf_width(pdf_link_stack_top.link_node)) then begin
+        p := pdf_link_stack_top.ref_link_node;
+        if is_shipping_page and matrixused then begin
+            matrixrecalculate(cur_h + pdf_link_margin);
+            pdf_left(p)   := getllx - pdf_link_margin;
+            pdf_top(p)    := cur_page_height - getury - pdf_link_margin;
+            pdf_right(p)  := geturx + pdf_link_margin;
+            pdf_bottom(p) := cur_page_height - getlly + pdf_link_margin;
+         end
+         else
+            pdf_right(p) := cur_h + pdf_link_margin;
+    end;
+    pop_link_level;
 end;
 
 @ For ``running'' annotations we must append a new node when the end of
 annotation is in other box than its start. The new created node is identical to
 corresponding whatsit node representing the start of annotation,  but its
-|info| field is |null|. We set |info| field just before destroying the node, in
-order to use |flush_node_list| to do the job.
+|info| field is |max_halfword|. We set |info| field just before destroying the
+node, in order to use |flush_node_list| to do the job.
 
 @<Declare procedures needed in |pdf_hlist_out|, |pdf_vlist_out|@>=
-procedure append_link(parent_box: pointer; x, y: scaled); {append a new
-|pdf_start_link_node| to |pdf_link_list| and update |last_link|}
-var r: integer;
+procedure append_link(parent_box: pointer; x, y: scaled; i: small_number); {append a new
+pdf annot to |pdf_link_list|}
+var p: pointer;
 begin
-    if type(parent_box) <> hlist_node then
-        pdf_error("ext4", "link annotations can be inside hbox only");
-    r := copy_node_list(link_ptr(link_level_stack)); {copy link node to |r|}
-    info(r) := max_halfword; {mark that this node is not a whatsit node}
-    link(r) := null; {this node will be destroyed separately}
-    set_rect_dimens(r, parent_box, x, y,
-                    pdf_link_wd, pdf_link_ht, pdf_link_dp, pdf_link_margin);
+    pdfassert(type(parent_box) = hlist_node);
+    p := copy_node_list(pdf_link_stack[i].link_node);
+    pdf_link_stack[i].ref_link_node := p;
+    info(p) := max_halfword; {mark that this node is not a whatsit node}
+    link(p) := null; {this node is not linked in any list}
+    set_rect_dimens(p, parent_box, x, y,
+                    pdf_width(p), pdf_height(p), pdf_depth(p),
+                    pdf_link_margin);
     pdf_create_obj(obj_type_others, 0);
-    obj_annot_ptr(obj_ptr) := r;
-    last_link := r;
+    obj_annot_ptr(obj_ptr) := p;
     pdf_append_list(obj_ptr)(pdf_link_list);
 end;
 
@@ -37854,16 +38238,31 @@ begin
     obj_dest_ptr(k) := p;
     pdf_append_list(k)(pdf_dest_list);
     case pdf_dest_type(p) of
-    pdf_dest_xyz: begin
+    pdf_dest_xyz:
+        if matrixused then
+            set_rect_dimens(p, parent_box, x, y,
+                            pdf_width(p), pdf_height(p), pdf_depth(p),
+                            pdf_dest_margin)
+        else begin
         pdf_left(p) := cur_h;
         pdf_top(p) := cur_v;
     end;
     pdf_dest_fith,
     pdf_dest_fitbh:
+        if matrixused then
+            set_rect_dimens(p, parent_box, x, y,
+                            pdf_width(p), pdf_height(p), pdf_depth(p),
+                            pdf_dest_margin)
+        else
         pdf_top(p) := cur_v;
     pdf_dest_fitv,
     pdf_dest_fitbv:
-        pdf_left(p) := cur_h;
+       if matrixused then
+            set_rect_dimens(p, parent_box, x, y,
+                            pdf_width(p), pdf_height(p), pdf_depth(p),
+                            pdf_dest_margin)
+       else
+       pdf_left(p) := cur_h;
     pdf_dest_fit,
     pdf_dest_fitb:
         do_nothing;
@@ -38101,6 +38500,14 @@ end
 case subtype(p) of
 pdf_literal_node:
     pdf_out_literal(p);
+pdf_colorstack_node:
+    pdf_out_colorstack(p);
+pdf_setmatrix_node:
+    pdf_out_setmatrix(p);
+pdf_save_node:
+    pdf_out_save(p);
+pdf_restore_node:
+    pdf_out_restore(p);
 late_lua_code:
     do_late_lua(p);
 close_lua_code:
@@ -38173,6 +38580,14 @@ begin cur_v:=cur_v+pdf_height(p); save_v:=cur_v;
 case subtype(p) of
 pdf_literal_node:
     pdf_out_literal(p);
+pdf_colorstack_node:
+    pdf_out_colorstack(p);
+pdf_setmatrix_node:
+    pdf_out_setmatrix(p);
+pdf_save_node:
+    pdf_out_save(p);
+pdf_restore_node:
+    pdf_out_restore(p);
 late_lua_code:
     do_late_lua(p);
 close_lua_code:
@@ -38187,10 +38602,8 @@ pdf_annot_node:
     do_annot(p, this_box, left_edge, base_line);
 pdf_start_link_node:
     do_link(p, this_box, left_edge, base_line);
-pdf_end_link_node: begin
+pdf_end_link_node:
     end_link;
-    @<Create link annotation for the current hbox if needed@>;
-end;
 pdf_dest_node:
     do_dest(p, this_box, left_edge, base_line);
 pdf_thread_node:

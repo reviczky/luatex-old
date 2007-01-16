@@ -108,7 +108,7 @@ extern boolean openinnameok P1H(const_string);
 extern boolean openoutnameok P1H(const_string);
 
 /* pdfTeX uses these for pipe support */
-#if defined(pdfTeX) || defined(pdfeTeX)
+#if defined(pdfTeX) || defined(pdfeTeX) || defined (luaTeX)
 extern boolean open_in_or_pipe P3H(FILE **, int, const_string fopen_mode);
 extern boolean open_out_or_pipe P2H(FILE **, const_string fopen_mode);
 extern void close_file_or_pipe P1H(FILE *);
@@ -219,10 +219,12 @@ extern void setupboundvariable P3H(integer *, const_string, integer);
 #define ocpopenin(f)	open_input (&(f), kpse_ocp_format, FOPEN_RBIN_MODE)
 #define ofmopenin(f)	open_input (&(f), kpse_ofm_format, FOPEN_RBIN_MODE)
 #define bopenout(f)	open_output (&(f), FOPEN_WBIN_MODE)
+#if !defined(luaTeX)
 #define bclose		aclose
 #define wopenin(f)	open_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
 #define wopenout	bopenout
 #define wclose		aclose
+#endif
 #ifdef XeTeX
 #define uopenin(f,p,m,d) u_open_in(&(f), p, FOPEN_RBIN_MODE, m, d)
 #endif
@@ -250,6 +252,7 @@ extern void paintrow (/*screenrow, pixelcolor, transspec, screencol*/);
 
 
 #ifdef luaTeX
+#define bclose close_file
 /* (Un)dumping.  These are called from the change file.  */
 #define        dumpthings(base, len) \
   do_zdump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
@@ -289,8 +292,8 @@ extern void do_undump P4H(char *, int, int, FILE *);
     for (i = 0; i < (len); i++) {                                       \
       if ((&(base))[i] < (low) || (&(base))[i] > (high)) {              \
         FATAL5 ("Item %u (=%ld) of .fmt array at %lx <%ld or >%ld",     \
-                i, (integer) (&(base))[i], (unsigned long) &(base),     \
-                (integer) low, (integer) high);                         \
+                i, (unsigned long) (&(base))[i], (unsigned long) &(base),     \
+                (unsigned long) low, (integer) high);                         \
       }                                                                 \
     }																	\
   } while (0)
@@ -305,8 +308,8 @@ extern void do_undump P4H(char *, int, int, FILE *);
     for (i = 0; i < (len); i++) {                                       \
       if ((&(base))[i] > (high)) {										\
         FATAL4 ("Item %u (=%ld) of .fmt array at %lx >%ld",				\
-                i, (integer) (&(base))[i], (unsigned long) &(base),		\
-                (integer) high);										\
+                i, (unsigned long) (&(base))[i], (unsigned long) &(base),		\
+                (unsigned long) high);										\
       }                                                                 \
     }																	\
   } while (0)

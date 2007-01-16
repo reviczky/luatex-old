@@ -36,6 +36,7 @@ $Id $
 @define function vfbopenin ();
 @define procedure pdfmarkchar();
 @define procedure writepdf();
+@define procedure pdfassert();
 
 @define procedure luacall();
 @define procedure closelua();
@@ -276,7 +277,7 @@ $Id $
 @define procedure pdfmapline();
 @define procedure pdfinitmapfile();
 
-@define procedure allocvffnts;
+@define procedure allocvffnts();
 @define procedure writefontstuff;
 
 { functions from utils.c }
@@ -305,6 +306,26 @@ $Id $
 @define procedure writestreamlength();
 @define procedure removepdffile;
 @define procedure garbagewarning;
+@define function newcolorstack();
+@define function colorstackset();
+@define function colorstackpush();
+@define function colorstackpop();
+@define function colorstackcurrent();
+@define function colorstackused;
+@define function colorstackskippagestart();
+@define procedure checkpdfsave();
+@define procedure checkpdfrestore();
+@define procedure pdfshipoutbegin();
+@define procedure pdfshipoutend();
+@define procedure pdfsetmatrix();
+@define procedure matrixtransformpoint();
+@define procedure matrixtransformrect();
+@define function matrixused;
+@define procedure matrixrecalculate();
+@define function getllx;
+@define function getlly;
+@define function geturx;
+@define function getury;
 
 
 { functions from vfpacket.c }

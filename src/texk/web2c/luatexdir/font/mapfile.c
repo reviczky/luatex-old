@@ -146,7 +146,7 @@ static int comp_fm_entry_ps(const void *pa, const void *pb, void *p)
     int i;
     const fm_entry *p1 = (const fm_entry *) pa, *p2 = (const fm_entry *) pb;
     assert(p1->ps_name != NULL && p2->ps_name != NULL);
-    if ((i = strcmp(p1->ps_name, p2->ps_name)) != 0)
+    if ((i = strcmp(p1->ps_name, p2->ps_name)))
         return i;
     cmp_return(p1->slant, p2->slant);
     cmp_return(p1->extend, p2->extend);
@@ -192,7 +192,7 @@ int avl_do_entry(fm_entry * fm, int mode)
 
     /* handle tfm_name link */
 
-    if (strcmp(fm->tfm_name, nontfm) != 0) {
+    if (strcmp(fm->tfm_name, nontfm)) {
         p = (fm_entry *) avl_find(tfm_tree, fm);
         if (p != NULL) {
             switch (mode) {
@@ -398,7 +398,7 @@ boolean check_std_t1font(char *s)
         }
     } else
         k = index[n];
-    if (k > -1 && strcmp(std_t1font_names[k], s) == 0)
+    if (k > -1 && !strcmp(std_t1font_names[k], s))
         return true;
     return false;
 };
@@ -419,7 +419,7 @@ static void fm_scan_line()
             c = fm_getchar();
             append_char_to_buf(c, p, fm_line, FM_BUF_SIZE);
         }
-        while (c != 10);
+        while (c != 10 && !fm_eof());
         *(--p) = '\0';
         r = fm_line;
         break;
@@ -652,8 +652,8 @@ static fmentryptr fmlookup(internalfontnumber f)
     fm_entry tmp;
     if (tfm_tree == NULL)
         fm_read_info();         /* only to read default map file */
-    tfm = makecstring(fontname[f]);
-    assert(strcmp(tfm, nontfm) != 0);
+    tfm = font_name(f);
+    assert(strcmp(tfm, nontfm));
 
     /* Look up for full <tfmname>[+-]<expand> */
     tmp.tfm_name = tfm;
@@ -880,6 +880,8 @@ ff_entry *check_ff_exist(char *ff_name, boolean is_tt)
     ff_entry *ff;
     ff_entry tmp;
     void **aa;
+    int callback_id;
+	char *filepath=NULL;
 
     assert(ff_name != NULL);
     tmp.ff_name = ff_name;
@@ -887,10 +889,28 @@ ff_entry *check_ff_exist(char *ff_name, boolean is_tt)
     if (ff == NULL) {           /* not yet in database */
         ff = new_ff_entry();
         ff->ff_name = xstrdup(ff_name);
-        if (is_tt)
-            ff->ff_path = kpse_find_file(ff_name, kpse_truetype_format, 0);
-        else
-            ff->ff_path = kpse_find_file(ff_name, kpse_type1_format, 0);
+        if (is_tt) {
+           callback_id=callbackdefined("find_truetype_file");
+           if (callback_id>0) {
+             runcallback(callback_id,"S->S",ff_name,&filepath);
+                 if (filepath && strlen(filepath)==0)
+                       filepath=NULL;
+             ff->ff_path = filepath;
+           } else {
+             ff->ff_path = kpse_find_file (ff_name, kpse_truetype_format, 0);
+           }
+		}
+		else {
+		  callback_id=callbackdefined("find_type1_file");
+		  if (callback_id>0) {
+			runcallback(callback_id,"S->S",ff_name,&filepath);
+			if (filepath && strlen(filepath)==0)
+			  filepath=NULL;
+			ff->ff_path = filepath;
+		  } else {
+			ff->ff_path = kpse_find_file (ff_name, kpse_type1_format, 0);
+		  }
+		}
         aa = avl_probe(ff_tree, ff);
         assert(aa != NULL);
     }

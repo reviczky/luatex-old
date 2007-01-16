@@ -57,6 +57,9 @@ then
   # do a configure without all the things we don't need
   echo "ignore warnings and errors about the main texmf tree"
   ../src/configure \
+            --target=i386-linux \
+            --build=i386-linux  \
+            --host=i386-linux   \
               --without-aleph     \
               --without-bibtex8   \
               --without-cjkutils  \
@@ -108,10 +111,12 @@ cd ..
 unset NATIVE
 
 if [ ! -d linux/texk/web2c/web2c ]
-then mkdir -p linux/texk/web2c/web2c
+then mkdir -p linux/texk/web2c/web2c;
+fi;
 
 if [ ! -d linux/texk/web2c/luatexdir ]  
-then mkdir -p linux/texk/web2c/luatexdir
+then mkdir -p linux/texk/web2c/luatexdir;
+fi
 
 cp "$B"/texk/web2c/luatexdir/makecpool linux/texk/web2c/luatexdir
 cp "$B"/texk/web2c/web2c/{web2c,fixwrites,splitup} linux/texk/web2c/web2c
