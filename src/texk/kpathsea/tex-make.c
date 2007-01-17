@@ -1,5 +1,6 @@
 /* tex-make.c: Run external programs to make TeX-related files.
 
+
     Copyright 1997, 98, 2001-05 Olaf Weber.
     Copyright 1993, 94, 95, 96, 97 Karl Berry.
 
@@ -30,7 +31,9 @@
 #include <kpathsea/readable.h>
 #include <kpathsea/tex-make.h>
 #include <kpathsea/variable.h>
-
+#ifndef  WIN32
+#  include <sys/wait.h>
+#endif
 
 /* We never throw away stdout, since that is supposed to be the filename
    found, if all is successful.  This variable controls whether stderr

@@ -1,5 +1,6 @@
 /* xopendir.c: opendir and closedir with error checking.
 
+
     Copyright 2005 Olaf Weber.
     Copyright 1992, 93, 94, 95, 96 Karl Berry.
 
@@ -23,7 +24,7 @@
 #include <kpathsea/xopendir.h>
 
 
-#ifndef WIN32
+#if !defined(WIN32) || defined(__MINGW32__)
 DIR *
 xopendir P1C(string, dirname)
 {
