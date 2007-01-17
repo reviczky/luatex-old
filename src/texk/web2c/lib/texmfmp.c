@@ -1350,7 +1350,7 @@ boolean openoutnameok P1C(const_string, fname)
    closed using pclose().
 */
 
-#if defined(pdfTeX) || defined(pdfeTeX)
+#if defined(pdfTeX) || defined(pdfeTeX) || defined(luaTex)
 
 static FILE *pipes [] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
                          NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
