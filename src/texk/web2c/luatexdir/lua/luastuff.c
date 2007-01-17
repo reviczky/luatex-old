@@ -108,13 +108,36 @@ luainterpreter (int n) {
   luastate_max++;
   luaL_openlibs(L);
   find_env(L);
-  luaopen_unicode(L);
-  luaopen_zip(L);
+
+  /*luaopen_unicode(L);*/
+  lua_pushcfunction(L, luaopen_unicode);
+  lua_pushstring(L, "unicode");
+  lua_call(L, 1, 0);
+
+  /*luaopen_zip(L);*/
+  lua_pushcfunction(L, luaopen_zip);
+  lua_pushstring(L, "zip");
+  lua_call(L, 1, 0);
+
+  /*luaopen_lpeg(L);*/
+  lua_pushcfunction(L, luaopen_lpeg);
+  lua_pushstring(L, "lpeg");
+  lua_call(L, 1, 0);
+
+  /*luaopen_md5(L);*/
+  lua_pushcfunction(L, luaopen_md5);
+  lua_pushstring(L, "md5");
+  lua_call(L, 1, 0);
+
+  /*luaopen_lfs(L);*/
+  lua_pushcfunction(L, luaopen_lfs);
+  lua_pushstring(L, "lfs");
+  lua_call(L, 1, 0);
+
   luaopen_pdf(L);
   luaopen_tex(L);
   luaopen_texio(L);
   luaopen_kpse(L);
-  luaopen_lfs(L);
   if (n==0) {
     luaopen_callback(L);
     lua_createtable(L, 0, 0);
@@ -123,7 +146,7 @@ luainterpreter (int n) {
   luaopen_lua(L,n,startup_filename);
   luaopen_stats(L);
   luaopen_font(L);
-  luaopen_lpeg(L);
+
   if (safer_option) {
 	/* disable some stuff if --safer */
 	(void)hide_lua_value(L, "os","execute");
