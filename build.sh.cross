@@ -38,7 +38,7 @@ done
 #
 
 STRIP=strip
-B=build
+B=build-windows
 NATIVE=`pwd`
 NATIVE=$NATIVE/linux
 export NATIVE
