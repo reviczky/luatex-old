@@ -26,7 +26,7 @@ const_string LUATEX_IHELP[] = {
     "  If no arguments or options are specified, prompt for input.",
     "",
     "--lua=FILE               the lua initialization file",
-    "--luaonly=FILE           run this lua file, then exit",
+    "--luaonly                run a lua file, then exit",
     "--safer                  disable some easily exploitable lua commands",
     "--fmt=FORMAT             load the format file FORMAT",
     "--ini                    be initex, for dumping formats",
@@ -37,14 +37,14 @@ const_string LUATEX_IHELP[] = {
 
 
 static void
-prepare_cmdline(lua_State * L, char **argv, int argc)
+prepare_cmdline(lua_State * L, char **argv, int argc, int zero_offset)
 {
     int i;
     luaL_checkstack(L, argc + 3, "too many arguments to script");
     lua_createtable(L, 0, 0);
     for (i = 0; i < argc; i++) {
-	lua_pushstring(L, argv[i]);
-	lua_rawseti(L, -2, i);
+	  lua_pushstring(L, argv[i]);
+	  lua_rawseti(L, -2, (i-zero_offset));
     }
     lua_setglobal(L, "arg");
     return;
@@ -64,7 +64,8 @@ extern char **argv;
 extern int argc;
 
 char *startup_filename = NULL;
-int quit_option = 0;
+int lua_only = 0;
+int lua_offset = 0;
 
 int safer_option = 0;
 
@@ -79,7 +80,7 @@ int safer_option = 0;
 static struct option long_options[]
 = { {"fmt", 1, 0, 0},
 {"lua", 1, 0, 0},
-{"luaonly", 1, 0, 0},
+{"luaonly", 0, 0, 0},
 {"progname", 1, 0, 0},
 {"help", 0, 0, 0},
 {"ini", 0, &iniversion, 1},
@@ -91,49 +92,54 @@ static struct option long_options[]
 static void
 parse_options(int argc, char **argv)
 {
-    int g;			/* `getopt' return code.  */
-    int option_index;
-    opterr = 0;			/* dont whine */
-    for (;;) {
+  int g;			/* `getopt' return code.  */
+  int option_index;
+  opterr = 0;			/* dont whine */
+  for (;;) {
 	g = getopt_long_only(argc, argv, "+", long_options, &option_index);
-
+	
 	if (g == -1)		/* End of arguments, exit the loop.  */
 	    break;
 	if (g == '?')		/* Unknown option.  */
-	    continue;
-
+	  continue;
+	
 	assert(g == 0);		/* We have no short option names.  */
-
+	
 	if (ARGUMENT_IS("luaonly")) {
-	    startup_filename = optarg;
-		quit_option = 1;
-
+	  lua_only = 1;
+	  lua_offset = optind;
 	} else if (ARGUMENT_IS("lua")) {
-        startup_filename = optarg;
-
+	  startup_filename = optarg;
+	  lua_offset = (optind-1);
+	  
 	} else if (ARGUMENT_IS("fmt")) {
-	    dump_name = optarg;
-
+	  dump_name = optarg;
+	  
 	} else if (ARGUMENT_IS("progname")) {
-	    user_progname = optarg;
-
+	  user_progname = optarg;
+	  
 	} else if (ARGUMENT_IS("help")) {
-	    usagehelp(LUATEX_IHELP, BUG_ADDRESS);
-
+	  usagehelp(LUATEX_IHELP, BUG_ADDRESS);
+	  
 	} else if (ARGUMENT_IS("version")) {
 	  printversionandexit(BANNER, COPYRIGHT_HOLDER, AUTHOR, NULL);
-
+	  
 	}
-    }
-    /* attempt to find dump_name */
-    if (argv[optind] && argv[optind][0] == '&') {
+  }
+  /* attempt to find dump_name */
+  if (argv[optind] && argv[optind][0] == '&') {
 	dump_name = strdup(argv[optind] + 1);
-    } else if (argv[optind] && argv[optind][0] != '\\') {
-	if (argv[optind][0] == '*')
-	    input_name = strdup(argv[optind] + 1);
-	else
-	    input_name = strdup(argv[optind]);
-    }
+  } else if (argv[optind] && argv[optind][0] != '\\') {
+	if (argv[optind][0] == '*') {
+	  input_name = strdup(argv[optind] + 1);
+	} else {
+	  if (lua_only) {
+		startup_filename = strdup(argv[optind]);
+	  }  else {
+		input_name = strdup(argv[optind]);
+	  }
+	}
+  }
 }
 
 /* test for readability */
@@ -201,11 +207,11 @@ lua_initialize(int ac, char **av)
     tex_table_id = hide_lua_table(Luas[0], "tex");
     pdf_table_id = hide_lua_table(Luas[0], "pdf");
 
-    prepare_cmdline(Luas[0], argv, argc);	/* collect arguments */
+    prepare_cmdline(Luas[0], argv, argc, lua_offset);	/* collect arguments */
     /* */
 
     if (startup_filename != NULL)
-	startup_filename = find_filename(startup_filename, "LUATEXDIR");
+	  startup_filename = find_filename(startup_filename, "LUATEXDIR");
 
     /* now run the file */
     if (startup_filename != NULL) {
@@ -216,7 +222,7 @@ lua_initialize(int ac, char **av)
 	    exit(1);
 	  }
 	  /* no filename? quit now! */
-	  if ((quit_option) || ((!input_name) && (!dump_name))) {
+	  if ((lua_only) || ((!input_name) && (!dump_name))) {
 		exit(0);
 	  }
 	  /* unhide the 'tex' and 'pdf' table */
@@ -296,7 +302,10 @@ lua_initialize(int ac, char **av)
 		abort();
 	}
     } else {
-	fprintf(stdout, "Missing configuration file\n");
-	exit(1);
+	  if (lua_only)
+		fprintf(stdout, "Missing script file\n");
+	  else
+		fprintf(stdout, "Missing configuration file\n");
+      exit(1);
     }
 }
