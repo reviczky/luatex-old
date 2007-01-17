@@ -33,6 +33,7 @@ extern int luaopen_unicode (lua_State *L);
 extern int luaopen_zip (lua_State *L);
 extern int luaopen_lfs (lua_State *L);
 extern int luaopen_lpeg (lua_State *L);
+extern int luaopen_md5 (lua_State *L);
 
 extern int callbackdefined (char *name);
 
