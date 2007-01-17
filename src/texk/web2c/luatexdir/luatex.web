@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="1" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070116' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070117' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
