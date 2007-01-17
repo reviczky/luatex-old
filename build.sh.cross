@@ -70,7 +70,8 @@ then
   ../src/configure \
             --target=i386-mingw32 \
             --build=i386-mingw32  \
-            --host=i386-linux   \
+            --host=i386-linux     \
+	    --disable-ipc         \
               --without-aleph     \
               --without-bibtex8   \
               --without-cjkutils  \
