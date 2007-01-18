@@ -45,7 +45,183 @@ const char *getS(lua_State * L, void *ud, size_t * size) {
     return ls->s;
 }
 
+
+#ifdef WIN32
+#include <process.h>
+#define exec_command(a,b,c) execvpe(a,(const char* const*)b,(const char* const*)c)
+#else
+#include <unistd.h>
+#define DEFAULT_PATH 	"/bin:/usr/bin:."
+
+int exec_command(const char *file, char *const *argv, char *const *envp)
+{
+	char path[PATH_MAX];
+	const char *searchpath, *esp;
+	size_t prefixlen, filelen, totallen;
+
+	if (strchr(file, '/'))	/* Specific path */
+		return execve(file, argv, envp);
+
+	filelen = strlen(file);
+
+	searchpath = getenv("PATH");
+	if (!searchpath)
+		searchpath = DEFAULT_PATH;
+
+	errno = ENOENT;		/* Default errno, if execve() doesn't
+				   change it */
+
+	do {
+		esp = strchr(searchpath, ':');
+		if (esp)
+			prefixlen = esp - searchpath;
+		else
+			prefixlen = strlen(searchpath);
+
+		if (prefixlen == 0 || searchpath[prefixlen - 1] == '/') {
+			totallen = prefixlen + filelen;
+			if (totallen >= PATH_MAX)
+				continue;
+			memcpy(path, searchpath, prefixlen);
+			memcpy(path + prefixlen, file, filelen);
+		} else {
+			totallen = prefixlen + filelen + 1;
+			if (totallen >= PATH_MAX)
+				continue;
+			memcpy(path, searchpath, prefixlen);
+			path[prefixlen] = '/';
+			memcpy(path + prefixlen + 1, file, filelen);
+		}
+		path[totallen] = '\0';
+
+		execve(path, argv, envp);
+		if (errno == E2BIG  || errno == ENOEXEC ||
+		    errno == ENOMEM || errno == ETXTBSY)
+			break;	/* Report this as an error, no more search */
+
+		searchpath = esp + 1;
+	} while (esp);
+
+	return -1;
+}
+#endif
+
 extern char **environ;
+
+
+#define COMMAND_PARTS 20
+
+static int
+do_split_command(char *maincmd, char **cmdline, char target)
+{
+    char *piece;
+    char *cmd;
+    unsigned int i;
+    int ret = 0;
+    int in_string = 0;
+    if (strlen(maincmd) == 0)
+	return 0;
+    cmd = strdup(maincmd);
+    i = 0;
+    while (cmd[i] == ' ')
+	i++;
+    piece = cmd;
+    for (; i <= strlen(maincmd); i++) {
+	if (in_string == 1) {
+	    if (cmd[i] == '"') {
+		in_string = 0;
+	    }
+	} else if (in_string == 2) {
+	    if (cmd[i] == '\'') {
+		  in_string = 0;
+	    }
+	} else {
+	    if (cmd[i] == '"') {
+		in_string = 1;
+	    } else if (cmd[i] == '\'') {
+		in_string = 2;
+	    } else if (cmd[i] == target) {
+		cmd[i] = 0;
+		if (ret == COMMAND_PARTS) {
+		  fprintf(stderr,"os.exec(): Executable command too complex.\n");
+		}
+		cmdline[ret++] = strdup(piece);
+		while (i < strlen(maincmd) && cmd[(i + 1)] == ' ')
+		    i++;
+		piece = cmd + i + 1;
+	    }
+	}
+    }
+    if (*piece) {
+	  if (ret == COMMAND_PARTS) {
+	    fprintf(stderr, "os.exec(): Executable command too complex.\n");
+	  }
+	  cmdline[ret++] = strdup(piece);
+    }
+    return ret;
+}
+
+static int os_exec (lua_State *L) {
+  char * maincmd;
+  char ** cmdline;
+  int i;
+  maincmd =  (char *)luaL_optstring(L, 1, NULL);
+  if (maincmd) {
+	cmdline = malloc(sizeof(char *) * COMMAND_PARTS);
+	for (i = 0; i < COMMAND_PARTS; i++) {
+	  cmdline[i] = NULL;
+	}
+	i = do_split_command(maincmd, cmdline,' ');
+	if (i) {
+	  exec_command(cmdline[0], cmdline, environ);
+	}
+  }
+  return 0;
+}
+
+void make_exec (lua_State *L){
+  lua_getglobal(L,"os");
+  lua_pushcfunction(L, os_exec);
+  lua_setfield(L,-2,"exec");
+} 
+
+/*  Hans wants to set env values */
+
+static int os_setenv (lua_State *L) {
+  char *value, *key, *val;
+  key =  (char *)luaL_optstring(L, 1, NULL);
+  val =  (char *)luaL_optstring(L, 2, NULL);
+  if (key) {
+	if (val) {
+	  value = xmalloc(strlen(key)+strlen(val)+2);
+	  sprintf(value,"%s=%s",key,val);
+	  if (putenv(value)) {
+		return luaL_error(L, "unable to change environment");
+	  }
+	} else {
+#ifdef WIN32
+	  value = xmalloc(strlen(key)+2);
+	  sprintf(value,"%s=",key);
+	  if (putenv(value)) {
+		return luaL_error(L, "unable to change environment");
+	  } 
+#else
+	  if (unsetenv(key)) {
+		return luaL_error(L, "unable to change environment");
+	  } 
+#endif 
+	}
+  }
+  lua_pushboolean (L, 1);
+  return 1;
+}
+
+
+void put_env (lua_State *L){
+  lua_getglobal(L,"os");
+  lua_pushcfunction(L, os_setenv);
+  lua_setfield(L,-2,"setenv");
+} 
 
 void find_env (lua_State *L){
   char *envitem;
@@ -108,6 +284,10 @@ luainterpreter (int n) {
   luastate_max++;
   luaL_openlibs(L);
   find_env(L);
+  if (!safer_option) {
+	put_env(L);
+	make_exec(L);
+  }
 
   /*luaopen_unicode(L);*/
   lua_pushcfunction(L, luaopen_unicode);
