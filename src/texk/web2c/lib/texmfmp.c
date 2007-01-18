@@ -348,16 +348,10 @@ main P2C(int, ac,  string *, av)
 #endif
 
 #if defined(luaTeX)
-  luainit = 0;
-  for (i=1;i<ac;i++) {
-    if (strstr(av[i],"-lua") != NULL)
-      luainit=1;
-  }
-  if (luainit)
-    lua_initialize(ac, av);
-  else 
+  lua_initialize(ac, av);
+#else
+  maininit(ac, av);
 #endif
-    maininit(ac, av);
 
   /* Call the real main program.  */
   mainbody ();
