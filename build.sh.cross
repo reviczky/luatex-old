@@ -117,6 +117,10 @@ fi
 (cd texk/web2c/web2c; $MAKE) || exit 1
 (cd texk/web2c; $MAKE ../kpathsea/libkpathsea.la) || exit 1
 (cd texk/web2c/lib; $MAKE) || exit 1
+if [ ! "$ONLY_MAKE" = "FALSE" ]
+then
+  (cd texk/web2c/luatexdir; $MAKE libpdf.a) || exit 1
+fi;
 (cd texk/web2c; $MAKE luatex) || exit 1
 # go back
 cd ..
