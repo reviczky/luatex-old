@@ -50,8 +50,11 @@ prepare_cmdline(lua_State * L, char **argv, int argc, int zero_offset)
     return;
 }
 
-/* The C version of what might wind up in DUMP_VAR.  */
-extern string dump_name;
+extern const_string dump_name;
+extern const_string job_name;
+extern boolean srcspecialsoption;
+extern char *last_source_name;
+extern int last_lineno;
 
 string input_name = NULL;
 
@@ -78,14 +81,40 @@ int safer_option = 0;
 
 /* SunOS cc can't initialize automatic structs, so make this static.  */
 static struct option long_options[]
-= { {"fmt", 1, 0, 0},
-{"lua", 1, 0, 0},
-{"luaonly", 0, 0, 0},
-{"progname", 1, 0, 0},
-{"help", 0, 0, 0},
-{"ini", 0, &iniversion, 1},
-{"safer", 0, &safer_option, 1},
-{"version", 0, 0, 0},
+ = {  { "fmt",                       1, 0, 0},
+      { "lua",                       1, 0, 0},
+      { "luaonly",                   0, 0, 0},
+      { "safer",                     0, &safer_option, 1},
+      { "help",                      0, 0, 0 },
+      { "ini",                       0, &iniversion, 1 },
+      { "interaction",               1, 0, 0 },
+      { "halt-on-error",             0, &haltonerrorp, 1 },
+      { "kpathsea-debug",            1, 0, 0 },
+      { "progname",                  1, 0, 0 },
+      { "version",                   0, 0, 0 },
+      { "recorder",                  0, &recorder_enabled, 1 },
+      { "etex",                      0, 0, 0 },
+      { "output-comment",            1, 0, 0 },
+      { "output-directory",          1, 0, 0 },
+      { "draftmode",                 0, 0, 0 },
+      { "output-format",             1, 0, 0 },
+      { "shell-escape",              0, &shellenabledp, 1 },
+      { "no-shell-escape",           0, &shellenabledp, -1 },
+      { "debug-format",              0, &debugformatfile, 1 },
+      { "src-specials",              2, 0, 0 },
+      { "file-line-error-style",     0, &filelineerrorstylep, 1 },
+      { "no-file-line-error-style",  0, &filelineerrorstylep, -1 },
+      /* Shorter option names for the above. */
+      { "file-line-error",           0, &filelineerrorstylep, 1 },
+      { "no-file-line-error",        0, &filelineerrorstylep, -1 },
+      { "jobname",                   1, 0, 0 },
+      { "parse-first-line",          0, &parsefirstlinep, 1 },
+      { "no-parse-first-line",       0, &parsefirstlinep, -1 },
+      { "translate-file",            1, 0, 0 },
+      { "default-translate-file",    1, 0, 0 },
+      { "8bit",                      0, 0, 0 },
+      { "mktex",                     1, 0, 0 },
+      { "no-mktex",                  1, 0, 0 },
 {0, 0, 0, 0}
 };
 
@@ -94,6 +123,7 @@ parse_options(int argc, char **argv)
 {
   int g;			/* `getopt' return code.  */
   int option_index;
+  char *firstfile = NULL;
   opterr = 0;			/* dont whine */
   for (;;) {
 	g = getopt_long_only(argc, argv, "+", long_options, &option_index);
@@ -108,21 +138,93 @@ parse_options(int argc, char **argv)
 	if (ARGUMENT_IS("luaonly")) {
 	  lua_only = 1;
 	  lua_offset = optind;
+	  luainit = 1 ;
 	} else if (ARGUMENT_IS("lua")) {
 	  startup_filename = optarg;
 	  lua_offset = (optind-1);
+	  luainit = 1 ;
 	  
-	} else if (ARGUMENT_IS("fmt")) {
-	  dump_name = optarg;
-	  
+	} else if (ARGUMENT_IS ("kpathsea-debug")) {
+      kpathsea_debug |= atoi (optarg);
+
 	} else if (ARGUMENT_IS("progname")) {
 	  user_progname = optarg;
 	  
+    } else if (ARGUMENT_IS ("jobname")) {
+      job_name = optarg;
+
+	} else if (ARGUMENT_IS("fmt")) {
+	  dump_name = optarg;
+	  
+    } else if (ARGUMENT_IS ("output-directory")) {
+      output_directory = optarg;
+
+    } else if (ARGUMENT_IS ("output-comment")) {
+      unsigned len = strlen (optarg);
+      if (len < 256) {
+        outputcomment = optarg;
+      } else {
+        WARNING2 ("Comment truncated to 255 characters from %d. (%s)",
+                  len, optarg);
+        outputcomment = (string)xmalloc (256);
+        strncpy (outputcomment, optarg, 255);
+        outputcomment[255] = 0;
+      }
+
+    } else if (ARGUMENT_IS ("src-specials")) {
+       last_source_name = xstrdup("");
+       /* Option `--src" without any value means `auto' mode. */
+       if (optarg == NULL) {
+         insertsrcspecialeverypar = true;
+         insertsrcspecialauto = true;
+         srcspecialsoption = true;
+         srcspecialsp = true;
+       } else {
+          parse_src_specials_option(optarg);
+       }
+
+    } else if (ARGUMENT_IS ("output-format")) {
+       pdfoutputoption = 1;
+       if (strcmp(optarg, "dvi") == 0) {
+         pdfoutputvalue = 0;
+       } else if (strcmp(optarg, "pdf") == 0) {
+         pdfoutputvalue = 2;
+       } else {
+         WARNING1 ("Ignoring unknown value `%s' for --output-format", optarg);
+         pdfoutputoption = 0;
+       }
+
+    } else if (ARGUMENT_IS ("draftmode")) {
+      pdfdraftmodeoption = 1;
+      pdfdraftmodevalue = 1;
+
+    } else if (ARGUMENT_IS ("mktex")) {
+      kpse_maketex_option (optarg, true);
+
+    } else if (ARGUMENT_IS ("no-mktex")) {
+      kpse_maketex_option (optarg, false);
+
+    } else if (ARGUMENT_IS ("interaction")) {
+        /* These numbers match @d's in *.ch */
+      if (STREQ (optarg, "batchmode")) {
+        interactionoption = 0;
+      } else if (STREQ (optarg, "nonstopmode")) {
+        interactionoption = 1;
+      } else if (STREQ (optarg, "scrollmode")) {
+        interactionoption = 2;
+      } else if (STREQ (optarg, "errorstopmode")) {
+        interactionoption = 3;
+      } else {
+        WARNING1 ("Ignoring unknown argument `%s' to --interaction", optarg);
+      }
+      
 	} else if (ARGUMENT_IS("help")) {
 	  usagehelp(LUATEX_IHELP, BUG_ADDRESS);
 	  
 	} else if (ARGUMENT_IS("version")) {
-	  printversionandexit(BANNER, COPYRIGHT_HOLDER, AUTHOR, NULL);
+	  char *versions;
+	  initversionstring(&versions); 
+	  printversionandexit(BANNER, COPYRIGHT_HOLDER, AUTHOR, versions);
 	  
 	}
   }
@@ -133,10 +235,22 @@ parse_options(int argc, char **argv)
 	if (argv[optind][0] == '*') {
 	  input_name = strdup(argv[optind] + 1);
 	} else {
+	  firstfile = strdup(argv[optind]);
 	  if (lua_only) {
-		startup_filename = strdup(argv[optind]);
+		startup_filename = firstfile;
 	  }  else {
-		input_name = strdup(argv[optind]);
+		if ((strstr(firstfile,".lua") == firstfile+strlen(firstfile)-4) ||
+			(strstr(firstfile,".luc") == firstfile+strlen(firstfile)-4) ||
+            (strstr(firstfile,".LUA") == firstfile+strlen(firstfile)-4) ||
+			(strstr(firstfile,".LUC") == firstfile+strlen(firstfile)-4) ||
+			 strstr(argv[0],"luatexlua") == argv[0]) {
+		  startup_filename = firstfile;
+		  lua_only = 1;
+		  lua_offset = optind;		  
+		  luainit = 1 ;
+		} else {
+		  input_name = firstfile;
+		}
 	  }
 	}
   }
@@ -175,12 +289,54 @@ find_filename(char *name, char *envkey)
 }
 
 
+void 
+init_kpse (void) {
+
+  if (!user_progname) 
+	user_progname = (string) dump_name;
+  if (!user_progname) {
+	if (iniversion) {
+	  user_progname = input_name;
+	} else {
+	  if(!startup_filename) {
+		if (!dump_name) {
+		  dump_name = strdup(argv[0]);
+		  user_progname = (string) dump_name;
+		}
+	  }
+	}
+  }
+  if (!user_progname) {
+	  fprintf(stdout,
+			  "kpathsea mode needs a --progname or --fmt switch\n");
+	  exit(1);
+  } 
+  kpse_set_program_name(argv[0], user_progname);
+}
+
+void
+fix_dumpname (void) {
+  int dist;
+  if (dump_name) {
+	/* adjust array for Pascal and provide extension, if needed */
+	dist = strlen(dump_name) - strlen(DUMP_EXT);
+	if (strstr(dump_name, DUMP_EXT) == dump_name + dist)
+	  DUMP_VAR = concat(" ", dump_name);
+	else
+	  DUMP_VAR = concat3(" ", dump_name, DUMP_EXT);
+	DUMP_LENGTH_VAR = strlen(DUMP_VAR + 1);
+  } else {
+	/* For dump_name to be NULL is a bug.  */
+	if (!iniversion)
+	  abort();
+  }
+}
+
 void
 lua_initialize(int ac, char **av)
 {
     FILE *test;
     int kpse_init;
-    int dist;
     int tex_table_id;
     int pdf_table_id;
     /* Save to pass along to topenin.  */
@@ -200,13 +356,13 @@ lua_initialize(int ac, char **av)
 	putenv("LC_CTYPE=C");
 	putenv("LC_COLLATE=C");
 	putenv("LC_NUMERIC=C");
-
-    luainterpreter(0);
-	   
-    /* hide the 'tex' and 'pdf' table */
-    tex_table_id = hide_lua_table(Luas[0], "tex");
-    pdf_table_id = hide_lua_table(Luas[0], "pdf");
-
+	  
+	luainterpreter(0);
+	  
+	/* hide the 'tex' and 'pdf' table */
+	tex_table_id = hide_lua_table(Luas[0], "tex");
+	pdf_table_id = hide_lua_table(Luas[0], "pdf");
+	
     prepare_cmdline(Luas[0], argv, argc, lua_offset);	/* collect arguments */
     /* */
 
@@ -233,79 +389,62 @@ lua_initialize(int ac, char **av)
 	  kpse_init = -1;
 	  getluaboolean("texconfig", "kpse_init", &kpse_init);
 
-	if (kpse_init != 0) {
-      if (!user_progname) 
-		user_progname = (string) dump_name;
-	    if (!user_progname) {
-		if (iniversion)
-		    user_progname = input_name;
-	    }
-	    if (!user_progname) {
-		fprintf(stdout,
-			"kpathsea mode needs a --progname or --fmt switch\n");
-		exit(1);
-	    }
-	    kpse_set_program_name(argv[0], user_progname);
-	}
-	/* prohibit_file_trace (boolean) */
-	tracefilenames = 1;
-	getluaboolean("texconfig", "trace_file_names", &tracefilenames);
-
-	/* src_special_xx */
-	insertsrcspecialauto = insertsrcspecialeverypar =
+	  if (kpse_init != 0) {
+		init_kpse();
+	  }
+	  /* prohibit_file_trace (boolean) */
+	  tracefilenames = 1;
+	  getluaboolean("texconfig", "trace_file_names", &tracefilenames);
+	  
+	  /* src_special_xx */
+	  insertsrcspecialauto = insertsrcspecialeverypar =
 	    insertsrcspecialeveryparend = insertsrcspecialeverycr =
 	    insertsrcspecialeverymath = insertsrcspecialeveryhbox =
 	    insertsrcspecialeveryvbox = insertsrcspecialeverydisplay =
 	    false;
-	getluaboolean("texconfig", "src_special_auto",
-		      &insertsrcspecialauto);
-	getluaboolean("texconfig", "src_special_everypar",
-		      &insertsrcspecialeverypar);
-	getluaboolean("texconfig", "src_special_everyparend",
-		      &insertsrcspecialeveryparend);
-	getluaboolean("texconfig", "src_special_everycr",
-		      &insertsrcspecialeverycr);
-	getluaboolean("texconfig", "src_special_everymath",
-		      &insertsrcspecialeverymath);
-	getluaboolean("texconfig", "src_special_everyhbox",
-		      &insertsrcspecialeveryhbox);
-	getluaboolean("texconfig", "src_special_everyvbox",
+	  getluaboolean("texconfig", "src_special_auto",
+					&insertsrcspecialauto);
+	  getluaboolean("texconfig", "src_special_everypar",
+					&insertsrcspecialeverypar);
+	  getluaboolean("texconfig", "src_special_everyparend",
+					&insertsrcspecialeveryparend);
+	  getluaboolean("texconfig", "src_special_everycr",
+				  &insertsrcspecialeverycr);
+	  getluaboolean("texconfig", "src_special_everymath",
+					&insertsrcspecialeverymath);
+	  getluaboolean("texconfig", "src_special_everyhbox",
+					&insertsrcspecialeveryhbox);
+	  getluaboolean("texconfig", "src_special_everyvbox",
 		      &insertsrcspecialeveryvbox);
-	getluaboolean("texconfig", "src_special_everydisplay",
-		      &insertsrcspecialeverydisplay);
+	  getluaboolean("texconfig", "src_special_everydisplay",
+					&insertsrcspecialeverydisplay);
 
-	srcspecialsp = insertsrcspecialauto | insertsrcspecialeverypar |
+	  srcspecialsp = insertsrcspecialauto | insertsrcspecialeverypar |
 	    insertsrcspecialeveryparend | insertsrcspecialeverycr |
 	    insertsrcspecialeverymath | insertsrcspecialeveryhbox |
 	    insertsrcspecialeveryvbox | insertsrcspecialeverydisplay;
 
-	/* file_line_error */
-	filelineerrorstylep = false;
-	getluaboolean("texconfig", "file_line_error",
-		      &filelineerrorstylep);
+	  /* file_line_error */
+	  filelineerrorstylep = false;
+	  getluaboolean("texconfig", "file_line_error",
+					&filelineerrorstylep);
 
-	/* halt_on_error */
-	haltonerrorp = false;
-	getluaboolean("texconfig", "halt_on_error", &haltonerrorp);
-
-	if (dump_name) {
-	    /* adjust array for Pascal and provide extension, if needed */
-	    dist = strlen(dump_name) - strlen(DUMP_EXT);
-	    if (strstr(dump_name, DUMP_EXT) == dump_name + dist)
-		DUMP_VAR = concat(" ", dump_name);
-	    else
-		DUMP_VAR = concat3(" ", dump_name, DUMP_EXT);
-	    DUMP_LENGTH_VAR = strlen(DUMP_VAR + 1);
-	} else {
-	    /* For dump_name to be NULL is a bug.  */
-	    if (!iniversion)
-		abort();
-	}
+	  /* halt_on_error */
+	  haltonerrorp = false;
+	  getluaboolean("texconfig", "halt_on_error", &haltonerrorp);
+	  
+	  fix_dumpname();
     } else {
-	  if (lua_only)
-		fprintf(stdout, "Missing script file\n");
-	  else
-		fprintf(stdout, "Missing configuration file\n");
-      exit(1);
+	  if (luainit) {
+		if (lua_only)
+		  fprintf(stdout, "Missing script file\n");
+		else
+		  fprintf(stdout, "Missing configuration file\n");
+		exit(1);
+	  } else {
+		/* init */
+		init_kpse();
+		fix_dumpname();
+	  }
     }
 }
