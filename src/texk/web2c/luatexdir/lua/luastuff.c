@@ -206,9 +206,7 @@ static int os_setenv (lua_State *L) {
 		return luaL_error(L, "unable to change environment");
 	  } 
 #else
-	  if (unsetenv(key)) {
-		return luaL_error(L, "unable to change environment");
-	  } 
+	  (void)unsetenv(key);
 #endif 
 	}
   }
