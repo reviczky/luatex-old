@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-01-16}
+\TitlePage{Snapshot 2007-01-18}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -363,15 +363,35 @@ active table, an error is raised.
 
 \section{Initialization}
 
+\subsection{Luatex as a lua interpreter}
+
+In a number of cases, luatex behaves like it is a lua interpreter only.
+
+\startitemize
+\item If a \type{--luaonly} option is given
+\item If the executable is named \type{luatexlua}
+\item if the non-option (file) on the command-line has the extension 
+	\type{lua} or \type{luc}.
+\stopitemize
+
+On this mode, it will set Lua's \type{arg[0]} to the found script
+name, pushing preceding options in negative values and the rest of the
+commandline in the positive values, just like the `\type{lua}'
+interpreter.
+
+\LUATEX\ will exit immediately after executing the specified Lua
+script and is, in effect, a somehwat bulky standalone lua interpreter.
+
+\subsection{Other command-line processing}
 
 Whenever the \LUATEX\ executable starts, it looks for a \type{--lua}
-or \type{--luaonly} command||line option. If such an option is
-present, it will enter an alternative mode of command||line parsing.
+command||line option. If such an option is present, it will enter an
+alternative mode of command||line parsing.
 
 In this mode, it will only interpret a very small subset of the
 command||line directly:
 \starttable[|l|l|]
-\NC --luaonly=s  \NC execute a lua script, then exit      \NC \AR
+\NC --luaonly    \NC execute a lua script, then exit      \NC \AR
 \NC --lua=s      \NC load and execute a lua init script   \NC \AR
 \NC --safer      \NC disable easily exploitable lua commands\NC \AR
 \NC --help       \NC display help and exit                \NC \AR
@@ -387,24 +407,18 @@ Then the script is loaded and executed. It will find the entire
 commandline in the table \type{arg}, beginning with \type{arg[0]},
 that is the name of the executable. 
 
-In the \type{--luaonly} case and in the case where there is no
-discernable input or format file on the command line, \LUATEX\ will
-exit immediately after executing the lua script and is, in effect,
-a rather bulky standalone lua interpreter.
+\LUATEX\ will fetch some of the other commandline options from 
+the \type{texconfig} table at the end of script execution (see the
+description of the \type{texconfig} table later on in this document).
 
-In the other cases, \LUATEX\ will fetch some of the processed command
-line options from the \type{texconfig} table at the end of script
-execution (see the description of the \type{texconfig} table later on
-in this document).
-
-This happens very early on. So early, in fact, that none of
-\TEX's initializations have taken place yet. For that reason, the
-\type{tex} and \type{pdf} tables are off-limits during the execution
-of the startup file (they are nilled). Special care is taken that
-\type{texio.write} and \type{texio.write_nl} function properly, so that
-you can at least report your actions to the log file when (and if) it
-eventually becomes opened (note that \TEX\ does not even know it's
-\type{\jobname} yet at this point).
+Commandline processing happens very early on. So early, in fact, that
+none of \TEX's initializations have taken place yet. For that reason,
+the \type{tex} and \type{pdf} tables are off-limits during the
+execution of the startup file (they are nilled). Special care is taken
+that \type{texio.write} and \type{texio.write_nl} function properly,
+so that you can at least report your actions to the log file when (and
+if) it eventually becomes opened (note that \TEX\ does not even know
+it's \type{\jobname} yet at this point).
 
 The file is loaded into Lua state 0, and everything you do will remain
 visible during the rest of the run, with the exception of the
@@ -450,14 +464,17 @@ acts on three other command||line options:
 
 In order to initialize the built-in kpathsea library properly,
 \LUATEX\ needs to know the correct `progname' to use, and for that it 
-needs to check \type{-progname} and \type{-ini} and \type{-fmt}
-(if \type{-progname} is missing).
+needs to check \type{-progname} (and \type{-ini} and \type{-fmt}, if
+\type{-progname} is missing).
+
+If there is no \type{--lua} option, the commandline is interpreted
+in a similar fashion as in traditional \PDFTEX\ and \ALEPH.
 
 \section{Lua changes}
 
-Four modules that are normally external are statically linked in with
-\LUATEX: \type{slnunicode}, \type{luazip}, \type{luafilesystem}, and 
-\type{lpeg} (version 0.2).
+Five modules that are normally external are statically linked in with
+\LUATEX: \type{slnunicode}, \type{luazip}, \type{luafilesystem}, 
+\type{lpeg} (version 0.4), and \type{md5}.
 
 The \type{read("*line")} function from the io library has been
 adjusted so that it is line-ending neutral: any of \type{LF}, \type
@@ -1459,8 +1476,9 @@ setting relative to the designsize of the font.
 \stopitemize
 
 The internal structure of the \type{<font>} table that is to be
-returned is explained in \in{chapter}[fonts].
-
+returned is explained in \in{chapter}[fonts]. That table is saved
+internally, so you can put extra fields in the table for your 
+later lua code to use.
 
 \section{The \lualib{lua} library}
 
@@ -1755,8 +1773,9 @@ the executable after loading and executing the startup file.
 \section{The \lualib{font} library}
 
 The font library will provide the interface into the internals of the
-font system, as well as contain some binary font loaders. At the
-moment, there is only one function pre-defined:
+font system, as well as contain some binary font loaders. 
+
+At the moment, there is only one loader function defined:
 
 \startfunctioncall
      table fnt = font.read_tfm(string name, number s)
@@ -1775,6 +1794,38 @@ The font `\type{cmr10 at 12pt}' would be asked for as
 
 The internal structure of the font table that is returned is explained
 in \in{chapter}[fonts]
+
+\subsection{The fonts array}
+
+\starttyping
+     font.fonts[n] = { ... }
+     table f = font.fonts[n]
+\stoptyping
+
+See below for the structure of the tables.
+
+The associated function calls are
+
+\startfunctioncall
+     table f = font.getfont(number n)
+     font.setfont(number n, table f)
+\stopfunctioncall
+
+Note the following: Assignments can only be made to fonts that have
+already be defined in \TeX, but have not been accessed at all since
+that definition. This limits the usability of the write access to
+font.fonts quite a lot, a less stringent ruleset will be implemented
+later.
+
+You can test for the status of a font calling this function:
+
+\startfunctioncall
+     boolean f = font.frozen(number n)
+\stopfunctioncall
+
+The return value is one of true (unassignable), false (can be changed)
+or nil (not a valid font at all).
+
 
 \chapter[fonts]{Font structure}
 
