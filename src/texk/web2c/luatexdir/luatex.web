@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="1" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070117' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070119' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -13356,9 +13356,13 @@ var f:internal_font_number;
 @!m:halfword;
 begin @<Get the next non-blank non-call...@>;
 if (cur_cmd=def_font) or (cur_cmd=letterspace_font) then f:=cur_font
-else if cur_cmd=set_font then f:=cur_chr
-else if cur_cmd=def_family then
-  begin m:=cur_chr; scan_math_family_int; f:=equiv(m+cur_val);
+else if cur_cmd=set_font then begin 
+  f:=cur_chr; 
+  set_font_touched(f,1);
+  end
+else if cur_cmd=def_family then begin 
+  m:=cur_chr; scan_math_family_int; f:=equiv(m+cur_val);
+  set_font_touched(f,1);
   end
 else  begin print_err("Missing font identifier");
 @.Missing font identifier@>

@@ -78,7 +78,9 @@ copy_font (integer f) {
   integer k = new_font((fontptr+1));
   memcpy(font_tables[k],font_tables[f],sizeof(texfont));
 
+  set_font_cache_id(k,0);
   set_font_used(k,0);
+  set_font_touched(k,0);
   
   i = sizeof(*char_base(f))    *char_infos(f);   fontbytes += i;
   char_base(k)     = xmalloc (i);
@@ -160,6 +162,7 @@ create_null_font (void) {
   (void)new_font(0);
   set_font_name(0,"nullfont"); 
   set_font_area(0,"");
+  set_font_touched(k,1);
 }
 
 boolean 

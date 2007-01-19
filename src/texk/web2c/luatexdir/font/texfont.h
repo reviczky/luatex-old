@@ -60,6 +60,8 @@ typedef struct texfont {
   integer _font_ec ;
   integer _font_checksum ;   /* internal information */
   boolean _font_used ;       /* internal information */
+  boolean _font_touched ;    /* internal information */
+  integer _font_cache_id ;   /* internal information */
   integer _font_bc ;
   integer _hyphen_char ;
   integer _skew_char ;
@@ -137,6 +139,12 @@ boolean cmp_font_area (integer, strnumber);
 #define font_used(a)              font_tables[a]->_font_used
 #define get_font_used             font_used
 #define set_font_used(a,b)        font_used(a) = b
+
+#define font_touched(a)           font_tables[a]->_font_touched
+#define set_font_touched(a,b)     font_touched(a) = b
+
+#define font_cache_id(a)              font_tables[a]->_font_cache_id
+#define set_font_cache_id(a,b)        font_cache_id(a) = b
 
 #define hyphen_char(a)            font_tables[a]->_hyphen_char
 #define set_hyphen_char(a,b)      hyphen_char(a) = b
@@ -442,6 +450,7 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define fontarea                         font_area
 #define fontbc                           font_bc
 #define fontbchar                        font_bchar
+#define fontcacheid                      font_cache_id
 #define fontcheck0                       font_check_0
 #define fontcheck1                       font_check_1
 #define fontcheck2                       font_check_2
@@ -469,6 +478,7 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define fontparams                       font_params
 #define fontsize                         font_size
 #define fonttables                       font_tables
+#define fonttouched                      font_touched
 #define fontused                         font_used
 #define fontwidth                        font_width
 #define fontwidths                       font_widths
@@ -504,6 +514,7 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define setfontarea                      set_font_area
 #define setfontbc                        set_font_bc
 #define setfontbchar                     set_font_bchar
+#define setfontcacheid                   set_font_cache_id
 #define setfontchecksum                  set_font_checksum
 #define setfontdepth                     set_font_depth
 #define setfontdepths                    set_font_depths
@@ -525,6 +536,7 @@ int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 #define setfontparam                     set_font_param
 #define setfontparams                    set_font_params
 #define setfontsize                      set_font_size
+#define setfonttouched                   set_font_touched
 #define setfontused                      set_font_used
 #define setfontwidth                     set_font_width
 #define setfontwidths                    set_font_widths

@@ -163,6 +163,8 @@ $Id $
 @define function fontsize();
 @define function fontused();
 @define procedure setfontused();
+@define function fonttouched();
+@define procedure setfonttouched();
 
 @define function fontdsize();
 @define function fontnaturaldir();

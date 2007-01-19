@@ -60,12 +60,26 @@ font_char_to_lua (lua_State *L, internalfontnumber f, int k) {
 }
 
 int
-font_to_lua (lua_State *L, int f, char *cnom) {
+font_to_lua (lua_State *L, int f) {
   int k;
+  if (font_cache_id(f)) {
+	/* fetch the table from the registry if  it was 
+	   saved there by font_from_lua() */ 
+	lua_rawgeti(L,LUA_REGISTRYINDEX,font_cache_id(f));
+	/* fontdimens can be changed from tex code */
+	lua_newtable(L);
+	for (k=1;k<=font_params(f);k++) {
+	  lua_pushnumber(L,font_param(f,k));
+	  lua_rawseti(L,-2,k);
+	}
+	lua_setfield(L,-2,"parameters");
+	return 1;
+  }
+
   lua_newtable(L);
-  lua_pushstring(L,cnom);
+  lua_pushstring(L,font_name(f));
   lua_setfield(L,-2,"name");
-  lua_pushstring(L,"");
+  lua_pushstring(L,font_area(f));
   lua_setfield(L,-2,"area");
   lua_pushnumber(L,font_size(f));
   lua_setfield(L,-2,"size");
@@ -121,7 +135,7 @@ count_hash_items (lua_State *L){
 
 boolean
 font_from_lua (lua_State *L, int f) {
-  int i,k,n;
+  int i,k,n,r;
   scaled j;
   int bc,ec,nc,nk,nl,ne;
   char *s;
@@ -435,7 +449,8 @@ font_from_lua (lua_State *L, int f) {
 	} else {
 	   /* jikes, no characters */
 	 }
-	 lua_pop(L,1); /* pop the table */
+	r = luaL_ref(Luas[0],LUA_REGISTRYINDEX); /* pops the table */
+	set_font_cache_id(f,r);
   } else {
 	/* jikes, no characters */
   }

@@ -86,6 +86,7 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
   char *cnom, *caire;
   boolean res; /* was the callback successful? */
   integer callback_id;
+  int r;
   res = 0;
   cnom  = xstrdup(makecstring(nom));
   caire = xstrdup(makecstring(aire));
@@ -98,8 +99,8 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
       if (lua_istable(Luas[0],-1)) {
 		f = new_font((font_ptr+1));
 		res = font_from_lua(Luas[0],f);	
-      }
-      lua_pop(Luas[0],1);
+      } 
+	  lua_pop(Luas[0],1);
     }
   } else {
     f = new_font((font_ptr+1));
