@@ -278,6 +278,8 @@ open_vf_file (unsigned char **vf_buffer, integer *vf_size) {
       namelength = strlen(fnam);
       nameoffile = xmalloc(namelength+2);
       strcpy((char *)(nameoffile+1),fnam);
+    } else {
+      return 0;
     }
   }
   callback_id=callback_defined("read_vf_file");
