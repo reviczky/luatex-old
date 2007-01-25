@@ -91,7 +91,7 @@ void epdf_write_enc(char **glyph_names, integer fe_objnum)
     int i, i_old;
     assert(glyph_names != NULL);
     assert(fe_objnum != 0);
-    pdfbegindict(fe_objnum, 1);
+    pdf_begin_dict(fe_objnum, 1);
     pdf_puts("/Type /Encoding\n");
     pdf_printf("/Differences [");
     for (i = 0, i_old = -2; i < 256; i++)
@@ -107,7 +107,7 @@ void epdf_write_enc(char **glyph_names, integer fe_objnum)
             i_old = i;
         }
     pdf_puts("]\n");
-    pdfenddict();
+    pdf_end_dict();
 }
 
 void write_enc(char **glyph_names, struct avl_table *tx_tree, integer fe_objnum)
@@ -117,7 +117,7 @@ void write_enc(char **glyph_names, struct avl_table *tx_tree, integer fe_objnum)
     assert(glyph_names != NULL);
     assert(tx_tree != NULL);
     assert(fe_objnum != 0);
-    pdfbegindict(fe_objnum, 1);
+    pdf_begin_dict(fe_objnum, 1);
     pdf_puts("/Type /Encoding\n");
     pdf_printf("/Differences [");
     avl_t_init(&t, tx_tree);
@@ -134,7 +134,7 @@ void write_enc(char **glyph_names, struct avl_table *tx_tree, integer fe_objnum)
         i_old = *p;
     }
     pdf_puts("]\n");
-    pdfenddict();
+    pdf_end_dict();
 }
 
 void write_fontencoding(fe_entry * fe)

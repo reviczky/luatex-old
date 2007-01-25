@@ -58,12 +58,12 @@ unsavemathcode (quarterword gl) {
 }
 
 void 
-setmathcode (integer n, halfword v, quarterword gl) {
+set_math_code (integer n, halfword v, quarterword gl) {
   set_sa_item(mathcode_head,n,v,gl);
 }
 
 halfword
-getmathcode (integer n) {
+get_math_code (integer n) {
   unsigned int ret;
   ret = get_sa_item(mathcode_head,n);
   if (ret==MATHCODEDEFAULT) { 
@@ -96,7 +96,7 @@ unsavedelcode (quarterword gl) {
 }
 
 void 
-setdelcode (integer n, halfword v, halfword w, quarterword gl) {
+set_del_code (integer n, halfword v, halfword w, quarterword gl) {
   delcodeval d;
   d.valuea = v;  d.valueb = w;
   if (delcode_heapptr==delcode_heapsize) {
@@ -109,7 +109,7 @@ setdelcode (integer n, halfword v, halfword w, quarterword gl) {
 }
 
 halfword
-getdelcodea (integer n) {
+get_del_code_a (integer n) {
   int ret;
   ret = get_sa_item(delcode_head,n);
   if (ret==DELCODEDEFAULT) { 
@@ -120,7 +120,7 @@ getdelcodea (integer n) {
 }
 
 halfword
-getdelcodeb (integer n) {
+get_del_code_b (integer n) {
   unsigned int ret;
   ret = get_sa_item(delcode_head,n);
   if (ret==DELCODEDEFAULT) { 
@@ -141,12 +141,12 @@ dumpdelcode (void) {
   int k;
   delcodeval d;
   dump_sa_tree(delcode_head);
-  dumpint(delcode_heapsize);
-  dumpint(delcode_heapptr);
+  dump_int(delcode_heapsize);
+  dump_int(delcode_heapptr);
   for (k=0;k<delcode_heapptr;k++) {
 	d = delcode_heap[k];
-	dumpint(d.valuea);
-	dumpint(d.valueb);
+	dump_int(d.valuea);
+	dump_int(d.valueb);
   }
 }
 
@@ -155,12 +155,12 @@ undumpdelcode (void) {
   int k;
   delcodeval d;
   delcode_head = undump_sa_tree();
-  undumpint(delcode_heapsize);
-  undumpint(delcode_heapptr);
+  undump_int(delcode_heapsize);
+  undump_int(delcode_heapptr);
   delcode_heap = Mxmalloc_array(delcodeval,delcode_heapsize);
   for (k=0;k<delcode_heapptr;k++) {
-	undumpint(d.valuea);
-	undumpint(d.valueb);
+	undump_int(d.valuea);
+	undump_int(d.valueb);
 	delcode_heap[k] = d;
   }
   d.valuea=0; d.valueb=0;
@@ -170,22 +170,22 @@ undumpdelcode (void) {
 }
 
 void 
-unsavemathcodes (quarterword grouplevel) {
+unsave_math_codes (quarterword grouplevel) {
   unsavemathcode(grouplevel);
   unsavedelcode(grouplevel);
 }
 
-void initializemathcodes (void) {
+void initialize_math_codes (void) {
   initializemathcode();
   initializedelcode();
 }
 
-void dumpmathcodes(void) {
+void dump_math_codes(void) {
   dumpmathcode();
   dumpdelcode();
 }
 
-void undumpmathcodes(void) {
+void undump_math_codes(void) {
   undumpmathcode();
   undumpdelcode();
 }

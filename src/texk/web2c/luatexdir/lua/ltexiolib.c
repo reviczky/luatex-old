@@ -51,23 +51,23 @@ do_texio_print (lua_State *L, texio_printer printfunction) {
     if (selector!=log_only &&
 	selector!=term_only &&
 	selector != term_and_log) {
-      normalizeselector(); /* sets selector */
+      normalize_selector(); /* sets selector */
     }
   }
-  if (strstart[strptr-0x200000]<poolptr) 
-    u=makestring();
+  if (str_start[str_ptr-0x200000]<pool_ptr) 
+    u=make_string();
   s = maketexstring(lua_tostring(L, -1));
   printfunction(s);
-  flushstr(s);
+  flush_str(s);
   selector = save_selector;
-  if (u!=0) strptr--;
+  if (u!=0) str_ptr--;
   return 0; 
 }
 
 static int
 texio_print (lua_State *L) {
   char *s;
-  if (readyalready!=314159 || poolptr==0) {
+  if (ready_already!=314159 || pool_ptr==0) {
 	if(lua_isstring(L, -1)) {
 	  s = (char *)lua_tostring(L, -1);
 	  fprintf(stdout,"%s",s);
@@ -88,7 +88,7 @@ texio_print (lua_State *L) {
 static int
 texio_printnl (lua_State *L) {
   char *s;
-  if (readyalready!=314159 || poolptr==0) {
+  if (ready_already!=314159 || pool_ptr==0) {
 	if(lua_isstring(L, -1)) {
 	  s = (char *)lua_tostring(L, -1);
 	  fprintf(stdout,"\n%s",s);
@@ -102,13 +102,13 @@ texio_printnl (lua_State *L) {
 	}
 	return 0;
   }
-  return do_texio_print(L,zprintnl);
+  return do_texio_print(L,zprint_nl);
 }
 
 /* at the point this function is called, the selector is log_only */
-void flushloggableinfo (void) {
+void flush_loggable_info (void) {
   if (loggable_info!=NULL) {
-	fprintf(logfile,"%s\n",loggable_info);
+	fprintf(log_file,"%s\n",loggable_info);
 	free(loggable_info);
 	loggable_info=NULL;
   }

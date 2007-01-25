@@ -50,7 +50,7 @@ fd_entry *epdf_create_fontdescriptor(fm_entry * fm)
         fd = new_fd_entry();
         fd->fm = fm;
         register_fd_entry(fd);
-        fd->fd_objnum = pdfnewobjnum();
+        fd->fd_objnum = pdf_new_objnum();
         assert(fm->ps_name != NULL);
         fd->fontname = xstrdup(fm->ps_name);    /* just fallback */
         /* preset_fontmetrics (fo->fd, f); */
@@ -69,7 +69,7 @@ integer get_fd_objnum(fd_entry * fd)
 integer get_fn_objnum(fd_entry * fd)
 {
     if (fd->fn_objnum == 0)
-        fd->fn_objnum = pdfnewobjnum();
+        fd->fn_objnum = pdf_new_objnum();
     return fd->fn_objnum;
 }
 

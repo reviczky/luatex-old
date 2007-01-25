@@ -46,11 +46,11 @@ static sa_tree  sfcode_head  = NULL;
 #define CATCODESTACK 8
 #define CATCODEDEFAULT 12
 
-void  setlccode (integer n, halfword v, quarterword gl) {
+void  set_lc_code (integer n, halfword v, quarterword gl) {
   set_sa_item(lccode_head,n,v,gl);
 }
 
-halfword getlccode (integer n) {
+halfword get_lc_code (integer n) {
   return (halfword)get_sa_item(lccode_head,n);
 }
 
@@ -70,11 +70,11 @@ static void undumplccodes (void) {
   lccode_head  = undump_sa_tree();
 }
 
-void  setuccode (integer n, halfword v, quarterword gl) {
+void  set_uc_code (integer n, halfword v, quarterword gl) {
   set_sa_item(uccode_head,n,v,gl);
 }
 
-halfword getuccode (integer n) {
+halfword get_uc_code (integer n) {
   return (halfword)get_sa_item(uccode_head,n);
 }
 
@@ -94,11 +94,11 @@ static void undumpuccodes (void) {
   uccode_head  = undump_sa_tree();
 }
 
-void  setsfcode (integer n, halfword v, quarterword gl) {
+void  set_sf_code (integer n, halfword v, quarterword gl) {
   set_sa_item(sfcode_head,n,v,gl);
 }
 
-halfword getsfcode (integer n) {
+halfword get_sf_code (integer n) {
   return (halfword)get_sa_item(sfcode_head,n);
 }
 
@@ -138,7 +138,7 @@ void check_catcode_sizes (int h) {
   }
 }
 
-void  setcatcode (integer h, integer n, halfword v, quarterword gl) {
+void  set_cat_code (integer h, integer n, halfword v, quarterword gl) {
   check_catcode_sizes(h);
   if (catcode_heads[h] == NULL) {
     catcode_heads[h] = new_sa_tree(CATCODESTACK,CATCODEDEFAULT);
@@ -146,7 +146,7 @@ void  setcatcode (integer h, integer n, halfword v, quarterword gl) {
   set_sa_item(catcode_heads[h],n,v,gl);
 }
 
-halfword getcatcode (integer h, integer n) {
+halfword get_cat_code (integer h, integer n) {
   check_catcode_sizes(h);
   if (catcode_heads[h] == NULL) {
     catcode_heads[h] = new_sa_tree(CATCODESTACK,CATCODEDEFAULT);
@@ -154,7 +154,7 @@ halfword getcatcode (integer h, integer n) {
   return (halfword)get_sa_item(catcode_heads[h],n);
 }
 
-void unsavecatcodes (integer h, quarterword gl) {
+void unsave_cat_codes (integer h, quarterword gl) {
   int k;
   check_catcode_sizes(h);
   for (k=0;k<=catcode_max;k++) {
@@ -177,17 +177,17 @@ static void initializecatcodes (void) {
 
 static void dumpcatcodes (void) {
   int k,total;
-  dumpint(catcode_max);
+  dump_int(catcode_max);
   total = 0;
   for (k=0;k<=catcode_max;k++) {
     if (catcode_valid[k]) {
       total++;
     }
   }
-  dumpint(total);
+  dump_int(total);
   for (k=0;k<=catcode_max;k++) {
     if (catcode_valid[k]) {
-      dumpint(k);
+      dump_int(k);
       dump_sa_tree(catcode_heads[k]);
     }
   }
@@ -195,29 +195,29 @@ static void dumpcatcodes (void) {
 
 static void undumpcatcodes (void) {
   int total,h,k;
-  undumpint(catcode_max);
+  undump_int(catcode_max);
   catcode_heads = Mxmalloc_array(sa_tree,(catcode_max+1));
   catcode_valid = Mxmalloc_array(unsigned char,(catcode_max+1));
   for (k=0;k<=catcode_max;k++) {
     catcode_heads[k]=NULL;
     catcode_valid[k]=0;
   }
-  undumpint(total);
+  undump_int(total);
   for (k=0;k<total;k++) {
-    undumpint(h);
+    undump_int(h);
     catcode_heads[h] = undump_sa_tree(); 
     catcode_valid[h] = 1;
   }
 }
 
-int validcatcodetable (int h) {
+int valid_catcode_table (int h) {
   if (h<=catcode_max && h>=0 && catcode_valid[h]) {
     return 1;
   }
   return 0;
 }
 
-void copycatcodes (int from, int to) {
+void copy_cat_codes (int from, int to) {
   if (from<0 || from>catcode_max || catcode_valid[from] == 0) {
 	uexit(1);
   }
@@ -227,33 +227,33 @@ void copycatcodes (int from, int to) {
   catcode_valid[to] = 1;
 }
 
-void initexcatcodes (int h) {
+void initex_cat_codes (int h) {
   int k;
   check_catcode_sizes(h);
   destroy_sa_tree(catcode_heads[h]);
   catcode_heads[h] = NULL;
-  setcatcode(h,'\r',car_ret,1);
-  setcatcode(h,' ',spacer,1);
-  setcatcode(h,'\\',escape,1);
-  setcatcode(h,'%',comment,1);
-  setcatcode(h,127,invalid_char,1);
-  setcatcode(h,0,ignore,1);
+  set_cat_code(h,'\r',car_ret,1);
+  set_cat_code(h,' ',spacer,1);
+  set_cat_code(h,'\\',escape,1);
+  set_cat_code(h,'%',comment,1);
+  set_cat_code(h,127,invalid_char,1);
+  set_cat_code(h,0,ignore,1);
   for (k='A';k<='Z';k++) {
-	setcatcode(h,k,letter,1); 
-	setcatcode(h,k+'a'-'A',letter,1);
+	set_cat_code(h,k,letter,1); 
+	set_cat_code(h,k+'a'-'A',letter,1);
   }
   catcode_valid[h] = 1;
 }
 
 void 
-unsavetextcodes (quarterword grouplevel) {
+unsave_text_codes (quarterword grouplevel) {
   unsavesfcodes(grouplevel);
   unsaveuccodes(grouplevel);
   unsavelccodes(grouplevel);
 }
 
 void 
-initializetextcodes (void) {
+initialize_text_codes (void) {
   initializesfcodes();
   initializeuccodes();
   initializecatcodes();
@@ -261,7 +261,7 @@ initializetextcodes (void) {
 }
 
 void 
-dumptextcodes (void) {
+dump_text_codes (void) {
   dumpsfcodes();
   dumpuccodes();
   dumplccodes();
@@ -269,7 +269,7 @@ dumptextcodes (void) {
 }
 
 void 
-undumptextcodes (void) {
+undump_text_codes (void) {
   undumpsfcodes();
   undumpuccodes();
   undumplccodes();

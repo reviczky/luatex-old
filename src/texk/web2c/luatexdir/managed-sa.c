@@ -186,24 +186,24 @@ dump_sa_tree (sa_tree a) {
   unsigned char h,m,l;
   if (a == NULL)
     return;
-  dumpint(a->step);
-  dumpint(a->dflt);
+  dump_int(a->step);
+  dump_int(a->dflt);
   if (a->tree != NULL) {
     for (h=0; h<HIGHPART;h++ ) {
       if (a->tree[h] != NULL) {
-	f = 1;  dumpqqqq(f);
+	f = 1;  dump_qqqq(f);
 	for (m=0; m<MIDPART; m++ ) {
 	  if (a->tree[h][m] != NULL) {
-	    f = 1;  dumpqqqq(f);
+	    f = 1;  dump_qqqq(f);
 	    for (l=0;l<LOWPART;l++) { 
-	      x = a->tree[h][m][l];  dumpint(x);  
+	      x = a->tree[h][m][l];  dump_int(x);  
 	    }
 	  } else { 
-	    f = 0;  dumpqqqq(f);
+	    f = 0;  dump_qqqq(f);
 	  } 
 	}
       } else { 
-	f = 0;  dumpqqqq(f);  
+	f = 0;  dump_qqqq(f);  
       } 
     }
   }
@@ -216,21 +216,21 @@ undump_sa_tree(void) {
   unsigned char h,m,l;
   boolean f;
   sa_tree a  = (sa_tree)Mxmalloc_array(sa_tree_head,1);
-  undumpint(x) ; a->step  = x; a->size  = x;
-  undumpint(x) ; a->dflt  = x;
+  undump_int(x) ; a->step  = x; a->size  = x;
+  undump_int(x) ; a->dflt  = x;
   a->stack = Mxmalloc_array(sa_stack_item,a->step);
   a->ptr   = 0;
   a->tree = (sa_tree_item ***)Mxmalloc_array(void *,HIGHPART);
   for (h=0; h<HIGHPART;h++ ) {  
-    undumpqqqq(f);  
+    undump_qqqq(f);  
     if (f>0)  { 
       a->tree[h]=(sa_tree_item **)Mxmalloc_array(void *,MIDPART);
       for (m=0; m<MIDPART; m++ )  { 
-	undumpqqqq(f);
+	undump_qqqq(f);
         if (f>0) { 
 	  a->tree[h][m]=Mxmalloc_array(sa_tree_item,LOWPART);
 	  for (l=0; l<LOWPART; l++)  { 
-	    undumpint(x);  a->tree[h][m][l] = x; 
+	    undump_int(x);  a->tree[h][m][l] = x; 
 	  } 
 	} else {
 	  a->tree[h][m] = NULL; 

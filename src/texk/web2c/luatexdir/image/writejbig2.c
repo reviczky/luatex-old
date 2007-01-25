@@ -638,8 +638,8 @@ void wr_jbig2(FILEINFO * fip, unsigned long page)
         pdf_puts("/Filter [/JBIG2Decode]\n");
         if (fip->page0.last != NULL) {
             if (fip->pdfpage0objnum == 0) {
-                pdfcreateobj(0, 0);
-                fip->pdfpage0objnum = objptr;
+                pdf_create_obj(0, 0);
+                fip->pdfpage0objnum = obj_ptr;
             }
             pdf_printf("/DecodeParms [<< /JBIG2Globals %lu 0 R >>]\n",
                        fip->pdfpage0objnum);
@@ -647,7 +647,7 @@ void wr_jbig2(FILEINFO * fip, unsigned long page)
     } else {
         pip = find_pageinfo(&(fip->page0), page);
         assert(pip != NULL);
-        pdfbegindict(fip->pdfpage0objnum, 0);
+        pdf_begin_dict(fip->pdfpage0objnum, 0);
         pdf_printf("/Length %lu\n", getstreamlen(pip->segments.first, false));
     }
     pdf_puts(">>\n");
@@ -664,7 +664,7 @@ void wr_jbig2(FILEINFO * fip, unsigned long page)
                 pdfout(ygetc(fip->file));
         }
     }
-    pdfendstream();
+    pdf_end_stream();
     xfclose(fip->file, fip->filename);
 }
 
@@ -728,7 +728,7 @@ void write_jbig2(integer img)
 
 /**********************************************************************/
 
-void flushjbig2page0objects()
+void flush_jbig2_page0_objects()
 {
     FILEINFO *fip;
     struct avl_traverser t;

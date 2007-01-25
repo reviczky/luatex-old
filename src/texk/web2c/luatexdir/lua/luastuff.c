@@ -439,7 +439,7 @@ luatex_error (lua_State * L, int is_fatal) {
        The pool may overflow during the maketexstring(), but we 
        are crashing anyway so we may as well abort on the pool size */
     s = maketexstring(err);
-    luafatalerror(s);
+    lua_fatal_error(s);
     /* never reached */
     xfree (err);
     lua_close(L);
@@ -449,16 +449,16 @@ luatex_error (lua_State * L, int is_fatal) {
     /* Here, the pool could be full already, but we can possibly escape from that 
      * condition, since the lua chunk that caused the error is the current string.
      */
-    s = strptr-0x200000;
+    s = str_ptr-0x200000;
     //    fprintf(stderr,"poolinfo: %d: %d,%d out of %d\n",s,poolptr,strstart[(s-1)],poolsize);
     poolptr = strstart[(s-1)];
     strstart[s] = poolptr;
     if (poolptr+len>=poolsize) {
-      luanormerror(' ');
+      lua_norm_error(' ');
     } else {
       s = maketexstring(err);
-      luanormerror(s);
-      flushstr(s);
+      lua_norm_error(s);
+      flush_str(s);
     }
     xfree (err);
     return L;

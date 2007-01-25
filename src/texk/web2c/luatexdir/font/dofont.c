@@ -24,22 +24,11 @@ $Id$
 
 #include "luatex-api.h"
 
-/* some pascal interfacing (underscore-glue) macros */
-
-#define internal_font_number internalfontnumber
-#define font_ptr fontptr
-#define get_default_hyphen_char getdefaulthyphenchar
-#define get_default_skew_char getdefaultskewchar
-#define sprint_cs sprintcs
-#define print_file_name printfilename
-#define print_scaled printscaled
-#define print_int printint
-
 
 /* a bit more interfacing is needed for proper error reporting */
 
-#define print_err(s) { doprinterr(maketexstring(s)); flushstr(last_tex_string); }
-#define print_string(s) { print(maketexstring(s)); flushstr(last_tex_string); }
+#define print_err(s) { do_print_err(maketexstring(s)); flush_str(last_tex_string); }
+#define print_string(s) { print(maketexstring(s)); flush_str(last_tex_string); }
 
 void do_error(char *msg, char **hlp) {
   strnumber msgmsg = 0,aa = 0,bb = 0,cc = 0,dd = 0,ee = 0;
@@ -58,11 +47,11 @@ void do_error(char *msg, char **hlp) {
   }
   error();
 
-  if (ee)    flushstr(ee);
-  if (dd)    flushstr(dd);
-  if (cc)    flushstr(cc);
-  if (bb)    flushstr(bb);
-  if (aa)    flushstr(aa);
+  if (ee)    flush_str(ee);
+  if (dd)    flush_str(dd);
+  if (cc)    flush_str(cc);
+  if (bb)    flush_str(bb);
+  if (aa)    flush_str(aa);
 }
 
 static void
@@ -70,7 +59,7 @@ start_font_error_message (pointer u, strnumber nom, strnumber aire, scaled s) {
   print_err("Font "); 
   sprint_cs(u);
   print_string("="); 
-  print_file_name(nom,aire,getnullstr());
+  print_file_name(nom,aire,get_nullstr());
   if (s>=0 ) {
     print_string(" at "); print_scaled(s); print_string("pt");
   } else if (s!=-1000) {
@@ -90,9 +79,9 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
   res = 0;
   cnom  = xstrdup(makecstring(nom));
   caire = xstrdup(makecstring(aire));
-  callback_id=callbackdefined("define_font");
+  callback_id=callback_defined("define_font");
   if (callback_id>0) {
-    callback_id = runandsavecallback(callback_id,"SSd->",cnom,caire,s);
+    callback_id = run_and_save_callback(callback_id,"SSd->",cnom,caire,s);
     if (callback_id>0) {
       luaL_checkstack(Luas[0],1,"out of stack space");
       lua_rawgeti(Luas[0],LUA_REGISTRYINDEX, callback_id);

@@ -20,11 +20,11 @@ char *getbanner (void) {
 }
 
 char *getfilename (void) {
-  return makecstring(getcurrentname());
+  return makecstring(get_current_name());
 }
 
 char *getlasterror (void) {
-  return makecstring(lasterror);
+  return makecstring(last_error);
 }
 
 
@@ -34,69 +34,69 @@ extern int luastate_max;
 extern int luastate_bytes;
 
 static struct statistic stats[] = {
-  { "pdf_gone",                  'g', &pdfgone         },
-  { "pdf_ptr",                   'g', &pdfptr          },
-  { "dvi_gone",                  'g', &dvioffset       },
-  { "dvi_ptr",                   'g', &dviptr          },
-  { "total_pages",               'g', &totalpages      },
-  { "output_file_name",          's', &outputfilename  },
-  { "log_name",                  's', &texmflogname    }, /* weird */
+  { "pdf_gone",                  'g', &pdf_gone         },
+  { "pdf_ptr",                   'g', &pdf_ptr          },
+  { "dvi_gone",                  'g', &dvi_offset       },
+  { "dvi_ptr",                   'g', &dvi_ptr          },
+  { "total_pages",               'g', &total_pages      },
+  { "output_file_name",          's', &output_file_name  },
+  { "log_name",                  's', &texmf_log_name    }, /* weird */
   { "banner",                    'S', &getbanner       },
-  { "pdftex_banner",             's', &pdftexbanner    },
+  { "pdftex_banner",             's', &pdftex_banner    },
   /*
    * mem stat 
    */
-  { "var_used",                  'g', &varused         },
-  { "dyn_used",                  'g', &dynused         },
+  { "var_used",                  'g', &var_used         },
+  { "dyn_used",                  'g', &dyn_used         },
   /* 
    * traditional tex stats 
    */
-  { "str_ptr",                   'g', &strptr          },
-  { "init_str_ptr",              'g', &initstrptr      },
-  { "max_strings",               'g', &maxstrings      },
-  { "pool_ptr",                  'g', &poolptr         },
-  { "init_pool_ptr",             'g', &initpoolptr     },
-  { "pool_size",                 'g', &poolsize        },
-  { "lo_mem_max",                'g', &lomemmax        },
-  { "mem_min",                   'g', &memmin          },
-  { "mem_end",                   'g', &memend          },
-  { "hi_mem_min",                'g', &himemmin        },
-  { "cs_count",                  'g', &cscount         },
-  { "hash_size",                 'G', &gethashsize     },
-  { "hash_extra",                'g', &hashextra       },
-  { "font_ptr",                  'g', &fontptr         },
+  { "str_ptr",                   'g', &str_ptr          },
+  { "init_str_ptr",              'g', &init_str_ptr      },
+  { "max_strings",               'g', &max_strings      },
+  { "pool_ptr",                  'g', &pool_ptr         },
+  { "init_pool_ptr",             'g', &init_pool_ptr     },
+  { "pool_size",                 'g', &pool_size        },
+  { "lo_mem_max",                'g', &lo_mem_max        },
+  { "mem_min",                   'g', &mem_min          },
+  { "mem_end",                   'g', &mem_end          },
+  { "hi_mem_min",                'g', &hi_mem_min        },
+  { "cs_count",                  'g', &cs_count         },
+  { "hash_size",                 'G', &get_hash_size     },
+  { "hash_extra",                'g', &hash_extra       },
+  { "font_ptr",                  'g', &font_ptr         },
   //{ "font_base",                 'g', &fontbase        },
-  { "hyph_count",                'g', &hyphcount       },
-  { "hyph_size",                 'g', &hyphsize        },
-  { "max_in_stack",              'g', &maxinstack      },
-  { "max_nest_stack",            'g', &maxneststack    },
-  { "max_param_stack",           'g', &maxparamstack   },
-  { "max_buf_stack",             'g', &maxbufstack     },
-  { "max_save_stack",            'g', &maxsavestack    },
-  { "stack_size",                'g', &stacksize       },
-  { "nest_size",                 'g', &nestsize        },
-  { "param_size",                'g', &paramsize       },
-  { "buf_size",                  'g', &bufsize         },
-  { "save_size",                 'g', &savesize        },
+  { "hyph_count",                'g', &hyph_count       },
+  { "hyph_size",                 'g', &hyph_size        },
+  { "max_in_stack",              'g', &max_in_stack      },
+  { "max_nest_stack",            'g', &max_nest_stack    },
+  { "max_param_stack",           'g', &max_param_stack   },
+  { "max_buf_stack",             'g', &max_buf_stack     },
+  { "max_save_stack",            'g', &max_save_stack    },
+  { "stack_size",                'g', &stack_size       },
+  { "nest_size",                 'g', &nest_size        },
+  { "param_size",                'g', &param_size       },
+  { "buf_size",                  'g', &buf_size         },
+  { "save_size",                 'g', &save_size        },
   /* pdf stats */
-  { "obj_ptr",                   'g', &objptr          },
-  { "obj_tab_size",              'g', &objtabsize      },
+  { "obj_ptr",                   'g', &obj_ptr          },
+  { "obj_tab_size",              'g', &obj_tab_size      },
   //  { "sup_obj_tab_size",          'g', &supobjtabsize   },
-  { "pdf_os_cntr",               'g', &pdfoscntr       },
+  { "pdf_os_cntr",               'g', &pdf_os_cntr       },
   //  { "pdf_os_max_objs",           'g', &pdfosmaxobjs    },
-  { "pdf_os_objidx",             'g', &pdfosobjidx     },
-  { "pdf_dest_names_ptr",        'g', &pdfdestnamesptr },
-  { "dest_names_size",           'g', &destnamessize   },
+  { "pdf_os_objidx",             'g', &pdf_os_objidx     },
+  { "pdf_dest_names_ptr",        'g', &pdf_dest_names_ptr },
+  { "dest_names_size",           'g', &dest_names_size   },
   //{ "sup_dest_names_size",       'g', &supdestnamessize},
-  { "pdf_mem_ptr",               'g', &pdfmemptr       },
-  { "pdf_mem_size",              'g', &pdfmemsize      },
+  { "pdf_mem_ptr",               'g', &pdf_mem_ptr       },
+  { "pdf_mem_size",              'g', &pdf_mem_size      },
   //{ "sup_pdf_mem_size",          'g', &suppdfmemsize   },
   
-  { "largest_used_mark",         'g', &biggestusedmark  },
+  { "largest_used_mark",         'g', &biggest_used_mark  },
   //
 
   { "filename",                  'S', &getfilename     },
-  { "inputid",                   'G', &getcurrentname  },
+  { "inputid",                   'G', &get_current_name  },
   { "linenumber",                'g', &line            },
   { "lasterrorstring",           'S', &getlasterror    },
   

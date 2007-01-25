@@ -51,7 +51,7 @@ prepare_cmdline(lua_State * L, char **argv, int argc, int zero_offset)
 }
 
 extern const_string dump_name;
-extern const_string job_name;
+extern const_string c_job_name;
 extern boolean srcspecialsoption;
 extern char *last_source_name;
 extern int last_lineno;
@@ -86,7 +86,7 @@ static struct option long_options[]
       { "luaonly",                   0, 0, 0},
       { "safer",                     0, &safer_option, 1},
       { "help",                      0, 0, 0 },
-      { "ini",                       0, &iniversion, 1 },
+      { "ini",                       0, &ini_version, 1 },
       { "interaction",               1, 0, 0 },
       { "halt-on-error",             0, &haltonerrorp, 1 },
       { "kpathsea-debug",            1, 0, 0 },
@@ -100,7 +100,7 @@ static struct option long_options[]
       { "output-format",             1, 0, 0 },
       { "shell-escape",              0, &shellenabledp, 1 },
       { "no-shell-escape",           0, &shellenabledp, -1 },
-      { "debug-format",              0, &debugformatfile, 1 },
+      { "debug-format",              0, &debug_format_file, 1 },
       { "src-specials",              2, 0, 0 },
       { "file-line-error-style",     0, &filelineerrorstylep, 1 },
       { "no-file-line-error-style",  0, &filelineerrorstylep, -1 },
@@ -151,7 +151,7 @@ parse_options(int argc, char **argv)
 	  user_progname = optarg;
 	  
     } else if (ARGUMENT_IS ("jobname")) {
-      job_name = optarg;
+      c_job_name = optarg;
 
 	} else if (ARGUMENT_IS("fmt")) {
 	  dump_name = optarg;
@@ -162,13 +162,13 @@ parse_options(int argc, char **argv)
     } else if (ARGUMENT_IS ("output-comment")) {
       unsigned len = strlen (optarg);
       if (len < 256) {
-        outputcomment = optarg;
+        output_comment = optarg;
       } else {
         WARNING2 ("Comment truncated to 255 characters from %d. (%s)",
                   len, optarg);
-        outputcomment = (string)xmalloc (256);
-        strncpy (outputcomment, optarg, 255);
-        outputcomment[255] = 0;
+        output_comment = (string)xmalloc (256);
+        strncpy (output_comment, optarg, 255);
+        output_comment[255] = 0;
       }
 
     } else if (ARGUMENT_IS ("src-specials")) {
@@ -184,19 +184,19 @@ parse_options(int argc, char **argv)
        }
 
     } else if (ARGUMENT_IS ("output-format")) {
-       pdfoutputoption = 1;
+       pdf_output_option = 1;
        if (strcmp(optarg, "dvi") == 0) {
-         pdfoutputvalue = 0;
+         pdf_output_value = 0;
        } else if (strcmp(optarg, "pdf") == 0) {
-         pdfoutputvalue = 2;
+         pdf_output_value = 2;
        } else {
          WARNING1 ("Ignoring unknown value `%s' for --output-format", optarg);
-         pdfoutputoption = 0;
+         pdf_output_option = 0;
        }
 
     } else if (ARGUMENT_IS ("draftmode")) {
-      pdfdraftmodeoption = 1;
-      pdfdraftmodevalue = 1;
+      pdf_draftmode_option = 1;
+      pdf_draftmode_value = 1;
 
     } else if (ARGUMENT_IS ("mktex")) {
       kpse_maketex_option (optarg, true);
@@ -243,7 +243,7 @@ parse_options(int argc, char **argv)
 			(strstr(firstfile,".luc") == firstfile+strlen(firstfile)-4) ||
             (strstr(firstfile,".LUA") == firstfile+strlen(firstfile)-4) ||
 			(strstr(firstfile,".LUC") == firstfile+strlen(firstfile)-4) ||
-			 strstr(argv[0],"luatexlua") == argv[0]) {
+			(strstr(argv[0],"luatexlua") != NULL)) {
 		  startup_filename = firstfile;
 		  lua_only = 1;
 		  lua_offset = optind;		  
@@ -252,6 +252,11 @@ parse_options(int argc, char **argv)
 		  input_name = firstfile;
 		}
 	  }
+	}
+  } else {
+	if (strstr(argv[0],"luatexlua") != NULL) {
+	  lua_only = 1;
+	  luainit = 1 ;
 	}
   }
 }
@@ -295,7 +300,7 @@ init_kpse (void) {
   if (!user_progname) 
 	user_progname = (string) dump_name;
   if (!user_progname) {
-	if (iniversion) {
+	if (ini_version) {
 	  user_progname = input_name;
 	} else {
 	  if(!startup_filename) {
@@ -327,7 +332,7 @@ fix_dumpname (void) {
 	DUMP_LENGTH_VAR = strlen(DUMP_VAR + 1);
   } else {
 	/* For dump_name to be NULL is a bug.  */
-	if (!iniversion)
+	if (!ini_version)
 	  abort();
   }
 }
@@ -387,14 +392,14 @@ lua_initialize(int ac, char **av)
 	  
 	  /* kpse_init */
 	  kpse_init = -1;
-	  getluaboolean("texconfig", "kpse_init", &kpse_init);
+	  get_lua_boolean("texconfig", "kpse_init", &kpse_init);
 
 	  if (kpse_init != 0) {
 		init_kpse();
 	  }
 	  /* prohibit_file_trace (boolean) */
 	  tracefilenames = 1;
-	  getluaboolean("texconfig", "trace_file_names", &tracefilenames);
+	  get_lua_boolean("texconfig", "trace_file_names", &tracefilenames);
 	  
 	  /* src_special_xx */
 	  insertsrcspecialauto = insertsrcspecialeverypar =
@@ -402,21 +407,21 @@ lua_initialize(int ac, char **av)
 	    insertsrcspecialeverymath = insertsrcspecialeveryhbox =
 	    insertsrcspecialeveryvbox = insertsrcspecialeverydisplay =
 	    false;
-	  getluaboolean("texconfig", "src_special_auto",
+	  get_lua_boolean("texconfig", "src_special_auto",
 					&insertsrcspecialauto);
-	  getluaboolean("texconfig", "src_special_everypar",
+	  get_lua_boolean("texconfig", "src_special_everypar",
 					&insertsrcspecialeverypar);
-	  getluaboolean("texconfig", "src_special_everyparend",
+	  get_lua_boolean("texconfig", "src_special_everyparend",
 					&insertsrcspecialeveryparend);
-	  getluaboolean("texconfig", "src_special_everycr",
+	  get_lua_boolean("texconfig", "src_special_everycr",
 				  &insertsrcspecialeverycr);
-	  getluaboolean("texconfig", "src_special_everymath",
+	  get_lua_boolean("texconfig", "src_special_everymath",
 					&insertsrcspecialeverymath);
-	  getluaboolean("texconfig", "src_special_everyhbox",
+	  get_lua_boolean("texconfig", "src_special_everyhbox",
 					&insertsrcspecialeveryhbox);
-	  getluaboolean("texconfig", "src_special_everyvbox",
+	  get_lua_boolean("texconfig", "src_special_everyvbox",
 		      &insertsrcspecialeveryvbox);
-	  getluaboolean("texconfig", "src_special_everydisplay",
+	  get_lua_boolean("texconfig", "src_special_everydisplay",
 					&insertsrcspecialeverydisplay);
 
 	  srcspecialsp = insertsrcspecialauto | insertsrcspecialeverypar |
@@ -426,12 +431,12 @@ lua_initialize(int ac, char **av)
 
 	  /* file_line_error */
 	  filelineerrorstylep = false;
-	  getluaboolean("texconfig", "file_line_error",
+	  get_lua_boolean("texconfig", "file_line_error",
 					&filelineerrorstylep);
 
 	  /* halt_on_error */
 	  haltonerrorp = false;
-	  getluaboolean("texconfig", "halt_on_error", &haltonerrorp);
+	  get_lua_boolean("texconfig", "halt_on_error", &haltonerrorp);
 	  
 	  fix_dumpname();
     } else {

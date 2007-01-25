@@ -68,15 +68,6 @@ define_array (fb);
 typedef char char_entry;
 define_array (char);
 
-/* define vf_e_fnts_ptr, vf_e_fnts_array & vf_e_fnts_limit */
-typedef integer vf_e_fnts_entry;
-define_array(vf_e_fnts);
-
-/* define vf_i_fnts_ptr, vf_i_fnts_array & vf_i_fnts_limit */
-typedef internalfontnumber vf_i_fnts_entry;
-define_array(vf_i_fnts);
-
-
 integer fb_offset (void)
 {
     return fb_ptr - fb_array;
@@ -87,7 +78,7 @@ void fb_seek (integer offset)
     fb_ptr = fb_array + offset;
 }
 
-void fb_putchar (eightbits b)
+void fb_putchar (eight_bits b)
 {
     alloc_array (fb, 1, SMALL_ARRAY_SIZE);
     *fb_ptr++ = b;
@@ -98,13 +89,13 @@ void fb_flush (void)
     fb_entry *p;
     integer n;
     for (p = fb_array; p < fb_ptr;) {
-        n = pdfbufsize - pdfptr;
+        n = pdf_buf_size - pdf_ptr;
         if (fb_ptr - p < n)
             n = fb_ptr - p;
-        memcpy (pdfbuf + pdfptr, p, (unsigned) n);
-        pdfptr += n;
-        if (pdfptr == pdfbufsize)
-            pdfflush ();
+        memcpy (pdf_buf + pdf_ptr, p, (unsigned) n);
+        pdf_ptr += n;
+        if (pdf_ptr == pdf_buf_size)
+            pdf_flush ();
         p += n;
     }
     fb_ptr = fb_array;
@@ -161,7 +152,7 @@ void pdf_puts (const char *s)
 {
     pdfroom (strlen (s) + 1);
     while (*s)
-        pdfbuf[pdfptr++] = *s++;
+        pdf_buf[pdf_ptr++] = *s++;
 }
 
 __attribute__ ((format (printf, 1, 2))) 
@@ -177,18 +168,18 @@ void pdf_printf (const char *fmt, ...)
 strnumber maketexstring (const char *s)
 {
   if (s == NULL || *s == 0)
-    return getnullstr ();
+    return get_nullstr ();
   return maketexlstring(s,strlen(s));
 }
 
 strnumber maketexlstring (const char *s, size_t l) 
 {
     if (s == NULL || *s == 0)
-        return getnullstr ();
+        return get_nullstr ();
     check_buf (poolptr + l, poolsize);
     while (l-- > 0)
         strpool[poolptr++] = *s++;
-    last_tex_string = makestring ();
+    last_tex_string = make_string ();
     return last_tex_string;
 }
 
@@ -200,7 +191,7 @@ void tex_printf (const char *fmt, ...)
     va_start (args, fmt);
     vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
     print (maketexstring (print_buf));
-    flushstr (last_tex_string);
+    flush_str (last_tex_string);
     xfflush (stdout);
     va_end (args);
 }
@@ -213,11 +204,11 @@ static void safe_print (const char *str)
         print (*c);
 }
 
-void removepdffile (void)
+void remove_pdffile (void)
 {
-    if (!kpathsea_debug && outputfilename && !fixedpdfdraftmode) {
-        xfclose (pdffile, makecstring (outputfilename));
-        remove (makecstring (outputfilename));
+    if (!kpathsea_debug && output_file_name && !fixed_pdf_draftmode) {
+        xfclose (pdf_file, makecstring (output_file_name));
+        remove (makecstring (output_file_name));
     }
 }
 
@@ -234,7 +225,7 @@ void pdftex_fail (const char *fmt, ...)
 {
     va_list args;
     va_start (args, fmt);
-    println ();
+    print_ln ();
     safe_print ("!luaTeX error: ");
     safe_print (program_invocation_name);
     if (cur_file_name) {
@@ -246,10 +237,10 @@ void pdftex_fail (const char *fmt, ...)
     vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
     safe_print (print_buf);
     va_end (args);
-    println ();
-    removepdffile();
+    print_ln ();
+    remove_pdffile();
     safe_print (" ==> Fatal error occurred, no output PDF file produced!");
-    println ();
+    print_ln ();
     if (kpathsea_debug) {
         abort ();
     } else {
@@ -265,22 +256,22 @@ void pdftex_warn (const char *fmt, ...)
 {
     va_list args;
     va_start (args, fmt);
-    println ();
+    print_ln ();
     tex_printf ("luaTeX warning: %s", program_invocation_name);
     if (cur_file_name)
         tex_printf (" (file %s)", cur_file_name);
     tex_printf (": ");
     vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
     print (maketexstring (print_buf));
-    flushstr (last_tex_string);
+    flush_str (last_tex_string);
     va_end (args);
-    println ();
+    print_ln ();
 }
 
-void garbagewarning (void)
+void garbage_warning (void)
 {
     pdftex_warn ("dangling objects discarded, no output file produced.");
-    removepdffile ();
+    remove_pdffile ();
 }
 
 char *makecstring (integer s) {
@@ -329,7 +320,7 @@ char *makeclstring (integer s, int *len)
     return cstrbuf;
 }
 
-void setjobid (int year, int month, int day, int time)
+void set_job_id (int year, int month, int day, int time)
 {
     char *name_string, *format_string, *s;
     size_t slen;
@@ -338,8 +329,8 @@ void setjobid (int year, int month, int day, int time)
     if (job_id_string != NULL)
         return;
 
-    name_string = xstrdup (makecstring (jobname));
-    format_string = xstrdup (makecstring (formatident));
+    name_string = xstrdup (makecstring (job_name));
+    format_string = xstrdup (makecstring (format_ident));
     slen = SMALL_BUF_SIZE +
         strlen (name_string) +
         strlen (format_string) +
@@ -359,7 +350,7 @@ void setjobid (int year, int month, int day, int time)
     xfree (format_string);
 }
 
-void makepdftexbanner (void)
+void make_pdftex_banner (void)
 {
     static boolean pdftexbanner_init = false;
     char *s;
@@ -377,12 +368,12 @@ void makepdftexbanner (void)
     i = snprintf (s, slen,
              "%s%s %s", ptexbanner, versionstring, kpathsea_version_string);
 	check_nprintf (i, slen);
-    pdftexbanner = maketexstring (s);
+    pdftex_banner = maketexstring (s);
     xfree (s);
     pdftexbanner_init = true;
 }
 
-strnumber getresnameprefix (void)
+strnumber get_resname_prefix (void)
 {
 /*     static char name_str[] = */
 /* "!\"$&'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\" */
@@ -433,18 +424,18 @@ int xputc (int c, FILE * stream)
     return i;
 }
 
-void writestreamlength (integer length, integer offset)
+void write_stream_length (integer length, integer offset)
 {
     if (jobname_cstr == NULL)
-        jobname_cstr = xstrdup (makecstring (jobname));
-	if (fixedpdfdraftmode == 0) {
-	xfseek (pdffile, offset, SEEK_SET, jobname_cstr);
-    fprintf (pdffile, "%li", (long int) length);
-    xfseek (pdffile, pdfoffset (), SEEK_SET, jobname_cstr);
+        jobname_cstr = xstrdup (makecstring (job_name));
+	if (fixed_pdf_draftmode == 0) {
+	xfseek (pdf_file, offset, SEEK_SET, jobname_cstr);
+    fprintf (pdf_file, "%li", (long int) length);
+    xfseek (pdf_file, pdfoffset (), SEEK_SET, jobname_cstr);
 	}
 }
 
-scaled extxnoverd (scaled x, scaled n, scaled d)
+scaled ext_xn_over_d (scaled x, scaled n, scaled d)
 {
     double r = (((double) x) * ((double) n)) / ((double) d);
     if (r > DBL_EPSILON)
@@ -773,7 +764,7 @@ static void convertStringToHexString (const char *in, char *out, int lin)
   scanning the info dict is also difficult, we start with a simpler
   implementation using just the first two items.
  */
-void printID (strnumber filename)
+void print_ID (strnumber filename)
 {
     time_t t;
     size_t size;
@@ -909,7 +900,7 @@ static void makepdftime (time_t t, char *time_str)
     }
 }
 
-void initstarttime ()
+void init_start_time ()
 {
     if (start_time == 0) {
         start_time = time ((time_t *) NULL);
@@ -917,15 +908,15 @@ void initstarttime ()
     }
 }
 
-void printcreationdate ()
+void print_creation_date ()
 {
-    initstarttime ();
+    init_start_time ();
     pdf_printf ("/CreationDate (%s)\n", start_time_str);
 }
 
-void printmoddate ()
+void print_mod_date ()
 {
-    initstarttime ();
+    init_start_time ();
     pdf_printf ("/ModDate (%s)\n", start_time_str);
 }
 
@@ -934,7 +925,7 @@ void getcreationdate ()
     /* put creation date on top of string pool and update poolptr */
     size_t len = strlen (start_time_str);
 
-    initstarttime ();
+    init_start_time ();
 
     if ((unsigned)(poolptr + len) >= (unsigned)poolsize) {
         poolptr = poolsize;
@@ -1589,24 +1580,4 @@ void matrixtransformpoint(scaled x, scaled y)
 void matrixrecalculate(scaled urx)
 {
     matrixtransformrect(last_llx, last_lly, urx, last_ury);
-}
-
-void allocvffnts(int font_max)
-{
-    if (vf_e_fnts_array == NULL) {
-        vf_e_fnts_array = vfefnts;
-        vf_e_fnts_limit = font_max;
-        vf_e_fnts_ptr = vf_e_fnts_array;
-        vf_i_fnts_array = vfifnts;
-        vf_i_fnts_limit = font_max;
-        vf_i_fnts_ptr = vf_i_fnts_array;
-    }
-    alloc_array(vf_e_fnts, 1, font_max);
-    vf_e_fnts_ptr++;
-    alloc_array(vf_i_fnts, 1, font_max);
-    vf_i_fnts_ptr++;
-    if (vf_e_fnts_array != vfefnts) {
-        vfefnts = vf_e_fnts_array;
-        vfifnts = vf_i_fnts_array;
-    }
 }

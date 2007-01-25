@@ -22,6 +22,9 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/vfpacket.c#7 $
 
 #include "ptexlib.h"
 
+extern integer *vf_packet_base;
+extern integer vf_packet_length;
+
 typedef struct {
     internalfontnumber font;
     char *dataptr;
@@ -42,7 +45,7 @@ define_array (vf);
 
 static char *packet_data_ptr;
 
-integer newvfpacket (internalfontnumber f)
+integer new_vf_packet (internalfontnumber f)
 {
   int i, n = font_ec(f) - font_bc(f) + 1;
     alloc_array (vf, 1, SMALL_ARRAY_SIZE);
@@ -56,48 +59,48 @@ integer newvfpacket (internalfontnumber f)
     return vf_ptr++ - vf_array;
 }
 
-void storepacket (integer f, integer c, integer s)
+void store_packet (integer f, integer c, integer s)
 {
   if(s>=2097152) {
 	s-=2097152;
     int l = strstart[s + 1] - strstart[s];
-    vf_array[vfpacketbase[f]].len[c - font_bc(f)] = l;
-    vf_array[vfpacketbase[f]].data[c - font_bc(f)] = xtalloc (l, char);
-    memcpy ((void *) vf_array[vfpacketbase[f]].data[c - font_bc(f)],
+    vf_array[vf_packet_base[f]].len[c - font_bc(f)] = l;
+    vf_array[vf_packet_base[f]].data[c - font_bc(f)] = xtalloc (l, char);
+    memcpy ((void *) vf_array[vf_packet_base[f]].data[c - font_bc(f)],
             (void *) (strpool + strstart[s]), (unsigned) l);
   } else {
 	pdftex_fail("vfpacket.c: storepacket() for single characters: NI ");
   }
 }
 
-void pushpacketstate ()
+void push_packet_state ()
 {
     alloc_array (packet, 1, SMALL_ARRAY_SIZE);
     packet_ptr->font = f;
     packet_ptr->dataptr = packet_data_ptr;
-    packet_ptr->len = vfpacketlength;
+    packet_ptr->len = vf_packet_length;
     packet_ptr++;
 }
 
-void poppacketstate ()
+void pop_packet_state ()
 {
     if (packet_ptr == packet_array)
         pdftex_fail ("packet stack empty, impossible to pop");
     packet_ptr--;
     f = packet_ptr->font;
     packet_data_ptr = packet_ptr->dataptr;
-    vfpacketlength = packet_ptr->len;
+    vf_packet_length = packet_ptr->len;
 }
 
-void startpacket (internalfontnumber f, integer c)
+void start_packet (internalfontnumber f, integer c)
 {
-  packet_data_ptr = vf_array[vfpacketbase[f]].data[c - font_bc(f)];
-  vfpacketlength = vf_array[vfpacketbase[f]].len[c - font_bc(f)];
+  packet_data_ptr = vf_array[vf_packet_base[f]].data[c - font_bc(f)];
+  vf_packet_length = vf_array[vf_packet_base[f]].len[c - font_bc(f)];
 }
 
-realeightbits packetbyte ()
+real_eight_bits packet_byte ()
 {
-    vfpacketlength--;
+    vf_packet_length--;
     return *packet_data_ptr++;
 }
 

@@ -24,7 +24,7 @@ $Id: avlstuff.c,v 1.12 2005/07/11 20:27:39 hahe Exp hahe $
 #include <kpathsea/c-proto.h>
 #include "avl.h"
 
-static struct avl_table *PdfObjTree[pdfobjtypemax + 1] =
+static struct avl_table *PdfObjTree[pdf_objtype_max + 1] =
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
 /**********************************************************************/
@@ -111,7 +111,7 @@ int compare_info(const void *pa, const void *pb, void *param)
     return 0;
 }
 
-void avlputobj(integer objptr, integer t)
+void avl_put_obj(integer objptr, integer t)
 {
     static void **pp;
     static oentry *oe;
@@ -122,7 +122,7 @@ void avlputobj(integer objptr, integer t)
             pdftex_fail("avlstuff.c: avl_create() PdfObjTree failed");
     }
     oe = xtalloc(1, oentry);
-    oe->int0 = objtab[objptr].int0;
+    oe->int0 = obj_tab[objptr].int0;
     oe->objptr = objptr;        /* allows to relocate objtab */
     pp = avl_probe(PdfObjTree[t], oe);
     if (pp == NULL)
@@ -132,7 +132,7 @@ void avlputobj(integer objptr, integer t)
 
 /* replacement for linear search pascal function "find_obj()" */
 
-integer avlfindobj(integer t, integer i, integer byname)
+integer avl_find_obj(integer t, integer i, integer byname)
 {
     static oentry *p;
     static oentry tmp;
@@ -171,7 +171,7 @@ void PdfObjTree_free()
 {
     int i;
 
-    for (i = 0; i <= pdfobjtypemax; i++) {
+    for (i = 0; i <= pdf_objtype_max; i++) {
         if (PdfObjTree[i] != NULL)
             avl_destroy(PdfObjTree[i], destroy_oentry);
     }

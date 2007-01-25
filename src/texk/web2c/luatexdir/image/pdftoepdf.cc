@@ -225,7 +225,7 @@ static int addEncoding(GfxFont * gfont)
     n->next = encodingList;
     encodingList = n;
     n->font = gfont;
-    n->enc_objnum = pdfnewobjnum();
+    n->enc_objnum = pdf_new_objnum();
     return n->enc_objnum;
 }
 
@@ -270,7 +270,7 @@ static int addInObj(InObjType type, Ref ref, fd_entry * fd, integer e)
     if (type == objFontDesc)
         n->num = get_fd_objnum(fd);
     else
-        n->num = pdfnewobjnum();
+        n->num = pdf_new_objnum();
     return n->num;
 }
 
@@ -338,7 +338,7 @@ static void copyStream(Stream * str)
     str->reset();
     while ((c = str->getChar()) != EOF)
         pdfout(c);
-    pdflastbyte = pdfbuf[pdfptr - 1];
+    pdf_last_byte = pdf_buf[pdf_ptr - 1];
 }
 
 static void copyProcSet(Object * obj)
@@ -569,9 +569,9 @@ static void copyObject(Object * obj)
         pdf_puts(">>\n");
         pdf_puts("stream\n");
         copyStream(obj->getStream()->getBaseStream());
-        if (pdflastbyte != '\n')
+        if (pdf_last_byte != '\n')
             pdf_puts("\n");
-        pdf_puts("endstream");  // can't simply write pdfendstream()
+        pdf_puts("endstream");  // can't simply write pdf_end_stream()
     } else if (obj->isRef()) {
         ref = obj->getRef();
         if (ref.num == 0) {
@@ -596,18 +596,18 @@ static void writeRefs()
             xref->fetch(r->ref.num, r->ref.gen, &obj1);
             if (r->type == objFont) {
                 assert(!obj1.isStream());
-                zpdfbeginobj(r->num, 2);        // \pdfobjcompresslevel = 2 is for this
+                zpdf_begin_obj(r->num, 2);        // \pdfobjcompresslevel = 2 is for this
                 copyFontDict(&obj1, r);
                 pdf_puts("\n");
-                pdfendobj();
+                pdf_end_obj();
             } else if (r->type != objFontDesc) {        // /FontDescriptor is written via write_fontdescriptor()
                 if (obj1.isStream())
-                    zpdfbeginobj(r->num, 0);
+                    zpdf_begin_obj(r->num, 0);
                 else
-                    zpdfbeginobj(r->num, 2);    // \pdfobjcompresslevel = 2 is for this
+                    zpdf_begin_obj(r->num, 2);    // \pdfobjcompresslevel = 2 is for this
                 copyObject(&obj1);
                 pdf_puts("\n");
-                pdfendobj();
+                pdf_end_obj();
             }
             obj1.free();
         }
@@ -642,15 +642,15 @@ static void writeEncodings()
 // get the pagebox according to the pagebox_spec
 static PDFRectangle *get_pagebox(Page * page, integer pagebox_spec)
 {
-    if (pagebox_spec == pdfboxspecmedia)
+    if (pagebox_spec == pdf_box_spec_media)
         return page->getMediaBox();
-    else if (pagebox_spec == pdfboxspeccrop)
+    else if (pagebox_spec == pdf_box_spec_crop)
         return page->getCropBox();
-    else if (pagebox_spec == pdfboxspecbleed)
+    else if (pagebox_spec == pdf_box_spec_bleed)
         return page->getBleedBox();
-    else if (pagebox_spec == pdfboxspectrim)
+    else if (pagebox_spec == pdf_box_spec_trim)
         return page->getTrimBox();
-    else if (pagebox_spec == pdfboxspecart)
+    else if (pagebox_spec == pdf_box_spec_art)
         return page->getArtBox();
     else
         pdftex_fail("PDF inclusion: unknown value of pagebox spec (%i)",
@@ -725,17 +725,17 @@ read_pdf_info(char *image_name, char *page_name, integer page_num,
     // get the pagebox (media, crop...) to use.
     pagebox = get_pagebox(page, pagebox_spec);
     if (pagebox->x2 > pagebox->x1) {
-        epdf_orig_x = pagebox->x1;
+        epdf_orig_x_i = pagebox->x1;
         epdf_width = pagebox->x2 - pagebox->x1;
     } else {
-        epdf_orig_x = pagebox->x2;
+        epdf_orig_x_i = pagebox->x2;
         epdf_width = pagebox->x1 - pagebox->x2;
     }
     if (pagebox->y2 > pagebox->y1) {
-        epdf_orig_y = pagebox->y1;
+        epdf_orig_y_i = pagebox->y1;
         epdf_height = pagebox->y2 - pagebox->y1;
     } else {
-        epdf_orig_y = pagebox->y2;
+        epdf_orig_y_i = pagebox->y2;
         epdf_height = pagebox->y1 - pagebox->y2;
     }
 
@@ -942,18 +942,18 @@ void write_epdf(void)
         copyDict(&obj1);
         pdf_puts(">>\nstream\n");
         copyStream(contents->getStream()->getBaseStream());
-        pdfendstream();
+        pdf_end_stream();
     } else if (contents->isArray()) {
-        pdfbeginstream();
+        pdf_begin_stream();
         for (i = 0, l = contents->arrayGetLength(); i < l; ++i) {
             Object contentsobj;
             copyStream((contents->arrayGet(i, &contentsobj))->getStream());
             contentsobj.free();
         }
-        pdfendstream();
+        pdf_end_stream();
     } else {                    // the contents are optional, but we need to include an empty stream
-        pdfbeginstream();
-        pdfendstream();
+        pdf_begin_stream();
+        pdf_end_stream();
     }
     // write out all indirect objects
     writeRefs();

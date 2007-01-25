@@ -6,21 +6,6 @@
 #include <kpathsea/c-pathch.h> /* for IS_DIR_SEP, used in the change files */
 #include <kpathsea/tex-make.h> /* for kpse_make_tex_discard_errors */
 
-#ifdef XeTeX
-/* added typedefs for unicodefile and voidpointer */
-#define XETEX_UNICODE_FILE_DEFINED	1
-typedef struct {
-  FILE *f;
-  long  savedChar;
-  short skipNextLF;
-  short encodingMode;
-  void *conversionData;
-} UFILE;
-typedef UFILE* unicodefile;
-
-typedef void* voidpointer;
-#endif
-
 /* If we have these macros, use them, as they provide a better guide to
    the endianess when cross-compiling. */
 #if defined (BYTE_ORDER) && defined (BIG_ENDIAN) && defined (LITTLE_ENDIAN)
@@ -41,14 +26,27 @@ typedef void* voidpointer;
 #endif
 #endif
 
+#ifndef luaTeX
+#ifdef XeTeX
+/* added typedefs for unicodefile and voidpointer */
+#define XETEX_UNICODE_FILE_DEFINED	1
+typedef struct {
+  FILE *f;
+  long  savedChar;
+  short skipNextLF;
+  short encodingMode;
+  void *conversionData;
+} UFILE;
+typedef UFILE* unicodefile;
+
+typedef void* voidpointer;
+#endif
+
 /* Some things are the same except for the name.  */
 #ifdef TeX
 #if defined (pdfTeX)
 #define TEXMFPOOLNAME "pdftex.pool"
 #define TEXMFENGINENAME "pdftex"
-#elif defined (luaTeX)
-#define TEXMFPOOLNAME "luatex.pool"
-#define TEXMFENGINENAME "luatex"
 #elif defined (eTeX)
 #define TEXMFPOOLNAME "etex.pool"
 #define TEXMFENGINENAME "etex"
@@ -70,7 +68,7 @@ typedef void* voidpointer;
 #endif
 #define DUMP_FILE fmtfile
 #define DUMP_FORMAT kpse_fmt_format
-#define writedvi write_out
+#define writedvi WRITE_OUT
 #define flushdvi flush_out
 #define OUT_FILE dvifile
 #define OUT_BUF dvibuf
@@ -80,7 +78,7 @@ typedef void* voidpointer;
 #define TEXMFENGINENAME "metafont"
 #define DUMP_FILE basefile
 #define DUMP_FORMAT kpse_base_format
-#define writegf write_out
+#define writegf WRITE_OUT
 #define OUT_FILE gffile
 #define OUT_BUF gfbuf
 #endif /* MF */
@@ -151,7 +149,7 @@ extern void ipcpage P1H(int);
 #endif /* TeX */
 
 /* How to output to the GF or DVI file.  */
-#define	write_out(a, b)							\
+#define	WRITE_OUT(a, b)							\
   if (fwrite ((char *) &OUT_BUF[a], sizeof (OUT_BUF[a]),		\
                  (int) ((b) - (a) + 1), OUT_FILE) 			\
       != (int) ((b) - (a) + 1))						\
@@ -218,13 +216,13 @@ extern void setupboundvariable P3H(integer *, const_string, integer);
 #define bopenin(f)	open_input (&(f), kpse_tfm_format, FOPEN_RBIN_MODE)
 #define ocpopenin(f)	open_input (&(f), kpse_ocp_format, FOPEN_RBIN_MODE)
 #define ofmopenin(f)	open_input (&(f), kpse_ofm_format, FOPEN_RBIN_MODE)
+
 #define bopenout(f)	open_output (&(f), FOPEN_WBIN_MODE)
-#if !defined(luaTeX)
 #define bclose		aclose
 #define wopenin(f)	open_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
 #define wopenout	bopenout
 #define wclose		aclose
-#endif
+
 #ifdef XeTeX
 #define uopenin(f,p,m,d) u_open_in(&(f), p, FOPEN_RBIN_MODE, m, d)
 #endif
@@ -251,23 +249,6 @@ extern void paintrow (/*screenrow, pixelcolor, transspec, screencol*/);
 #endif /* MF */
 
 
-#ifdef luaTeX
-#define bclose close_file
-/* (Un)dumping.  These are called from the change file.  */
-#define        dumpthings(base, len) \
-  do_zdump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
-#define        undumpthings(base, len) \
-  do_zundump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
-/* We define the routines to do the actual work in texmf.c.  */
-#define wopenin(f)     zopen_w_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
-#define wopenout(f)    zopen_w_output (&(f), FOPEN_WBIN_MODE)
-#define wclose         zwclose
-extern boolean zopen_w_input P3H(FILE **, int, const_string fopen_mode);
-extern boolean zopen_w_output P2H(FILE **, const_string fopen_mode);
-extern void do_zdump P4H(char *, int, int, FILE *);
-extern void do_zundump P4H(char *, int, int, FILE *);
-extern void zwclose P1H(FILE *);
-#else
 #define        dumpthings(base, len) \
   do_dump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
 #define	undumpthings(base, len) \
@@ -278,7 +259,6 @@ extern void do_undump P4H(char *, int, int, FILE *);
 #define wopenin(f)     open_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
 #define wopenout       bopenout
 #define wclose         aclose
-#endif
 
 /* Like do_undump, but check each value against LOW and HIGH.  The
    slowdown isn't significant, and this improves the chances of
@@ -350,3 +330,199 @@ extern void do_undump P4H(char *, int, int, FILE *);
 #else
 #define	undumpint generic_undump
 #endif
+#else  /* this is for luaTeX */
+
+/* Some things are the same except for the name.  */
+
+#define TEXMFPOOLNAME "luatex.pool"
+#define TEXMFENGINENAME "luatex"
+
+#define DUMP_FILE fmt_file
+#define DUMP_FORMAT kpse_fmt_format
+#define write_dvi WRITE_OUT
+#define flush_dvi flush_out
+#define OUT_FILE dvi_file
+#define OUT_BUF dvi_buf
+
+/* Restore underscores.  */
+#define kpsetexformat kpse_tex_format
+#define mainbody main_body
+#define t_open_in topenin
+
+/* Hacks for TeX that are better not to #ifdef, see texmfmp.c.  */
+extern int tfmtemp, texinputtype;
+
+/* TeX, MF and MetaPost use this.  */
+extern boolean openinnameok P1H(const_string);
+extern boolean openoutnameok P1H(const_string);
+
+/* pdfTeX uses these for pipe support */
+extern boolean open_in_or_pipe P3H(FILE **, int, const_string fopen_mode);
+extern boolean open_out_or_pipe P2H(FILE **, const_string fopen_mode);
+extern void close_file_or_pipe P1H(FILE *);
+
+#ifndef GLUERATIO_TYPE
+#define GLUERATIO_TYPE double
+#endif
+typedef GLUERATIO_TYPE glueratio;
+
+#if defined(__DJGPP__) && defined (IPC)
+#undef IPC
+#endif
+
+#ifdef IPC
+extern void ipcpage P1H(int);
+#endif /* IPC */
+
+
+/* How to output to the GF or DVI file.  */
+#define	WRITE_OUT(a, b)							\
+  if (fwrite ((char *) &OUT_BUF[a], sizeof (OUT_BUF[a]),		\
+                 (int) ((b) - (a) + 1), OUT_FILE) 			\
+      != (int) ((b) - (a) + 1))						\
+    FATAL_PERROR ("fwrite");
+
+#define flush_out() fflush (OUT_FILE)
+
+/* Read a line of input as quickly as possible.  */
+#define	input_ln(stream, flag) input_line (stream)
+
+extern boolean input_line P1H(FILE *);
+
+/* This routine has to return four values.  */
+#define	dateandtime(i,j,k,l) get_date_and_time (&(i), &(j), &(k), &(l))
+extern void get_date_and_time P4H(integer *, integer *, integer *, integer *);
+
+/* Get high-res time info. */
+#define seconds_and_micros(i,j) get_seconds_and_micros (&(i), &(j))
+extern void get_seconds_and_micros P2H(integer *, integer *);
+
+/* This routine has to return a scaled value. */
+extern integer getrandomseed P1H(void);
+
+/* Copy command-line arguments into the buffer, despite the name.  */
+extern void topenin P1H(void);
+
+/* Can't prototype this since it uses poolpointer and ASCIIcode, which
+   are defined later in mfd.h, and mfd.h uses stuff from here.  */
+/* Therefore the department of ugly hacks decided to move this declaration
+   to the *coerce.h files. */
+/* extern void calledit (); */
+
+/* Set an array size from texmf.cnf.  */
+extern void setupboundvariable P3H(integer *, const_string, integer);
+
+/* These defines reroute the file i/o calls to the new pipe-enabled 
+   functions in texmfmp.c*/
+
+#undef aopenin
+#undef aopenout
+#undef aclose
+#define a_open_in(f,p)  open_in_or_pipe(&(f),p,FOPEN_RBIN_MODE)
+#define a_open_out(f)   open_out_or_pipe(&(f),FOPEN_W_MODE)
+#define a_close(f)     close_file_or_pipe(f)
+
+/* `bopenin' (and out) is used only for reading (and writing) .tfm
+   files; `wopenin' (and out) only for dump files.  The filenames are
+   passed in as a global variable, `nameoffile'.  */
+#define b_open_in(f)	open_input (&(f), kpse_tfm_format, FOPEN_RBIN_MODE)
+#define ocp_open_in(f)	open_input (&(f), kpse_ocp_format, FOPEN_RBIN_MODE)
+#define ofm_open_in(f)	open_input (&(f), kpse_ofm_format, FOPEN_RBIN_MODE)
+#define b_open_out(f)	open_output (&(f), FOPEN_WBIN_MODE)
+
+/* Used in tex.ch (section 1338) to get a core dump in debugging mode.  */
+#ifdef unix
+#define dumpcore abort
+#else
+#define dumpcore uexit (1)
+#endif
+
+#define b_close close_file
+/* (Un)dumping.  These are called from the change file.  */
+#define        dump_things(base, len) \
+  do_zdump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
+#define        undump_things(base, len) \
+  do_zundump ((char *) &(base), sizeof (base), (int) (len), DUMP_FILE)
+/* We define the routines to do the actual work in texmf.c.  */
+#define w_open_in(f)     zopen_w_input (&(f), DUMP_FORMAT, FOPEN_RBIN_MODE)
+#define w_open_out(f)    zopen_w_output (&(f), FOPEN_WBIN_MODE)
+#define w_close         zwclose
+
+extern boolean zopen_w_input P3H(FILE **, int, const_string fopen_mode);
+extern boolean zopen_w_output P2H(FILE **, const_string fopen_mode);
+extern void do_zdump P4H(char *, int, int, FILE *);
+extern void do_zundump P4H(char *, int, int, FILE *);
+extern void zwclose P1H(FILE *);
+
+/* Like do_undump, but check each value against LOW and HIGH.  The
+   slowdown isn't significant, and this improves the chances of
+   detecting incompatible format files.  In fact, Knuth himself noted
+   this problem with Web2c some years ago, so it seems worth fixing.  We
+   can't make this a subroutine because then we lose the type of BASE.  */
+#define undump_checked_things(low, high, base, len)						\
+  do {                                                                  \
+    unsigned i;                                                         \
+    undump_things (base, len);                                           \
+    for (i = 0; i < (len); i++) {                                       \
+      if ((&(base))[i] < (low) || (&(base))[i] > (high)) {              \
+        FATAL5 ("Item %u (=%ld) of .fmt array at %lx <%ld or >%ld",     \
+                i, (unsigned long) (&(base))[i], (unsigned long) &(base),     \
+                (unsigned long) low, (integer) high);                         \
+      }                                                                 \
+    }																	\
+  } while (0)
+
+/* Like undump_checked_things, but only check the upper value. We use
+   this when the base type is unsigned, and thus all the values will be
+   greater than zero by definition.  */
+#define undump_upper_check_things(high, base, len)							\
+  do {                                                                  \
+    unsigned i;                                                         \
+    undump_things (base, len);                                           \
+    for (i = 0; i < (len); i++) {                                       \
+      if ((&(base))[i] > (high)) {										\
+        FATAL4 ("Item %u (=%ld) of .fmt array at %lx >%ld",				\
+                i, (unsigned long) (&(base))[i], (unsigned long) &(base),		\
+                (unsigned long) high);										\
+      }                                                                 \
+    }																	\
+  } while (0)
+
+/* Use the above for all the other dumping and undumping.  */
+#define generic_dump(x) dump_things (x, 1)
+#define generic_undump(x) undump_things (x, 1)
+
+#define dump_wd   generic_dump
+#define dump_hh   generic_dump
+#define dump_qqqq generic_dump
+#define undump_wd   generic_undump
+#define undump_hh   generic_undump
+#define	undump_qqqq generic_undump
+
+/* `dump_int' is called with constant integers, so we put them into a
+   variable first.  */
+#define	dump_int(x)							\
+  do									\
+    {									\
+      integer x_val = (x);						\
+      generic_dump (x_val);						\
+    }									\
+  while (0)
+
+/* web2c/regfix puts variables in the format file loading into
+   registers.  Some compilers aren't willing to take addresses of such
+   variables.  So we must kludge.  */
+#if defined(REGFIX) || defined(WIN32)
+#define undump_int(x)							\
+  do									\
+    {									\
+      integer x_val;							\
+      generic_undump (x_val);						\
+      x = x_val;							\
+    }									\
+  while (0)
+#else
+#define	undump_int generic_undump
+#endif
+
+#endif /* luaTeX */

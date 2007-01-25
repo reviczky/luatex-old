@@ -89,9 +89,9 @@ procedure initialize;
   {note that 7 is more strict than \PASCAL's 8, but this can be varied}
 @y
 @!stack_size=100; {number of simultaneous levels of macro expansion}
-@!max_id_length=50; {long identifiers are chopped to this length, which must
+@!max_id_length=64; {long identifiers are chopped to this length, which must
   not exceed |line_length|}
-@!unambig_length=25; {identifiers must be unique if chopped to this length}
+@!unambig_length=64; {identifiers must be unique if chopped to this length}
 @z
 
 % [??] The text_char type is used as an array index into xord.  The
@@ -198,17 +198,21 @@ end;
 @d zz=5 {we multiply the token capacity by approximately this amount}
 @z
 
-@x [58] Remove conversion to uppercase
+@x [58] Case smashing options/strict checking.
+  begin if buffer[i]<>"_" then
     begin if buffer[i]>="a" then chopped_id[s]:=buffer[i]-@'40
     else chopped_id[s]:=buffer[i];
 @y
+  begin if (buffer[i]<>"_") or (allow_underlines) then
     begin chopped_id[s]:=buffer[i];
 @z
 
-@x [63] Remove conversion to uppercase
+@x [63] Case smashing options/strict checking.
+  if c<>"_" then
     begin if c>="a" then c:=c-@'40; {merge lowercase with uppercase}
 @y
-    begin 
+  if c<>"_" or (allow_underlines) then
+    begin
 @z
 
 @x [64] Delayed pool file opening.
@@ -331,7 +335,7 @@ with underlines removed. Extremely long identifiers must be chopped.
 identifier: begin k:=0; j:=byte_start[cur_val]; w:=cur_val mod ww;
   while (k<max_id_length)and(j<byte_start[cur_val+ww]) do
     begin incr(k); out_contrib[k]:=byte_mem[w,j]; incr(j);
-    if out_contrib[k]="_" then decr(k);
+    if not allow_underlines and (out_contrib[k]="_") then decr(k);
     end;
   send_out(ident,k);
   end;
@@ -396,7 +400,7 @@ Parse a Unix-style command line.
 
 @<Define |parse_arguments|@> =
 procedure parse_arguments;
-const n_options = 3; {Pascal won't count array lengths for us.}
+const n_options = 4; {Pascal won't count array lengths for us.}
 var @!long_options: array[0..n_options] of getopt_struct;
     @!getopt_return_val: integer;
     @!option_index: c_int_type;
@@ -410,7 +414,10 @@ begin
       {End of arguments; we exit the loop below.} ;
     
     end else if getopt_return_val = "?" then begin
-      usage ('otangle');
+      usage ('luatangle');
+
+    end else if argument_is ('underlines') then begin
+      allow_underlines := true;
 
     end else if argument_is ('help') then begin
       usage_help (LUATANGLE_HELP, nil);
@@ -459,6 +466,16 @@ long_options[current_option].flag := 0;
 long_options[current_option].val := 0;
 incr (current_option);
 
+@ Allow underlines.
+@.-underlines@>
+
+@<Define the option...@> =
+long_options[current_option].name := 'underlines';
+long_options[current_option].has_arg := 0;
+long_options[current_option].flag := 0;
+long_options[current_option].val := 0;
+incr (current_option);
+
 @ An element with all zeros always ends the list.
 
 @<Define the option...@> =
@@ -471,4 +488,5 @@ long_options[current_option].val := 0;
 
 @<Globals...@>=
 @!web_name,@!chg_name,@!pascal_name,@!pool_name:c_string;
+@!@!allow_underlines:boolean;
 @z

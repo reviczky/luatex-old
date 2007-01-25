@@ -7,7 +7,7 @@
 /* do this aleph stuff here, for now */
 
 void
-btestin(void)
+b_test_in(void)
 {
   string fname = kpse_find_file ((char *)(nameoffile + 1), 
 				   kpse_program_binary_format, true);
@@ -28,55 +28,55 @@ btestin(void)
 }
  
 
-int **ocptables;
+int **ocp_tables;
 static int ocp_entries = 0;
 
 void
-allocateocptable P2C(int, ocp_number, int, ocp_size)
+allocate_ocp_table P2C(int, ocp_number, int, ocp_size)
 {
     int i;
     if (ocp_entries==0) {
-      ocptables = (int **) xmalloc(256*sizeof(int**));
+      ocp_tables = (int **) xmalloc(256*sizeof(int**));
       ocp_entries=256;
     } else if ((ocp_number==256)&&(ocp_entries==256)) {
-      ocptables = xrealloc(ocptables, 65536);
+      ocp_tables = xrealloc(ocp_tables, 65536);
       ocp_entries=65536;
     }
-    ocptables[ocp_number] =
+    ocp_tables[ocp_number] =
        (int *) xmalloc((1+ocp_size)*sizeof(int));
-    ocptables[ocp_number][0] = ocp_size;
+    ocp_tables[ocp_number][0] = ocp_size;
     for (i=1; i<=ocp_size; i++) {
-        ocptables[ocp_number][i]  = 0;
+        ocp_tables[ocp_number][i]  = 0;
     }
 }
 
 void
-dumpocptable P1C(int, ocp_number)
+dump_ocp_table P1C(int, ocp_number)
 {
-    dumpthings(ocptables[ocp_number][0], ocptables[ocp_number][0]+1);
+    dump_things(ocp_tables[ocp_number][0], ocp_tables[ocp_number][0]+1);
 }
 
 void
-undumpocptable P1C(int, ocp_number)
+undump_ocp_table P1C(int, ocp_number)
 {
     int sizeword;
     if (ocp_entries==0) {
-      ocptables = (int **) xmalloc(256*sizeof(int**));
+      ocp_tables = (int **) xmalloc(256*sizeof(int**));
       ocp_entries=256;
     } else if ((ocp_number==256)&&(ocp_entries==256)) {
-      ocptables = xrealloc(ocptables, 65536);
+      ocp_tables = xrealloc(ocp_tables, 65536);
       ocp_entries=65536;
     }
-    undumpthings(sizeword,1);
-    ocptables[ocp_number] =
+    undump_things(sizeword,1);
+    ocp_tables[ocp_number] =
         (int *) xmalloc((1+sizeword)*sizeof(int));
-    ocptables[ocp_number][0] = sizeword;
-    undumpthings(ocptables[ocp_number][1], sizeword);
+    ocp_tables[ocp_number][0] = sizeword;
+    undump_things(ocp_tables[ocp_number][1], sizeword);
 }
 
 
 void
-runexternalocp P1C(string, external_ocp_name)
+run_external_ocp P1C(string, external_ocp_name)
 {
   char *in_file_name;
   char *out_file_name;
@@ -107,8 +107,8 @@ runexternalocp P1C(string, external_ocp_name)
 
   in_file = fopen(in_file_name, FOPEN_WBIN_MODE);
   
-  for (i=1; i<=otpinputend; i++) {
-      c = otpinputbuf[i];
+  for (i=1; i<=otp_input_end; i++) {
+      c = otp_input_buf[i];
       if (c>0xffff) {
           fprintf(stderr, "Aleph does not currently support 31-bit chars\n");
           exit(1);
@@ -161,8 +161,8 @@ runexternalocp P1C(string, external_ocp_name)
           external_ocp_name+1, in_file_name, out_file_name);
   system(command_line);
   out_file = fopen(out_file_name, FOPEN_RBIN_MODE);
-  otpoutputend = 0;
-  otpoutputbuf[otpoutputend] = 0;
+  otp_output_end = 0;
+  otp_output_buf[otp_output_end] = 0;
   while ((c_in = fgetc(out_file)) != -1) {
      if (c_in>=0xfc) {
          c = (c_in & 0x1)   << 30;
@@ -207,7 +207,7 @@ runexternalocp P1C(string, external_ocp_name)
      } else {
          c = c_in & 0x7f;
      }
-     otpoutputbuf[++otpoutputend] = c;
+     otp_output_buf[++otp_output_end] = c;
   }
 
 end_of_while:
@@ -257,9 +257,9 @@ zopen_w_input (FILE **f, int format, const_string fopen_mode) {
   int callbackid;
   int res;
   char *fnam;
-  callbackid = callbackdefined("find_format_file");
+  callbackid = callback_defined("find_format_file");
   if (callbackid>0) {
-	res = runcallback(callbackid,"S->S",(nameoffile+1),&fnam);
+	res = run_callback(callbackid,"S->S",(nameoffile+1),&fnam);
 	if (res && fnam && strlen(fnam)>0) {
 	  xfree (nameoffile);
 	  nameoffile = xmalloc (strlen(fnam)+2);

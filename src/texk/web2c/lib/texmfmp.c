@@ -121,7 +121,7 @@ static string user_progname;
 const_string dump_name;
 
 /* The C version of the jobname, if given. */
-const_string job_name;
+const_string c_job_name;
 
 /* Full source file name. */
 extern string fullnameoffile;
@@ -171,6 +171,27 @@ texmf_yesno(const_string var)
   string value = kpse_var_value (var);
   return value && (*value == 't' || *value == 'y' || *value == '1');
 }
+
+#ifdef luaTeX
+#define TEXformatdefault TEX_format_default
+#define debugformatfile debug_format_file
+#define etexp etex_p
+#define formatdefaultlength format_default_length
+#define iniversion ini_version
+#define outputfilename output_file_name
+#define readyalready ready_already
+#define dumpoption dump_option
+#define outputcomment output_comment
+#define pdfoutputoption pdf_output_option
+#define pdfoutputvalue pdf_output_value
+#define pdfdraftmodeoption pdf_draftmode_option
+#define pdfdraftmodevalue pdf_draftmode_value
+#define dumpline dump_line
+#define bufsize buf_size
+#define maxbufstack max_buf_stack
+#define inopen in_open
+#define inputfile input_file
+#endif
 
 /* The entry point: set up for reading the command line, which will
    happen in `topenin', then call the main body.  */
@@ -969,9 +990,9 @@ parse_options P2C(int, argc,  string *, argv)
 
     } else if (ARGUMENT_IS ("jobname")) {
 #ifdef XeTeX
-      job_name = optarg;
+      c_job_name = optarg;
 #else
-      job_name = normalize_quotes(optarg, "jobname");
+      c_job_name = normalize_quotes(optarg, "jobname");
 #endif
       
     } else if (ARGUMENT_IS (DUMP_OPTION)) {
@@ -1344,7 +1365,7 @@ boolean openoutnameok P1C(const_string, fname)
    closed using pclose().
 */
 
-#if defined(pdfTeX) || defined(pdfeTeX) || defined(luaTex)
+#if defined(pdfTeX) || defined(pdfeTeX) || defined(luaTeX)
 
 static FILE *pipes [] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
                          NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
@@ -1941,8 +1962,8 @@ strnumber
 getjobname(strnumber name)
 {
     strnumber ret = name;
-    if (job_name != NULL)
-      ret = maketexstring(job_name);
+    if (c_job_name != NULL)
+      ret = maketexstring(c_job_name);
     return ret;
 }
 #endif

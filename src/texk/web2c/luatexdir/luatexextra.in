@@ -31,8 +31,8 @@ $Id$
 #define AUTHOR NULL
 #define PROGRAM_HELP LUATEXHELP
 #define BUG_ADDRESS "dev-luatex@ntg.nl"
-#define DUMP_VAR TEXformatdefault
-#define DUMP_LENGTH_VAR formatdefaultlength
+#define DUMP_VAR TEX_format_default
+#define DUMP_LENGTH_VAR format_default_length
 #define DUMP_OPTION "fmt"
 #define DUMP_EXT ".fmt"
 #define INPUT_FORMAT kpse_tex_format

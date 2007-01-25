@@ -14,7 +14,7 @@ font_read_tfm (lua_State *L) {
     cnom = (char *)lua_tostring(L, 1);
     if(lua_isnumber(L, 2)) {
       s = (integer)lua_tonumber(L,2);
-      f = new_font(fontptr+1);
+      f = new_font(font_ptr+1);
       if (read_tfm_info(f, cnom, "", s)) {
 	k =  font_to_lua(L,f);
 	delete_font(f);

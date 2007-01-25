@@ -1365,9 +1365,9 @@ void writettf(fd_entry * fd)
     }
 	ttf_curbyte=0;
 	ttf_size=0;
-	callback_id=callbackdefined("find_truetype_file");
+	callback_id=callback_defined("find_truetype_file");
 	if (callback_id>0) {
-	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+	  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
 		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(nameoffile);
 		  namelength = strlen(ftemp);
@@ -1378,9 +1378,9 @@ void writettf(fd_entry * fd)
 	  }
 	}
 
-	callback_id=callbackdefined("read_truetype_file");
+	callback_id=callback_defined("read_truetype_file");
 	if (callback_id>0) {
-	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+	  if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
 					 &file_opened, &ttf_buffer,&ttf_size) &&
 		 file_opened && ttf_size>0) {
 	  } else {
@@ -1411,8 +1411,8 @@ void writettf(fd_entry * fd)
     name_buf = NULL;
     ttf_read_font ();
 
-        pdfsaveoffset = pdfoffset ();
-        pdfflush ();
+        pdf_save_offset = pdfoffset ();
+        pdf_flush ();
 
 		if (is_subsetted(fd_cur->fm)) {
             ttf_copy_encoding ();
@@ -1452,9 +1452,9 @@ void writeotf(fd_entry * fd)
     set_cur_file_name(fd_cur->fm->ff_name);
 	ttf_curbyte=0;
 	ttf_size=0;
-	callback_id=callbackdefined("find_opentype_file");
+	callback_id=callback_defined("find_opentype_file");
 	if (callback_id>0) {
-	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+	  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
 		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(nameoffile);
 		  namelength = strlen(ftemp);
@@ -1464,9 +1464,9 @@ void writeotf(fd_entry * fd)
 		}
 	  }
 	}
-	callback_id=callbackdefined("read_opentype_file");
+	callback_id=callback_defined("read_opentype_file");
 	if (callback_id>0) {
-	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+	  if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
 					 &file_opened, &ttf_buffer,&ttf_size) &&
 		 file_opened && ttf_size>0) {
 	  } else {

@@ -33,25 +33,25 @@ $Id: writezip.c,v 1.2 2006/01/14 20:35:43 hahe Exp $
 static char zipbuf[ZIP_BUF_SIZE];
 static z_stream c_stream;       /* compression stream */
 
-void writezip(boolean finish)
+void write_zip(boolean finish)
 {
     int err;
-    assert(getpdfcompresslevel() > 0);
+    assert(get_pdf_compress_level() > 0);
     cur_file_name = NULL;
-    if (pdfstreamlength == 0) {
+    if (pdf_stream_length == 0) {
         c_stream.zalloc = (alloc_func) 0;
         c_stream.zfree = (free_func) 0;
         c_stream.opaque = (voidpf) 0;
-        check_err(deflateInit(&c_stream, getpdfcompresslevel()), "deflateInit");
+        check_err(deflateInit(&c_stream, get_pdf_compress_level()), "deflateInit");
         c_stream.next_out = (Bytef *) zipbuf;
         c_stream.avail_out = ZIP_BUF_SIZE;
     }
-    c_stream.next_in = pdfbuf;
-    c_stream.avail_in = pdfptr;
+    c_stream.next_in = pdf_buf;
+    c_stream.avail_in = pdf_ptr;
     for (;;) {
         if (c_stream.avail_out == 0) {
-            pdfgone += xfwrite(zipbuf, 1, ZIP_BUF_SIZE, pdffile);
-            pdflastbyte = zipbuf[ZIP_BUF_SIZE - 1];     /* not needed */
+            pdf_gone += xfwrite(zipbuf, 1, ZIP_BUF_SIZE, pdf_file);
+            pdf_last_byte = zipbuf[ZIP_BUF_SIZE - 1];     /* not needed */
             c_stream.next_out = (Bytef *) zipbuf;
             c_stream.avail_out = ZIP_BUF_SIZE;
         }
@@ -64,12 +64,12 @@ void writezip(boolean finish)
     }
     if (finish) {
         if (c_stream.avail_out < ZIP_BUF_SIZE) {        /* at least one byte has been output */
-            pdfgone +=
-                xfwrite(zipbuf, 1, ZIP_BUF_SIZE - c_stream.avail_out, pdffile);
-            pdflastbyte = zipbuf[ZIP_BUF_SIZE - c_stream.avail_out - 1];
+            pdf_gone +=
+                xfwrite(zipbuf, 1, ZIP_BUF_SIZE - c_stream.avail_out, pdf_file);
+            pdf_last_byte = zipbuf[ZIP_BUF_SIZE - c_stream.avail_out - 1];
         }
         check_err(deflateEnd(&c_stream), "deflateEnd");
-        xfflush(pdffile);
+        xfflush(pdf_file);
     }
-    pdfstreamlength = c_stream.total_out;
+    pdf_stream_length = c_stream.total_out;
 }

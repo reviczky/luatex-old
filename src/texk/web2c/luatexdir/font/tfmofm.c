@@ -36,14 +36,7 @@ $Id$
 #define rem_byte(z)          lig_kerns[z].b3
 #define lig_kern_restart(c)  (256*op_byte(c)+rem_byte(c))
 
-/* some pascal interfacing (underscore-glue) macros */
-
-#define name_of_file nameoffile
-#define internal_font_number internalfontnumber
-#define four_quarters fourquarters
-#define font_ptr fontptr
 #define unity 65536
-#define xn_over_d xnoverd 
 
 /*
 
@@ -387,11 +380,12 @@ open_tfm_file(char *nom, char *aire, unsigned char **tfm_buf, integer *tfm_siz) 
   integer callback_id;
   FILE *tfm_file;
   /* packfilename(nom,aire,getnullstr()); */
-  name_of_file = malloc(strlen(nom)+2);
-  strcpy(stringcast(name_of_file+1),nom);
-  callback_id=callbackdefined("read_font_file");
+  nameoffile = malloc(strlen(nom)+2);
+  strcpy(stringcast(nameoffile+1),nom);
+  namelength = strlen(nom);
+  callback_id=callback_defined("read_font_file");
   if (callback_id>0) {
-        res = runcallback(callback_id,"S->bSd",stringcast(name_of_file+1),
+        res = run_callback(callback_id,"S->bSd",stringcast(nameoffile+1),
                                           &opened, tfm_buf, tfm_siz);
         if (res && opened && (*tfm_siz>0)) {
           return 1;
@@ -399,9 +393,9 @@ open_tfm_file(char *nom, char *aire, unsigned char **tfm_buf, integer *tfm_siz) 
         if (!opened)
           return -1;
   } else {
-    if (ofmopenin(tfm_file)) {
-      res = readtfmfile(tfm_file,tfm_buf,tfm_siz);
-      bclose(tfm_file);
+    if (ofm_open_in(tfm_file)) {
+      res = read_tfm_file(tfm_file,tfm_buf,tfm_siz);
+      b_close(tfm_file);
       if (res) {
 	return 1;
       }

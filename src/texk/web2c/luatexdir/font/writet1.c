@@ -230,7 +230,7 @@ static int cs_start;
 
 static cs_entry *cs_tab, *cs_ptr, *cs_notdef;
 static char *cs_dict_start, *cs_dict_end;
-static int cs_count, cs_size, cs_size_pos;
+static int cs_counter, cs_size, cs_size_pos;
 
 static cs_entry *subr_tab;
 static char *subr_array_start, *subr_array_end;
@@ -284,9 +284,9 @@ char **load_enc_file(char *enc_name)
     int i, names_count;
     char **glyph_names;
     set_cur_file_name (enc_name);
-	callback_id=callbackdefined("find_enc_file");
+	callback_id=callback_defined("find_enc_file");
 	if (callback_id>0) {
-	  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+	  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
 		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(nameoffile);
 		  namelength = strlen(ftemp);
@@ -296,11 +296,11 @@ char **load_enc_file(char *enc_name)
 		}
 	  }
 	}
-	callback_id=callbackdefined("read_enc_file");
+	callback_id=callback_defined("read_enc_file");
 	enc_curbyte=0;
 	enc_size=0;
 	if (callback_id>0) {
-	  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+	  if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
 					 &file_opened, &enc_buffer,&enc_size)) {
 	    if((!file_opened) || enc_size==0) {
 		  pdftex_warn ("cannot open encoding file for reading");
@@ -998,17 +998,17 @@ static boolean t1_open_fontfile (const char *open_name_prefix)
 	t1_curbyte = 0;
 	t1_size = 0;
     if (ff->ff_path != NULL) {
-	  callback_id=callbackdefined("find_type1_file");
+	  callback_id=callback_defined("find_type1_file");
 	  if (callback_id>0) {
-		if(runcallback(callback_id,"S->S",ff->ff_path,&ftemp)) {
+		if(run_callback(callback_id,"S->S",ff->ff_path,&ftemp)) {
 		  if(ftemp!=NULL&&strlen(ftemp)) {
 			strcpy(ff->ff_path,ftemp);
 		  }
 		}
 	  }
-	  callback_id=callbackdefined("read_type1_file");
+	  callback_id=callback_defined("read_type1_file");
 	  if (callback_id>0) {
-		if(runcallback(callback_id,"S->bSd",ff->ff_path,
+		if(run_callback(callback_id,"S->bSd",ff->ff_path,
 					   &file_opened, &t1_buffer,&t1_size) 
 		   && file_opened && t1_size>0) {
 		  cur_file_name = ff->ff_path;
@@ -1463,7 +1463,7 @@ static void cs_init (void)
 {
     cs_ptr = cs_tab = NULL;
     cs_dict_start = cs_dict_end = NULL;
-    cs_count = cs_size = cs_size_pos = 0;
+    cs_counter = cs_size = cs_size_pos = 0;
     cs_token_pair = NULL;
     subr_tab = NULL;
     subr_array_start = subr_array_end = NULL;
@@ -1575,7 +1575,7 @@ static void t1_flush_cs (boolean is_subr)
         size_pos = cs_size_pos;
         tab = cs_tab;
         end_tab = cs_ptr;
-        count = cs_count;
+        count = cs_counter;
     }
     t1_line_ptr = t1_line_array;
     for (p = start_line; p - start_line < size_pos;)
@@ -1698,9 +1698,9 @@ static void t1_subset_charstrings (void)
                 ("This Type 1 font uses mismatched subroutine begin/end token pairs.");
         t1_subr_flush ();
     }
-    for (cs_count = 0, ptr = cs_tab; ptr < cs_ptr; ptr++)
+    for (cs_counter = 0, ptr = cs_tab; ptr < cs_ptr; ptr++)
         if (ptr->used)
-            cs_count++;
+            cs_counter++;
     t1_cs_flush ();
 }
 

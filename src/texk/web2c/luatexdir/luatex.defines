@@ -23,80 +23,80 @@ $Id $
 { luatex.defines: additions for luaTeX }
 
 { macros from luatex.h }
-@define function pdfcharmarked();
-@define function getlpcode();
-@define function getrpcode();
-@define function getefcode();
-@define function getknbscode();
-@define function getstbscode();
-@define function getshbscode();
-@define function getknbccode();
-@define function getknaccode();
-@define function texbopenin();
-@define function vfbopenin ();
-@define procedure pdfmarkchar();
+@define function pdf_char_marked();
+@define function get_lp_code();
+@define function get_rp_code();
+@define function get_ef_code();
+@define function get_kn_bs_code();
+@define function get_st_bs_code();
+@define function get_sh_bs_code();
+@define function get_kn_bc_code();
+@define function get_kn_ac_code();
+@define function tex_b_open_in();
+@define function vf_b_open_in ();
+@define procedure pdf_mark_char();
 @define procedure writepdf();
 @define procedure pdfassert();
 
 @define procedure luacall();
 @define procedure closelua();
 
-@define function  luacstringinput;
-@define function  luacstringpenultimate;
-@define function  luacstringdetokenized;
-@define function  luacstringcattable;
-@define function  luacstringdefaultcattable;
-@define function  luacstringsimple;
-@define procedure luacstringclose();
-@define procedure luacstringstart();
+@define function  luacstring_input;
+@define function  luacstring_penultimate;
+@define function  luacstring_detokenized;
+@define function  luacstring_cattable;
+@define function  luacstring_defaultcattable;
+@define function  luacstring_simple;
+@define procedure luacstring_close();
+@define procedure luacstring_start();
 
 { for callbacks }
 
-@define function  runcallback();
-@define function  runandsavecallback();
-@define function  runsavedcallback();
-@define procedure destroysavedcallback();
-@define function  callbackdefined();
+@define function  run_callback();
+@define function  run_and_save_callback();
+@define function  run_saved_callback();
+@define procedure destroy_saved_callback();
+@define function  callback_defined();
 @define function  callbackluaid();
 
-@define procedure getsavedluaboolean();
-@define procedure getsavedluanumber();
-@define procedure getsavedluastring();
-@define procedure getluaboolean();
-@define procedure getluanumber();
-@define procedure getluastring();
+@define procedure get_saved_lua_boolean();
+@define procedure get_saved_lua_number();
+@define procedure get_saved_lua_string();
+@define procedure get_lua_boolean();
+@define procedure get_lua_number();
+@define procedure get_lua_string();
 
 { bits for extended char code access }
 
-@define function getmathcode();
-@define procedure setmathcode();
-@define function getdelcodea();
-@define function getdelcodeb();
-@define procedure setdelcode();
+@define function get_math_code();
+@define procedure set_math_code();
+@define function get_del_code_a();
+@define function get_del_code_b();
+@define procedure set_del_code();
 
-@define procedure unsavemathcodes ();
-@define procedure initializemathcodes;
-@define procedure dumpmathcodes;
-@define procedure undumpmathcodes;
+@define procedure unsave_math_codes ();
+@define procedure initialize_math_codes;
+@define procedure dump_math_codes;
+@define procedure undump_math_codes;
 
-@define function getlccode();
-@define procedure setlccode();
+@define function get_lc_code();
+@define procedure set_lc_code();
 
-@define function getuccode();
-@define procedure setuccode();
+@define function get_uc_code();
+@define procedure set_uc_code();
 
-@define function getsfcode();
-@define procedure setsfcode();
+@define function get_sf_code();
+@define procedure set_sf_code();
 
-@define function getcatcode();
-@define procedure setcatcode();
+@define function get_cat_code();
+@define procedure set_cat_code();
 
-@define function validcatcodetable ();
-@define procedure clearcatcodestack ();
-@define procedure copycatcodes ();
-@define procedure initexcatcodes ();
-@define procedure unsavecatcodes ();
-@define procedure unsavetextcodes ();
+@define function valid_catcode_table ();
+@define procedure clear_catcode_stack ();
+@define procedure copy_cat_codes ();
+@define procedure initex_cat_codes ();
+@define procedure unsave_cat_codes ();
+@define procedure unsave_text_codes ();
 @define procedure initializetextcodes;
 @define procedure dumptextcodes;
 @define procedure undumptextcodes;
@@ -104,10 +104,10 @@ $Id $
 @define procedure dumpluacregisters;
 @define procedure undumpluacregisters;
 
-@define function doaopenout();
-@define function dobopenout();
+@define function do_a_open_out();
+@define function do_b_open_out();
 
-@define procedure flushloggableinfo;
+@define procedure flush_loggable_info;
 
 { bits and pieces from aleph }
 
@@ -115,87 +115,87 @@ $Id $
 
 
 @define function readtfmfile();
-@define function nextvfbyte;
-@define function readvffile();
-@define function readocpfile();
-@define function readdatafile();
+@define function next_vf_byte;
+@define function read_vf_file();
+@define function read_ocp_file();
+@define function read_data_file();
 
-@define var ocptables;
+@define var ocp_tables;
 
-@define procedure allocateocptable ();
-@define procedure dumpocptable ();
-@define procedure undumpocptable ();
-@define procedure runexternalocp ();
+@define procedure allocate_ocp_table ();
+@define procedure dump_ocp_table ();
+@define procedure undump_ocp_table ();
+@define procedure run_external_ocp ();
 
 @define function loadpoolstrings();
 
 { 'texfont' library definitions }
 
 @define var fonttables;
-@define procedure dumpfont ();
-@define procedure undumpfont ();
-@define function isvalidfont();
-@define function copyfont();
-@define function scalefont();
+@define procedure dump_font ();
+@define procedure undump_font ();
+@define function is_valid_font();
+@define function copy_font();
+@define function scale_font();
 @define procedure createnullfont;
 
-@define function fontname();
+@define function font_name();
 @define procedure setfontname();
-@define function fontarea();
-@define function fontbc();
-@define function fontec();
+@define function font_area();
+@define function font_bc();
+@define function font_ec();
 
-@define function texfontname();
-@define function texfontarea();
-@define procedure settexfontname();
+@define function tex_font_name();
+@define function tex_font_area();
+@define procedure set_tex_font_name();
 
-@define function cmpfontarea();
-@define function cmpfontname();
+@define function cmp_font_area();
+@define function cmp_font_name();
 
 @define function fontglue();
 @define procedure setfontglue();
 
-@define function fontcheck0();
-@define function fontcheck1();
-@define function fontcheck2();
-@define function fontcheck3();
+@define function font_check_0();
+@define function font_check_1();
+@define function font_check_2();
+@define function font_check_3();
 
-@define function fontsize();
-@define function fontused();
-@define procedure setfontused();
-@define function fonttouched();
-@define procedure setfonttouched();
+@define function font_size();
+@define function font_used();
+@define procedure set_font_used();
+@define function font_touched();
+@define procedure set_font_touched();
 
-@define function fontdsize();
-@define function fontnaturaldir();
+@define function font_dsize();
+@define function font_natural_dir();
 
-@define function fontbchar();
-@define function fontfalsebchar();
+@define function font_bchar();
+@define function font_false_bchar();
 
 
-@define function fontparams();
-@define function fontparam();
-@define procedure setfontparams();
-@define procedure setfontparam();
+@define function font_params();
+@define function font_param();
+@define procedure set_font_params();
+@define procedure set_font_param();
 @define function slant();
 @define function quad();
-@define function xheight();
+@define function x_height();
 @define function space();
-@define function extraspace();
-@define function spacestretch();
-@define function spaceshrink();
+@define function extra_space();
+@define function space_stretch();
+@define function space_shrink();
 
-@define function fontkerns();
+@define function font_kerns();
 @define function fontkern();
-@define function fontkernsc();
+@define function font_kern_sc();
 @define procedure setfontkerns();
 @define procedure setfontkern();
-@define procedure adjustfontkern();
+@define procedure adjust_font_kern();
 
-@define function fontitalics();
-@define function fontitalic();
+@define function font_italics();
+@define function font_italic();
 @define procedure setfontitalics();
-@define procedure setfontitalic();
+@define procedure set_font_italic();
 
 @define function fontextens();
 @define function fontexten();
@@ -203,10 +203,10 @@ $Id $
 @define procedure setfontexten();
 
 
-@define function fontwidths();
-@define function fontwidth();
+@define function font_widths();
+@define function font_width();
 @define procedure setfontwidths();
-@define procedure setfontwidth();
+@define procedure set_font_width();
 
 @define function fontheights();
 @define function fontheight();
@@ -221,54 +221,59 @@ $Id $
 @define function fontligkerns();
 @define function fontligkern();
 
-@define function haslig();
-@define function haskern();
+@define function has_lig();
+@define function has_kern();
 
 @define type liginfo;
 
-@define function getligature();
-@define function isligature();
-@define function ligtype();
-@define function ligreplacement();
+@define function get_ligature();
+@define function is_ligature();
+@define function lig_type();
+@define function lig_replacement();
 
-@define function exttop();
-@define function extmid();
-@define function extbot();
-@define function extrep();
+@define function ext_top();
+@define function ext_mid();
+@define function ext_bot();
+@define function ext_rep();
 
 
 @define var spaceshrinkcode;
 @define var spacestretchcode;
 @define var spacecode;
-@define var exttag;
-@define var listtag;
-@define var nonchar;
-@define var nonaddress;
+@define var ext_tag;
+@define var list_tag;
+@define var non_char;
+@define var non_address;
 
-@define function hyphenchar();
-@define function skewchar();
-@define procedure sethyphenchar();
-@define procedure setskewchar();
-@define function charexists();
+@define function hyphen_char();
+@define function skew_char();
+@define procedure set_hyphen_char();
+@define procedure set_skew_char();
+@define function char_exists();
 
-@define function charwidth();
-@define function charheight();
-@define function chardepth();
-@define function charitalic();
-@define function chartag();
-@define procedure setchartag();
-@define function charremainder();
+@define function char_width();
+@define function char_height();
+@define function char_depth();
+@define function char_italic();
+@define function char_tag();
+@define procedure set_char_tag();
+@define function char_remainder();
 
-@define function readfontinfo();
+@define procedure do_vf();
+@define procedure do_vf_packet();
+@define procedure alloc_vf_arrays();
+@define procedure vf_expand_local_fonts();
+@define function letter_space_font();
+@define function read_font_info();
 
-@define function testnoligatures();
-@define function gettagcode();
-@define procedure setnoligatures();
-@define procedure settagcode();
+@define function test_no_ligatures();
+@define function get_tag_code();
+@define procedure set_no_ligatures();
+@define procedure set_tag_code();
 
-@define function getkern();
+@define function get_kern();
 
-@define function bcharlabel();
+@define function bchar_label();
 
 @define function charkern();
 
@@ -277,7 +282,7 @@ $Id $
 @define procedure checkextfm();
 @define procedure pdfmapfile();
 @define procedure pdfmapline();
-@define procedure pdfinitmapfile();
+@define procedure pdf_init_map_file();
 
 @define procedure allocvffnts();
 @define procedure writefontstuff;
@@ -286,14 +291,14 @@ $Id $
 @define procedure escapehex();
 @define procedure escapename();
 @define procedure escapestring();
-@define function extxnoverd();
+@define function ext_xn_over_d();
 @define procedure getcreationdate;
 @define procedure getfiledump();
 @define procedure getfilemoddate();
 @define procedure getfilesize();
 @define procedure getmatch();
 @define procedure getmd5sum();
-@define function getresnameprefix;
+@define function get_resname_prefix;
 @define procedure initstarttime;
 @define function isquotebad;
 @define function makecstring();
@@ -302,10 +307,10 @@ $Id $
 @define procedure makepdftexbanner;
 @define procedure printcreationdate;
 @define procedure printmoddate;
-@define procedure printID();
-@define procedure setjobid();
+@define procedure print_ID();
+@define procedure set_job_id();
 @define procedure unescapehex();
-@define procedure writestreamlength();
+@define procedure write_stream_length();
 @define procedure removepdffile;
 @define procedure garbagewarning;
 @define function newcolorstack();
@@ -331,43 +336,91 @@ $Id $
 
 
 { functions from vfpacket.c }
-@define function newvfpacket();
-@define function packetbyte;
-@define procedure startpacket();
-@define procedure storepacket();
+@define function new_vf_packet();
+@define function packet_byte;
+@define procedure start_packet();
+@define procedure store_packet();
 
 { functions from writefont.c }
-@define procedure dopdffont();
+@define procedure do_pdf_font();
 
 { functions from writeimg.c }
-@define function checkimageb();
-@define function checkimagec();
-@define function checkimagei();
-@define function epdforigx();
-@define function epdforigy();
-@define function imageheight();
-@define function imagepages();
-@define function imagecolordepth();
-@define function imagewidth();
-@define function imagexres();
-@define function imageyres();
-@define function ispdfimage();
-@define function readimage();
-@define procedure deleteimage();
-@define procedure updateimageprocset();
-@define procedure writeimage();
+@define function check_image_b();
+@define function check_image_c();
+@define function check_image_i();
+@define function epdf_orig_x();
+@define function epdf_orig_y();
+@define function image_height();
+@define function image_pages();
+@define function image_colordepth();
+@define function image_width();
+@define function image_x_res();
+@define function image_y_res();
+@define function is_pdf_image();
+@define function read_image();
+@define procedure delete_image();
+@define procedure update_image_procset();
+@define procedure write_image();
 
 { functions from writet3.c }
-@define function getpkcharwidth();
+@define function get_pk_char_width();
 
 { functions from writezip.c }
-@define procedure writezip();
+@define procedure write_zip();
 
 { functions from avlstuff.c }
-@define procedure avlputobj();
-@define function avlfindobj();
+@define procedure avl_put_obj();
+@define function avl_find_obj();
 
 { functions from tounicode.c }
-@define procedure deftounicode();
+@define procedure def_tounicode();
 
 { end of luatex.defines }
+
+{texmf.defines}
+
+@define type two_halves;
+@define type four_quarters;
+
+@define function input_ln ();
+@define function is_new_source ();
+@define function get_job_name ();
+@define function make_full_name_string;
+
+@define procedure seconds_and_micros ();
+@define function ocp_open_in ();
+@define function open_in_name_ok ();
+@define function open_out_name_ok ();
+
+@define function w_open_in ();
+@define function w_open_out ();
+
+@define procedure dump_hh ();
+@define procedure dump_int ();
+@define procedure dump_things ();
+@define procedure dump_wd ();
+
+@define procedure undump_hh ();
+@define procedure undump_int ();
+@define procedure undump_qqqq ();
+@define procedure undump_things ();
+@define procedure undump_checked_things ();
+@define procedure undump_upper_check_things ();
+@define procedure undump_wd ();
+@define procedure w_close ();
+
+{common.defines}
+
+@define type memory_word; {for gftodvi, TeX, and Metafont}
+
+@define function a_open_in ();
+@define procedure a_close ();
+@define procedure b_close ();
+@define function a_open_out ();
+@define function b_open_out ();
+
+@define procedure write_dvi ();
+@define procedure write_pdf ();
+@define procedure write_ln ();
+
+@define procedure recorder_change_filename ();

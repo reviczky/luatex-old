@@ -57,7 +57,7 @@ luatangle.p: tangle $(srcdir)/$(luatexdir)/luatangle.web $(srcdir)/$(luatexdir)/
 
 # Tangling
 luatex.p luatex.pool: luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
-	$(native)/luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
+	$(native)/luatangle --underlines $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(luatexdir)/luatex.ch
 
 #   Sources for luatex.ch:
 #luatex_ch_srcs = $(srcdir)/$(luatexdir)/luatex.web \

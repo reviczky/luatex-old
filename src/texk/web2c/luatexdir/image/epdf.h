@@ -50,28 +50,28 @@ extern "C" {
 
     extern float epdf_width;
     extern float epdf_height;
-    extern float epdf_orig_x;
-    extern float epdf_orig_y;
+    extern float epdf_orig_x_i;
+    extern float epdf_orig_y_i;
     extern integer epdf_selected_page;
     extern integer epdf_num_pages;
     extern integer epdf_page_box;
     extern void *epdf_doc;
     extern void *epdf_xref;
 
-    extern integer pdfboxspecmedia;
-    extern integer pdfboxspeccrop;
-    extern integer pdfboxspecbleed;
-    extern integer pdfboxspectrim;
-    extern integer pdfboxspecart;
+    extern integer pdf_box_spec_media;
+    extern integer pdf_box_spec_crop;
+    extern integer pdf_box_spec_bleed;
+    extern integer pdf_box_spec_trim;
+    extern integer pdf_box_spec_art;
 
-    extern integer pdfstreamlength;
-    extern integer pdfptr;
-    extern integer poolptr;
-    typedef unsigned char eightbits;
-    extern eightbits *pdfbuf;
-    extern integer pdfbufsize;
-    extern integer pdfosmode;
-    extern eightbits pdflastbyte;
+    extern integer pdf_stream_length;
+    extern integer pdf_ptr;
+    extern integer pool_ptr;
+    typedef unsigned char eight_bits;
+    extern eight_bits *pdf_buf;
+    extern integer pdf_buf_size;
+    extern integer pdf_os_mode;
+    extern eight_bits pdf_last_byte;
 
     extern char notdef[];
 
@@ -79,7 +79,7 @@ extern "C" {
     extern struct fm_entry *lookup_fontmap(char *);
     extern integer get_fontfile(struct fm_entry *);
     extern integer get_fontname(struct fm_entry *);
-    extern integer pdfnewobjnum(void);
+    extern integer pdf_new_objnum(void);
     extern integer read_pdf_info(char *, char *, integer, integer, integer,
                                  integer);
     extern void embed_whole_font(struct fd_entry *);
@@ -89,10 +89,10 @@ extern "C" {
     __attribute__ ((format(printf, 1, 2)))
     extern void pdf_printf(const char *fmt, ...);
     extern void pdf_puts(const char *);
-    extern void pdfbeginstream(void);
-    extern void pdfendobj(void);
-    extern void pdfendstream(void);
-    extern void pdfflush(void);
+    extern void pdf_begin_stream(void);
+    extern void pdf_end_obj(void);
+    extern void pdf_end_stream(void);
+    extern void pdf_flush(void);
     __attribute__ ((noreturn, format(printf, 1, 2)))
     extern void pdftex_fail(const char *fmt, ...);
     __attribute__ ((format(printf, 1, 2)))
@@ -100,11 +100,11 @@ extern "C" {
     __attribute__ ((format(printf, 1, 2)))
     extern void tex_printf(const char *, ...);
     extern void write_epdf(void);
-    extern void zpdfbegindict(integer, bool);
-    extern void zpdfbeginobj(integer, bool);
-    extern void zpdfcreateobj(integer, integer);
-    extern void zpdfnewdict(integer, integer, bool);
-    extern void zpdfosgetosbuf(integer);
+    extern void zpdf_begin_dict(integer, bool);
+    extern void zpdf_begin_obj(integer, bool);
+    extern void zpdf_create_obj(integer, integer);
+    extern void zpdf_new_dict(integer, integer, bool);
+    extern void zpdf_os_get_os_buf(integer);
 
 /* epdf.c */
     extern void epdf_mark_glyphs(struct fd_entry *, char *);

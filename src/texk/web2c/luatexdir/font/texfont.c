@@ -1,4 +1,3 @@
-
 /*
   Copyright (c) 1996-2006 Taco Hoekwater <taco@luatex.org>
   
@@ -38,13 +37,18 @@
 
 texfont **font_tables = NULL;
 
-static integer font_max = 0;
+static integer font_arr_max = 0;
 
 static void grow_font_table (integer id) {
-  if (id>=font_max) {
-    fontbytes += (font_max-id+8)*sizeof(texfont *);
+  int j;
+  if (id>=font_arr_max) {
+    font_bytes += (font_arr_max-id+8)*sizeof(texfont *);
     font_tables = xrealloc(font_tables,(id+8)*sizeof(texfont *));
-    font_max = id+8;
+    j = 8;
+    while (j--) {
+      font_tables[id+j] = NULL;
+    }
+    font_arr_max = id+8;
   }
 }
 
@@ -52,7 +56,7 @@ integer
 new_font (integer id) {
   int k;
   grow_font_table(id);
-  fontbytes += sizeof(texfont);
+  font_bytes += sizeof(texfont);
   font_tables[id] = xmalloc(sizeof(texfont));
   /* most stuff is zero */
   (void)memset (font_tables[id],0,sizeof(texfont));
@@ -75,30 +79,30 @@ new_font (integer id) {
 integer
 copy_font (integer f) {
   int i;
-  integer k = new_font((fontptr+1));
+  integer k = new_font((font_ptr+1));
   memcpy(font_tables[k],font_tables[f],sizeof(texfont));
 
   set_font_cache_id(k,0);
   set_font_used(k,0);
   set_font_touched(k,0);
   
-  i = sizeof(*char_base(f))    *char_infos(f);   fontbytes += i;
+  i = sizeof(*char_base(f))    *char_infos(f);   font_bytes += i;
   char_base(k)     = xmalloc (i);
-  i = sizeof(*param_base(f))   *font_params(f);  fontbytes += i;
+  i = sizeof(*param_base(f))   *font_params(f);  font_bytes += i;
   param_base(k)    = xmalloc (i);
-  i = sizeof(*width_base(f))   *font_widths(f);  fontbytes += i;
+  i = sizeof(*width_base(f))   *font_widths(f);  font_bytes += i;
   width_base(k)    = xmalloc (i);
-  i = sizeof(*depth_base(f))   *font_depths(f);  fontbytes += i;
+  i = sizeof(*depth_base(f))   *font_depths(f);  font_bytes += i;
   depth_base(k)    = xmalloc (i);
-  i = sizeof(*height_base(f))  *font_heights(f); fontbytes += i;
+  i = sizeof(*height_base(f))  *font_heights(f); font_bytes += i;
   height_base(k)   = xmalloc (i);
-  i = sizeof(*italic_base(f))  *font_italics(f); fontbytes += i;
+  i = sizeof(*italic_base(f))  *font_italics(f); font_bytes += i;
   italic_base(k)   = xmalloc (i);
-  i = sizeof(*lig_base(f))     *font_ligs(f);    fontbytes += i;
+  i = sizeof(*lig_base(f))     *font_ligs(f);    font_bytes += i;
   lig_base(k)      = xmalloc (i);
-  i = sizeof(*kern_base(f))    *font_kerns(f);   fontbytes += i;
+  i = sizeof(*kern_base(f))    *font_kerns(f);   font_bytes += i;
   kern_base(k)     = xmalloc (i);
-  i = sizeof(*exten_base(f))   *font_extens(f);  fontbytes += i;
+  i = sizeof(*exten_base(f))   *font_extens(f);  font_bytes += i;
   exten_base(k)    = xmalloc (i);
 
   memcpy(char_base(k),     char_base(f),     sizeof(*char_base(f))    *char_infos(f));
@@ -151,7 +155,7 @@ scale_font (integer oldf, integer atsize) {
   for (i=0;i<font_depths(f);i++) {
     set_font_depth(f,i,(scaled)(multiplier*(integer)font_depth(f,i)));
   }
-  fontptr++;
+  font_ptr++;
   return f;
 }
 
@@ -167,7 +171,7 @@ create_null_font (void) {
 
 boolean 
 is_valid_font (integer id) {
-  if (id>=0 && id<font_max && font_tables[id]!=NULL)
+  if (id>=0 && id<font_arr_max && font_tables[id]!=NULL)
     return 1;
   return 0;
 }
@@ -192,7 +196,7 @@ cmp_font_area (integer id, strnumber t)
 
 
 integer 
-test_no_ligatures (internalfontnumber f) {
+test_no_ligatures (internal_font_number f) {
  integer c;
  for (c=font_bc(f);c<=font_ec(f);c++) {
    if (char_exists(f,c) && has_lig(f,c))
@@ -202,8 +206,8 @@ test_no_ligatures (internalfontnumber f) {
 }
 
 integer
-get_tag_code (internalfontnumber f, eightbits c) {
-  smallnumber i;
+get_tag_code (internal_font_number f, eight_bits c) {
+  small_number i;
   if (char_exists(f,c)) {
     i = char_tag(f,c);
     if      (i==lig_tag)   return 1;
@@ -215,7 +219,7 @@ get_tag_code (internalfontnumber f, eightbits c) {
 }
 
 void
-set_tag_code (internalfontnumber f, eightbits c, integer i) {
+set_tag_code (internal_font_number f, eight_bits c, integer i) {
   integer fixedi;
   if (char_exists(g,c)) {
     /* abs(fix_int(i-7,0)) */
@@ -242,7 +246,7 @@ set_tag_code (internalfontnumber f, eightbits c, integer i) {
 
 
 void 
-set_no_ligatures (internalfontnumber f) {
+set_no_ligatures (internal_font_number f) {
   integer c;
   for (c=font_bc(f);c<=font_ec(f);c++) {
     if (char_exists(f,c) && has_lig(f,c))
@@ -251,7 +255,7 @@ set_no_ligatures (internalfontnumber f) {
 }
 
 liginfo 
-get_ligature (internalfontnumber f, integer lc, integer rc) {
+get_ligature (internal_font_number f, integer lc, integer rc) {
   liginfo t,u;
   t.lig = 0;
   t.type_char = 0;
@@ -275,7 +279,7 @@ get_ligature (internalfontnumber f, integer lc, integer rc) {
 
 
 scaled 
-get_kern(internalfontnumber f, integer lc, integer rc)
+get_kern(internal_font_number f, integer lc, integer rc)
 {
   integer k;
   if (!has_kern(f,lc))
@@ -302,23 +306,23 @@ dump_font (int f)
   int x;
 
   set_font_used(f,0);
-  dumpthings(*(fonttables[f]), 1);
+  dump_things(*(font_tables[f]), 1);
 
   x = strlen(font_name(f))+1;
-  dumpint(x);  dumpthings(*font_name(f), x);
+  dump_int(x);  dump_things(*font_name(f), x);
 
   x = strlen(font_area(f))+1;
-  dumpint(x);  dumpthings(*font_area(f), x);
+  dump_int(x);  dump_things(*font_area(f), x);
 
-  dumpthings(*char_base(f),     char_infos(f));
-  dumpthings(*param_base(f),    font_params(f));
-  dumpthings(*width_base(f),    font_widths(f));
-  dumpthings(*depth_base(f),    font_depths(f));
-  dumpthings(*height_base(f),   font_heights(f));
-  dumpthings(*italic_base(f),   font_italics(f));
-  dumpthings(*lig_base(f),      font_ligs(f));
-  dumpthings(*kern_base(f),     font_kerns(f));
-  dumpthings(*exten_base(f),    font_extens(f));
+  dump_things(*char_base(f),     char_infos(f));
+  dump_things(*param_base(f),    font_params(f));
+  dump_things(*width_base(f),    font_widths(f));
+  dump_things(*depth_base(f),    font_depths(f));
+  dump_things(*height_base(f),   font_heights(f));
+  dump_things(*italic_base(f),   font_italics(f));
+  dump_things(*lig_base(f),      font_ligs(f));
+  dump_things(*kern_base(f),     font_kerns(f));
+  dump_things(*exten_base(f),    font_extens(f));
 }
 
 void
@@ -329,47 +333,47 @@ undump_font(int f)
   char *s;
   grow_font_table (f);
   font_tables[f] = NULL;
-  fontbytes += sizeof(texfont);
+  font_bytes += sizeof(texfont);
   tt = xmalloc(sizeof(texfont));
-  undumpthings(*tt,1);
-  fonttables[f] = tt;
+  undump_things(*tt,1);
+  font_tables[f] = tt;
 
-  undumpint (x); fontbytes += x; 
-  s = xmalloc(x); undumpthings(*s,x);  
+  undump_int (x); font_bytes += x; 
+  s = xmalloc(x); undump_things(*s,x);  
   set_font_name(f,s);
 
-  undumpint (x); fontbytes += x; 
-  s = xmalloc(x); undumpthings(*s,x);
+  undump_int (x); font_bytes += x; 
+  s = xmalloc(x); undump_things(*s,x);
   set_font_area(f,s);
 
-  i = sizeof(*char_base(f)) *char_infos(f);  fontbytes += i;
+  i = sizeof(*char_base(f)) *char_infos(f);  font_bytes += i;
   char_base(f)     = xmalloc (i);
-  i = sizeof(*param_base(f))   *font_params(f);  fontbytes += i;
+  i = sizeof(*param_base(f))   *font_params(f);  font_bytes += i;
   param_base(f)    = xmalloc (i);
-  i = sizeof(*width_base(f))   *font_widths(f);  fontbytes += i;
+  i = sizeof(*width_base(f))   *font_widths(f);  font_bytes += i;
   width_base(f)    = xmalloc (i);
-  i = sizeof(*depth_base(f))   *font_depths(f);  fontbytes += i;
+  i = sizeof(*depth_base(f))   *font_depths(f);  font_bytes += i;
   depth_base(f)    = xmalloc (i);
-  i = sizeof(*height_base(f))  *font_heights(f); fontbytes += i;
+  i = sizeof(*height_base(f))  *font_heights(f); font_bytes += i;
   height_base(f)   = xmalloc (i);
-  i = sizeof(*italic_base(f))  *font_italics(f); fontbytes += i;
+  i = sizeof(*italic_base(f))  *font_italics(f); font_bytes += i;
   italic_base(f)   = xmalloc (i);
-  i = sizeof(*lig_base(f))     *font_ligs(f);    fontbytes += i;
+  i = sizeof(*lig_base(f))     *font_ligs(f);    font_bytes += i;
   lig_base(f) = xmalloc (i);
-  i = sizeof(*kern_base(f))    *font_kerns(f);   fontbytes += i;
+  i = sizeof(*kern_base(f))    *font_kerns(f);   font_bytes += i;
   kern_base(f)     = xmalloc (i);
-  i = sizeof(*exten_base(f))   *font_extens(f);  fontbytes += i;
+  i = sizeof(*exten_base(f))   *font_extens(f);  font_bytes += i;
   exten_base(f)    = xmalloc (i);
 
-  undumpthings(*char_base(f),     char_infos(f));
-  undumpthings(*param_base(f),    font_params(f));
-  undumpthings(*width_base(f),    font_widths(f));
-  undumpthings(*depth_base(f),    font_depths(f));
-  undumpthings(*height_base(f),   font_heights(f));
-  undumpthings(*italic_base(f),   font_italics(f));
-  undumpthings(*lig_base(f),      font_ligs(f));
-  undumpthings(*kern_base(f),     font_kerns(f));
-  undumpthings(*exten_base(f),    font_extens(f));
+  undump_things(*char_base(f),     char_infos(f));
+  undump_things(*param_base(f),    font_params(f));
+  undump_things(*width_base(f),    font_widths(f));
+  undump_things(*depth_base(f),    font_depths(f));
+  undump_things(*height_base(f),   font_heights(f));
+  undump_things(*italic_base(f),   font_italics(f));
+  undump_things(*lig_base(f),      font_ligs(f));
+  undump_things(*kern_base(f),     font_kerns(f));
+  undump_things(*exten_base(f),    font_extens(f));
   
 }
 

@@ -129,7 +129,7 @@ static void t3_write_glyph (internalfontnumber f)
             return;
     } else
         return;
-    if (!pdfcharmarked (f, glyph_index)) {
+    if (!pdf_char_marked (f, glyph_index)) {
         while (!t3_prefix (t3_end_glyph_str)) {
             t3_check_eof ();
             t3_getline ();
@@ -139,13 +139,13 @@ static void t3_write_glyph (internalfontnumber f)
     update_bbox (llx, lly, urx, ury, t3_glyph_num == 0);
     t3_glyph_num++;
     pdfnewdict (0, 0, 0);
-    t3_char_procs[glyph_index] = objptr;
+    t3_char_procs[glyph_index] = obj_ptr;
     if (width == 0)
         t3_char_widths[glyph_index] =
-            (getcharwidth (f, glyph_index) / t3_font_scale) / pdffontsize[f];
+            (getcharwidth (f, glyph_index) / t3_font_scale) / pdf_font_size[f];
     else
         t3_char_widths[glyph_index] = width;
-    pdfbeginstream ();
+    pdf_begin_stream ();
     t3_getline ();
     pdf_printf ("%i 0 %i %i %i %i d1\nq\n",
                 (int) t3_char_widths[glyph_index], (int) llx,
@@ -158,28 +158,28 @@ static void t3_write_glyph (internalfontnumber f)
         t3_getline ();
     }
     pdf_puts ("Q\n");
-    pdfendstream ();
+    pdf_end_stream ();
 }
 
 static integer get_pk_font_scale (internalfontnumber f)
 {
     return
-        dividescaled (pkscalefactor,
-                      dividescaled (pdffontsize[f], onehundredbp,
-                                    fixeddecimaldigits + 2), 0);
+        divide_scaled (pk_scale_factor,
+                      divide_scaled (pdf_font_size[f], one_hundred_bp,
+                                    fixed_decimal_digits + 2), 0);
 }
 
 static integer pk_char_width (internalfontnumber f, scaled w)
 {
     return
-        dividescaled (dividescaled (w, pdffontsize[f], 7),
+        divide_scaled (divide_scaled (w, pdf_font_size[f], 7),
                       get_pk_font_scale (f), 0);
 }
 
-scaled getpkcharwidth (internalfontnumber f, scaled w)
+scaled get_pk_char_width (internalfontnumber f, scaled w)
 {
     return (get_pk_font_scale (f) / 100000.0) *
-        (pk_char_width (f, w) / 100.0) * pdffontsize[f];
+        (pk_char_width (f, w) / 100.0) * pdf_font_size[f];
 }
 
 static boolean writepk (internalfontnumber f)
@@ -203,17 +203,17 @@ static boolean writepk (internalfontnumber f)
     t3_curbyte=0;
     t3_size=0;
 
-	callback_id=callbackdefined("find_pk_file");
+	callback_id=callback_defined("find_pk_file");
 
 	if (callback_id>0) {
-      dpi = round (fixedpkresolution *
-		   (((float) pdffontsize[f]) / get_font_dsize(f)));
+      dpi = round (fixed_pk_resolution *
+		   (((float) pdf_font_size[f]) / get_font_dsize(f)));
       /* <base>.dpi/<fontname>.<tdpi>pk */
       cur_file_name = font_name(f);
       mallocsize = strlen(cur_file_name)+24+9;
       name = xmalloc(mallocsize);
-      snprintf(name,mallocsize,"%ddpi/%s.%dpk",fixedpkresolution,cur_file_name,dpi);
-	  if(runcallback(callback_id,"S->S",name,&ftemp)) {
+      snprintf(name,mallocsize,"%ddpi/%s.%dpk",fixed_pk_resolution,cur_file_name,dpi);
+	  if(run_callback(callback_id,"S->S",name,&ftemp)) {
 		if(ftemp!=NULL&&strlen(ftemp)) {
 		  free(name);
 		  name = xstrdup(ftemp);
@@ -223,9 +223,9 @@ static boolean writepk (internalfontnumber f)
 	} else {
       dpi =
         kpse_magstep_fix (round
-                          (fixedpkresolution *
-                           (((float) pdffontsize[f]) / get_font_dsize(f))),
-                          fixedpkresolution, NULL);
+                          (fixed_pk_resolution *
+                           (((float) pdf_font_size[f]) / get_font_dsize(f))),
+                          fixed_pk_resolution, NULL);
       cur_file_name = font_name(f);
       name = kpse_find_pk (cur_file_name, (unsigned) dpi, &font_ret);
       if (name == NULL ||
@@ -236,9 +236,9 @@ static boolean writepk (internalfontnumber f)
         return false;
       }
 	}
-    callback_id=callbackdefined("read_pk_file");
+    callback_id=callback_defined("read_pk_file");
     if (callback_id>0) {
-      if(! ( runcallback(callback_id,"S->bSd",name, &file_opened, &t3_buffer,&t3_size) &&
+      if(! ( run_callback(callback_id,"S->bSd",name, &file_opened, &t3_buffer,&t3_size) &&
 	     file_opened && 
 	     t3_size>0 ) ) {
 		pdftex_warn ("Font %s at %i not found", cur_file_name, (int)dpi);
@@ -259,10 +259,10 @@ static boolean writepk (internalfontnumber f)
     check_preamble = true;
     while (readchar (check_preamble, &cd) != 0) {
         check_preamble = false;
-        if (!pdfcharmarked (f, cd.charcode))
+        if (!pdf_char_marked (f, cd.charcode))
             continue;
         t3_char_widths[cd.charcode] =
-            pk_char_width (f, getcharwidth (f, cd.charcode));
+            pk_char_width (f, get_charwidth (f, cd.charcode));
         if (cd.cwidth < 1 || cd.cheight < 1) {
             cd.xescape = cd.cwidth =
                 round (t3_char_widths[cd.charcode] / 100.0);
@@ -278,10 +278,10 @@ static boolean writepk (internalfontnumber f)
         ury = cd.cheight + lly;
         update_bbox (llx, lly, urx, ury, t3_glyph_num == 0);
         t3_glyph_num++;
-        pdfnewdict (0, 0, 0);
-        t3_char_procs[cd.charcode] = objptr;
-        pdfbeginstream ();
-        pdfprintreal (t3_char_widths[cd.charcode], 2);
+        pdf_new_dict (0, 0, 0);
+        t3_char_procs[cd.charcode] = obj_ptr;
+        pdf_begin_stream ();
+        pdf_print_real (t3_char_widths[cd.charcode], 2);
         pdf_printf (" 0 %i %i %i %i d1\n",
                     (int) llx, (int) lly, (int) urx, (int) ury);
         if (is_null_glyph)
@@ -306,7 +306,7 @@ static boolean writepk (internalfontnumber f)
         }
         pdf_puts ("\nEI\nQ\n");
       end_stream:
-        pdfendstream ();
+        pdf_end_stream ();
     }
     xfree (cd.raster);
     cur_file_name = NULL;
@@ -329,8 +329,8 @@ void writet3 (int objnum, internalfontnumber f)
         t3_char_procs[i] = 0;
         t3_char_widths[i] = 0;
     }
-    packfilename (tex_font_name(f), getnullstr (), maketexstring (".pgc"));
-    cur_file_name = makecstring (makenamestring ());
+    pack_file_name (tex_font_name(f), get_nullstr (), maketexstring (".pgc"));
+    cur_file_name = makecstring (make_name_string ());
     is_pk_font = false;
 
     if (t3_buffer!=NULL) {
@@ -344,26 +344,26 @@ void writet3 (int objnum, internalfontnumber f)
 	  return;
 	}
     for (i = font_bc(f); i <= font_ec(f); i++)
-        if (pdfcharmarked (f, i))
+        if (pdf_char_marked (f, i))
             break;
     first_char = i;
     for (i = font_ec(f); i > first_char; i--)
-        if (pdfcharmarked (f, i))
+        if (pdf_char_marked (f, i))
             break;
     last_char = i;
-    pdfbegindict (objnum, 1);   /* Type 3 font dictionary */
+    pdf_begin_dict (objnum, 1);   /* Type 3 font dictionary */
     pdf_puts ("/Type /Font\n/Subtype /Type3\n");
     pdf_printf ("/Name /F%i\n", (int) f);
-    if (pdffontattr[f] != getnullstr ()) {
-        pdfprint (pdffontattr[f]);
+    if (pdf_font_attr[f] != get_nullstr ()) {
+        pdf_print (pdf_font_attr[f]);
         pdf_puts ("\n");
     }
     if (is_pk_font) {
         pk_font_scale = get_pk_font_scale (f);
         pdf_puts ("/FontMatrix [");
-        pdfprintreal (pk_font_scale, 5);
+        pdf_print_real (pk_font_scale, 5);
         pdf_puts (" 0 0 ");
-        pdfprintreal (pk_font_scale, 5);
+        pdf_print_real (pk_font_scale, 5);
         pdf_puts (" 0 0]\n");
     } else
         pdf_printf ("/FontMatrix [%g 0 0 %g 0 0]\n",
@@ -374,24 +374,24 @@ void writet3 (int objnum, internalfontnumber f)
     pdf_printf ("/Resources << /ProcSet [ /PDF %s] >>\n",
                 t3_image_used ? "/ImageB " : "");
     pdf_printf ("/FirstChar %i\n/LastChar %i\n", first_char, last_char);
-    wptr = pdfnewobjnum ();
-    eptr = pdfnewobjnum ();
-    cptr = pdfnewobjnum ();
+    wptr = pdf_new_objnum ();
+    eptr = pdf_new_objnum ();
+    cptr = pdf_new_objnum ();
     pdf_printf ("/Widths %i 0 R\n/Encoding %i 0 R\n/CharProcs %i 0 R\n",
                 (int)wptr, (int)eptr, (int)cptr);
-    pdfenddict ();
-    pdfbeginobj (wptr, 1);      /* chars width array */
+    pdf_end_dict ();
+    pdf_begin_obj (wptr, 1);      /* chars width array */
     pdf_puts ("[");
     if (is_pk_font)
         for (i = first_char; i <= last_char; i++) {
-            pdfprintreal (t3_char_widths[i], 2);
+            pdf_print_real (t3_char_widths[i], 2);
             pdf_puts (" ");
     } else
         for (i = first_char; i <= last_char; i++)
             pdf_printf ("%i ", (int) t3_char_widths[i]);
     pdf_puts ("]\n");
-    pdfendobj ();
-    pdfbegindict (eptr, 1);     /* encoding dictionary */
+    pdf_end_obj ();
+    pdf_begin_dict (eptr, 1);     /* encoding dictionary */
     pdf_printf ("/Type /Encoding\n/Differences [%i", first_char);
     if (t3_char_procs[first_char] == 0) {
         pdf_printf ("/%s", notdef);
@@ -415,12 +415,12 @@ void writet3 (int objnum, internalfontnumber f)
         }
     }
     pdf_puts ("]\n");
-    pdfenddict ();
-    pdfbegindict (cptr, 1);     /* CharProcs dictionary */
+    pdf_end_dict ();
+    pdf_begin_dict (cptr, 1);     /* CharProcs dictionary */
     for (i = first_char; i <= last_char; i++)
         if (t3_char_procs[i] != 0)
             pdf_printf ("/a%i %i 0 R\n", (int) i, (int) t3_char_procs[i]);
-    pdfenddict ();
+    pdf_end_dict ();
 	if (tracefilenames)
 	  tex_printf (">");
     cur_file_name = NULL;

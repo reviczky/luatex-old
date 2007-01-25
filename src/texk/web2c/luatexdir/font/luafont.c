@@ -222,7 +222,7 @@ font_from_lua (lua_State *L, int f) {
   if (lua_isnumber(L,-1)) {	
 	set_hyphen_char(f,lua_tonumber(L,-1));
   } else {
-	set_hyphen_char(f,getdefaulthyphenchar());
+	set_hyphen_char(f,get_default_hyphen_char());
   }
   lua_pop(L,1);
   
@@ -230,7 +230,7 @@ font_from_lua (lua_State *L, int f) {
   if (lua_isnumber(L,-1)) {	
 	set_skew_char(f,lua_tonumber(L,-1));
   } else {
-	set_skew_char(f,getdefaultskewchar());
+	set_skew_char(f,get_default_skew_char());
   }
   lua_pop(L,1);
 

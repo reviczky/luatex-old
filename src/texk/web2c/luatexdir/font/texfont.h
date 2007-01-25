@@ -167,7 +167,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_char_infos(f,b)						\
   { if (char_infos(f)!=b) {						\
-      fontbytes += (b-char_infos(f))*sizeof(characterinfo);		\
+      font_bytes += (b-char_infos(f))*sizeof(characterinfo);		\
       do_realloc(char_base(f), b, characterinfo);			\
       char_infos(f) = b; } }
 
@@ -183,7 +183,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_params(f,b)						\
   { if (font_params(f)!=b) {						\
-      fontbytes += (b-font_params(f))*sizeof(scaled);			\
+      font_bytes += (b-font_params(f))*sizeof(scaled);			\
       do_realloc(param_base(f), (b+1), integer);			\
       font_params(f) = b;  } }
 
@@ -200,7 +200,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_widths(f,b)						\
   { if (font_widths(f)!=b) {						\
-      fontbytes += (b-font_widths(f))*sizeof(integer);			\
+      font_bytes += (b-font_widths(f))*sizeof(integer);			\
       do_realloc(width_base(f), b, integer);				\
       font_widths(f) = b;  } }
 
@@ -217,7 +217,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_heights(f,b)						\
   { if (font_heights(f)!=b) {						\
-      fontbytes += (b-font_heights(f))*sizeof(integer);			\
+      font_bytes += (b-font_heights(f))*sizeof(integer);			\
       do_realloc(height_base(f), b, integer);				\
       font_heights(f) = b;  } }
 
@@ -233,7 +233,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_depths(f,b)						\
   { if (font_depths(f)!=b) {						\
-      fontbytes += (b-font_depths(f))*sizeof(integer);			\
+      font_bytes += (b-font_depths(f))*sizeof(integer);			\
       do_realloc(depth_base(f), b, integer);				\
       font_depths(f) = b;  } }
 
@@ -250,7 +250,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_italics(f,b)						\
   { if (font_italics(f)!=b) {						\
-      fontbytes += (b-font_italics(f))*sizeof(integer);			\
+      font_bytes += (b-font_italics(f))*sizeof(integer);			\
       do_realloc(italic_base(f), b, integer);				\
       font_italics(f) = b;  } }
 
@@ -267,7 +267,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_kerns(f,b)					 \
   { if (font_kerns(f)!=b) {					 \
-      fontbytes += (b-font_kerns(f))*sizeof(kerninfo);		 \
+      font_bytes += (b-font_kerns(f))*sizeof(kerninfo);		 \
       do_realloc(kern_base(f), b, kerninfo);			 \
       font_kerns(f) = b;  } }
 
@@ -294,7 +294,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_ligs(f,b)					 \
   { if (font_ligs(f)!=b) {					 \
-      fontbytes += (b-font_ligs(f))*sizeof(liginfo);		 \
+      font_bytes += (b-font_ligs(f))*sizeof(liginfo);		 \
       do_realloc(lig_base(f), b, liginfo);			 \
       font_ligs(f) = b;  } }
 
@@ -322,7 +322,7 @@ boolean cmp_font_area (integer, strnumber);
 
 #define set_font_extens(f,b)						\
   { if (font_extens(f)!=b) {						\
-      fontbytes += (b-font_extens(f))*sizeof(fourquarters);		\
+      font_bytes += (b-font_extens(f))*sizeof(fourquarters);		\
       do_realloc(exten_base(f), b, fourquarters);			\
       font_extens(f) = b;  } }
 
@@ -412,152 +412,11 @@ void dump_font (int font_number);
 void undump_font (int font_number);
 
 integer test_no_ligatures (internalfontnumber f) ;
-integer get_tag_code (internalfontnumber f, eightbits c);
+void set_no_ligatures (internal_font_number f) ;
+integer get_tag_code (internalfontnumber f, eight_bits c);
 
 int read_tfm_info(internalfontnumber f, char *nom, char *aire, scaled s);
 
 int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
 		   integer natural_dir);
 
-/* Everything below here will hopefully go away soon */
-
-#define adjustfontkern                   adjust_font_kern
-#define bcharlabel                       bchar_label
-#define charbase                         char_base
-#define chardepth                        char_depth
-#define charexists                       char_exists
-#define charheight                       char_height
-#define charinfo                         char_info
-#define charitalic                       char_italic
-#define charkern                         char_kern
-#define charremainder                    char_remainder
-#define chartag                          char_tag
-#define charwidth                        char_width
-#define cmpfontarea                      cmp_font_area
-#define cmpfontname                      cmp_font_name
-#define copyfont                         copy_font
-#define createnullfont                   create_null_font
-#define depthbase                        depth_base
-#define dumpfont                         dump_font
-#define extbot                           ext_bot
-#define extenbase                        exten_base
-#define extmid                           ext_mid
-#define extraspace                       extra_space
-#define extraspacecode                   extra_space_code
-#define extrep                           ext_rep
-#define exttag                           ext_tag
-#define exttop                           ext_top
-#define fontarea                         font_area
-#define fontbc                           font_bc
-#define fontbchar                        font_bchar
-#define fontcacheid                      font_cache_id
-#define fontcheck0                       font_check_0
-#define fontcheck1                       font_check_1
-#define fontcheck2                       font_check_2
-#define fontcheck3                       font_check_3
-#define fontchecksum                     font_checksum
-#define fontdepth                        font_depth
-#define fontdepths                       font_depths
-#define fontdsize                        font_dsize
-#define fontec                           font_ec
-#define fontexten                        font_exten
-#define fontextens                       font_extens
-#define fontfalsebchar                   font_false_bchar
-#define fontheight                       font_height
-#define fontheights                      font_heights
-#define fontitalic                       font_italic
-#define fontitalics                      font_italics
-#define fontkern                         font_kern
-#define fontkerns                        font_kerns
-#define fontkernsc                       font_kern_sc
-#define fontligkern                      font_lig_kern
-#define fontligkerns                     font_lig_kerns
-#define fontname                         font_name
-#define fontnaturaldir                   font_natural_dir
-#define fontparam                        font_param
-#define fontparams                       font_params
-#define fontsize                         font_size
-#define fonttables                       font_tables
-#define fonttouched                      font_touched
-#define fontused                         font_used
-#define fontwidth                        font_width
-#define fontwidths                       font_widths
-#define getkern                          get_kern
-#define getligature                      get_ligature
-#define gettagcode                       get_tag_code
-#define haslig                           has_lig
-#define haskern                          has_kern
-#define heightbase                       height_base
-#define hyphenchar                       hyphen_char
-#define isligature                       is_ligature
-#define isvalidfont                      is_valid_font
-#define italicbase                       italic_base
-#define kernbase                         kern_base
-#define kernflag                         kern_flag
-#define ligtag                           lig_tag
-#define ligreplacement                   lig_replacement
-#define ligtype                          lig_type
-#define listtag                          list_tag
-#define nextchar                         next_char
-#define nonaddress                       non_address
-#define nonchar                          non_char
-#define notag                            no_tag
-#define opbyte                           op_byte
-#define parambase                        param_base
-#define quadcode                         quad_code
-#define readfontinfo                     read_font_info
-#define rembyte                          rem_byte
-#define scalefont                        scale_font
-#define setbcharlabel                    set_bchar_label
-#define setcharinfo                      set_char_info
-#define setchartag                       set_char_tag
-#define setfontarea                      set_font_area
-#define setfontbc                        set_font_bc
-#define setfontbchar                     set_font_bchar
-#define setfontcacheid                   set_font_cache_id
-#define setfontchecksum                  set_font_checksum
-#define setfontdepth                     set_font_depth
-#define setfontdepths                    set_font_depths
-#define setfontdsize                     set_font_dsize
-#define setfontec                        set_font_ec
-#define setfontexten                     set_font_exten
-#define setfontextens                    set_font_extens
-#define setfontfalsebchar                set_font_false_bchar
-#define setfontheight                    set_font_height
-#define setfontheights                   set_font_heights
-#define setfontitalic                    set_font_italic
-#define setfontitalics                   set_font_italics
-#define setfontkern                      set_font_kern
-#define setfontkerns                     set_font_kerns
-#define setfontligkern                   set_font_lig_kern
-#define setfontligkerns                  set_font_lig_kerns
-#define setfontname                      set_font_name
-#define setfontnaturaldir                set_font_natural_dir
-#define setfontparam                     set_font_param
-#define setfontparams                    set_font_params
-#define setfontsize                      set_font_size
-#define setfonttouched                   set_font_touched
-#define setfontused                      set_font_used
-#define setfontwidth                     set_font_width
-#define setfontwidths                    set_font_widths
-#define sethyphenchar                    set_hyphen_char
-#define setnoligatures                   set_no_ligatures
-#define setskewchar                      set_skew_char
-#define settagcode                       set_tag_code
-#define settexfontname                   set_tex_font_name
-#define skewchar                         skew_char
-#define skipbyte                         skip_byte
-#define slantcode                        slant_code
-#define spacecode                        space_code
-#define spaceshrink                      space_shrink
-#define spaceshrinkcode                  space_shrink_code
-#define spacestretch                     space_stretch
-#define spacestretchcode                 space_stretch_code
-#define stopflag                         stop_flag
-#define testnoligatures                  test_no_ligatures
-#define texfontarea                      tex_font_area
-#define texfontname                      tex_font_name
-#define undumpfont                       undump_font
-#define widthbase                        width_base
-#define xheight                          x_height
-#define xheightcode                      x_height_code

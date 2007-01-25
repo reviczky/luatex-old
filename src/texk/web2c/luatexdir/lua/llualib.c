@@ -18,32 +18,32 @@ static bytecode *lua_bytecode_registers = NULL;
 int luabytecode_max = -1;
 int luabytecode_bytes = 0;
 
-void dumpluacregisters (void) {
+void dump_luac_registers (void) {
   int k,n;
   bytecode b;
-  dumpint(luabytecode_max);
+  dump_int(luabytecode_max);
   if (lua_bytecode_registers != NULL) {
     n = 0;
     for (k=0;k<=luabytecode_max;k++) {
       if (lua_bytecode_registers[k].size != 0)
 	n++;
     }
-    dumpint(n);
+    dump_int(n);
     for (k=0;k<=luabytecode_max;k++) {
       b = lua_bytecode_registers[k];
       if (b.size != 0) {
-	dumpint(k);
-	dumpint(b.size);
+	dump_int(k);
+	dump_int(b.size);
 	do_zdump ((char *)b.buf,1,(b.size), DUMP_FILE);
       }
     }
   }
 }
 
-void undumpluacregisters (void) {
+void undump_luac_registers (void) {
   int k,i,n;
   bytecode b;
-  undumpint(luabytecode_max);
+  undump_int(luabytecode_max);
   if (luabytecode_max>=0) {
 	i = sizeof(bytecode)*(luabytecode_max+1);
     lua_bytecode_registers = xmalloc(i);
@@ -53,10 +53,10 @@ void undumpluacregisters (void) {
       lua_bytecode_registers[i].size = 0;
       lua_bytecode_registers[i].buf = NULL;
     }
-    undumpint(n);
+    undump_int(n);
     for (i=0;i<n;i++) {
-      undumpint(k);
-      undumpint(b.size);
+      undump_int(k);
+      undump_int(b.size);
       b.buf=xmalloc(b.size);
 	  luabytecode_bytes += b.size;
       memset(b.buf, 0, b.size);

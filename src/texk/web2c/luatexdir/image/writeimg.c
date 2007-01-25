@@ -25,15 +25,15 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writeimg.c#17 $
 #include <kpathsea/c-auto.h>
 #include <kpathsea/c-memstr.h>
 
-#define bp2int(p)    round(p*(onehundredbp/100.0))
+#define bp2int(p)    round(p*(one_hundred_bp/100.0))
 
 /* define image_ptr, image_array & image_limit */
 define_array (image);
 
 float epdf_width;
 float epdf_height;
-float epdf_orig_x;
-float epdf_orig_y;
+float epdf_orig_x_i;
+float epdf_orig_y_i;
 integer epdf_selected_page;
 integer epdf_num_pages;
 integer epdf_page_box;
@@ -58,67 +58,67 @@ integer imagecolor (integer img)
     return img_color (img);
 }
 
-integer imagewidth (integer img)
+integer image_width (integer img)
 {
     return img_width (img);
 }
 
-integer imageheight (integer img)
+integer image_height (integer img)
 {
     return img_height (img);
 }
 
-integer imagexres (integer img)
+integer image_x_res (integer img)
 {
     return img_xres (img);
 }
 
-integer imageyres (integer img)
+integer image_y_res (integer img)
 {
     return img_yres (img);
 }
 
-boolean ispdfimage (integer img)
+boolean is_pdf_image (integer img)
 {
     return img_type (img) == IMAGE_TYPE_PDF;
 }
 
-boolean checkimageb (integer procset)
+boolean check_image_b (integer procset)
 {
     return procset & IMAGE_COLOR_B;
 }
 
-boolean checkimagec (integer procset)
+boolean check_image_c (integer procset)
 {
     return procset & IMAGE_COLOR_C;
 }
 
-boolean checkimagei (integer procset)
+boolean check_image_i (integer procset)
 {
     return procset & IMAGE_COLOR_I;
 }
 
-void updateimageprocset (integer img)
+void update_image_procset (integer img)
 {
-    pdfimageprocset |= img_color (img);
+    pdf_image_procset |= img_color (img);
 }
 
-integer epdforigx (integer img)
+integer epdf_orig_x (integer img)
 {
     return pdf_ptr (img)->orig_x;
 }
 
-integer epdforigy (integer img)
+integer epdf_orig_y (integer img)
 {
     return pdf_ptr (img)->orig_y;
 }
 
-integer imagepages (integer img)
+integer image_pages (integer img)
 {
     return img_pages (img);
 }
 
-integer imagecolordepth (integer img)
+integer image_colordepth (integer img)
 {
     switch (img_type (img)) {
     case IMAGE_TYPE_PNG:
@@ -265,7 +265,7 @@ static void checktypebyextension (integer img)
         img_type (img) = IMAGE_TYPE_PDF;
 }
 
-integer readimage (strnumber s, integer page_num, strnumber page_name,
+integer read_image (strnumber s, integer page_num, strnumber page_name,
                    integer colorspace, integer pagebox,
                    integer pdfversion, integer pdfinclusionerrorlevel)
 {
@@ -281,8 +281,8 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
         dest = xstrdup (makecstring (page_name));
     cur_file_name = makecfilename (s);
     
-    callback_id=callbackdefined("find_image_file");
-    if (callback_id>0 && runcallback(callback_id,"S->S",cur_file_name,&imagename)) {
+    callback_id=callback_defined("find_image_file");
+    if (callback_id>0 && run_callback(callback_id,"S->S",cur_file_name,&imagename)) {
 	  if (imagename && !strlen(imagename))
 		imagename == NULL;
       img_name (img) = imagename;
@@ -307,8 +307,8 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
         img_width (img) = bp2int (epdf_width);
         img_height (img) = bp2int (epdf_height);
         img_pages (img) = epdf_num_pages;
-        pdf_ptr (img)->orig_x = bp2int (epdf_orig_x);
-        pdf_ptr (img)->orig_y = bp2int (epdf_orig_y);
+        pdf_ptr (img)->orig_x = bp2int (epdf_orig_x_i);
+        pdf_ptr (img)->orig_y = bp2int (epdf_orig_y_i);
         pdf_ptr (img)->selected_page = page_num;
         pdf_ptr (img)->doc = epdf_doc;
         break;
@@ -340,7 +340,7 @@ integer readimage (strnumber s, integer page_num, strnumber page_name,
     return img;
 }
 
-void writeimage (integer img)
+void write_image (integer img)
 {
     cur_file_name = img_name (img);
 	if (tracefilenames)
@@ -369,7 +369,7 @@ void writeimage (integer img)
     cur_file_name = NULL;
 }
 
-void deleteimage (integer img)
+void delete_image (integer img)
 {
     switch (img_type (img)) {
     case IMAGE_TYPE_PDF:

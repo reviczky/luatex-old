@@ -154,7 +154,7 @@ void read_jpg_info(integer img)
         case M_SOF15:
             pdftex_fail("unsupported type of compression");
         case M_SOF2:
-            if (fixedpdfminorversion <= 2)
+            if (fixed_pdf_minor_version <= 2)
                 pdftex_fail("cannot use progressive DCT with PDF-1.2");
         case M_SOF0:
         case M_SOF1:
@@ -232,5 +232,5 @@ void write_jpg(integer img)
     pdf_puts("/Filter /DCTDecode\n>>\nstream\n");
     for (l = jpg_ptr(img)->length, f = jpg_ptr(img)->file; l > 0; l--)
         pdfout(xgetc(f));
-    pdfendstream();
+    pdf_end_stream();
 }

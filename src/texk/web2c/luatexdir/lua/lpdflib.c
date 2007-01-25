@@ -3,19 +3,17 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-integer getcurv AA((void));
-integer getcurh AA((void));
 
 int findcurv (lua_State *L) {
   int j;
-  j = getcurv();
+  j = get_cur_v();
   lua_pushnumber(L, j);
   return 1;
 }
 
 int findcurh (lua_State *L) {
   int j;
-  j = getcurh();
+  j = get_cur_h();
   lua_pushnumber(L, j);
   return 1;
 }
@@ -29,17 +27,6 @@ int makecurh (lua_State *L) {
   lua_pop(L,1); /* table at -1 */
   return 0;
 }
-
-/* make sure that there are at least |n| bytes free in PDF buffer */
-/* similar to macro pdf_room() in luatex.web */
-
-#define pdf_room(i)                                    \
-    if (pdfosmode && (i + pdfptr > pdfbufsize))        \
-	pdfosgetosbuf(i);                              \
-    else if (!pdfosmode && (i > pdfbufsize))           \
-	overflow("PDF output buffer", pdfopbufsize);   \
-    else if (!pdfosmode && (i + pdfptr > pdfbufsize))  \
-	pdfflush();
 
 typedef enum { set_origin, direct_page, direct_always } pdf_lit_mode;
 
@@ -78,14 +65,14 @@ int luapdfprint(lua_State * L)
     }
     switch (literal_mode) {
     case (set_origin):
-        pdfendtext();
-        pdfsetorigin(curh, curv);
+        pdf_end_text();
+        pdf_set_origin(cur_h, cur_v);
         break;
     case (direct_page):
-        pdfendtext();
+        pdf_end_text();
         break;
     case (direct_always):
-        pdfendstringnl();
+        pdf_end_string_nl();
         break;
     default:
         assert(0);
@@ -93,8 +80,8 @@ int luapdfprint(lua_State * L)
     st = lua_tostring(L, n);
     len = lua_strlen(L, n);
     for (i = 0; i < len; i++) {
-        pdf_room(1);
-        pdfbuf[pdfptr++] = st[i];
+        pdfroom(1);
+        pdf_buf[pdf_ptr++] = st[i];
     }
     return 0;
 }

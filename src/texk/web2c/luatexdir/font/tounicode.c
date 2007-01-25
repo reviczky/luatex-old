@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define isXdigit(c) (isdigit(c) || ('A' <= (c) && (c) <= 'F'))
 #define UNI_UNDEF          -1
-#define UNI_STRING         -2   /* string allocated by deftounicode() */
+#define UNI_STRING         -2   /* string allocated by def_tounicode() */
 #define UNI_EXTRA_STRING   -3   /* string allocated by set_glyph_unicode() */
 
 static struct avl_table *glyph_unicode_tree = NULL;
@@ -59,7 +59,7 @@ void glyph_unicode_free(void)
         avl_destroy(glyph_unicode_tree, destroy_glyph_unicode_entry);
 }
 
-void deftounicode(strnumber glyph, strnumber unistr)
+void def_tounicode(strnumber glyph, strnumber unistr)
 {
     char buf[SMALL_BUF_SIZE], *p;
     char buf2[SMALL_BUF_SIZE], *q;
@@ -301,7 +301,7 @@ integer write_tounicode(char **glyph_names, char *name)
     assert(strlen(name) + strlen(builtin_suffix) < SMALL_BUF_SIZE);
     if (glyph_unicode_tree == NULL) {
         pdftex_warn("no GlyphToUnicode entry has been inserted yet!");
-        fixedgentounicode = 0;
+        fixed_gen_tounicode = 0;
         return 0;
     }
     strcpy(buf, name);
@@ -310,9 +310,9 @@ integer write_tounicode(char **glyph_names, char *name)
     else
         strcat(buf, builtin_suffix);    /* ".enc" not present, this is a builtin
                                            encoding so the name is eg "cmr10-builtin" */
-    objnum = pdfnewobjnum();
-    pdfbegindict(objnum, 0);
-    pdfbeginstream();
+    objnum = pdf_new_objnum();
+    pdf_begin_dict(objnum, 0);
+    pdf_begin_stream();
     pdf_printf("%%!PS-Adobe-3.0 Resource-CMap\n"
                "%%%%DocumentNeededResources: ProcSet (CIDInit)\n"
                "%%%%IncludeResource: ProcSet (CIDInit)\n"
@@ -433,6 +433,6 @@ integer write_tounicode(char **glyph_names, char *name)
     pdf_printf("endcmap\n"
                "CMapName currentdict /CMap defineresource pop\n"
                "end\n" "end\n" "%%%%EndResource\n" "%%%%EOF\n");
-    pdfendstream();
+    pdf_end_stream();
     return objnum;
 }

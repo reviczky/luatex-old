@@ -49,24 +49,24 @@ $Id: ptexmac.h,v 1.14 2005/11/29 22:05:23 hahe Exp $
 #  define objinfo(n) objtab[n].int0
 
 #  define pdfroom(n) do {                                      \
-    if ((unsigned)(n + pdfptr) > (unsigned)pdfbufsize) {     \
-        if (pdfosmode)                                       \
-            zpdfosgetosbuf(n);                               \
+    if ((unsigned)(n + pdf_ptr) > (unsigned)pdf_buf_size) {     \
+        if (pdf_os_mode)                                       \
+            zpdf_os_get_os_buf(n);                               \
         else {                                               \
-            if ((unsigned)(n) > (unsigned)pdfbufsize)        \
+            if ((unsigned)(n) > (unsigned)pdf_buf_size)        \
                 pdftex_fail("PDF output buffer overflowed"); \
             else                                             \
-                pdfflush();                                  \
+                pdf_flush();                                  \
         }                                                    \
     }                                                        \
 } while (0)
 
 #  define pdfout(c)  do {   \
     pdfroom(1);           \
-    pdfbuf[pdfptr++] = c; \
+    pdf_buf[pdf_ptr++] = c; \
 } while (0)
 
-#  define pdfoffset()     (pdfgone + pdfptr)
+#  define pdfoffset()     (pdf_gone + pdf_ptr)
 
 #  define MAX_CHAR_CODE       255
 #  define PRINTF_BUF_SIZE     1024
@@ -216,7 +216,7 @@ size_t          T##_limit
 
 #  define set_cur_file_name(s)      \
     cur_file_name = s;      \
-    packfilename(maketexstring(cur_file_name), getnullstr(), getnullstr())
+    pack_file_name(maketexstring(cur_file_name), get_nullstr(), get_nullstr())
 
 #  define cmp_return(a, b) \
     if ((a) > (b))         \

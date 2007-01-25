@@ -579,9 +579,9 @@ void fm_read_info ()
 		}
 		fm_curbyte=0;
 		fm_size=0;
-		callback_id=callbackdefined("find_map_file");
+		callback_id=callback_defined("find_map_file");
 		if (callback_id>0) {
-		  if(runcallback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+		  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
 			if(ftemp!=NULL&&strlen(ftemp)) {
 			  free(nameoffile);
 			  namelength = strlen(ftemp);
@@ -591,9 +591,9 @@ void fm_read_info ()
 			}			
 		  }
 		}
-		callback_id=callbackdefined("read_map_file");
+		callback_id=callback_defined("read_map_file");
 		if (callback_id>0) {
-		  if(runcallback(callback_id,"S->bSd",(char *)(nameoffile+1),
+		  if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
 						 &file_opened, &fm_buffer,&fm_size)) {
 			if(file_opened) {
 			  if (fm_size>0) {
@@ -645,7 +645,7 @@ void fm_read_info ()
 
 /**********************************************************************/
 
-static fmentryptr fmlookup(internalfontnumber f)
+static fm_entry_ptr fmlookup(internalfontnumber f)
 {
     char *tfm;
     fm_entry *fm;
@@ -660,17 +660,17 @@ static fmentryptr fmlookup(internalfontnumber f)
     fm = (fm_entry *) avl_find(tfm_tree, &tmp);
     if (fm != NULL) {
         fm->in_use = true;
-        return (fmentryptr) fm;
+        return (fm_entry_ptr) fm;
     }
-    return (fmentryptr) dummy_fm_entry();
+    return (fm_entry_ptr) dummy_fm_entry();
 }
 
 boolean hasfmentry(internalfontnumber f)
 {
-    if (pdffontmap[f] == NULL)
-        pdffontmap[f] = fmlookup(f);
-    assert(pdffontmap[f] != NULL);
-    return pdffontmap[f] != (fmentryptr) dummy_fm_entry();
+    if (pdf_font_map[f] == NULL)
+        pdf_font_map[f] = fmlookup(f);
+    assert(pdf_font_map[f] != NULL);
+    return pdf_font_map[f] != (fm_entry_ptr) dummy_fm_entry();
 }
 
 /* check whether a map entry is valid for font replacement */
@@ -843,17 +843,17 @@ void process_map_item(char *s, int type)
 
 void pdfmapfile(integer t)
 {
-    process_map_item(makecstring(tokenstostring(t)), MAPFILE);
-    flushstr(lasttokensstring);
+    process_map_item(makecstring(tokens_to_string(t)), MAPFILE);
+    flush_str(last_tokens_string);
 }
 
 void pdfmapline(integer t)
 {
-    process_map_item(makecstring(tokenstostring(t)), MAPLINE);
-    flushstr(lasttokensstring);
+    process_map_item(makecstring(tokens_to_string(t)), MAPLINE);
+    flush_str(last_tokens_string);
 }
 
-void pdfinitmapfile(string map_name)
+void pdf_init_map_file(string map_name)
 {
     assert(mitem == NULL);
     mitem = xtalloc(1, mapitem);
@@ -890,9 +890,9 @@ ff_entry *check_ff_exist(char *ff_name, boolean is_tt)
         ff = new_ff_entry();
         ff->ff_name = xstrdup(ff_name);
         if (is_tt) {
-           callback_id=callbackdefined("find_truetype_file");
+           callback_id=callback_defined("find_truetype_file");
            if (callback_id>0) {
-             runcallback(callback_id,"S->S",ff_name,&filepath);
+             run_callback(callback_id,"S->S",ff_name,&filepath);
                  if (filepath && strlen(filepath)==0)
                        filepath=NULL;
              ff->ff_path = filepath;
@@ -901,9 +901,9 @@ ff_entry *check_ff_exist(char *ff_name, boolean is_tt)
            }
 		}
 		else {
-		  callback_id=callbackdefined("find_type1_file");
+		  callback_id=callback_defined("find_type1_file");
 		  if (callback_id>0) {
-			runcallback(callback_id,"S->S",ff_name,&filepath);
+			run_callback(callback_id,"S->S",ff_name,&filepath);
 			if (filepath && strlen(filepath)==0)
 			  filepath=NULL;
 			ff->ff_path = filepath;

@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="1" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070119' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070124' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -880,17 +880,17 @@ called |get|, |put|, |eof|, and so on. But
 standard \PASCAL\ does not allow file variables to be associated with file
 names that are determined at run time, so it cannot be used to implement
 \TeX; some sort of extension to \PASCAL's ordinary |reset| and |rewrite|
-is crucial for our purposes. We shall assume that |name_of_file| is a variable
+is crucial for our purposes. We shall assume that |nameoffile| is a variable
 of an appropriate type such that the \PASCAL\ run-time system being used to
 implement \TeX\ can open a file whose external name is specified by
-|name_of_file|.
+|nameoffile|.
 @^system dependencies@>
 
 @<Glob...@>=
-@!name_of_file:packed array[1..file_name_size] of char;@;@/
+@!nameoffile:packed array[1..file_name_size] of char;@;@/
   {on some systems this may be a \&{record} variable}
-@!name_length:0..file_name_size;@/{this many characters are actually
-  relevant in |name_of_file| (the rest are blank)}
+@!namelength:0..file_name_size;@/{this many characters are actually
+  relevant in |nameoffile| (the rest are blank)}
 @!name_file_pointer:alpha_file;
 
 @ The \ph\ compiler with which the present version of \TeX\ was prepared has
@@ -914,39 +914,39 @@ cannot be found, or if such a file cannot be opened for some other reason
 @^system dependencies@>
 
 \TeX's file-opening procedures return |false| if no file identified by
-|name_of_file| could be opened.
+|nameoffile| could be opened.
 
 @d reset_OK(#)==erstat(#)=0
 @d rewrite_OK(#)==erstat(#)=0
 
 @p function a_open_in(var f:alpha_file):boolean;
   {open a text file for input}
-begin reset(f,name_of_file,'/O'); a_open_in:=reset_OK(f);
+begin reset(f,nameoffile,'/O'); a_open_in:=reset_OK(f);
 end;
 @#
 function a_open_out(var f:alpha_file):boolean;
   {open a text file for output}
-begin rewrite(f,name_of_file,'/O'); a_open_out:=rewrite_OK(f);
+begin rewrite(f,nameoffile,'/O'); a_open_out:=rewrite_OK(f);
 end;
 @#
 function b_open_in(var f:byte_file):boolean;
   {open a binary file for input}
-begin reset(f,name_of_file,'/O'); b_open_in:=reset_OK(f);
+begin reset(f,nameoffile,'/O'); b_open_in:=reset_OK(f);
 end;
 @#
 function b_open_out(var f:byte_file):boolean;
   {open a binary file for output}
-begin rewrite(f,name_of_file,'/O'); b_open_out:=rewrite_OK(f);
+begin rewrite(f,nameoffile,'/O'); b_open_out:=rewrite_OK(f);
 end;
 @#
 function w_open_in(var f:word_file):boolean;
   {open a word file for input}
-begin reset(f,name_of_file,'/O'); w_open_in:=reset_OK(f);
+begin reset(f,nameoffile,'/O'); w_open_in:=reset_OK(f);
 end;
 @#
 function w_open_out(var f:word_file):boolean;
   {open a word file for output}
-begin rewrite(f,name_of_file,'/O'); w_open_out:=rewrite_OK(f);
+begin rewrite(f,nameoffile,'/O'); w_open_out:=rewrite_OK(f);
 end;
 
 @ Add callback check
@@ -965,22 +965,22 @@ var ret,test:boolean;
   callback_id:integer;
 begin 
   if n=0 then begin
-    tex_input_type := 1; {Tell |open_input| we are \.{\\input}.}
+    texinputtype := 1; {Tell |open_input| we are \.{\\input}.}
     input_file_callback_id[index] := 0;
     end
   else begin
-    tex_input_type:=0; 
+    texinputtype:=0; 
     read_file_callback_id[n] := 0;
     end;
   callback_id:=callback_defined('find_read_file');
   if callback_id>0 then begin
     fnam:=0;
-    test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),address_of(fnam));
+    test:=run_callback(callback_id,'dS->s',n,stringcast(nameoffile+1),addressof(fnam));
     if (test)and(fnam<>0)and(length(fnam)>0) then begin
-      @<Fixup |name_of_file| after callback@>;
+      @<Fixup |nameoffile| after callback@>;
       callback_id:=callback_defined('open_read_file');
       if callback_id >0 then begin
-        stored_callback_id := run_and_save_callback(callback_id,'S->',stringcast(name_of_file+1));
+        stored_callback_id := run_and_save_callback(callback_id,'S->',stringcast(nameoffile+1));
         if stored_callback_id>0 then begin
           lua_a_open_in := true;
           if n=0 then
@@ -994,8 +994,8 @@ begin
           end;
         end
       else begin {no read callback}
-	if open_in_name_ok(stringcast(name_of_file+1)) then begin
-          lua_a_open_in := a_open_in(f,kpse_tex_format);
+	if openinnameok(stringcast(nameoffile+1)) then begin
+          lua_a_open_in := a_open_in(f,kpsetexformat);
           name_file_pointer := f;
           end
         else begin
@@ -1010,8 +1010,8 @@ begin
       end;
     end
   else begin {no find callback}
-    if open_in_name_ok(stringcast(name_of_file+1)) then begin
-      lua_a_open_in := a_open_in(f,kpse_tex_format);
+    if openinnameok(stringcast(nameoffile+1)) then begin
+      lua_a_open_in := a_open_in(f,kpsetexformat);
       name_file_pointer := f;
       end
     else begin
@@ -1030,9 +1030,9 @@ begin
   callback_id:=callback_defined('find_write_file');
   if callback_id>0 then begin
     fnam:=0;
-    test:=run_callback(callback_id,'dS->s',n,stringcast(name_of_file+1),address_of(fnam));
+    test:=run_callback(callback_id,'dS->s',n,stringcast(nameoffile+1),addressof(fnam));
     if (test)and(fnam<>0)and(length(fnam)>0) then begin
-      @<Fixup |name_of_file| after callback@>;
+      @<Fixup |nameoffile| after callback@>;
       lua_a_open_out := do_a_open_out(f);
 	  name_file_pointer := f;
       end
@@ -1040,7 +1040,7 @@ begin
       lua_a_open_out := false;
     end 
   else begin
-	if open_out_name_ok(stringcast(name_of_file+1)) then begin
+	if openoutnameok(stringcast(nameoffile+1)) then begin
       lua_a_open_out := a_open_out(f);
       name_file_pointer := f;
       end
@@ -1058,9 +1058,9 @@ begin
   callback_id:=callback_defined('find_output_file');
   if callback_id>0 then begin
     fnam:=0;
-    test:=run_callback(callback_id,'S->s',stringcast(name_of_file+1),address_of(fnam));
+    test:=run_callback(callback_id,'S->s',stringcast(nameoffile+1),addressof(fnam));
     if (test)and(fnam<>0)and(length(fnam)>0) then begin
-      @<Fixup |name_of_file| after callback@>;
+      @<Fixup |nameoffile| after callback@>;
       lua_b_open_out := do_b_open_out(f);
 	  name_file_pointer := f;
       end
@@ -1068,7 +1068,7 @@ begin
       lua_b_open_out := false;
     end 
   else begin
-	if open_out_name_ok(stringcast(name_of_file+1)) then begin
+	if openoutnameok(stringcast(nameoffile+1)) then begin
       lua_b_open_out := b_open_out(f);
       name_file_pointer := f;
       end
@@ -1078,13 +1078,13 @@ begin
 end;
 
 @ 
-@<Fixup |name_of_file| after callback@>=
-libc_free (name_of_file);
-name_of_file := xmalloc_array (packed_ASCII_code, length(fnam)+2);
+@<Fixup |nameoffile| after callback@>=
+libcfree (nameoffile);
+nameoffile := xmallocarray (packed_ASCII_code, length(fnam)+2);
 for k:=str_start_macro(fnam) to str_start_macro(fnam+1)-1 do
-  name_of_file[k-str_start_macro(fnam)+1] := str_pool[k];
-name_of_file[length(fnam)+1]:=0;
-name_length := length(fnam);
+  nameoffile[k-str_start_macro(fnam)+1] := str_pool[k];
+nameoffile[length(fnam)+1]:=0;
+namelength := length(fnam);
 flush_string
 
 @ Files can be closed with the \ph\ routine `|close(f)|', which
@@ -1233,7 +1233,7 @@ else
 if callback_id>0 then begin
     last:=first;
 	last_ptr := first;
-    lua_result := run_saved_callback(callback_id,'reader','->l', address_of(last_ptr));
+    lua_result := run_saved_callback(callback_id,'reader','->l', addressof(last_ptr));
 	if (lua_result=true)and(last_ptr<>0) then begin
 	  last := last_ptr;
 	  if last>max_buf_stack then max_buf_stack:=last; 
@@ -1260,7 +1260,7 @@ if last>=first then begin
   callback_id := callback_defined('process_input_buffer');
   if callback_id>0 then begin
     last_ptr := first;
-    lua_result := run_callback(callback_id, 'l->l', (last-first), address_of(last_ptr)); 
+    lua_result := run_callback(callback_id, 'l->l', (last-first), addressof(last_ptr)); 
     if (lua_result=true)and(last_ptr<>0) then begin
 	  last := last_ptr;
 	  if last>max_buf_stack then max_buf_stack:=last; 
@@ -1335,7 +1335,7 @@ quietly terminates the program.)
 
 @<Report overflow of the input buffer, and abort@>=
 if format_ident=0 then
-  begin write_ln(term_out,'Buffer size exceeded!'); goto final_end;
+  begin writeln(term_out,'Buffer size exceeded!'); goto final_end;
 @.Buffer size exceeded@>
   end
 else begin cur_input.loc_field:=first; cur_input.limit_field:=last-1;
@@ -1384,7 +1384,7 @@ loop@+begin wake_up_terminal; write(term_out,'**'); update_terminal;
 @.**@>
   if not input_ln(term_in,true)
 then {this shouldn't happen}
-    begin write_ln(term_out);
+    begin writeln(term_out);
     write(term_out,'! End of file on the terminal... why?');
 @.End of file on the terminal@>
     init_terminal:=false; return;
@@ -1395,7 +1395,7 @@ then {this shouldn't happen}
     begin init_terminal:=true;
     return; {return unless the line was all blank}
     end;
-  write_ln(term_out,'Please type the name of your input file.');
+  writeln(term_out,'Please type the name of your input file.');
   end;
 exit:end;
 
@@ -1480,6 +1480,17 @@ end
   overflow("pool size",pool_size-init_pool_ptr);
 @:TeX capacity exceeded pool size}{\quad pool size@>
   end
+
+@p procedure string_room(t:integer);
+begin
+	str_room(t);
+end;
+@#
+procedure append_pool_char(c:ASCII_code);
+begin
+	append_char(c);
+end;
+
 
 @ Once a sequence of characters has been appended to |str_pool|, it
 officially becomes a string when the function |make_string| is called.
@@ -1692,7 +1703,7 @@ Thus, at least 80 printable characters are needed.
 @ @<Read the other strings...@>=
   g := loadpoolstrings((pool_size-string_vacancies));
   if g=0 then begin
-     wake_up_terminal; write_ln(term_out,'! You have to increase POOLSIZE.');
+     wake_up_terminal; writeln(term_out,'! You have to increase POOLSIZE.');
      get_strings_started:=false;
      return;
   end;
@@ -1774,11 +1785,11 @@ by changing |wterm|, |wterm_ln|, and |wterm_cr| in this section.
 @^system dependencies@>
 
 @d wterm(#)==write(term_out,#)
-@d wterm_ln(#)==write_ln(term_out,#)
-@d wterm_cr==write_ln(term_out)
+@d wterm_ln(#)==writeln(term_out,#)
+@d wterm_cr==writeln(term_out)
 @d wlog(#)==write(log_file,#)
-@d wlog_ln(#)==write_ln(log_file,#)
-@d wlog_cr==write_ln(log_file)
+@d wlog_ln(#)==writeln(log_file,#)
+@d wlog_cr==writeln(log_file)
 
 @ To end a line of text output, we call |print_ln|.
 
@@ -1793,7 +1804,7 @@ log_only: begin wlog_cr; file_offset:=0;
 term_only: begin wterm_cr; term_offset:=0;
   end;
 no_print,pseudo,new_string: do_nothing;
-othercases write_ln(write_file[selector])
+othercases writeln(write_file[selector])
 endcases;@/
 end; {|tally| is not affected}
 
@@ -1961,6 +1972,11 @@ procedure print_nl(@!s:str_number); {prints string |s| at beginning of line}
 begin if ((term_offset>0)and(odd(selector)))or@|
   ((file_offset>0)and(selector>=log_only)) then print_ln;
 print(s);
+end;
+
+procedure print_nlp; {move to beginning of a line}
+begin if ((term_offset>0)and(odd(selector)))or@|
+  ((file_offset>0)and(selector>=log_only)) then print_ln;
 end;
 
 @ Control sequence names, file names, and strings constructed with
@@ -12953,24 +12969,24 @@ end;
 
 @ Another system-dependent routine is needed to convert three internal
 \TeX\ strings
-into the |name_of_file| value that is used to open files. The present code
+into the |nameoffile| value that is used to open files. The present code
 allows both lowercase and uppercase letters in the file name.
 @^system dependencies@>
 
 @d append_to_name(#)==begin c:=#; incr(k);
-  if k<=file_name_size then name_of_file[k]:=xchr[c];
+  if k<=file_name_size then nameoffile[k]:=xchr[c];
   end
 
 @p procedure pack_file_name(@!n,@!a,@!e:str_number);
-var k:integer; {number of positions filled in |name_of_file|}
+var k:integer; {number of positions filled in |nameoffile|}
 @!c: ASCII_code; {character being packed}
 @!j:pool_pointer; {index into |str_pool|}
 begin k:=0;
 for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(so(str_pool[j]));
 for j:=str_start_macro(n) to str_start_macro(n+1)-1 do append_to_name(so(str_pool[j]));
 for j:=str_start_macro(e) to str_start_macro(e+1)-1 do append_to_name(so(str_pool[j]));
-if k<=file_name_size then name_length:=k@+else name_length:=file_name_size;
-for k:=name_length+1 to file_name_size do name_of_file[k]:=' ';
+if k<=file_name_size then namelength:=k@+else namelength:=file_name_size;
+for k:=namelength+1 to file_name_size do nameoffile[k]:=' ';
 end;
 
 @ A messier routine is also needed, since format file names must be scanned
@@ -12996,7 +13012,7 @@ TEX_format_default:='TeXformats:plain.fmt';
 @ @<Check the ``constant'' values for consistency@>=
 if format_default_length>file_name_size then bad:=31;
 
-@ Here is the messy routine that was just mentioned. It sets |name_of_file|
+@ Here is the messy routine that was just mentioned. It sets |nameoffile|
 from the first |n| characters of |TEX_format_default|, followed by
 |buffer[a..b]|, followed by the last |format_ext_length| characters of
 |TEX_format_default|.
@@ -13008,7 +13024,7 @@ isn't found.
 @^system dependencies@>
 
 @p procedure pack_buffered_name(@!n:small_number;@!a,@!b:integer);
-var k:integer; {number of positions filled in |name_of_file|}
+var k:integer; {number of positions filled in |nameoffile|}
 @!c: ASCII_code; {character being packed}
 @!j:integer; {index into |buffer| or |TEX_format_default|}
 begin if n+b-a+1+format_ext_length>file_name_size then
@@ -13018,8 +13034,8 @@ for j:=1 to n do append_to_name(TEX_format_default[j]);
 for j:=a to b do append_to_name(buffer[j]);
 for j:=format_default_length-format_ext_length+1 to format_default_length do
   append_to_name(TEX_format_default[j]);
-if k<=file_name_size then name_length:=k@+else name_length:=file_name_size;
-for k:=name_length+1 to file_name_size do name_of_file[k]:=' ';
+if k<=file_name_size then namelength:=k@+else namelength:=file_name_size;
+for k:=namelength+1 to file_name_size do nameoffile[k]:=' ';
 end;
 
 @ Here is the only place we use |pack_buffered_name|. This part of the program
@@ -13061,7 +13077,7 @@ exit:end;
 
 @ Operating systems often make it possible to determine the exact name (and
 possible version number) of a file that has been opened. The following routine,
-which simply makes a \TeX\ string from the value of |name_of_file|, should
+which simply makes a \TeX\ string from the value of |nameoffile|, should
 ideally be changed to deduce the full name of file~|f|, which is the file
 most recently opened, if it is possible to do this in a \PASCAL\ program.
 @^system dependencies@>
@@ -13070,11 +13086,11 @@ This routine might be called after string memory has overflowed, hence
 we dare not use `|str_room|'.
 
 @p function make_name_string:str_number;
-var k:1..file_name_size; {index into |name_of_file|}
-begin if (pool_ptr+name_length>pool_size)or(str_ptr=max_strings)or
+var k:1..file_name_size; {index into |nameoffile|}
+begin if (pool_ptr+namelength>pool_size)or(str_ptr=max_strings)or
  (cur_length>0) then
   make_name_string:="?"
-else  begin for k:=1 to name_length do append_char(name_of_file[k]);
+else  begin for k:=1 to namelength do append_char(nameoffile[k]);
   make_name_string:=make_string;
   end;
 end;
@@ -13146,7 +13162,7 @@ end;
 routine calls upon the user to supply another file name. Parameter~|s|
 is used in the error message to identify the type of file; parameter~|e|
 is the default extension if none is given. Upon exit from the routine,
-variables |cur_name|, |cur_area|, |cur_ext|, and |name_of_file| are
+variables |cur_name|, |cur_area|, |cur_ext|, and |nameoffile| are
 ready for another attempt at file opening.
 
 @p procedure prompt_file_name(@!s,@!e:str_number);
@@ -13210,7 +13226,7 @@ begin old_setting:=selector;
 if job_name=0 then job_name:="texput";
 @.texput@>
 pack_job_name(".log");
-while not lua_a_open_out(address_of(log_file),0) do @<Try to get a different log file name@>;
+while not lua_a_open_out(addressof(log_file),0) do @<Try to get a different log file name@>;
 log_file := name_file_pointer;
 log_name:=a_make_name_string(log_file);
 selector:=log_only; log_opened:=true;
@@ -13772,12 +13788,12 @@ begin
 file_opened:=false;
 pack_file_name(nom,aire,ext);
 b_test_in;
-if name_length=0 then ocp_abort("opening file");
+if namelength=0 then ocp_abort("opening file");
 f :=ocp_ptr+1;
 allocate_ocp_table(f,13);
 ocp_file_size(f):=13;
-for i:=1 to name_length do begin
-  append_char(name_of_file[i]);
+for i:=1 to namelength do begin
+  append_char(nameoffile[i]);
   end;
 ocp_external(f):=make_string;
 scan_string_argument;
@@ -13793,19 +13809,19 @@ end
 @ @<Open |ocp_file| for input@>=
 file_opened:=false;
 pack_file_name(nom,aire,".ocp");
-if ocp_buffer<>0 then libc_free(ocp_buffer);
+if ocp_buffer<>0 then libcfree(ocp_buffer);
 ocp_cur:=0; ocp_buffer:=0; ocp_size:=0;
 callback_id:=callback_defined('find_ocp_file');
 if callback_id>0 then begin
-  res := run_callback(callback_id,'S->s',stringcast(name_of_file+1), address_of(fnam));
+  res := run_callback(callback_id,'S->s',stringcast(nameoffile+1), addressof(fnam));
   if (res)and(fnam<>0)and(length(fnam)>0) then begin
-    @<Fixup |name_of_file| after callback@>;
+    @<Fixup |nameoffile| after callback@>;
     end;
   end;
 callback_id:=callback_defined('read_ocp_file');
 if callback_id>0 then begin
-  res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
-          address_of(file_opened), address_of(ocp_buffer),address_of(ocp_size));
+  res := run_callback(callback_id,'S->bSd',stringcast(nameoffile+1),
+          addressof(file_opened), addressof(ocp_buffer),addressof(ocp_size));
   if not res         then ocp_abort("callback error");
   if not file_opened then ocp_abort("opening file");
   if not ocp_size    then ocp_abort("checking size");
@@ -13813,7 +13829,7 @@ if callback_id>0 then begin
 else begin
   if not ocp_open_in(ocp_file) then ocp_abort("opening file");
   file_opened:=true;
-  res := read_ocp_file(ocp_file,address_of(ocp_buffer),address_of(ocp_size));
+  res := read_ocp_file(ocp_file,addressof(ocp_buffer),addressof(ocp_size));
   b_close(ocp_file);
   if not ocp_size then ocp_abort("checking size");
   if not res      then ocp_abort("reading file");
@@ -14928,8 +14944,8 @@ dvi_out(font_check_2(f));
 dvi_out(font_check_3(f));@/
 dvi_four(font_size(f));
 dvi_four(font_dsize(f));@/
-dvi_out(strlen(font_name(f)));
 dvi_out(strlen(font_area(f)));
+dvi_out(strlen(font_name(f)));
 @<Output the font name whose internal number is |f|@>;
 end;
 
@@ -16481,7 +16497,7 @@ begin
             pdf_mem_size := pdf_mem_size + a
         else
             pdf_mem_size := sup_pdf_mem_size;
-        pdf_mem := xrealloc_array(pdf_mem, integer, pdf_mem_size);
+        pdf_mem := xreallocarray(pdf_mem, integer, pdf_mem_size);
     end;
     pdf_get_mem := pdf_mem_ptr;
     pdf_mem_ptr := pdf_mem_ptr + s;
@@ -16791,7 +16807,7 @@ begin
             pdf_os_buf_size := pdf_os_buf_size + a
         else
             pdf_os_buf_size := sup_pdf_os_buf_size;
-        pdf_os_buf := xrealloc_array(pdf_os_buf, real_eight_bits, pdf_os_buf_size);
+        pdf_os_buf := xreallocarray(pdf_os_buf, real_eight_bits, pdf_os_buf_size);
         pdf_buf := pdf_os_buf;
         pdf_buf_size := pdf_os_buf_size;
     end;
@@ -17798,7 +17814,7 @@ begin
             dest_names_size := dest_names_size + a
         else
             dest_names_size := sup_dest_names_size;
-        dest_names := xrealloc_array(dest_names, dest_name_entry, dest_names_size);
+        dest_names := xreallocarray(dest_names, dest_name_entry, dest_names_size);
     end;
     dest_names[pdf_dest_names_ptr].objname := s;
     dest_names[pdf_dest_names_ptr].objnum := n;
@@ -17818,7 +17834,7 @@ begin
             obj_tab_size := obj_tab_size + a
         else
             obj_tab_size := sup_obj_tab_size;
-        obj_tab := xrealloc_array(obj_tab, obj_entry, obj_tab_size);
+        obj_tab := xreallocarray(obj_tab, obj_entry, obj_tab_size);
     end;
     incr(sys_obj_ptr);
     obj_ptr := sys_obj_ptr;
@@ -18208,28 +18224,38 @@ during adjusting spacing. Such fonts are linked via the |pdf_font_elink| array.
 @d real_font_type = 2 {real font}
 @d subst_font_type = 3 {substituted font}
 @d pdf_check_vf(#) == begin
-    tmp_f := #;
-    do_vf;
+    do_vf(#);
     if pdf_font_type[#] = virtual_font_type then
         pdf_error("font", "command cannot be used with virtual font");
 end
 
 @d pdf_check_new_font(#) ==
     if pdf_font_type[#] = new_font_type then begin
-        tmp_f := #;
-        do_vf;
+        do_vf(#);
     end
 
-@<Declare procedures that need to be declared forward for \pdfTeX@>=
+@ The following code typesets a character to PDF output.
+
+@p procedure output_one_char(c:ASCII_code);
+begin
+  pdf_check_new_font(f);
+  if pdf_font_type[f] = virtual_font_type then
+      do_vf_packet(f, c)
+  else begin
+      pdf_begin_string(f);
+      pdf_print_char(f, c);
+      adv_char_width(f, c);
+  end;
+end;
+
+@ @<Declare procedures that need to be declared forward for \pdfTeX@>=
 procedure pdf_create_font_obj; forward;
-procedure do_vf; forward;
 procedure pdf_init_font_cur_val; forward;
 procedure scan_pdf_ext_toks; forward;
 
 @ @<Glob...@>=
 @!pdf_font_type: ^real_eight_bits; {the type of font}
 @!pdf_font_attr: ^str_number; {pointer to additional attributes}
-@!tmp_f: internal_font_number; {temporary register to pass parameter to some subroutines}
 
 @ Here come some subroutines to deal with expanded fonts for HZ-algorithm.
 
@@ -18500,45 +18526,6 @@ begin
     load_expand_font := k;
 end;
 
-function auto_expand_vf(f: internal_font_number): boolean;
-{check for a virtual auto-expanded font}
-var save_f, bf, lf: internal_font_number;
-    e, k: integer;
-begin
-    auto_expand_vf := false;
-    if (not pdf_font_auto_expand[f]) or (pdf_font_blink[f] = null_font) then
-        return; {not an auto-expanded font}
-    bf := pdf_font_blink[f];
-    if pdf_font_type[bf] = new_font_type then {we must process the base font first}
-    begin
-        save_f := tmp_f;
-        tmp_f := bf;
-        do_vf;
-        tmp_f := save_f;
-    end;
-
-    if pdf_font_type[bf] <> virtual_font_type then
-        return; {not a virtual font}
-
-    e := pdf_font_expand_ratio[f];
-    for k := 0 to vf_local_font_num[bf] - 1 do begin
-        lf := vf_default_font[bf] + k;
-        allocvffnts(font_max);
-        {copy vf local font numbers:}
-        vf_e_fnts[vf_nf] := vf_e_fnts[lf];
-        {definition of local vf fonts are expanded from base fonts:}
-        vf_i_fnts[vf_nf] := auto_expand_font(vf_i_fnts[lf], e);
-        copy_expand_params(vf_i_fnts[vf_nf], vf_i_fnts[lf], e);
-        incr(vf_nf);
-    end;
-    vf_packet_base[f] := vf_packet_base[bf];
-    vf_local_font_num[f] := vf_local_font_num[bf];
-    vf_default_font[f] := vf_nf - vf_local_font_num[f];
-
-    pdf_font_type[f] := virtual_font_type;
-    auto_expand_vf := true;
-end;
-
 function fix_expand_value(f: internal_font_number; e: integer): integer;
 {return the multiple of |pdf_font_step[f]| that is nearest to |e|}
 var step: integer;
@@ -18617,22 +18604,6 @@ begin
         pdf_font_expand_ratio[f] := expand_ratio;
 end;
 
-procedure vf_expand_local_fonts(f: internal_font_number);
-var lf: internal_font_number;
-    k: integer;
-begin
-    pdfassert(pdf_font_type[f] = virtual_font_type);
-    for k := 0 to vf_local_font_num[f] - 1 do begin
-        lf := vf_i_fnts[vf_default_font[f] + k];
-        set_expand_params(lf, pdf_font_auto_expand[f],
-                          pdf_font_expand_ratio[pdf_font_stretch[f]],
-                          pdf_font_expand_ratio[pdf_font_shrink[f]],
-                          pdf_font_step[f], pdf_font_expand_ratio[f]);
-        if pdf_font_type[lf] = virtual_font_type then
-            vf_expand_local_fonts(lf);
-    end;
-end;
-
 procedure read_expand_font; {read font expansion spec and load expanded font}
 var font_shrink, font_stretch, font_step: integer;
     f: internal_font_number;
@@ -18695,93 +18666,6 @@ begin
     end;
 end;
 
-function letter_space_font(u: pointer; f: internal_font_number; e: integer): internal_font_number;
-var k: internal_font_number;
-    w, r, fs: scaled;
-    s: str_number;
-    i, nw: integer;
-    old_setting:0..max_selector;
-begin
-    {read a new font and expand the character widths}
-    k := read_font_info(u, tex_font_name(f), "", font_size(f), font_natural_dir(f));
-    set_no_ligatures(k); {disable ligatures for letter-spaced fonts}
-    for i := 0 to font_widths(k) do begin
-      set_font_width(k,i,font_width(f,i)+round_xn_over_d(quad(k), e, 1000));
-      end;
-    {append eg '+100ls' to font name}
-    flush_str(tex_font_name(k));
-    str_room(length(tex_font_name(k)) + 7); {|abs(e) <= 1000|}
-    old_setting := selector;
-    selector := new_string;
-    print_font_name(k);
-    if e > 0 then
-        print("+"); {minus sign will be printed by |print_int|}
-    print_int(e);
-    print("ls");
-    selector := old_setting;
-    set_tex_font_name(k, make_string);
-
-    {create the corresponding virtual font}
-    allocvffnts(font_max);
-    vf_e_fnts[vf_nf] := 0;
-    vf_i_fnts[vf_nf] := f;
-    incr(vf_nf);
-    vf_local_font_num[k] := 1;
-    vf_default_font[k] := vf_nf - 1;
-    pdf_font_type[k] := virtual_font_type;
-
-    fs := font_size(f);
-    vf_z := fs;
-    vf_replace_z;
-    w := round_xn_over_d(quad(f), e, 2000);
-    if w > 0 then
-        tmp_b0 := 0
-    else begin
-        tmp_b0 := 255;
-        w := vf_alpha + w;
-    end;
-    r := w*vf_beta;
-    tmp_b1 := r div vf_z;
-    r := r mod vf_z;
-    if r = 0 then
-        tmp_b2 := 0
-    else begin
-        r := r * 256;
-        tmp_b2 := r div vf_z;
-        r := r mod vf_z;
-    end;
-    if r = 0 then
-        tmp_b3 := 0
-    else begin
-        r := r * 256;
-        tmp_b3 := r div vf_z;
-    end;
-    vf_packet_base[k] := new_vf_packet(k);
-    for c := font_bc(k) to font_ec(k) do begin
-        str_room(12);
-        append_char(right1 + 3);
-        append_char(tmp_b0);
-        append_char(tmp_b1);
-        append_char(tmp_b2);
-        append_char(tmp_b3);
-        if c < set1 then
-            append_char(c)
-        else begin
-            append_char(set1);
-            append_char(c);
-        end;
-        append_char(right1 + 3);
-        append_char(tmp_b0);
-        append_char(tmp_b1);
-        append_char(tmp_b2);
-        append_char(tmp_b3);
-        s := make_string;
-        storepacket(k, c, s);
-        flush_str(s);
-    end;
-    letter_space_font := k;
-end;
-
 procedure new_letterspaced_font(a: small_number);
 {letter-space a font by creating a virtual font}
 var u:pointer; {user's font identifier}
@@ -18827,624 +18711,7 @@ created by |tokens_to_string|}
 pdf_resname_prefix := 0;
 last_tokens_string := 0;
 
-
-@ Here we implement reading information from \.{VF} file.
-
-@d vf_max_packet_length = 10000 {max length of character packet in \.{VF} file}
-
-@#
-@d vf_error = 61 {label to go to when an error occur}
-@d do_char = 70 {label to go to typesetting a character of virtual font}
-@#
-@d long_char = 242 {\.{VF} command for general character packet}
-@d vf_id = 202 {identifies \.{VF} files}
-
-@#
-@d vf_byte == next_vf_byte {get a byte from\.{VF} file}
-@d vf_packet(#) == vf_packet_start[vf_packet_base[#] + vf_packet_end
-@d vf_packet_end(#) == #]
-
-@#
-@d bad_vf(#) == begin vf_err_str := #; goto vf_error; end {go out \.{VF}
-processing with an error message}
-@d four_cases(#) == #,#+1,#+2,#+3
-
-@#
-@d tmp_b0 == tmp_w.qqqq.b0
-@d tmp_b1 == tmp_w.qqqq.b1
-@d tmp_b2 == tmp_w.qqqq.b2
-@d tmp_b3 == tmp_w.qqqq.b3
-@d tmp_int == tmp_w.int
-
-@#
-@d scaled3u == {convert |tmp_b1..tmp_b3| to an unsigned scaled dimension}
-(((((tmp_b3*vf_z)div@'400)+(tmp_b2*vf_z))div@'400)+(tmp_b1*vf_z))div vf_beta
-@d scaled4(#) == {convert |tmp_b0..tmp_b3| to a scaled dimension}
-  #:=scaled3u;
-  if tmp_b0>0 then if tmp_b0=255 then # := # - vf_alpha
-@d scaled3(#) == {convert |tmp_b1..tmp_b3| to a scaled dimension}
-  #:=scaled3u; @+ if tmp_b1>127 then # := # - vf_alpha
-@d scaled2 == {convert |tmp_b2..tmp_b3| to a scaled dimension}
-  if tmp_b2>127 then tmp_b1:=255 else tmp_b1:=0;
-  scaled3
-@d scaled1 == {convert |tmp_b3| to a scaled dimension}
-  if tmp_b3>127 then tmp_b1:=255 else tmp_b1:=0;
-  tmp_b2:=tmp_b1; scaled3
-
-@<Glob...@>=
-@!vf_packet_base: ^integer; {base addresses of character packets from virtual fonts}
-@!vf_default_font: ^internal_font_number; {default font in a \.{VF} file}
-@!vf_local_font_num: ^internal_font_number; {number of local fonts in a \.{VF} file}
-@!vf_packet_length: integer; {length of the current packet}
-@!vf_file: byte_file;
-@!vf_nf: internal_font_number; {the local fonts counter}
-@!vf_e_fnts: ^integer; {external font numbers}
-@!vf_i_fnts: ^internal_font_number; {corresponding internal font numbers}
-@!tmp_w: memory_word; {accumulator}
-@!vf_z: integer; {multiplier}
-@!vf_alpha: integer; {correction for negative values}
-@!vf_beta: 1..16; {divisor}
-@!vf_buffer:^real_eight_bits; {byte buffer for vf files}
-@!vf_size:integer; {total size of the vf file}
-@!vf_cur:integer; {index into |vf_buffer|}
-
-
-@ @<Set init...@>=
-vf_nf := 0; vf_buffer:=0; vf_size:=0; vf_cur:=0;
-
-@ The |do_vf| procedure attempts to read the \.{VF} file for a font, and sets
-|pdf_font_type| to |real_font_type| if the \.{VF} file could not be found
-or loaded, otherwise sets |pdf_font_type| to |virtual_font_type|.  At this
-time, |tmp_f| is the internal font number of the current \.{TFM} font.  To
-process font definitions in virtual font we call |vf_def_font|.
-
-@p procedure vf_replace_z;
-begin
-    vf_alpha:=16;
-    while vf_z>=@'40000000 do begin
-        vf_z:=vf_z div 2;
-        vf_alpha:=vf_alpha+vf_alpha;
-    end;
-    vf_beta:=256 div vf_alpha;
-    vf_alpha:=vf_alpha*vf_z;
-end;
-
-function vf_read(k: integer): integer; {read |k| bytes as an integer from \.{VF} file}
-var i: integer;
-begin
-    i := 0;
-    while k > 0 do begin
-        i := i*256 + vf_byte;
-        decr(k);
-    end;
-    vf_read := i;
-end;
-
-procedure vf_local_font_warning(f, k: internal_font_number; s: str_number);
-{print a warning message if an error ocurrs during processing local fonts in
-\.{VF} file}
-begin
-    print_nl(s);
-    print(" in local font ");
-    print_font_name(k);
-    print(" in virtual font ");
-    print_font_name(f);
-    print(".vf ignored.");
-end;
-
-function vf_def_font(f: internal_font_number): internal_font_number;
-{process a local font in \.{VF} file}
-var k: internal_font_number;
-    s: str_number;
-    ds, fs: scaled;
-    cs: four_quarters;
-begin
-    cs.b0 := vf_byte; cs.b1 := vf_byte; cs.b2 := vf_byte; cs.b3 := vf_byte;
-    tmp_b0 := vf_byte; tmp_b1 := vf_byte; tmp_b2 := vf_byte; tmp_b3 := vf_byte;
-    scaled4(fs);
-    ds := vf_read(4) div @'20;
-    tmp_b0 := vf_byte;
-    tmp_b1 := vf_byte;
-    while tmp_b0 > 0 do begin
-        decr(tmp_b0);
-        if vf_byte > 0 then
-            do_nothing; {skip the font path}
-    end;
-    str_room(tmp_b1);
-    while tmp_b1 > 0 do begin
-        decr(tmp_b1);
-        append_char(vf_byte);
-    end;
-    s := make_string;
-    k := tfm_lookup(s, fs);
-    if k = null_font then
-        k := read_font_info(null_cs, s, "", fs, -1);
-    if k <> null_font then begin
-        if ((cs.b0 <> 0) or (cs.b1 <> 0) or (cs.b2 <> 0) or (cs.b3 <> 0)) and
-           ((font_check_0(k) <> 0) or (font_check_1(k) <> 0) or
-            (font_check_2(k) <> 0) or (font_check_3(k) <> 0)) and
-           ((cs.b0 <> font_check_0(k)) or (cs.b1 <> font_check_1(k)) or
-            (cs.b2 <> font_check_2(k)) or (cs.b3 <> font_check_3(k))) then
-            vf_local_font_warning(f, k, "checksum mismatch");
-        if ds <> font_dsize(k) then
-            vf_local_font_warning(f, k, "design size mismatch");
-    end;
-    if pdf_font_expand_ratio[f] <> 0 then
-        set_expand_params(k, pdf_font_auto_expand[f],
-                          pdf_font_expand_ratio[pdf_font_stretch[f]],
-                          pdf_font_expand_ratio[pdf_font_shrink[f]],
-                          pdf_font_step[f], pdf_font_expand_ratio[f]);
-    vf_def_font := k;
-end;
-
-procedure do_vf; {process \.{VF} file with font internal number |f|}
-label vf_error;
-var cmd, k, n: integer;
-    cc, cmd_length: integer;
-    tfm_width: scaled;
-    vf_err_str, s: str_number;
-    stack_level: vf_stack_index;
-    save_vf_nf: internal_font_number;
-    f: internal_font_number;
-    file_read:boolean; {was |vf_file| successfully read?}
-    res:boolean; {was the callback successful?}
-    callback_id:integer;
-    fnam:str_number;
-begin
-    f := tmp_f;
-    pdf_font_type[f] := real_font_type;
-    if auto_expand_vf(f) then
-        return; {auto-expanded virtual font}
-    stack_level := 0;
-    @<Open |vf_file|, return if not found@>;
-    @<Process the preamble@>;@/
-    @<Process the font definitions@>;@/
-    @<Allocate memory for the new virtual font@>;@/
-    while cmd <= long_char do begin@/
-        @<Build a character packet@>;@/
-    end;
-    if cmd <> post then
-        bad_vf("POST command expected");
-    pdf_font_type[f] := virtual_font_type;
-    return;
-vf_error:
-    print_nl("Error in processing VF font (");
-    print_font_name(f);
-    print(".vf): ");
-    print(vf_err_str);
-    print(", virtual font will be ignored");
-    print_ln;
-    update_terminal;
-end;
-
-@ @<Open |vf_file|, return if not found@>=
-fnam := tex_font_name(f);
-pack_file_name(fnam, "", ".vf");
-flush_str(fnam);
-if vf_buffer<>0 then libc_free(vf_buffer);
-vf_cur:=0; vf_buffer:=0; vf_size:=0;
-callback_id:=callback_defined('find_vf_file');
-if callback_id>0 then begin
-  res := run_callback(callback_id,'S->s',stringcast(name_of_file+1), address_of(fnam));
-  if (res)and(fnam<>0)and(length(fnam)>0) then begin
-    @<Fixup |name_of_file| after callback@>;
-    end;
-  end;
-callback_id:=callback_defined('read_vf_file');
-if callback_id>0 then begin
-  file_read := false;
-  res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
-          address_of(file_read), address_of(vf_buffer),address_of(vf_size));
-  if not res then return;
-  if not file_read then return; 
-  if not vf_size then return; 
-  end
-else begin
-  if not vf_b_open_in(vf_file) then
-    return;
-  res := read_vf_file(vf_file,address_of(vf_buffer),address_of(vf_size));
-  b_close(vf_file);
-  if not vf_size then return; 
-  if not res then return;
-end
-
-
-@ @<Process the preamble@>=
-if vf_byte <> pre then
-    bad_vf("PRE command expected");
-if vf_byte <> vf_id then
-    bad_vf("wrong id byte");
-cmd_length := vf_byte;
-for k := 1 to cmd_length do
-    tmp_int := vf_byte;
-tmp_b0 := vf_byte; tmp_b1 := vf_byte; tmp_b2 := vf_byte; tmp_b3 := vf_byte;
-if ((tmp_b0 <> 0) or (tmp_b1 <> 0) or (tmp_b2 <> 0) or (tmp_b3 <> 0)) and
-   ((font_check_0(f) <> 0) or (font_check_1(f) <> 0) or
-    (font_check_2(f) <> 0) or (font_check_3(f) <> 0)) and
-   ((tmp_b0 <> font_check_0(f)) or (tmp_b1 <> font_check_1(f)) or
-    (tmp_b2 <> font_check_2(f)) or (tmp_b3 <> font_check_3(f))) then begin
-    print_nl("checksum mismatch in font ");
-    print_font_name(f);
-    print(".vf ignored ");
-end;
-if vf_read(4) div @'20 <> font_dsize(f) then begin
-    print_nl("design size mismatch in font ");
-    print_font_name(f);
-    print(".vf ignored");
-end;
-update_terminal;
-vf_z := font_size(f);
-vf_replace_z
-
-@ @<Process the font definitions@>=
-cmd := vf_byte;
-save_vf_nf := vf_nf;
-while (cmd >= fnt_def1) and (cmd <= fnt_def1 + 3) do begin
-    allocvffnts(font_max);
-    vf_e_fnts[vf_nf] := vf_read(cmd - fnt_def1 + 1);
-    vf_i_fnts[vf_nf] := vf_def_font(f);
-    incr(vf_nf);
-    cmd := vf_byte;
-end;
-vf_default_font[f] := save_vf_nf;
-vf_local_font_num[f] := vf_nf - save_vf_nf;
-
-@ @<Allocate memory for the new virtual font@>=
-    vf_packet_base[f] := new_vf_packet(f)
-
-@ @<Build a character packet@>=
-if cmd = long_char then begin
-    vf_packet_length := vf_read(4);
-    cc := vf_read(4);
-    if not is_valid_char(cc) then
-        bad_vf("invalid character code");
-    tmp_b0 := vf_byte; tmp_b1 := vf_byte; tmp_b2 := vf_byte; tmp_b3 := vf_byte;
-    scaled4(tfm_width);
-end
-else begin
-    vf_packet_length := cmd;
-    cc := vf_byte;
-    if not is_valid_char(cc) then
-        bad_vf("invalid character code");
-    tmp_b1 := vf_byte; tmp_b2 := vf_byte; tmp_b3 := vf_byte;
-    scaled3(tfm_width);
-end;
-if vf_packet_length < 0 then
-    bad_vf("negative packet length");
-if vf_packet_length > vf_max_packet_length then
-    bad_vf("packet length too long");
-if (tfm_width <> char_width(f,cc)) then begin
-    print_nl("character width mismatch in font ");
-    print_font_name(f);
-    print(".vf ignored");
-end;
-str_room(vf_packet_length);
-while vf_packet_length > 0 do begin
-    cmd := vf_byte;
-    decr(vf_packet_length);
-    @<Cases of \.{DVI} commands that can appear in character packet@>;
-    if cmd <> nop then
-        append_char(cmd);
-    vf_packet_length := vf_packet_length - cmd_length;
-    while cmd_length > 0 do begin
-        decr(cmd_length);
-        append_char(vf_byte);
-    end;
-end;
-if stack_level <> 0 then
-    bad_vf("more PUSHs than POPs in character packet");
-if vf_packet_length <> 0 then
-    bad_vf("invalid packet length or DVI command in packet");
-@<Store the packet being built@>;
-cmd := vf_byte
-
-@ @<Store the packet being built@>=
-s := make_string;
-storepacket(f, cc, s);
-flush_str(s)
-
-@ @<Cases of \.{DVI} commands that can appear in character packet@>=
-if (cmd >= set_char_0) and (cmd <= set_char_0 + 127) then
-    cmd_length := 0
-else if ((fnt_num_0 <= cmd) and (cmd <= fnt_num_0 + 63)) or
-        ((fnt1 <= cmd) and (cmd <= fnt1 + 3)) then begin
-    if cmd >= fnt1 then begin
-        k := vf_read(cmd - fnt1 + 1);
-        vf_packet_length := vf_packet_length - (cmd - fnt1 + 1);
-    end
-    else
-        k := cmd - fnt_num_0;
-    if k >= 256 then
-        bad_vf("too many local fonts");
-    n := 0;
-    while (n < vf_local_font_num[f]) and
-          (vf_e_fnts[vf_default_font[f] + n] <> k) do
-        incr(n);
-    if n = vf_local_font_num[f] then
-        bad_vf("undefined local font");
-    if k <= 63 then
-        append_char(fnt_num_0 + k)
-    else begin
-        append_char(fnt1);
-        append_char(k);
-    end;
-    cmd_length := 0;
-    cmd := nop;
-end
-else case cmd of
-set_rule, put_rule: cmd_length := 8;
-four_cases(set1):   cmd_length := cmd - set1 + 1;
-four_cases(put1):   cmd_length := cmd - put1 + 1;
-four_cases(right1): cmd_length := cmd - right1 + 1;
-four_cases(w1):     cmd_length := cmd - w1 + 1;
-four_cases(x1):     cmd_length := cmd - x1 + 1;
-four_cases(down1):  cmd_length := cmd - down1 + 1;
-four_cases(y1):     cmd_length := cmd - y1 + 1;
-four_cases(z1):     cmd_length := cmd - z1 + 1;
-four_cases(xxx1):  begin
-    cmd_length := vf_read(cmd - xxx1 + 1);
-    vf_packet_length := vf_packet_length - (cmd - xxx1 + 1);
-    if cmd_length > vf_max_packet_length then
-        bad_vf("packet length too long");
-    if cmd_length < 0 then
-        bad_vf("string of negative length");
-    append_char(xxx1);
-    append_char(cmd_length);
-    cmd := nop; {|cmd| has been already stored above as |xxx1|}
-end;
-w0, x0, y0, z0, nop:
-    cmd_length := 0;
-push, pop:  begin
-    cmd_length := 0;
-    if cmd = push then
-        if stack_level = vf_stack_size then
-            overflow("virtual font stack size", vf_stack_size)
-        else
-            incr(stack_level)
-    else
-        if stack_level = 0 then
-            bad_vf("more POPs than PUSHs in character")
-        else
-            decr(stack_level);
-end;
-othercases
-    bad_vf("improver DVI command");
-endcases
-
-@ The |do_vf_packet| procedure is called in order to interpret the
-character packet for a virtual character. Such a packet may contain the
-instruction to typeset a character from the same or an other virtual
-font; in such cases |do_vf_packet| calls itself recursively. The
-recursion level, i.e., the number of times this has happened, is kept
-in the global variable |vf_cur_s| and should not exceed |vf_max_recursion|.
-
-@<Constants...@>=
-@!vf_max_recursion=10; {\.{VF} files shouldn't recurse beyond this level}
-@!vf_stack_size=100; {\.{DVI} files shouldn't |push| beyond this depth}
-
-@ @<Types...@>=
-@!vf_stack_index=0..vf_stack_size; {an index into the stack}
-@!vf_stack_record=record
-    stack_h, stack_v, stack_w, stack_x, stack_y, stack_z: scaled;
-end;
-
-@ @<Glob...@>=
-@!vf_cur_s: 0..vf_max_recursion; {current recursion level}
-@!vf_stack: array [vf_stack_index] of vf_stack_record;
-@!vf_stack_ptr: vf_stack_index; {pointer into |vf_stack|}
-
-@ @<Set init...@>=
-vf_cur_s := 0;
-vf_stack_ptr := 0;
-
-@ Some functions for processing character packets.
-
-@p function packet_read(k: integer): integer; {read |k| bytes as an integer from
-character packet}
-var i: integer;
-begin
-    i := 0;
-    while k > 0 do begin
-        i := i*256 + packet_byte;
-        decr(k);
-    end;
-    packet_read := i;
-end;
-
-function packet_scaled(k: integer): integer; {get |k| bytes from packet as a
-scaled}
-var s: scaled;
-begin
-    case k of
-    1: begin
-        tmp_b3 := packet_byte;
-        scaled1(s);
-    end;
-    2: begin
-        tmp_b2 := packet_byte;
-        tmp_b3 := packet_byte;
-        scaled2(s);
-    end;
-    3: begin
-        tmp_b1 := packet_byte;
-        tmp_b2 := packet_byte;
-        tmp_b3 := packet_byte;
-        scaled3(s);
-    end;
-    4: begin
-        tmp_b0 := packet_byte;
-        tmp_b1 := packet_byte;
-        tmp_b2 := packet_byte;
-        tmp_b3 := packet_byte;
-        scaled4(s);
-    end;
-    othercases pdf_error("vf", "invalid number size");
-    endcases;
-    packet_scaled := s;
-end;
-
-procedure do_vf_packet(f: internal_font_number; c: eight_bits); {typeset the \.{DVI} commands in the
-character packet for character |c| in current font |f|}
-label do_char, continue;
-var save_vf, k, n: internal_font_number;
-    save_h, save_v: scaled;
-    cmd: integer;
-    char_move: boolean;
-    w, x, y, z: scaled;
-    s: str_number;
-begin
-    incr(vf_cur_s);
-    if vf_cur_s > vf_max_recursion then
-        overflow("max level recursion of virtual fonts", vf_max_recursion);
-    push_packet_state;
-    start_packet(f, c);
-    vf_z := font_size(f);
-    vf_replace_z;
-    save_vf := f;
-    f := vf_i_fnts[vf_default_font[save_vf]];
-    save_v := cur_v;
-    save_h := cur_h;
-    w := 0; x := 0; y := 0; z := 0;
-    while vf_packet_length > 0 do begin
-        cmd := packet_byte;
-        @<Do typesetting the \.{DVI} commands in virtual character packet@>;
-continue:
-    end;
-    cur_h := save_h;
-    cur_v := save_v;
-    pop_packet_state;
-    vf_z := font_size(f);
-    vf_replace_z;
-    decr(vf_cur_s);
-end;
-
-@ The following code typesets a character to PDF output.
-
-@d output_one_char(#)==begin
-    pdf_check_new_font(f);
-    if pdf_font_type[f] = virtual_font_type then
-        do_vf_packet(f, #)
-    else begin
-        pdf_begin_string(f);
-        pdf_print_char(f, #);
-        adv_char_width(f, #);
-    end;
-end
-
-
-@<Do typesetting the \.{DVI} commands in virtual character packet@>=
-if (cmd >= set_char_0) and (cmd <= set_char_0 + 127)  then begin
-    if not is_valid_char(cmd) then begin
-        char_warning(f, cmd);
-        goto continue;
-    end;
-    c := cmd;
-    char_move := true;
-    goto do_char;
-end
-else if ((fnt_num_0 <= cmd) and (cmd <= fnt_num_0 + 63)) or (cmd = fnt1) then begin
-    if cmd = fnt1 then
-        k := packet_byte
-    else
-        k := cmd - fnt_num_0;
-    n := 0;
-    while (n < vf_local_font_num[save_vf]) and
-          (vf_e_fnts[vf_default_font[save_vf] + n] <> k) do
-        incr(n);
-    if (n = vf_local_font_num[save_vf]) then
-        pdf_error("vf", "local font not found")
-    else
-        f := vf_i_fnts[vf_default_font[save_vf] + n];
-end
-else case cmd of
-push: begin
-    vf_stack[vf_stack_ptr].stack_h := cur_h;
-    vf_stack[vf_stack_ptr].stack_v := cur_v;
-    vf_stack[vf_stack_ptr].stack_w := w;
-    vf_stack[vf_stack_ptr].stack_x := x;
-    vf_stack[vf_stack_ptr].stack_y := y;
-    vf_stack[vf_stack_ptr].stack_z := z;
-    incr(vf_stack_ptr);
-end;
-pop: begin
-    decr(vf_stack_ptr);
-    cur_h := vf_stack[vf_stack_ptr].stack_h;
-    cur_v := vf_stack[vf_stack_ptr].stack_v;
-    w := vf_stack[vf_stack_ptr].stack_w;
-    x := vf_stack[vf_stack_ptr].stack_x;
-    y := vf_stack[vf_stack_ptr].stack_y;
-    z := vf_stack[vf_stack_ptr].stack_z;
-end;
-four_cases(set1), four_cases(put1): begin
-    if (set1 <= cmd) and (cmd <= set1 + 3) then begin
-        tmp_int := packet_read(cmd - set1 + 1);
-        char_move := true;
-    end
-    else begin
-        tmp_int := packet_read(cmd - put1 + 1);
-        char_move := false;
-    end;
-    if not is_valid_char(tmp_int) then begin
-        char_warning(f, tmp_int);
-        goto continue;
-    end;
-    c := tmp_int;
-    goto do_char;
-end;
-set_rule, put_rule: begin
-    rule_ht := packet_scaled(4);
-    rule_wd := packet_scaled(4);
-    if (rule_wd > 0) and (rule_ht > 0) then begin
-        pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-        if cmd = set_rule then
-            cur_h := cur_h + rule_wd;
-    end;
-end;
-four_cases(right1):
-    cur_h := cur_h + packet_scaled(cmd - right1 + 1);
-w0, four_cases(w1): begin
-    if cmd > w0 then
-        w := packet_scaled(cmd - w0);
-    cur_h := cur_h + w;
-end;
-x0, four_cases(x1): begin
-    if cmd > x0 then
-        x := packet_scaled(cmd - x0);
-    cur_h := cur_h + x;
-end;
-four_cases(down1):
-    cur_v := cur_v + packet_scaled(cmd - down1 + 1);
-y0, four_cases(y1): begin
-    if cmd > y0 then
-        y := packet_scaled(cmd - y0);
-    cur_v := cur_v + y;
-end;
-z0, four_cases(z1): begin
-    if cmd > z0 then
-        z := packet_scaled(cmd - z0);
-    cur_v := cur_v + z;
-end;
-four_cases(xxx1):  begin
-    tmp_int := packet_read(cmd - xxx1 + 1);
-    str_room(tmp_int);
-    while tmp_int > 0 do begin
-        decr(tmp_int);
-        append_char(packet_byte);
-    end;
-    s := make_string;
-    literal(s, scan_special, false);
-    flush_str(s);
-end;
-othercases pdf_error("vf", "invalid DVI command");
-endcases;
-goto continue;
-do_char:
-if is_valid_char(c) then
-    output_one_char(c)
-else
-    char_warning(f, c);
-if char_move then
-    cur_h := cur_h + char_width(f,c)
+@ Reading VF files is done in C, using the procedure |do_vf()|
 
 @* \[32f] PDF shipping out.
 To ship out a \TeX\ box to PDF page description we need to implement
@@ -20296,22 +19563,22 @@ begin
         pack_file_name(s,"","");
 	    callback_id:=callback_defined('find_data_file');
 	    if callback_id>0 then begin
-    	  res := run_callback(callback_id,'S->s',stringcast(name_of_file+1),address_of(fnam));
+    	  res := run_callback(callback_id,'S->s',stringcast(nameoffile+1),addressof(fnam));
 	      if (res)and(fnam<>0)and(length(fnam)>0) then begin
-	        @<Fixup |name_of_file| after callback@>;
+	        @<Fixup |nameoffile| after callback@>;
 		 	end;
           end;
 		callback_id:=callback_defined('read_data_file');
         if callback_id>0 then begin
           file_opened := false;
-          res := run_callback(callback_id,'S->bSd',stringcast(name_of_file+1),
-                  address_of(file_opened), address_of(data_buffer),address_of(data_size));
+          res := run_callback(callback_id,'S->bSd',stringcast(nameoffile+1),
+                  addressof(file_opened), addressof(data_buffer),addressof(data_size));
           if not file_opened then pdf_error("ext5", "cannot open file for embedding");
           end
         else begin
           if not tex_b_open_in(f) then 
              pdf_error("ext5", "cannot open file for embedding");
-          res := read_data_file(f,address_of(data_buffer),address_of(data_size));
+          res := read_data_file(f,addressof(data_buffer),addressof(data_size));
           b_close(f);
         end;
         if not data_size then pdf_error("ext5", "empty file for embedding");
@@ -20322,7 +19589,7 @@ begin
             pdf_out(data_buffer[data_cur]);
             incr(data_cur);
             end;
-	    if data_buffer<>0 then libc_free(data_buffer);
+	    if data_buffer<>0 then libcfree(data_buffer);
         print(">>");
     end
     else if obj_obj_is_stream(n) > 0 then
@@ -20668,13 +19935,13 @@ pk_scale_factor :=
     divide_scaled(72, fixed_pk_resolution, 5 + fixed_decimal_digits);
 if not callback_defined('read_pk_file') then begin
   if pdf_pk_mode <> null then begin
-    kpse_init_prog('PDFTEX', fixed_pk_resolution,
-                   make_cstring(tokens_to_string(pdf_pk_mode)), nil);
+    kpseinitprog('PDFTEX', fixed_pk_resolution,
+                   makecstring(tokens_to_string(pdf_pk_mode)), nil);
     flush_string;
   end else
-    kpse_init_prog('PDFTEX', fixed_pk_resolution, nil, nil);
-  if not kpse_var_value('MKTEXPK') then
-     kpse_set_program_enabled (kpse_pk_format, 1, kpse_src_cmdline);
+    kpseinitprog('PDFTEX', fixed_pk_resolution, nil, nil);
+  if not kpsevarvalue('MKTEXPK') then
+     kpsesetprogramenabled (kpsepkformat, 1, kpsesrccmdline);
   end;
 set_job_id(year, month, day, time);
 if (pdf_unique_resname > 0) and (pdf_resname_prefix = 0) then
@@ -33575,11 +32842,11 @@ endcases;
 @ Here is where the information for a new font gets loaded.
 
 @<Assignments@>=
-def_font: new_font(a);
+def_font: def_new_font(a);
 letterspace_font: new_letterspaced_font(a);
 
 @ @<Declare subprocedures for |prefixed_command|@>=
-procedure new_font(@!a:small_number);
+procedure def_new_font(@!a:small_number);
 label common_ending;
 var u:pointer; {user's font identifier}
 @!s:scaled; {stated ``at'' size, or negative of scaled magnification}
@@ -40824,10 +40091,10 @@ else if ocp_external(otp_input_ocp)=0 then begin
   end
 else begin
   k:=0;
-  if name_of_file then libc_free (name_of_file);
+  if nameoffile then libcfree (nameoffile);
   otp_ext_str:=ocp_external(otp_input_ocp);
   otp_ext_str_arg:=ocp_external_arg(otp_input_ocp);
-  name_of_file := xmalloc (4 + length(otp_ext_str) + length(otp_ext_str_arg));
+  nameoffile := xmalloc (4 + length(otp_ext_str) + length(otp_ext_str_arg));
   for otp_ext_i:=str_start_macro(otp_ext_str) to
          str_start_macro(otp_ext_str)+length(otp_ext_str)-1 do
     append_to_name(str_pool[otp_ext_i]);
@@ -40835,8 +40102,8 @@ else begin
   for otp_ext_i:=str_start_macro(otp_ext_str_arg) to
          str_start_macro(otp_ext_str_arg)+length(otp_ext_str_arg)-1 do
     append_to_name(str_pool[otp_ext_i]);
-  name_of_file[length(otp_ext_str)+length(otp_ext_str_arg)+2]:=0;
-  run_external_ocp(name_of_file);
+  nameoffile[length(otp_ext_str)+length(otp_ext_str_arg)+2]:=0;
+  run_external_ocp(nameoffile);
   end
 end
 

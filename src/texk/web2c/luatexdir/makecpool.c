@@ -48,8 +48,10 @@ int main(int argc, char *argv[]) {
     "    int l = strlen (s);\n"
     "    i += l;\n"
     "    if (i>=spare_size) return 0;\n"
-    "    while (l-- > 0) strpool[poolptr++] = *s++;\n"
-    "    g = makestring();\n"
+		 /*"    while (l-- > 0) strpool[poolptr++] = *s++;\n"*/
+    "    while (l-- > 0) str_pool[pool_ptr++] = *s++;\n"
+		 /* "    g = makestring();\n"*/
+    "    g = make_string();\n"
 		 /*    "    strref[g]= 127;\n"*/
     "  }\n"
     "  return g;\n"
