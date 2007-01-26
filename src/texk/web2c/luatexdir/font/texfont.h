@@ -37,6 +37,8 @@ typedef struct characterinfo {
   unsigned short _depth_index ;
   unsigned short _italic_index;
   unsigned short _tag;
+  char * _name;
+  boolean _used;
   integer _lig_index;
   integer _kern_index;
   integer _remainder;
@@ -57,11 +59,14 @@ typedef struct texfont {
   integer _font_dsize ;
   char * _font_name ;
   char * _font_area ;
+  char * _font_fullname ;
+  char * _font_encodingname ;
   integer _font_ec ;
   integer _font_checksum ;   /* internal information */
   boolean _font_used ;       /* internal information */
   boolean _font_touched ;    /* internal information */
   integer _font_cache_id ;   /* internal information */
+  integer _font_type;
   integer _font_bc ;
   integer _hyphen_char ;
   integer _skew_char ;
@@ -99,6 +104,12 @@ typedef struct texfont {
 
 } texfont;
 
+typedef enum {
+  new_font_type=0, /* new font (has not been used yet) */
+  virtual_font_type=1, /* virtual font */
+  real_font_type=2, /* real font */
+} font_types;
+
 
 #define font_checksum(a)          font_tables[a]->_font_checksum
 #define set_font_checksum(a,b)    font_checksum(a) = b
@@ -129,9 +140,19 @@ boolean cmp_font_name (integer, strnumber);
 
 boolean cmp_font_area (integer, strnumber);
 
+#define font_fullname(a)           font_tables[a]->_font_fullname
+#define set_font_fullname(f,b)     { if (font_fullname(f)!=NULL) \
+	  free(font_fullname(f)); font_fullname(f) = b; }
+
+#define font_encodingname(a)       font_tables[a]->_font_encodingname
+#define set_font_encodingname(f,b) { if (font_encodingname(f)!=NULL) \
+	  free(font_encodingname(f)); font_encodingname(f) = b; }
+
+
 #define font_bc(a)                font_tables[a]->_font_bc
 #define get_font_bc               font_bc
 #define set_font_bc(f,b)          font_bc(f) = b
+
 #define font_ec(a)                font_tables[a]->_font_ec
 #define get_font_ec               font_ec
 #define set_font_ec(f,b)          font_ec(f) = b
@@ -142,6 +163,9 @@ boolean cmp_font_area (integer, strnumber);
 
 #define font_touched(a)           font_tables[a]->_font_touched
 #define set_font_touched(a,b)     font_touched(a) = b
+
+#define font_type(a)              font_tables[a]->_font_type
+#define set_font_type(a,b)        font_type(a) = b
 
 #define font_cache_id(a)              font_tables[a]->_font_cache_id
 #define set_font_cache_id(a,b)        font_cache_id(a) = b
@@ -165,13 +189,10 @@ boolean cmp_font_area (integer, strnumber);
 #define char_base(a)              font_tables[a]->_char_base
 #define char_info(f,b)            font_tables[f]->_char_base[b]
 
-#define set_char_infos(f,b)						\
-  { if (char_infos(f)!=b) {						\
-      font_bytes += (b-char_infos(f))*sizeof(characterinfo);		\
-      do_realloc(char_base(f), b, characterinfo);			\
-      char_infos(f) = b; } }
+/* too hard to do inline, new space needs to be zeroed */
+extern void set_char_infos(internal_font_number f, int b);
 
-#define set_char_info(f,n,b)				       \
+#define set_char_info(f,n,b)							   \
   { if (char_infos(f)<n) set_char_infos(f,n);		       \
     char_info(f,n) = b; }
 
@@ -181,11 +202,8 @@ boolean cmp_font_area (integer, strnumber);
 #define param_base(a)        font_tables[a]->_param_base
 #define font_param(a,b)      font_tables[a]->_param_base[b]
 
-#define set_font_params(f,b)						\
-  { if (font_params(f)!=b) {						\
-      font_bytes += (b-font_params(f))*sizeof(scaled);			\
-      do_realloc(param_base(f), (b+1), integer);			\
-      font_params(f) = b;  } }
+/* too hard to do inline, new space needs to be zeroed */
+extern void set_font_params(internal_font_number f, int b);
 
 #define set_font_param(f,n,b)                                   \
   { if (font_params(f)<n) set_font_params(f,n);                 \
@@ -379,9 +397,15 @@ boolean cmp_font_area (integer, strnumber);
 
 #define char_remainder(f,b)   (char_info(f,b))._remainder
 #define char_tag(f,b)         (char_info(f,b))._tag
+#define char_used(f,b)        (char_info(f,b))._used
+#define char_name(f,b)        (char_info(f,b))._name
 
 #define set_char_tag(f,b,c)       char_tag(f,b) = c
 #define set_char_remainder(f,b,c) char_remainder(f,b) = c
+#define set_char_used(f,b,c)      char_used(f,b) = c
+#define set_char_name(f,b,c)     { if (char_name(f,b)!=NULL)	\
+	  free(char_name(f,b)); char_name(f,b) = c; }
+
 
 #define set_char_kern(f,b,c)  kern_index(f,b) = c
 #define set_char_lig(f,b,c)   lig_index(f,b) = c

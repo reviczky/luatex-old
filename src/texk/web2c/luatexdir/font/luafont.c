@@ -2,7 +2,7 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-static void
+void
 font_char_to_lua (lua_State *L, internalfontnumber f, int k) {
   int i;
   liginfo l;
@@ -16,10 +16,19 @@ font_char_to_lua (lua_State *L, internalfontnumber f, int k) {
   lua_pushnumber(L,char_italic(f,k));
   lua_setfield(L,-2,"italic");
 
+  if (char_name(f,k)!=NULL) {
+	lua_pushstring(L,char_name(f,k));
+	lua_setfield(L,-2,"name");
+  }
+
   if (char_tag(f,k) == list_tag) {
     lua_pushnumber(L,char_remainder(f,k));
     lua_setfield(L,-2,"next");
   }
+
+  lua_pushboolean(L,(char_used(f,k) ? true : false));
+  lua_setfield(L,-2,"used");
+
   if (char_tag(f,k) == ext_tag) {
     lua_newtable(L);			  
     lua_pushnumber(L,ext_top(f,k));
@@ -79,8 +88,22 @@ font_to_lua (lua_State *L, int f) {
   lua_newtable(L);
   lua_pushstring(L,font_name(f));
   lua_setfield(L,-2,"name");
-  lua_pushstring(L,font_area(f));
-  lua_setfield(L,-2,"area");
+  if(font_area(f)!=NULL) {
+	lua_pushstring(L,font_area(f));
+	lua_setfield(L,-2,"area");
+  }
+  if(font_fullname(f)!=NULL) {
+	lua_pushstring(L,font_fullname(f));
+	lua_setfield(L,-2,"fullname");
+  }
+  if(font_encodingname(f)!=NULL) {
+	lua_pushstring(L,font_encodingname(f));
+	lua_setfield(L,-2,"encodingname");
+  }
+
+  lua_pushboolean(L,(font_used(f) ? true : false));
+  lua_setfield(L,-2,"used");
+
   lua_pushnumber(L,font_size(f));
   lua_setfield(L,-2,"size");
   lua_pushnumber(L,font_dsize(f));
@@ -145,10 +168,30 @@ font_from_lua (lua_State *L, int f) {
   if (lua_isstring(L,-1)) {
 	s = xstrdup(lua_tostring(L,-1));
   } else {
-	s = xstrdup("");
+	s = NULL;
   }
   set_font_area(f,s);
   lua_pop(L,1);
+
+  lua_getfield(L,-1,"fullname");
+  if (lua_isstring(L,-1)) {
+	s = xstrdup(lua_tostring(L,-1));
+  } else {
+	s = NULL;
+  }
+  set_font_fullname(f,s);
+  lua_pop(L,1);
+
+
+  lua_getfield(L,-1,"encodingname");
+  if (lua_isstring(L,-1)) {
+	s = xstrdup(lua_tostring(L,-1));
+  } else {
+	s = NULL;
+  }
+  set_font_encodingname(f,s);
+  lua_pop(L,1);
+
 
   lua_getfield(L,-1,"name");
   if (lua_isstring(L,-1)) {
@@ -234,6 +277,13 @@ font_from_lua (lua_State *L, int f) {
   }
   lua_pop(L,1);
 
+
+  lua_getfield(L,-1,"used");
+  if (lua_isboolean(L,-1)) {
+    set_font_used(f,lua_tonumber(L,-1));
+  }
+  lua_pop(L,1);
+
   /* parameters */
 
   lua_getfield(L,-1,"parameters");
@@ -251,6 +301,7 @@ font_from_lua (lua_State *L, int f) {
 	}
   } /* else clause handled by new_font() */
   lua_pop(L,1);
+
 
   /* characters */
 
@@ -343,6 +394,18 @@ font_from_lua (lua_State *L, int f) {
 		  lua_getfield(L,-1,"italic");
 		  if (lua_isnumber(L,-1)) j = lua_tonumber(L,-1);  else j = 0; 
 		  set_font_italic(f,nc,j); italic_index(f,i) = nc;
+		  lua_pop(L,1);
+
+		  lua_getfield(L,-1,"used");
+		  if (lua_isboolean(L,-1)) {
+			set_char_used(f,i,lua_tonumber(L,-1));
+		  }
+		  lua_pop(L,1);
+
+		  lua_getfield(L,-1,"name");
+		  if (lua_isstring(L,-1)) {
+			set_char_name(f,i,(char *)lua_tostring(L,-1));
+		  }
 		  lua_pop(L,1);
 
 		  char_tag(f,i) = 0; 

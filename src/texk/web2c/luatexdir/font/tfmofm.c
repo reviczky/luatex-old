@@ -552,6 +552,7 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
 
   font_dir = 0;
 
+  memset(&ci,0,sizeof(characterinfo));
 
   if(open_tfm_file(cnom,caire,&tfm_buffer,&tfm_size)!=1)
      tfm_abort;

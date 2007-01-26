@@ -61,11 +61,6 @@ typedef enum {
   other_char, active_char, comment, invalid_char } cat_codes;
 
 
-extern memoryword **fonttables;
-extern void allocatefonttable();
-extern void dumpfonttable();
-extern void undumpfonttable();
-
 extern void do_vf(internal_font_number tmp_f);
 
 extern int readbinfile(FILE *f, unsigned char **b, integer *s);
@@ -87,10 +82,10 @@ extern void b_test_in();
 /* Additions to texmfmp.h for pdfTeX */
 
 /* mark a char in font */
-#define pdf_mark_char(f, c) pdf_char_used[f][c/16] |= (1<<(c%16))
+#define pdf_mark_char(f,c) set_char_used(f,c,true)
 
 /* test whether a char in font is marked */
-#define pdf_char_marked(f, c) (boolean)(pdf_char_used[f][c/16] & (1<<(c%16)))
+#define pdf_char_marked char_used
 
 /* writepdf() always writes by fwrite() */
 #define       write_pdf(a, b) \

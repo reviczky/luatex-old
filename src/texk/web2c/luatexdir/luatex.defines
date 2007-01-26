@@ -245,12 +245,19 @@ $Id $
 @define var non_char;
 @define var non_address;
 
+@define var new_font_type;
+@define var virtual_font_type;
+@define var real_font_type;
+@define function font_type();
+
 @define function hyphen_char();
 @define function skew_char();
 @define procedure set_hyphen_char();
 @define procedure set_skew_char();
 @define function char_exists();
 
+@define function char_used();
+@define function char_name();
 @define function char_width();
 @define function char_height();
 @define function char_depth();
@@ -302,6 +309,8 @@ $Id $
 @define procedure initstarttime;
 @define function isquotebad;
 @define function makecstring();
+
+@define procedure append_string();
 @define procedure matchstrings();
 @define procedure libpdffinish;
 @define procedure makepdftexbanner;

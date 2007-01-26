@@ -28,7 +28,6 @@ $Id$
 /* a bit more interfacing is needed for proper error reporting */
 
 #define print_err(s) { do_print_err(maketexstring(s)); flush_str(last_tex_string); }
-#define print_string(s) { print(maketexstring(s)); flush_str(last_tex_string); }
 
 void do_error(char *msg, char **hlp) {
   strnumber msgmsg = 0,aa = 0,bb = 0,cc = 0,dd = 0,ee = 0;

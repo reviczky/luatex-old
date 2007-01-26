@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="1" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070124' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070126' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -12045,7 +12045,8 @@ meaning_code: print_meaning;
 etex_code: print(eTeX_version_string);
 omega_code: print(Omega_version_string);
 aleph_code: print(Aleph_version_string);
-font_name_code: begin print_font_name(cur_val);
+font_name_code: begin
+  append_string(font_name(cur_val));
   if font_size(cur_val)<>font_dsize(cur_val) then
     begin print(" at "); print_scaled(font_size(cur_val));
     print("pt");
@@ -18211,26 +18212,21 @@ fonts too. Information about virtual fonts can be found in the source of some
 
 Whenever we want to write out a character in a font to PDF output, we
 should check whether the used font is a new (has not been used yet),
-virtual or real font. The array |pdf_font_type| holds a flag of each used
+virtual or real font. The |font_type()| holds a flag of each used
 font. After initialization the flag of each font is set to |new_font_type|.
 The first time a character of a font is written out, \pdfTeX{} looks for
 the corresponding virtual font. If the corresponding virtual font exists, then
 the font type is set to |virtual_font_type|; otherwise it will be set to
-|real_font_type|. |subst_font_type| indicates fonts that have been substituted
-during adjusting spacing. Such fonts are linked via the |pdf_font_elink| array.
+|real_font_type|. 
 
-@d new_font_type = 0 {new font (has not been used yet)}
-@d virtual_font_type = 1 {virtual font}
-@d real_font_type = 2 {real font}
-@d subst_font_type = 3 {substituted font}
 @d pdf_check_vf(#) == begin
     do_vf(#);
-    if pdf_font_type[#] = virtual_font_type then
-        pdf_error("font", "command cannot be used with virtual font");
+    if font_type(#) = virtual_font_type then
+       	pdf_error("font", "command cannot be used with virtual font");
 end
 
 @d pdf_check_new_font(#) ==
-    if pdf_font_type[#] = new_font_type then begin
+    if font_type(#) = new_font_type then begin
         do_vf(#);
     end
 
@@ -18239,7 +18235,7 @@ end
 @p procedure output_one_char(c:ASCII_code);
 begin
   pdf_check_new_font(f);
-  if pdf_font_type[f] = virtual_font_type then
+  if font_type(f) = virtual_font_type then
       do_vf_packet(f, c)
   else begin
       pdf_begin_string(f);
@@ -18254,7 +18250,6 @@ procedure pdf_init_font_cur_val; forward;
 procedure scan_pdf_ext_toks; forward;
 
 @ @<Glob...@>=
-@!pdf_font_type: ^real_eight_bits; {the type of font}
 @!pdf_font_attr: ^str_number; {pointer to additional attributes}
 
 @ Here come some subroutines to deal with expanded fonts for HZ-algorithm.
@@ -18657,11 +18652,11 @@ begin
             pdf_error("font expansion", "font has been expanded with different parameters");
     end
     else begin
-        if pdf_font_type[f] <> new_font_type then
+        if font_type(f) <> new_font_type then
             pdf_warning("font expansion", "font should be expanded before its first use",
                         true, true);
         set_expand_params(f, auto_expand, font_stretch, font_shrink, font_step, 0);
-        if pdf_font_type[f] = virtual_font_type then
+        if font_type(f) = virtual_font_type then
             vf_expand_local_fonts(f);
     end;
 end;
@@ -18692,12 +18687,10 @@ end;
 downloading.
 
 @<Types...@>=
-char_used_array = array[0..31] of eight_bits;
 char_map_array = array[0..32] of eight_bits; {move chars in range 0..32}
 fm_entry_ptr = ^integer;
 
 @ @<Glob...@>=
-@!pdf_char_used: ^char_used_array; {to mark used chars}
 @!pdf_font_size: ^scaled; {used size of font in PDF file}
 @!pdf_font_num: ^integer; {mapping between internal font number in \TeX\ and
     font name defined in resources in PDF file}
@@ -20126,7 +20119,7 @@ for k := font_base + 1 to font_ptr do
     if font_used(k) and hasfmentry(k) and (pdf_font_num[k] < 0) then begin
         i := -pdf_font_num[k];
         pdfassert(pdf_font_num[i] > 0);
-        for j := 0 to 255 do
+        for j := font_bc(k) to font_ec(k) do
             if pdf_char_marked(k, j) then
                 pdf_mark_char(i, j);
         if (length(pdf_font_attr[i]) = 0) and (length(pdf_font_attr[k]) <> 0) then

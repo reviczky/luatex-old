@@ -184,14 +184,33 @@ strnumber maketexlstring (const char *s, size_t l)
 }
 
 
+/* print a C string through TeX */
+void 
+print_string (char *j) {
+  while (*j) {
+    print_char(*j);
+	j++;
+  }
+}
+
+/* append a C string to a TeX string */
+void 
+append_string (char *s) {
+  if (s == NULL || *s == 0)
+	return;
+  check_buf (pool_ptr + strlen(s), pool_size);
+  while (*s)
+	str_pool[pool_ptr++] = *s++;
+  return;
+}
+
 __attribute__ ((format (printf, 1, 2)))
 void tex_printf (const char *fmt, ...) 
 {
     va_list args;
     va_start (args, fmt);
     vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
-    print (maketexstring (print_buf));
-    flush_str (last_tex_string);
+    print_string (print_buf);
     xfflush (stdout);
     va_end (args);
 }
@@ -262,8 +281,7 @@ void pdftex_warn (const char *fmt, ...)
         tex_printf (" (file %s)", cur_file_name);
     tex_printf (": ");
     vsnprintf (print_buf, PRINTF_BUF_SIZE, fmt, args);
-    print (maketexstring (print_buf));
-    flush_str (last_tex_string);
+    print_string (print_buf);
     va_end (args);
     print_ln ();
 }

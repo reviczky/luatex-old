@@ -24,11 +24,6 @@ $Id$
 
 #include "luatex-api.h"
 
-#define new_font_type 0 /* new font (has not been used yet) */
-#define virtual_font_type 1 /* virtual font */
-#define real_font_type 2  /* real font */
-#define subst_font_type 3 /* substituted font */
-
 /* this is a hack! */
 #define font_max 5000
 /* this too! */
@@ -163,13 +158,6 @@ vf_stack_index  vf_cur_s = 0; /* current recursion level */
 vf_stack_record vf_stack[256];
 vf_stack_index  vf_stack_ptr = 0; /* pointer into |vf_stack| */
 
-
-void print_string (char *j) {
-  while (*j) {
-    print_char(*j);
-	j++;
-  }
-}
 
 #define overflow_string(a,b) { overflow(maketexstring(a),b); flush_str(last_tex_string); }
 
@@ -311,8 +299,8 @@ open_vf_file (unsigned char **vf_buffer, integer *vf_size) {
 
 /*
   @ The |do_vf| procedure attempts to read the \.{VF} file for a font, and sets
-  |pdf_font_type| to |real_font_type| if the \.{VF} file could not be found
-  or loaded, otherwise sets |pdf_font_type| to |virtual_font_type|.  At this
+  |font_type()| to |real_font_type| if the \.{VF} file could not be found
+  or loaded, otherwise sets |font_type()| to |virtual_font_type|.  At this
   time, |tmp_f| is the internal font number of the current \.{TFM} font.  To
   process font definitions in virtual font we call |vf_def_font|.
 */
@@ -328,7 +316,7 @@ do_vf(internal_font_number f) {
   vf_stack_index stack_level;
   internal_font_number save_vf_nf;
 
-  pdf_font_type[f] = real_font_type;
+  set_font_type(f,real_font_type);
   if (auto_expand_vf(f))
     return; /* auto-expanded virtual font */
   stack_level = 0;
@@ -557,7 +545,7 @@ do_vf(internal_font_number f) {
   }
   if (cmd != post)
     bad_vf("POST command expected");
-  pdf_font_type[f] = virtual_font_type;
+  set_font_type(f,virtual_font_type);
 }
 
 
@@ -808,10 +796,10 @@ auto_expand_vf(internal_font_number f) {
   if ((! pdf_font_auto_expand[f]) || (pdf_font_blink[f] == null_font))
     return false ; /* not an auto-expanded font */
   bf = pdf_font_blink[f];
-  if (pdf_font_type[bf] == new_font_type) /* we must process the base font first */
+  if (font_type(bf) == new_font_type) /* we must process the base font first */
     do_vf(bf);
   
-  if (pdf_font_type[bf] != virtual_font_type)
+  if (font_type(bf) != virtual_font_type)
     return false; /* not a virtual font */
 
   e = pdf_font_expand_ratio[f];
@@ -829,7 +817,7 @@ auto_expand_vf(internal_font_number f) {
   vf_local_font_num[f] = vf_local_font_num[bf];
   vf_default_font[f] = vf_nf - vf_local_font_num[f];
 
-  pdf_font_type[f] = virtual_font_type;
+  set_font_type(f,virtual_font_type);
   return true;
 }
 
@@ -837,14 +825,14 @@ void
 vf_expand_local_fonts(internal_font_number f) {
   internal_font_number lf;
   integer k;
-  pdfassert(pdf_font_type[f] == virtual_font_type);
+  pdfassert(font_type(f) == virtual_font_type);
   for (k = 0;k<vf_local_font_num[f];k++) {
     lf = vf_i_fnts[vf_default_font[f] + k];
     set_expand_params(lf, pdf_font_auto_expand[f],
 		      pdf_font_expand_ratio[pdf_font_stretch[f]],
 		      pdf_font_expand_ratio[pdf_font_shrink[f]],
 		      pdf_font_step[f], pdf_font_expand_ratio[f]);
-    if (pdf_font_type[lf] == virtual_font_type)
+    if (font_type(lf) == virtual_font_type)
       vf_expand_local_fonts(lf);
   }
 }
@@ -867,6 +855,7 @@ letter_space_font(halfword u, internal_font_number f, integer e) {
   if (e > 0) {
     sprintf(new_font_name,"%s+%ils",font_name(k),(int)e);
   } else {
+	/* minus from %i */
     sprintf(new_font_name,"%s%ils",font_name(k),(int)e);
   }
   set_font_name(k, new_font_name);
@@ -878,7 +867,7 @@ letter_space_font(halfword u, internal_font_number f, integer e) {
   incr(vf_nf);
   vf_local_font_num[k] = 1;
   vf_default_font[k] = vf_nf - 1;
-  pdf_font_type[k] = virtual_font_type;
+  set_font_type(k,virtual_font_type);
 
   fs = font_size(f);
   vf_z = fs;

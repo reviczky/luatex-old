@@ -283,6 +283,7 @@ char **load_enc_file(char *enc_name)
     char buf[ENC_BUF_SIZE], *p, *r;
     int i, names_count;
     char **glyph_names;
+	char *tempname ;
     set_cur_file_name (enc_name);
 	callback_id=callback_defined("find_enc_file");
 	if (callback_id>0) {
@@ -321,7 +322,10 @@ char **load_enc_file(char *enc_name)
     for (i = 0; i < 256; i++)
         glyph_names[i] = (char *) notdef;
     t1_log ("{");
-	set_cur_file_name ((char *)(nameoffile+1));
+	
+	tempname = xmalloc(namelength+2);
+	strcpy(tempname,(char *)(nameoffile+1));
+	set_cur_file_name (tempname);
 	t1_log (cur_file_name);
     enc_getline ();
     if (*enc_line != '/' || (r = strchr (enc_line, '[')) == NULL) {

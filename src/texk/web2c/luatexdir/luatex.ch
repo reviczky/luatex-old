@@ -2644,11 +2644,9 @@ end
 begin undump_font(k);@/
 end;
 {Allocate the font arrays}
-pdf_char_used:=xmallocarray(char_used_array, font_max);
 pdf_font_size:=xmallocarray(scaled, font_max);
 pdf_font_num:=xmallocarray(integer, font_max);
 pdf_font_map:=xmallocarray(fm_entry_ptr, font_max);
-pdf_font_type:=xmallocarray(real_eight_bits, font_max);
 pdf_font_attr:=xmallocarray(str_number, font_max);
 pdf_font_blink:=xmallocarray(internal_font_number, font_max);
 pdf_font_elink:=xmallocarray(internal_font_number, font_max);
@@ -2668,12 +2666,9 @@ pdf_font_kn_ac_base:=xmallocarray(integer, font_max);
 alloc_vf_arrays(font_max);
 
 for font_k := font_base to font_max do begin
-    for k := 0 to 31 do
-        pdf_char_used[font_k, k] := 0;
     pdf_font_size[font_k] := 0;
     pdf_font_num[font_k] := 0;
     pdf_font_map[font_k] := 0;
-    pdf_font_type[font_k] := new_font_type;
     pdf_font_attr[font_k] := "";
     pdf_font_blink[font_k] := null_font;
     pdf_font_elink[font_k] := null_font;
@@ -3156,11 +3151,9 @@ if trie_not_ready then begin {initex without format loaded}
   hyph_root:=0; hyph_start:=0;
 
   {Allocate and initialize font arrays}
-pdf_char_used:=xmallocarray(char_used_array,font_max);
 pdf_font_size:=xmallocarray(scaled,font_max);
 pdf_font_num:=xmallocarray(integer,font_max);
 pdf_font_map:=xmallocarray(fm_entry_ptr,font_max);
-pdf_font_type:=xmallocarray(real_eight_bits,font_max);
 pdf_font_attr:=xmallocarray(str_number,font_max);
 pdf_font_blink:=xmallocarray(internal_font_number,font_max);
 pdf_font_elink:=xmallocarray(internal_font_number,font_max);
@@ -3180,12 +3173,9 @@ pdf_font_kn_ac_base:=xmallocarray(integer, font_max);
 alloc_vf_arrays(font_max);
 
 for font_k := font_base to font_max do begin
-    for k := 0 to 31 do
-        pdf_char_used[font_k, k] := 0;
     pdf_font_size[font_k] := 0;
     pdf_font_num[font_k] := 0;
     pdf_font_map[font_k] := 0;
-    pdf_font_type[font_k] := new_font_type;
     pdf_font_attr[font_k] := "";
     pdf_font_blink[font_k] := null_font;
     pdf_font_elink[font_k] := null_font;
