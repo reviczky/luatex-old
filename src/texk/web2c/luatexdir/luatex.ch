@@ -2646,7 +2646,6 @@ end;
 {Allocate the font arrays}
 pdf_font_size:=xmallocarray(scaled, font_max);
 pdf_font_num:=xmallocarray(integer, font_max);
-pdf_font_map:=xmallocarray(fm_entry_ptr, font_max);
 pdf_font_attr:=xmallocarray(str_number, font_max);
 pdf_font_blink:=xmallocarray(internal_font_number, font_max);
 pdf_font_elink:=xmallocarray(internal_font_number, font_max);
@@ -2668,7 +2667,6 @@ alloc_vf_arrays(font_max);
 for font_k := font_base to font_max do begin
     pdf_font_size[font_k] := 0;
     pdf_font_num[font_k] := 0;
-    pdf_font_map[font_k] := 0;
     pdf_font_attr[font_k] := "";
     pdf_font_blink[font_k] := null_font;
     pdf_font_elink[font_k] := null_font;
@@ -3153,7 +3151,6 @@ if trie_not_ready then begin {initex without format loaded}
   {Allocate and initialize font arrays}
 pdf_font_size:=xmallocarray(scaled,font_max);
 pdf_font_num:=xmallocarray(integer,font_max);
-pdf_font_map:=xmallocarray(fm_entry_ptr,font_max);
 pdf_font_attr:=xmallocarray(str_number,font_max);
 pdf_font_blink:=xmallocarray(internal_font_number,font_max);
 pdf_font_elink:=xmallocarray(internal_font_number,font_max);
@@ -3175,7 +3172,6 @@ alloc_vf_arrays(font_max);
 for font_k := font_base to font_max do begin
     pdf_font_size[font_k] := 0;
     pdf_font_num[font_k] := 0;
-    pdf_font_map[font_k] := 0;
     pdf_font_attr[font_k] := "";
     pdf_font_blink[font_k] := null_font;
     pdf_font_elink[font_k] := null_font;

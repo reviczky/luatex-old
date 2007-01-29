@@ -72,6 +72,25 @@ static int setfont (lua_State *L) {
   return 0;
 }
 
+
+static int deffont (lua_State *L) {
+  int i;
+  luaL_checktype(L,-1,LUA_TTABLE);
+
+  i = new_font((font_ptr+1));
+  if(font_from_lua (L,i)) {
+	font_ptr++;
+	lua_pushnumber(L,i);
+	return 1;
+  } else {
+	lua_pop(L,1); /* pop the broken table */
+	delete_font(i);
+	lua_pushstring(L, "font creation failed");
+	lua_error(L);
+  }  
+  return 0; /* not reached */
+}
+
 static int getfont (lua_State *L) {
   int i;
   i = (int)luaL_checkinteger(L,-1);
@@ -89,10 +108,11 @@ static int getfont (lua_State *L) {
 
 
 static const struct luaL_reg fontlib [] = {
-  {"read_tfm", font_read_tfm},
-  {"getfont",  getfont},
-  {"setfont",  setfont},
-  {"frozen",   frozenfont},
+  {"read_tfm",    font_read_tfm},
+  {"getfont",     getfont},
+  {"setfont",     setfont},
+  {"define",      deffont},
+  {"frozen",      frozenfont},
   {NULL, NULL}  /* sentinel */
 };
 

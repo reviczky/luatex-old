@@ -66,6 +66,7 @@ typedef struct texfont {
   boolean _font_used ;       /* internal information */
   boolean _font_touched ;    /* internal information */
   integer _font_cache_id ;   /* internal information */
+  fm_entry_ptr _font_map;
   integer _font_type;
   integer _font_bc ;
   integer _hyphen_char ;
@@ -166,6 +167,9 @@ boolean cmp_font_area (integer, strnumber);
 
 #define font_type(a)              font_tables[a]->_font_type
 #define set_font_type(a,b)        font_type(a) = b
+
+#define font_map(a)              font_tables[a]->_font_map
+#define set_font_map(a,b)        font_map(a) = b
 
 #define font_cache_id(a)              font_tables[a]->_font_cache_id
 #define set_font_cache_id(a,b)        font_cache_id(a) = b
@@ -412,8 +416,8 @@ extern void set_font_params(internal_font_number f, int b);
 
 #define char_exists(f,b)     ((b<=font_ec(f))&&(b>=font_bc(f))&&	\
 			      (width_index(f,b)>0))
-#define has_lig(f,b)          (lig_index(f,b)>0)
-#define has_kern(f,b)         (kern_index(f,b)>0)
+#define has_lig(f,b)          (char_exists(f,b) && lig_index(f,b)>0)
+#define has_kern(f,b)         (char_exists(f,b) && kern_index(f,b)>0)
 
 scaled get_kern(internalfontnumber f, integer lc, integer rc);
 liginfo get_ligature(internalfontnumber f, integer lc, integer rc);

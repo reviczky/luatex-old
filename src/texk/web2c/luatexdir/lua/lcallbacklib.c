@@ -307,6 +307,7 @@ do_run_callback (int special, char *values, va_list vl) {
 	 * TeX initialization is complete 
 	 */
     fprintf(stderr,"This went wrong: %s\n",lua_tostring(L,-1));
+	error();
     return 0;
   };
   if (nres==0) {

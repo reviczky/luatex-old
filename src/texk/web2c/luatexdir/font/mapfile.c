@@ -667,10 +667,10 @@ static fm_entry_ptr fmlookup(internalfontnumber f)
 
 boolean hasfmentry(internalfontnumber f)
 {
-    if (pdf_font_map[f] == NULL)
-        pdf_font_map[f] = fmlookup(f);
-    assert(pdf_font_map[f] != NULL);
-    return pdf_font_map[f] != (fm_entry_ptr) dummy_fm_entry();
+  if (font_map(f) == NULL)
+	set_font_map(f, (fm_entry_ptr) fmlookup(f));
+  assert(font_map(f) != NULL);
+  return font_map(f) != (fm_entry_ptr) dummy_fm_entry();
 }
 
 /* check whether a map entry is valid for font replacement */

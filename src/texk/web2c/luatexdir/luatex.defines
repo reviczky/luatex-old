@@ -250,6 +250,10 @@ $Id $
 @define var real_font_type;
 @define function font_type();
 
+@define function font_map();
+@define procedure set_font_map();
+
+
 @define function hyphen_char();
 @define function skew_char();
 @define procedure set_hyphen_char();

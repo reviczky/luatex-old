@@ -93,11 +93,13 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
   } else {
     f = new_font((font_ptr+1));
     res = read_tfm_info(f,cnom,caire,s);
+	if (res) {
+	  set_hyphen_char(f,get_default_hyphen_char());
+	  set_skew_char(f,get_default_skew_char());
+	}
   }
   if (res) {
-    set_font_natural_dir(f,natural_dir);  
-    set_hyphen_char(f,get_default_hyphen_char());
-    set_skew_char(f,get_default_skew_char());
+	set_font_natural_dir(f,natural_dir);
     font_ptr++;
     return f;
   } else {

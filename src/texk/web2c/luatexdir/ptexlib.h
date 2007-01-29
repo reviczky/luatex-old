@@ -323,6 +323,7 @@ extern void ttf_free(void);
 
 /* writezip.c */
 extern void write_zip(boolean);
+extern void zip_free(void);
 
 /* avlstuff.c */
 extern int comp_int_entry(const void *, const void *, void *);

@@ -156,11 +156,14 @@ count_hash_items (lua_State *L){
   return n;
 }
 
+/* The caller has fix the state of the lua stack when there is an error! */
+
 boolean
 font_from_lua (lua_State *L, int f) {
   int i,k,n,r;
   scaled j;
   int bc,ec,nc,nk,nl,ne;
+  int ctr;
   char *s;
   int adj, krn;
   /* at -1, there is a table */
@@ -202,6 +205,7 @@ font_from_lua (lua_State *L, int f) {
 	lua_pop(L,1);
 	/* fatal */
 	lua_pop(L,1);
+	pdftex_fail("lua-loaded font [%d] has no name!",f);
 	return false;
   }
 
@@ -364,7 +368,7 @@ font_from_lua (lua_State *L, int f) {
 	  if (nk>0) set_font_kern(f,0,0,0);
 	  if (nl>0) set_font_lig(f,0,0,0,0);
 
-	  /* fprintf(stderr,"%s:bc=%d,ec=%d,nc=%d,nk=%d,nl=%d,ne=%d\n",font_name(f),bc,ec,nc,nk,nl,ne);*/
+	  /* fprintf(stderr,"%s:bc=%d,ec=%d,nc=%d,nk=%d,nl=%d,ne=%d\n",font_name(f),bc,ec,nc,nk,nl,ne); */
 	  /* second loop ... */
 
 	  nc = 0; ne = 1; nk = 1; nl = 1;
@@ -450,18 +454,22 @@ font_from_lua (lua_State *L, int f) {
 		  lua_getfield(L,-1,"kerns");
 		  if (lua_istable(L,-1)){  /* there are kerns */
 		    lua_pushnil(L);  /* first key */
+			ctr = 0;
 		    while (lua_next(L, -2) != 0) {
 		      adj = lua_tonumber(L,-2);
 		      krn = lua_tonumber(L,-1);
 		      /* fprintf(stderr,"char=%d,nk=%d,adj=%i,sc=%i\n",i,nk,adj,krn);*/
 		      if (!has_kern(f,i)) 
-			kern_index(f,i) = nk;
+				kern_index(f,i) = nk;
 		      set_font_kern(f,nk,adj,krn);
 		      lua_pop(L,1);
+			  ctr++;
 		      nk++;
 		    }
-		    set_font_kern(f,nk,end_ligkern,0);
-		    nk++;
+			if (ctr>0) {
+			  set_font_kern(f,nk,end_ligkern,0);
+			  nk++;
+			}
 		  }
 		  lua_pop(L,1);
 		  
@@ -471,35 +479,38 @@ font_from_lua (lua_State *L, int f) {
 		    /* do ligs */
 		    /* fprintf(stderr,"ligs:\n"); */
 		    lua_pushnil(L);  /* first key */
+			ctr = 0;
 		    while (lua_next(L, -2) != 0) {
 		      /* */
 		      adj = lua_tonumber(L,-2);
 		      if (lua_istable(L,-1)){ /* */
-			
-			lua_getfield(L,-1,"char");
-			if (lua_isnumber(L,-1)) {
-			  krn = lua_tonumber(L,-1);
-			  lua_pop(L,1);
-
-			  lua_getfield(L,-1,"type");
-			  k = (lua_isnumber(L,-1) ? lua_tonumber(L,-1) : 0 );
-			  lua_pop(L,1);
-
-			  if (!has_lig(f,i)) 
-			    set_char_lig(f,i,nl);
-			  set_font_lig(f,nl,k,adj,krn);
-			  /*			  
-			    fprintf(stderr,"setlig[%d][%d] = { nl=%d, k=%d, adj=%d, krn=%d }\n", f, i, nl, k, adj, krn);
-			  */
-			  nl++;
-			} else { /* skip item, because it is invalid */
-			  lua_pop(L,1);  /* a nil */
-			}
+				
+				lua_getfield(L,-1,"char");
+				if (lua_isnumber(L,-1)) {
+				  krn = lua_tonumber(L,-1);
+				  lua_pop(L,1);
+				  
+				  lua_getfield(L,-1,"type");
+				  k = (lua_isnumber(L,-1) ? lua_tonumber(L,-1) : 0 );
+				  lua_pop(L,1);
+				  
+				  if (!has_lig(f,i)) 
+					set_char_lig(f,i,nl);
+				  set_font_lig(f,nl,k,adj,krn);
+				  ctr++;
+				  /* fprintf(stderr,"setlig[%d][%d] = { nl=%d, k=%d, adj=%d, krn=%d }\n", f, i, nl, k, adj, krn); */
+				  nl++;
+				} else { /* skip item, because it is invalid */
+				  lua_pop(L,1);  /* a nil */
+				}
 		      }
 		      lua_pop(L,1); /* iterator value */
 		    }
-		    set_font_lig(f,nl,0,end_ligkern,0);
-		    nl++;
+			/* guard against empty tables */
+			if (ctr>0) {
+			  set_font_lig(f,nl,0,end_ligkern,0);
+			  nl++;
+			}
 		  }
 		  lua_pop(L,1); /* ligatures table */
 		}
@@ -509,13 +520,14 @@ font_from_lua (lua_State *L, int f) {
 	  }
 	  lua_pop(L, 1);
 	  
-	} else {
-	   /* jikes, no characters */
-	 }
+	} else { /* jikes, no characters */
+	  pdftex_warn("lua-loaded font [%d] has no characters!",f);
+	}
 	r = luaL_ref(Luas[0],LUA_REGISTRYINDEX); /* pops the table */
 	set_font_cache_id(f,r);
-  } else {
-	/* jikes, no characters */
+
+  } else { /* jikes, no characters */
+	pdftex_warn("lua-loaded font [%d] has no character table!",f);
   }
   return true;
 }

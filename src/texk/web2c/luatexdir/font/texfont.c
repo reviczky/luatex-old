@@ -292,9 +292,9 @@ set_tag_code (internal_font_number f, eight_bits c, integer i) {
     };
     if (fixedi >= 1) {
       if (has_lig(f,c)) 
-	set_char_lig(f,c,0);
+		set_char_lig(f,c,0);
       if (has_kern(f,c)) 
-	set_char_kern(f,c,0);
+		set_char_kern(f,c,0);
     }
   }
 }

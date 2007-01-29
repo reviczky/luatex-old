@@ -613,7 +613,7 @@ void create_fontdictionary(fm_entry * fm, integer font_objnum,
 void do_pdf_font(integer font_objnum, internalfontnumber f)
 {
     fm_entry *fm;
-    fm = hasfmentry(f) ? (fm_entry *) pdf_font_map[f] : NULL;
+    fm = hasfmentry(f) ? (fm_entry *) font_map(f) : NULL;
     if (fm == NULL || (fm->ps_name == NULL && fm->ff_name == NULL))
         writet3(font_objnum, f);
     else
