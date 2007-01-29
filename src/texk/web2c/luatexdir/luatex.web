@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="1" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070126' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070129' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -17250,7 +17250,7 @@ begin
             pdf_error("font expansion", "auto expansion is only possible with scalable fonts");
         if not font_used(b) then
             pdf_init_font(b);
-        pdf_font_map[f] := pdf_font_map[b];
+        set_font_map(f,font_map(b));
     end;
 
     {check whether |f| can share the font object with some |k|: we have 2 cases
@@ -17262,7 +17262,7 @@ begin
         while i <> 0 do begin
             k := obj_info(i);
             if hasfmentry(k) and
-               (pdf_font_map[k] = pdf_font_map[f]) and
+               (font_map(k) = font_map(f)) and
                (cmp_font_name(k,tex_font_name(f)) or
                 (pdf_font_auto_expand[f] and
                  (pdf_font_blink[f] <> null_font) and
@@ -18694,7 +18694,6 @@ fm_entry_ptr = ^integer;
 @!pdf_font_size: ^scaled; {used size of font in PDF file}
 @!pdf_font_num: ^integer; {mapping between internal font number in \TeX\ and
     font name defined in resources in PDF file}
-@!pdf_font_map: ^fm_entry_ptr; {pointer into AVL tree of font mappings}
 @!pdf_font_list: pointer; {list of used fonts in current page}
 @!pdf_resname_prefix: str_number; {global prefix of resources name}
 @!last_tokens_string: str_number; {the number of the most recently string
@@ -32860,7 +32859,23 @@ else  begin old_setting:=selector; selector:=new_string;
 @.FONTx@>
   str_room(1); t:=make_string;
   end;
-define(u,set_font,null_font); scan_optional_equals; scan_file_name;
+define(u,set_font,null_font); scan_optional_equals; 
+@<Get the next non-blank non-call token@>;
+if cur_cmd<>left_brace then begin
+  back_input;
+  scan_file_name;
+  end 
+else begin
+  back_input;
+  link(garbage):=scan_toks(false,true);
+  old_setting:=selector; selector:=new_string;
+  token_show(def_ref); selector:=old_setting;
+  flush_list(def_ref);
+  str_room(1);
+  cur_name:=make_string;
+  cur_ext:=""; 
+  cur_area:="";
+  end;
 @<Scan the font size specification@>;
 name_in_progress:=true;
 if scan_keyword("offset") then begin
