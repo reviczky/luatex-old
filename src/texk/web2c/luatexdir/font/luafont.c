@@ -726,7 +726,7 @@ font_from_lua (lua_State *L, int f) {
 	} else { /* jikes, no characters */
 	  pdftex_warn("lua-loaded font [%d] has no characters!",f);
 	}
-	if (0) {
+	if (1) {
 	  r = luaL_ref(Luas[0],LUA_REGISTRYINDEX); /* pops the table */
 	  set_font_cache_id(f,r);
 	} else {

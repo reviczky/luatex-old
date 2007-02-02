@@ -3,6 +3,8 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
+/* this function is in vfovf.c for the moment */
+extern int make_vf_table(lua_State *L, char *name, scaled s);
 
 static int 
 font_read_tfm (lua_State *L) {
@@ -31,23 +33,49 @@ font_read_tfm (lua_State *L) {
     lua_pushstring(L, "expected tfm name as first argument");
     lua_error(L);
   }
+  return 2; /* not reached */
+}
+
+
+static int 
+font_read_vf (lua_State *L) {
+  scaled s;
+  char *cnom;
+  if(lua_isstring(L, 1)) {
+    cnom = (char *)lua_tostring(L, 1);
+    if(lua_isnumber(L, 2)) {
+      s = lua_tonumber(L,2);
+      return make_vf_table(L,cnom,s);
+    } else {
+      lua_pushstring(L, "expected an integer size as second argument");
+      lua_error(L);
+    }
+  } else {
+    lua_pushstring(L, "expected vf name as first argument"); 
+    lua_error(L);
+  }
+  return 2; /* not reached */
 }
 
 static int frozenfont (lua_State *L) {
   int i;
   i = (int)luaL_checkinteger(L,1);
   if (i) {
-	if (is_valid_font(i)) {
-	  if (font_touched(i) || font_used(i)) {
-		lua_pushboolean(L,1);
-	  } else {
-		lua_pushboolean(L,0);
-	  }
-	} else {
-	  lua_pushnil(L);
-	}
-	return 1;	
+    if (is_valid_font(i)) {
+      if (font_touched(i) || font_used(i)) {
+	lua_pushboolean(L,1);
+      } else {
+	lua_pushboolean(L,0);
+      }
+    } else {
+      lua_pushnil(L);
+    }
+    return 1;	
+  } else {
+    lua_pushstring(L, "expected an integer argument"); 
+    lua_error(L);
   }
+  return 0; /* not reached */
 }
 
 
@@ -108,6 +136,7 @@ static int getfont (lua_State *L) {
 
 static const struct luaL_reg fontlib [] = {
   {"read_tfm",    font_read_tfm},
+  {"read_vf",     font_read_vf},
   {"getfont",     getfont},
   {"setfont",     setfont},
   {"define",      deffont},
