@@ -72,6 +72,7 @@ then
             --build=i386-mingw32  \
             --host=i386-linux     \
 	    --disable-ipc         \
+              --with-cxx-runtime-hack \
               --without-aleph     \
               --without-bibtex8   \
               --without-cjkutils  \
@@ -84,6 +85,7 @@ then
               --without-dvipdfm   \
               --without-dvipdfmx  \
               --without-dvipng    \
+              --without-dvipos    \
               --without-dvipsk    \
               --without-etex      \
               --without-gsftopk   \
@@ -95,6 +97,7 @@ then
               --without-musixflx  \
               --without-omega     \
               --without-pdfopen   \
+              --without-ps2eps    \
               --without-ps2pkm    \
               --without-psutils   \
               --without-sam2p     \
@@ -103,6 +106,7 @@ then
               --without-tetex     \
               --without-tex4htk   \
               --without-texinfo   \
+              --without-texi2html \
               --without-texlive   \
               --without-ttf2pk    \
               --without-tth       \
