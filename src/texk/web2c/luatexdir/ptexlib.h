@@ -261,16 +261,16 @@ extern scaled getllx();
 extern scaled getlly();
 extern scaled geturx();
 extern scaled getury();
-extern void allocvffnts();
 
 /* vfpacket.c */
+extern integer new_vf_packet(internal_font_number);
+extern void store_packet(internal_font_number, eight_bits, str_number);
+extern void start_packet(internal_font_number, eight_bits);
 extern real_eight_bits packet_byte(void);
-extern integer new_vf_packet(internalfontnumber);
 extern void pop_packet_state(void);
 extern void push_packet_state(void);
-extern void start_packet(internalfontnumber, integer);
-extern void store_packet(integer, integer, integer);
 extern void vf_free(void);
+extern scaled sqxfw (scaled sq, integer fw);
 
 /* writeenc.c */
 extern fe_entry *get_fe_entry(char *);

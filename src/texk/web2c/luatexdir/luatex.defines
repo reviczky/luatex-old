@@ -131,16 +131,15 @@ $Id $
 
 { 'texfont' library definitions }
 
-@define var fonttables;
 @define procedure dump_font ();
 @define procedure undump_font ();
-@define function is_valid_font();
-@define function copy_font();
-@define function scale_font();
-@define procedure createnullfont;
+@define function  is_valid_font();
+@define function  copy_font();
+@define function  scale_font();
+@define function  max_font_id;
+@define procedure set_max_font_id();
 
 @define function font_name();
-@define procedure setfontname();
 @define function font_area();
 @define function font_bc();
 @define function font_ec();
@@ -295,7 +294,6 @@ $Id $
 @define procedure pdfmapline();
 @define procedure pdf_init_map_file();
 
-@define procedure allocvffnts();
 @define procedure writefontstuff;
 
 { functions from utils.c }
@@ -304,14 +302,7 @@ $Id $
 @define procedure escapestring();
 @define function ext_xn_over_d();
 @define procedure getcreationdate;
-@define procedure getfiledump();
-@define procedure getfilemoddate();
-@define procedure getfilesize();
-@define procedure getmatch();
-@define procedure getmd5sum();
 @define function get_resname_prefix;
-@define procedure initstarttime;
-@define function isquotebad;
 @define function makecstring();
 
 @define procedure append_string();

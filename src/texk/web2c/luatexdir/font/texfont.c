@@ -38,6 +38,7 @@
 texfont **font_tables = NULL;
 
 static integer font_arr_max = 0;
+static integer font_id_maxval = 0;
 
 static void grow_font_table (integer id) {
   int j;
@@ -53,9 +54,36 @@ static void grow_font_table (integer id) {
 }
 
 integer
-new_font (integer id) {
+new_font_id (void) {
+  int i;
+  for (i=0;i<font_arr_max;i++) {
+    if (font_tables[i]==NULL) {
+      break;
+    }
+  }
+  if (i>=font_arr_max)
+    grow_font_table (i);
+  if (i>font_id_maxval)
+    font_id_maxval = i;
+  return i;
+}
+
+integer
+max_font_id (void) {
+  return font_id_maxval;
+}
+
+void
+set_max_font_id (integer i) {
+  font_id_maxval = i;
+}
+
+
+integer
+new_font (void) {
   int k;
-  grow_font_table(id);
+  int id;
+  id = new_font_id();
   font_bytes += sizeof(texfont);
   font_tables[id] = xmalloc(sizeof(texfont));
   /* most stuff is zero */
@@ -81,14 +109,14 @@ set_char_infos(internal_font_number f, int b) {
   int i;
   i = char_infos(f);
   if (i!=b) {
-	font_bytes += (b-i)*sizeof(characterinfo);
-	do_realloc(char_base(f), b, characterinfo);
-	/* new characters are all zeroed */
-	while (i<b) {
-	  (void)memset ((characterinfo *)(char_base(f)+i),0,sizeof(characterinfo));
-	  i++;
-	}
-	char_infos(f) = b; 
+    font_bytes += (b-i)*sizeof(characterinfo);
+    do_realloc(char_base(f), b, characterinfo);
+    /* new characters are all zeroed */
+    while (i<b) {
+      (void)memset ((characterinfo *)(char_base(f)+i),0,sizeof(characterinfo));
+      i++;
+    }
+    char_infos(f) = b; 
   } 
 }
 
@@ -113,7 +141,7 @@ set_font_params(internal_font_number f, int b) {
 integer
 copy_font (integer f) {
   int i;
-  integer k = new_font((font_ptr+1));
+  integer k = new_font();
   memcpy(font_tables[k],font_tables[f],sizeof(texfont));
 
   set_font_cache_id(k,0);
@@ -142,6 +170,8 @@ copy_font (integer f) {
   kern_base(k)     = xmalloc (i);
   i = sizeof(*exten_base(f))   *font_extens(f);  font_bytes += i;
   exten_base(k)    = xmalloc (i);
+  i = sizeof(*packet_base(f))  *font_packets(f);  font_bytes += i;
+  packet_base(k)    = xmalloc (i);
 
   memcpy(char_base(k),     char_base(f),     sizeof(*char_base(f))    *char_infos(f));
   memcpy(param_base(k),    param_base(f),    sizeof(*param_base(f))   *font_params(f));
@@ -152,6 +182,7 @@ copy_font (integer f) {
   memcpy(lig_base(k),      lig_base(f),      sizeof(*lig_base(f))     *font_ligs(f));
   memcpy(kern_base(k),     kern_base(f),     sizeof(*kern_base(f))    *font_kerns(f));
   memcpy(exten_base(k),    exten_base(f),    sizeof(*exten_base(f))   *font_extens(f));
+  memcpy(packet_base(k),   packet_base(f),   sizeof(*packet_base(f))  *font_packets(f));
 
   for(i=font_bc(k); i<=font_ec(k); i++) {
 	set_char_used(k,i,false);
@@ -163,65 +194,46 @@ copy_font (integer f) {
 
 void delete_font (integer f) {
   int i;
+  assert(f>0);
   if (font_tables[f]!=NULL) {
-	for(i=font_bc(f); i<=font_ec(f); i++) {
-	  set_char_name(f,i,NULL);
-	}
-	if (char_base(f)!=NULL)   free(char_base(f));
-	if (param_base(f)!=NULL)  free(param_base(f));
-	if (width_base(f)!=NULL)  free(width_base(f));
-	if (height_base(f)!=NULL) free(height_base(f));
-	if (depth_base(f)!=NULL)  free(depth_base(f));
-	if (italic_base(f)!=NULL) free(italic_base(f));
-	if (kern_base(f)!=NULL)   free(kern_base(f));
-	if (lig_base(f)!=NULL)    free(lig_base(f));
-	if (exten_base(f)!=NULL)  free(exten_base(f));
+    for(i=font_bc(f); i<=font_ec(f); i++) {
+      set_char_name(f,i,NULL);
+    }
+    if (char_base(f)!=NULL)   free(char_base(f));
+    if (param_base(f)!=NULL)  free(param_base(f));
+    if (width_base(f)!=NULL)  free(width_base(f));
+    if (height_base(f)!=NULL) free(height_base(f));
+    if (depth_base(f)!=NULL)  free(depth_base(f));
+    if (italic_base(f)!=NULL) free(italic_base(f));
+    if (kern_base(f)!=NULL)   free(kern_base(f));
+    if (lig_base(f)!=NULL)    free(lig_base(f));
+    if (exten_base(f)!=NULL)  free(exten_base(f));
+    if (packet_base(f)!=NULL) free(packet_base(f));
 
-	set_font_name(f,NULL);
-	set_font_fullname(f,NULL);
-	set_font_encodingname(f,NULL);
-	set_font_area(f,NULL);
-
-	free(font_tables[f]);
-	font_tables[f] = NULL;
+    set_font_name(f,NULL);
+    set_font_fullname(f,NULL);
+    set_font_encodingname(f,NULL);
+    set_font_area(f,NULL);
+    
+    free(font_tables[f]);
+    font_tables[f] = NULL;
+    if (font_id_maxval==f) {
+      font_id_maxval--;
+    }
   }
 }
-
-/* this code is an experiment waiting for completion. */
-
-integer
-scale_font (integer oldf, integer atsize) {
-  integer f;
-  integer i;
-  double multiplier;
-  multiplier = (double)atsize/(double)font_size(oldf);
-  f = copy_font(oldf);
-  set_font_size(f,atsize);
-  for (i=0;i<font_widths(f);i++) {
-    set_font_width(f,i,(scaled)(multiplier*(integer)font_width(f,i)));
-  }
-  for (i=0;i<font_heights(f);i++) {
-    set_font_height(f,i,(scaled)(multiplier*(integer)font_height(f,i)));
-  }
-  for (i=0;i<font_depths(f);i++) {
-    set_font_depth(f,i,(scaled)(multiplier*(integer)font_depth(f,i)));
-  }
-  font_ptr++;
-  return f;
-}
-
-
 
 void 
 create_null_font (void) {
-  (void)new_font(0);
-  set_font_name(0,xstrdup("nullfont")); 
-  set_font_touched(k,1);
+  int i = new_font();
+  assert(i==0);
+  set_font_name(i,xstrdup("nullfont")); 
+  set_font_touched(i,1);
 }
 
 boolean 
 is_valid_font (integer id) {
-  if (id>=0 && id<font_arr_max && font_tables[id]!=NULL)
+  if (id>=0 && id<font_id_maxval && font_tables[id]!=NULL)
     return 1;
   return 0;
 }
@@ -400,6 +412,7 @@ dump_font (int f)
   dump_things(*lig_base(f),      font_ligs(f));
   dump_things(*kern_base(f),     font_kerns(f));
   dump_things(*exten_base(f),    font_extens(f));
+  dump_things(*packet_base(f),   font_packets(f));
 
   for(i=font_bc(f); i<=font_ec(f); i++) {
 	if (char_name(f,i)!=NULL) {
@@ -453,24 +466,26 @@ undump_font(int f)
 	set_font_encodingname(f,s);
   }
 
-  i = sizeof(*char_base(f)) *char_infos(f);  font_bytes += i;
+  i = sizeof(*char_base(f))    * char_infos(f);   font_bytes += i;
   char_base(f)     = xmalloc (i);
-  i = sizeof(*param_base(f))   *font_params(f);  font_bytes += i;
+  i = sizeof(*param_base(f))   * font_params(f);  font_bytes += i;
   param_base(f)    = xmalloc (i);
-  i = sizeof(*width_base(f))   *font_widths(f);  font_bytes += i;
+  i = sizeof(*width_base(f))   * font_widths(f);  font_bytes += i;
   width_base(f)    = xmalloc (i);
-  i = sizeof(*depth_base(f))   *font_depths(f);  font_bytes += i;
+  i = sizeof(*depth_base(f))   * font_depths(f);  font_bytes += i;
   depth_base(f)    = xmalloc (i);
-  i = sizeof(*height_base(f))  *font_heights(f); font_bytes += i;
+  i = sizeof(*height_base(f))  * font_heights(f); font_bytes += i;
   height_base(f)   = xmalloc (i);
-  i = sizeof(*italic_base(f))  *font_italics(f); font_bytes += i;
+  i = sizeof(*italic_base(f))  * font_italics(f); font_bytes += i;
   italic_base(f)   = xmalloc (i);
-  i = sizeof(*lig_base(f))     *font_ligs(f);    font_bytes += i;
+  i = sizeof(*lig_base(f))     * font_ligs(f);    font_bytes += i;
   lig_base(f) = xmalloc (i);
-  i = sizeof(*kern_base(f))    *font_kerns(f);   font_bytes += i;
+  i = sizeof(*kern_base(f))    * font_kerns(f);   font_bytes += i;
   kern_base(f)     = xmalloc (i);
-  i = sizeof(*exten_base(f))   *font_extens(f);  font_bytes += i;
+  i = sizeof(*exten_base(f))   * font_extens(f);  font_bytes += i;
   exten_base(f)    = xmalloc (i);
+  i = sizeof(*packet_base(f))  * font_packets(f); font_bytes += i;
+  packet_base(f)   = xmalloc (i);
 
   undump_things(*char_base(f),     char_infos(f));
   undump_things(*param_base(f),    font_params(f));
@@ -481,6 +496,7 @@ undump_font(int f)
   undump_things(*lig_base(f),      font_ligs(f));
   undump_things(*kern_base(f),     font_kerns(f));
   undump_things(*exten_base(f),    font_extens(f));
+  undump_things(*packet_base(f),   font_packets(f));
   
   for(i=font_bc(f); i<=font_ec(f); i++) {
 	undump_int (x); 

@@ -75,6 +75,8 @@ extern "C" {
 
     extern char notdef[];
 
+    extern integer fixed_replace_font;
+
     extern int is_subsetable(struct fm_entry *);
     extern struct fm_entry *lookup_fontmap(char *);
     extern integer get_fontfile(struct fm_entry *);

@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="1" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.1' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070129' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070201' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -6127,7 +6127,8 @@ that will be defined later.
 @d pdf_append_kern_code      = pdftex_first_integer_code + 23 {append kern before certain characters?}
 @d pdf_gen_tounicode_code    = pdftex_first_integer_code + 24 {generate ToUnicode for fonts?}
 @d pdf_draftmode_code        = pdftex_first_integer_code + 25 {switch on draftmode if positive}
-@d pdf_int_pars=pdftex_first_integer_code + 26 {total number of \pdfTeX's integer parameters}
+@d pdf_replace_font_code     = pdftex_first_integer_code + 26 {generate ToUnicode for fonts?}
+@d pdf_int_pars=pdftex_first_integer_code + 27 {total number of \pdfTeX's integer parameters}
 @#
 @d etex_int_base=pdf_int_pars {base for \eTeX's integer parameters}
 @d tracing_assigns_code=etex_int_base {show assignments}
@@ -6243,6 +6244,7 @@ that will be defined later.
 @d pdf_image_hicolor    == int_par(pdf_image_hicolor_code)
 @d pdf_image_apply_gamma == int_par(pdf_image_apply_gamma_code)
 @d pdf_draftmode        == int_par(pdf_draftmode_code)
+@d pdf_replace_font == int_par(pdf_replace_font_code)
 @#
 @d tracing_assigns==int_par(tracing_assigns_code)
 @d tracing_groups==int_par(tracing_groups_code)
@@ -6353,6 +6355,7 @@ pdf_prepend_kern_code:    print_esc("pdfprependkern");
 pdf_append_kern_code:    print_esc("pdfappendkern");
 pdf_gen_tounicode_code:    print_esc("pdfgentounicode");
 pdf_draftmode_code:        print_esc("pdfdraftmode");
+pdf_replace_font_code:    print_esc("pdfreplacefont");
 @/@<Cases for |print_param|@>@/
 othercases begin print("[unknown integer parameter!]"); end
 endcases;
@@ -6532,6 +6535,8 @@ primitive("pdfgentounicode",assign_int,int_base+pdf_gen_tounicode_code);@/
 @!@:pdf_gen_tounicode_}{\.{\\pdfgentounicode} primitive@>
 primitive("pdfdraftmode",assign_int,int_base+pdf_draftmode_code);@/
 @!@:pdf_draftmode_}{\.{\\pdfdraftmode} primitive@>
+primitive("pdfreplacefont",assign_int,int_base+pdf_replace_font_code);@/
+@!@:pdf_replace_font_}{\.{\\pdfreplacefont} primitive@>
 
 @ @<Cases of |print_cmd_chr|...@>=
 assign_int: if chr_code<count_base then print_param(chr_code-int_base)
@@ -11914,7 +11919,7 @@ pdf_font_name_code, pdf_font_objnum_code, pdf_font_size_code: begin
     if cur_val = null_font then
         pdf_error("font", "invalid font identifier");
     if c <> pdf_font_size_code then begin
-        pdf_check_vf(cur_val);
+        pdf_check_vf_cur_val;
         if not font_used(cur_val) then
             pdf_init_font_cur_val;
     end;
@@ -13344,7 +13349,6 @@ the font.
 @!font_index=integer; {index into |font_info|}
 
 @ @<Glob...@>=
-@!font_ptr:internal_font_number; {largest internal font number in use}
 @!font_bytes:integer;
 
 @ \TeX\ always knows at least one font, namely the null font. It has no
@@ -13352,7 +13356,6 @@ characters, and its seven parameters are all equal to zero.
 
 @<Initialize table...@>=
 create_null_font;
-font_ptr:=null_font;
 font_bytes:=0;
 
 @ @<Put each...@>=
@@ -13408,7 +13411,7 @@ begin scan_int; n:=cur_val; scan_font_ident; f:=cur_val;
     @<Issue a font parameter error message, and return@>
   else begin
     if n>font_params(f) then
-      if f<font_ptr then @<Issue a font parameter error message, and return@>
+      if font_touched(f) then @<Issue a font parameter error message, and return@>
       else @<Increase the number of parameters in the font@>;
     end;
   scan_optional_equals; scan_normal_dimen;
@@ -13426,7 +13429,7 @@ begin scan_int; n:=cur_val; scan_font_ident; f:=cur_val;
     @<Issue a font parameter error message, and return@>
   else begin
     if n>font_params(f) then
-      if f<font_ptr then @<Issue a font parameter error message, and return@>
+      if font_touched(f) then @<Issue a font parameter error message, and return@>
       else @<Increase the number of parameters in the font@>;
     end;
   cur_val:=font_param(f,n);
@@ -16290,9 +16293,10 @@ else  begin dvi_out(post); {beginning of the postamble}
   end
 
 @ @<Output the font definitions...@>=
-while font_ptr>font_base do
-  begin if font_used(font_ptr) then dvi_font_def(font_ptr);
-  decr(font_ptr);
+k := max_font_id;
+while k>0 do
+  begin if font_used(k) then dvi_font_def(k);
+  decr(k);
   end
 
 
@@ -16636,6 +16640,7 @@ begin
         fixed_image_apply_gamma := fix_int(pdf_image_apply_gamma, 0, 1);
         fixed_pdf_objcompresslevel := fix_int(pdf_objcompresslevel, 0, 3);
         fixed_pdf_draftmode     := fix_int(pdf_draftmode, 0, 1);
+		fixed_replace_font      := fix_int(pdf_replace_font, 0, 1);
         if (fixed_pdf_minor_version >= 5) and (fixed_pdf_objcompresslevel > 0) then
             pdf_os_enable := true
         else begin
@@ -16792,6 +16797,7 @@ begin
     print(": "); print(p);
     if append_nl then
         print_ln;
+	if history=spotless then history:=warning_issued;
 end;
 
 procedure pdf_os_get_os_buf(s: integer); {check that |s| bytes more
@@ -17118,6 +17124,7 @@ DVI}
 @!fixed_pk_resolution: integer;
 @!fixed_decimal_digits: integer;
 @!fixed_gen_tounicode: integer;
+@!fixed_replace_font: integer;
 @!pk_scale_factor: integer;
 @!pdf_output_option: integer;
 @!pdf_output_value: integer;
@@ -18219,32 +18226,23 @@ the corresponding virtual font. If the corresponding virtual font exists, then
 the font type is set to |virtual_font_type|; otherwise it will be set to
 |real_font_type|. 
 
-@d pdf_check_vf(#) == begin
-    do_vf(#);
-    if font_type(#) = virtual_font_type then
-       	pdf_error("font", "command cannot be used with virtual font");
-end
-
-@d pdf_check_new_font(#) ==
-    if font_type(#) = new_font_type then begin
-        do_vf(#);
-    end
-
 @ The following code typesets a character to PDF output.
 
-@p procedure output_one_char(c:ASCII_code);
+@p procedure output_one_char(ff:internal_font_number;c:ASCII_code);
 begin
-  pdf_check_new_font(f);
-  if font_type(f) = virtual_font_type then
-      do_vf_packet(f, c)
+  if font_type(ff) = new_font_type then
+      do_vf(ff);
+  if font_type(ff) = virtual_font_type then
+      do_vf_packet(ff, c)
   else begin
-      pdf_begin_string(f);
-      pdf_print_char(f, c);
-      adv_char_width(f, c);
+      pdf_begin_string(ff);
+      pdf_print_char(ff, c);
+      adv_char_width(ff, c);
   end;
 end;
 
 @ @<Declare procedures that need to be declared forward for \pdfTeX@>=
+procedure pdf_check_vf_cur_val; forward;
 procedure pdf_create_font_obj; forward;
 procedure pdf_init_font_cur_val; forward;
 procedure scan_pdf_ext_toks; forward;
@@ -18438,7 +18436,6 @@ begin
     for i := 0 to font_kerns(k) do begin
       adjust_font_kern(k,i, round_xn_over_d(font_kern_sc(f,i), 1000 + e, 1000));
       end;
-	incr(font_ptr);
     auto_expand_font := k;
 end;
 
@@ -18483,7 +18480,7 @@ function tfm_lookup(s: str_number; fs: scaled): internal_font_number;
 var k: internal_font_number;
 begin
     if fs <> 0 then begin
-        for k := font_base + 1 to font_ptr do
+        for k := 1 to max_font_id do
             if cmp_font_name(k, s) and (font_size(k) = fs) then begin
                 flush_str(s);
                 tfm_lookup := k;
@@ -18491,7 +18488,7 @@ begin
             end;
     end
     else begin
-        for k := font_base + 1 to font_ptr do
+        for k := 1 to max_font_id do
             if cmp_font_name(k, s) then begin
 	            flush_string; {font_name}
                 flush_str(s);
@@ -18921,7 +18918,7 @@ reswitch: if is_char_node(p) then
   begin
   repeat f:=font(p); c:=character(p);
   if is_valid_char(c) then
-      output_one_char(c)
+      output_one_char(f, c)
   else
       char_warning(f, c);
   cur_h:=cur_h+char_width(f,c);
@@ -20114,7 +20111,7 @@ until k = 0;
 head_tab[obj_type_pages] := l
 
 @ @<Output fonts definition@>=
-for k := font_base + 1 to font_ptr do
+for k := 1 to max_font_id do
     if font_used(k) and hasfmentry(k) and (pdf_font_num[k] < 0) then begin
         i := -pdf_font_num[k];
         pdfassert(pdf_font_num[i] > 0);
@@ -32935,7 +32932,7 @@ the new name becomes the font identifier of record. Font names `\.{xyz}' and
 
 @<If this font has already been loaded...@>=
 flushable_string:=str_ptr-1;
-for f:=font_base+1 to font_ptr do begin
+for f:=1 to max_font_id do begin
   if cmp_font_name(f,cur_name) and
      cmp_font_area(f,cur_area) then
     begin if cur_name=flushable_string then
@@ -33629,15 +33626,16 @@ for p:=hash_used+1 to undefined_control_sequence-1 do undump_hh(hash[p]);
 undump_int(cs_count)
 
 @ @<Dump the font information@>=
-dump_int(font_ptr);
-for k:=null_font to font_ptr do
+dump_int(max_font_id);
+for k:=0 to max_font_id do
   @<Dump the array info for internal font number |k|@>;
-print_ln; print_int(font_ptr-font_base); print(" preloaded font");
-if font_ptr<>font_base+1 then print_char("s")
+print_ln; print_int(max_font_id); print(" preloaded font");
+if max_font_id<>1 then print_char("s")
 
 @ @<Undump the font information@>=
-undump_int(font_ptr);
-for k:=null_font to font_ptr do
+undump_int(x);
+set_max_font_id(x);
+for k:=0 to max_font_id do
   @<Undump the array info for internal font number |k|@>
 
 @ @<Dump the array info for internal font number |k|@>=
@@ -34010,8 +34008,8 @@ if log_opened then
     ' words of memory out of ',mem_end+1-mem_min:1);@/
   wlog_ln(' ',cs_count:1,' multiletter control sequences out of ',
     hash_size:1);@/
-  wlog(' ',font_ptr-font_base:1,' font');
-  if font_ptr<>font_base+1 then wlog('s');
+  wlog(' ',max_font_id,' font');
+  if max_font_id<>1 then wlog('s');
   wlog_ln(' using ', font_bytes:1, ' bytes');
   wlog(' ',hyph_count:1,' hyphenation exception');
   if hyph_count<>1 then wlog('s');
@@ -35806,7 +35804,7 @@ begin
     f := cur_val;
     if f = null_font then
         pdf_error("font", "invalid font identifier");
-    pdf_check_vf(f);
+    pdf_check_vf_cur_val;
     if not font_used(f) then
         pdf_init_font(f);
     scan_pdf_ext_toks;

@@ -64,7 +64,7 @@ static struct statistic stats[] = {
   { "cs_count",                  'g', &cs_count         },
   { "hash_size",                 'G', &get_hash_size     },
   { "hash_extra",                'g', &hash_extra       },
-  { "font_ptr",                  'g', &font_ptr         },
+  { "font_ptr",                  'G', &max_font_id      },
   //{ "font_base",                 'g', &fontbase        },
   { "hyph_count",                'g', &hyph_count       },
   { "hyph_size",                 'g', &hyph_size        },

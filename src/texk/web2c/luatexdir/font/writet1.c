@@ -294,6 +294,8 @@ char **load_enc_file(char *enc_name)
 		  nameoffile = xmalloc(namelength+2);
 		  strcpy((char *)(nameoffile+1),ftemp);
 		  free(ftemp);
+		} else {
+		  return NULL;
 		}
 	  }
 	}

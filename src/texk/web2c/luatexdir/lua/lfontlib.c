@@ -14,7 +14,7 @@ font_read_tfm (lua_State *L) {
     cnom = (char *)lua_tostring(L, 1);
     if(lua_isnumber(L, 2)) {
       s = (integer)lua_tonumber(L,2);
-      f = new_font(font_ptr+1);
+      f = new_font();
       if (read_tfm_info(f, cnom, "", s)) {
 	k =  font_to_lua(L,f);
 	delete_font(f);
@@ -77,16 +77,15 @@ static int deffont (lua_State *L) {
   int i;
   luaL_checktype(L,-1,LUA_TTABLE);
 
-  i = new_font((font_ptr+1));
+  i = new_font();
   if(font_from_lua (L,i)) {
-	font_ptr++;
-	lua_pushnumber(L,i);
-	return 1;
+    lua_pushnumber(L,i);
+    return 1;
   } else {
-	lua_pop(L,1); /* pop the broken table */
-	delete_font(i);
-	lua_pushstring(L, "font creation failed");
-	lua_error(L);
+    lua_pop(L,1); /* pop the broken table */
+    delete_font(i);
+    lua_pushstring(L, "font creation failed");
+    lua_error(L);
   }  
   return 0; /* not reached */
 }
@@ -95,13 +94,13 @@ static int getfont (lua_State *L) {
   int i;
   i = (int)luaL_checkinteger(L,-1);
   if (i) {
-	if (is_valid_font(i) &&  font_to_lua (L, i)) {
-	  /* do nothing */
-	} else {
-	  lua_pushnil(L);
-	}
+    if (is_valid_font(i) &&  font_to_lua (L, i)) {
+      /* do nothing */
+    } else {
+      lua_pushnil(L);
+    }
   } else {
-	lua_pushnil(L);
+    lua_pushnil(L);
   }
   return 1;
 }

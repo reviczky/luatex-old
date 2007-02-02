@@ -325,7 +325,7 @@ integer read_image (strnumber s, integer page_num, strnumber page_name,
 	    if (pdfversion < 4) {
 		  pdftex_fail
 		    ("JBIG2 images only possible with at least PDF 1.4; you are generating PDF 1.%i",
-		     pdfversion);
+		     (int) pdfversion);
 	    }
         jbig2_ptr (img) = xtalloc (1, JBIG2_IMAGE_INFO);
         img_type (img) = IMAGE_TYPE_JBIG2;

@@ -156,16 +156,142 @@ count_hash_items (lua_State *L){
   return n;
 }
 
+#define fnt4 238 /* set current font */
+#define push 141 /* save the current positions */
+#define pop 142 /* restore previous positions */
+#define set4 131 /* typeset a character and move right */
+#define set_rule 132 /* typeset a rule and move right */
+#define right4  146 /* move right, 4 bytes */
+#define down4 160 /* move down, 4 bytes */
+#define xxx4 242 /* special info */
+#define yyy4 253 /* pdf literal info */
+#define eop 140 /* ending of page */
+
+/*
+  fnt4      = "font"
+  push      = "push"
+  pop       = "pop"
+  set4      = "char"
+  set_rule  = "rule"
+  right4    = "right"
+  down4     = "down"
+  xxxx4     = "special"
+  eop       = 
+*/
+
+#define streq(a,b) (strcmp(a,b)==0)
+
+#define append_packet(k) { set_font_packet(f,np,k); np++; }
+
+#define do_store_four(l) {							\
+    append_packet((l&0xFF000000)>>24);				\
+    append_packet((l&0x00FF0000)>>16);				\
+    append_packet((l&0x0000FF00)>>8);				\
+    append_packet((l&0x000000FF));  } 
+
+/*
+*/
+
+static int
+read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, integer np) {
+  int i, n, m;
+  int cmd;
+  char *s;
+  int ff = 0;
+  for (i=1;i<=lua_objlen(L,-1);i++) {
+	lua_rawgeti(L,-1,i);
+	if (lua_istable(L,-1)) {
+	  /* fetch the command code */
+	  lua_rawgeti(L,-1,1);
+	  if (lua_isstring(L,-1)) {
+		s = (char *)lua_tostring(L,-1);
+		cmd = 0;
+		if      (streq(s,"font"))    {  cmd = fnt4;     }
+		else if (streq(s,"char"))    {  cmd = set4;     
+		  if (ff==0) {
+		    append_packet(fnt4);
+		    ff = l_fonts[1];
+		    do_store_four(ff);
+		  }
+		} 
+		else if (streq(s,"push"))    {  cmd = push;     } 
+		else if (streq(s,"pop"))     {  cmd = pop;      } 
+		else if (streq(s,"rule"))    {  cmd = set_rule; }
+		else if (streq(s,"right"))   {  cmd = right4;   }
+		else if (streq(s,"down"))    {  cmd = down4;    }
+		else if (streq(s,"special")) {  cmd = xxx4;     } 
+		
+		append_packet(cmd);
+		switch(cmd) {
+		case push:
+		case pop:
+		  break;
+		case fnt4:
+		  lua_rawgeti(L,-2,2);
+		  n = lua_tointeger(L,-1);
+		  ff = l_fonts[n];
+		  do_store_four(ff);
+		  lua_pop(L,1);
+		  break;
+		case set4:
+		  lua_rawgeti(L,-2,2);
+		  n = lua_tointeger(L,-1);
+		  do_store_four(n);
+		  lua_pop(L,1);
+		  break;
+		case right4:
+		case down4:
+		  lua_rawgeti(L,-2,2);
+		  n = lua_tointeger(L,-1);
+		  /* TODO this multiplier relates to the font size, apparently */
+		  do_store_four(((n<<4)/10));
+		  lua_pop(L,1);
+		  break;
+		case set_rule:
+		  lua_rawgeti(L,-2,2);
+		  n = lua_tointeger(L,-1);
+		  /* here too, twice */
+		  do_store_four(((n<<4)/10));
+		  lua_rawgeti(L,-2,3);
+		  n = lua_tointeger(L,-1);
+		  do_store_four(((n<<4)/10));
+		  lua_pop(L,2);
+		case xxx4:
+		  lua_rawgeti(L,-2,2);
+		  s = lua_tolstring(L,-1,&n);
+ 		  if (n>0) {
+			do_store_four(n);
+			m = n;
+			while(m>0) {
+			  n = *s++;	  m--;
+			  append_packet(n);
+			}
+		  }
+		  lua_pop(L,1);
+		}
+	  }
+	  lua_pop(L,1); /* command code */
+	}
+	lua_pop(L,1); /* command table */
+  }
+  append_packet(eop);
+  return np;
+}
+
+
+
 /* The caller has fix the state of the lua stack when there is an error! */
 
 boolean
 font_from_lua (lua_State *L, int f) {
-  int i,k,n,r;
+  int i,k,n,r,t;
+  int s_top; /* lua stack */
   scaled j;
-  int bc,ec,nc,nk,nl,ne;
+  int bc,ec,nc,nk,nl,ne,np;
   int ctr;
   char *s;
   int adj, krn;
+  integer l_fonts[256] = { 0 };
   /* at -1, there is a table */
   lua_getfield(L,-1,"area");
   if (lua_isstring(L,-1)) {
@@ -288,21 +414,76 @@ font_from_lua (lua_State *L, int f) {
   }
   lua_pop(L,1);
 
+  lua_getfield(L,-1,"type");
+  if (lua_isnumber(L,-1)) {
+    set_font_type(f,lua_tonumber(L,-1));
+  } else if (lua_isstring(L,-1)) {
+    s = (char *)lua_tostring(L,-1);
+    if (strcmp(s,"virtual") == 0) {
+      set_font_type(f,virtual_font_type);
+    } else {
+      set_font_type(f,real_font_type);
+    }
+  }
+  lua_pop(L,1); /* pop type */
+
+  
+  /* now fetch the base fonts, if needed */
+  if(font_type(f) == virtual_font_type) {
+    lua_getfield(L,-1,"fonts");
+    if (lua_istable(L,-1)) {
+      n = lua_objlen(L,-1);
+      if (n>255) {
+	fprintf(stderr, "Too many local fonts");
+	n = 255;
+      }
+      for (i=1;i<=n;i++) {
+	lua_rawgeti(L,-1,i);
+
+
+	if (lua_istable(L,-1)) {
+	  lua_rawgeti(L,-1, 1);
+	  s = (char *)lua_tostring(L,-1);
+	  lua_rawgeti(L,-2, 2);
+	  if (lua_isnumber(L,-1)) {
+	    t = lua_tonumber(L,-1);
+	  } else {
+	    t = -1000;
+	  }
+	  /* TODO: fix this! the stack is messed up, otherwise this 
+	   * explicit resizing would not be needed 
+	   */
+	  s_top = lua_gettop(L);
+	  l_fonts[i] = find_font_id(s,"",t);
+	  lua_settop(L,s_top);
+
+	  lua_pop(L,2); /* pop name and size */
+	}
+
+
+	lua_pop(L,1); /* pop list entry */
+      }
+    } else {
+      fprintf(stderr, "No local fonts");
+    }
+    lua_pop(L,1);	/* pop 'fonts' */
+  }
+
   /* parameters */
 
   lua_getfield(L,-1,"parameters");
   if (lua_istable(L,-1)) {	
-	n = lua_objlen(L,-1);
-	if (n>7) set_font_params(f,n);
-	for (i=1;i<=n;i++) {
-	  lua_rawgeti(L,-1,i);
-	  if (lua_isnumber(L,-1)) {	
-		set_font_param(f,i,lua_tonumber(L,-1));
-	  } else {
-		set_font_param(f,i,0);
-	  }
-	  lua_pop(L,1);
-	}
+    n = lua_objlen(L,-1);
+    if (n>7) set_font_params(f,n);
+    for (i=1;i<=n;i++) {
+      lua_rawgeti(L,-1,i);
+      if (lua_isnumber(L,-1)) {	
+	set_font_param(f,i,lua_tonumber(L,-1));
+      } else {
+	set_font_param(f,i,0);
+      }
+      lua_pop(L,1);
+    }
   } /* else clause handled by new_font() */
   lua_pop(L,1);
 
@@ -317,6 +498,7 @@ font_from_lua (lua_State *L, int f) {
 	nl = 0; /* ligs */
 	nk = 0; /* kerns */
 	nc = 0; /* characters */
+	np = 0; /* virtual packets */
 	lua_pushnil(L);  /* first key */
 	while (lua_next(L, -2) != 0) {
 	  /* value is now -1, new key at -2 */
@@ -343,7 +525,14 @@ font_from_lua (lua_State *L, int f) {
 		k = count_hash_items(L);
 		if (k>0) nl += k+1; 
 		lua_pop(L,1);
-		
+
+		if (font_type(f)==virtual_font_type) {
+		  lua_getfield(L,-1,"commands");
+		  k  = lua_objlen(L,-1);
+		  /* this is an approximation */
+		  if (k>0) np += (5*k)+1; 
+		  lua_pop(L,1);
+		}
 	      }
 	    }
 	  }
@@ -361,17 +550,19 @@ font_from_lua (lua_State *L, int f) {
 	  if (nk>0) set_font_kerns(f,(nk+1));
 	  if (nl>0) set_font_ligs(f,(nl+1));
 	  if (ne>0) set_font_extens(f,(ne+1));
+	  if (np>0) set_font_packets(f,(np+1));
 	  set_font_width(f,0,0);
 	  set_font_height(f,0,0);
 	  set_font_depth(f,0,0);
 	  set_font_italic(f,0,0);
 	  if (nk>0) set_font_kern(f,0,0,0);
 	  if (nl>0) set_font_lig(f,0,0,0,0);
+	  if (np>0) set_font_packet(f,0,0);
 
 	  /* fprintf(stderr,"%s:bc=%d,ec=%d,nc=%d,nk=%d,nl=%d,ne=%d\n",font_name(f),bc,ec,nc,nk,nl,ne); */
 	  /* second loop ... */
 
-	  nc = 0; ne = 1; nk = 1; nl = 1;
+	  nc = 0; ne = 1; nk = 1; nl = 1; np = 1;
 	  lua_pushnil(L);  /* first key */
 	  while (lua_next(L, -2) != 0) {
 	    if (lua_isnumber(L,-2)) {
@@ -460,7 +651,7 @@ font_from_lua (lua_State *L, int f) {
 		      krn = lua_tonumber(L,-1);
 		      /* fprintf(stderr,"char=%d,nk=%d,adj=%i,sc=%i\n",i,nk,adj,krn);*/
 		      if (!has_kern(f,i)) 
-				kern_index(f,i) = nk;
+			kern_index(f,i) = nk;
 		      set_font_kern(f,nk,adj,krn);
 		      lua_pop(L,1);
 			  ctr++;
@@ -472,7 +663,20 @@ font_from_lua (lua_State *L, int f) {
 			}
 		  }
 		  lua_pop(L,1);
-		  
+
+
+		  /* packet commands */
+		  set_char_packet(f,i,0);
+		  if(font_type(f)==virtual_font_type) {
+			lua_getfield(L,-1,"commands");
+			if (lua_istable(L,-1)){ 
+			  set_char_packet(f,i,np);
+			  np = read_char_packets(L,(integer *)l_fonts,f,np);
+			}
+			lua_pop(L,1);
+		  }
+
+		  /* ligatures */
 		  lig_index(f,i) = 0;
 		  lua_getfield(L,-1,"ligatures");
 		  if (lua_istable(L,-1)){
@@ -498,7 +702,6 @@ font_from_lua (lua_State *L, int f) {
 					set_char_lig(f,i,nl);
 				  set_font_lig(f,nl,k,adj,krn);
 				  ctr++;
-				  /* fprintf(stderr,"setlig[%d][%d] = { nl=%d, k=%d, adj=%d, krn=%d }\n", f, i, nl, k, adj, krn); */
 				  nl++;
 				} else { /* skip item, because it is invalid */
 				  lua_pop(L,1);  /* a nil */
@@ -523,8 +726,13 @@ font_from_lua (lua_State *L, int f) {
 	} else { /* jikes, no characters */
 	  pdftex_warn("lua-loaded font [%d] has no characters!",f);
 	}
-	r = luaL_ref(Luas[0],LUA_REGISTRYINDEX); /* pops the table */
-	set_font_cache_id(f,r);
+	if (0) {
+	  r = luaL_ref(Luas[0],LUA_REGISTRYINDEX); /* pops the table */
+	  set_font_cache_id(f,r);
+	} else {
+	  lua_pop(Luas[0],1); /* pops the table */
+	  set_font_cache_id(f,0);
+	}
 
   } else { /* jikes, no characters */
 	pdftex_warn("lua-loaded font [%d] has no character table!",f);

@@ -66,18 +66,14 @@ start_font_error_message (pointer u, strnumber nom, strnumber aire, scaled s) {
   }
 }
 
-int 
-read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
-               integer natural_dir) {
-  internal_font_number f; /* the new font's number */
+static int
+do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_dir) {
   int success;
-  char *cnom, *caire;
   boolean res; /* was the callback successful? */
   integer callback_id;
   int r;
   res = 0;
-  cnom  = xstrdup(makecstring(nom));
-  caire = xstrdup(makecstring(aire));
+
   callback_id=callback_defined("define_font");
   if (callback_id>0) {
     callback_id = run_and_save_callback(callback_id,"SSd->",cnom,caire,s);
@@ -85,22 +81,37 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
       luaL_checkstack(Luas[0],1,"out of stack space");
       lua_rawgeti(Luas[0],LUA_REGISTRYINDEX, callback_id);
       if (lua_istable(Luas[0],-1)) {
-		f = new_font((font_ptr+1));
 		res = font_from_lua(Luas[0],f);	
       } 
-	  lua_pop(Luas[0],1);
+      lua_pop(Luas[0],1);
     }
   } else {
-    f = new_font((font_ptr+1));
     res = read_tfm_info(f,cnom,caire,s);
-	if (res) {
-	  set_hyphen_char(f,get_default_hyphen_char());
-	  set_skew_char(f,get_default_skew_char());
-	}
+    if (res) {
+      set_hyphen_char(f,get_default_hyphen_char());
+      set_skew_char(f,get_default_skew_char());
+    }
   }
   if (res) {
-	set_font_natural_dir(f,natural_dir);
-    font_ptr++;
+    set_font_natural_dir(f,natural_dir);
+    return f;
+  } else {
+    delete_font(f);
+    return 0;
+  }
+
+}
+
+int 
+read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
+               integer natural_dir) {
+  char *cnom, *caire;
+  integer f;
+  cnom  = xstrdup(makecstring(nom));
+  caire = xstrdup(makecstring(aire));
+
+  f = new_font();
+  if (do_define_font(f, cnom,caire,s,natural_dir)) {
     return f;
   } else {
     start_font_error_message(u, nom, aire, s);
@@ -111,7 +122,29 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
 		    "e.g., type `I\font<same font id>=<substitute font name>'.",
 		    NULL } ;
     do_error(" not loadable: Metric (TFM/OFM) file not found or bad",help);
-    delete_font(f);
+    return 0;
+  }
+}
+
+int 
+find_font_id (char *nom, char *aire, scaled s) {
+  integer f;
+  for (f=1;f<=max_font_id();f++) {
+    if (is_valid_font(f) && (strcmp(font_name(f),nom)==0)) {
+      if (s>0) {
+		if (s==font_size(f)) {
+		  return f;
+		} 
+      } else if (font_size(f)==xn_over_d(font_dsize(f),-s,1000)) {
+		return f;
+      }
+    }
+  }
+  /* not found yet */
+  f = new_font();
+  if (do_define_font(f, nom,aire,s,-1)) {
+    return f;
+  } else {
     return 0;
   }
 }

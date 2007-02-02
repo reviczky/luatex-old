@@ -41,6 +41,7 @@ typedef struct characterinfo {
   boolean _used;
   integer _lig_index;
   integer _kern_index;
+  integer _packet_index;
   integer _remainder;
 } characterinfo;
 
@@ -102,6 +103,11 @@ typedef struct texfont {
   
   integer _font_extens;
   fourquarters *_exten_base;
+
+  /* virtual packet commands. this is a byte sequence because 
+     literal strings can appear inside */
+  integer _font_packets;
+  real_eight_bits *_packet_base;
 
 } texfont;
 
@@ -353,6 +359,23 @@ extern void set_font_params(internal_font_number f, int b);
     font_exten(f,n) = b; }
 
 
+/* character packets */
+
+#define font_packets(a)       font_tables[a]->_font_packets
+#define packet_base(a)        font_tables[a]->_packet_base
+#define font_packet(a,b)      font_tables[a]->_packet_base[b]
+
+#define set_font_packets(f,b)						\
+  { if (font_packets(f)!=b) {						\
+      font_bytes += (b-font_packets(f))*sizeof(fourquarters);		\
+      do_realloc(packet_base(f), b, fourquarters);			\
+      font_packets(f) = b;  } }
+
+#define set_font_packet(f,n,b)						\
+  { if (font_packets(f)<n) set_font_packets(f,n);			\
+    font_packet(f,n) = b; }
+
+
 /* Font parameters are sometimes referred to as |slant(f)|, |space(f)|, etc.*/
 
 #define slant_code 1
@@ -391,13 +414,16 @@ extern void set_font_params(internal_font_number f, int b);
 #define italic_index(f,c)     (char_info(f,c))._italic_index
 #define kern_index(f,c)       (char_info(f,c))._kern_index
 #define lig_index(f,c)        (char_info(f,c))._lig_index
+#define packet_index(f,c)     (char_info(f,c))._packet_index
 
 #define char_width(f,b)       font_width (f,width_index(f,b))
 #define char_height(f,b)      font_height(f,height_index(f,b))
 #define char_depth(f,b)       font_depth (f,depth_index(f,b))
 #define char_italic(f,b)      font_italic(f,italic_index(f,b))
+
 #define char_kern(f,b)        font_kern  (f,kern_index(f,b))
 #define char_lig(f,b)         font_lig   (f,lig_index(f,b))
+#define char_packet(f,b)      font_packet(f,packet_index(f,b))
 
 #define char_remainder(f,b)   (char_info(f,b))._remainder
 #define char_tag(f,b)         (char_info(f,b))._tag
@@ -410,14 +436,15 @@ extern void set_font_params(internal_font_number f, int b);
 #define set_char_name(f,b,c)     { if (char_name(f,b)!=NULL)	\
 	  free(char_name(f,b)); char_name(f,b) = c; }
 
-
-#define set_char_kern(f,b,c)  kern_index(f,b) = c
-#define set_char_lig(f,b,c)   lig_index(f,b) = c
+#define set_char_kern(f,b,c)   kern_index(f,b) = c
+#define set_char_lig(f,b,c)    lig_index(f,b) = c
+#define set_char_packet(f,b,c) packet_index(f,b) = c
 
 #define char_exists(f,b)     ((b<=font_ec(f))&&(b>=font_bc(f))&&	\
 			      (width_index(f,b)>0))
 #define has_lig(f,b)          (char_exists(f,b) && lig_index(f,b)>0)
 #define has_kern(f,b)         (char_exists(f,b) && kern_index(f,b)>0)
+#define has_packet(f,b)       (char_exists(f,b) && packet_index(f,b)>0)
 
 scaled get_kern(internalfontnumber f, integer lc, integer rc);
 liginfo get_ligature(internalfontnumber f, integer lc, integer rc);
@@ -429,12 +456,16 @@ liginfo get_ligature(internalfontnumber f, integer lc, integer rc);
 
 extern texfont **font_tables;
 
-integer new_font (integer id) ;
+integer new_font (void) ;
 integer copy_font (integer id) ;
 integer scale_font (integer id, integer atsize) ;
+integer max_font_id (void);
+void set_max_font_id (integer id);
+integer new_font_id (void);
 void create_null_font (void);
 void delete_font(integer id);
 boolean is_valid_font (integer id);
+
 
 void dump_font (int font_number);
 void undump_font (int font_number);
@@ -445,6 +476,8 @@ integer get_tag_code (internalfontnumber f, eight_bits c);
 
 int read_tfm_info(internalfontnumber f, char *nom, char *aire, scaled s);
 
-int read_font_info(pointer u, strnumber nom, strnumber aire, scaled s,
-		   integer natural_dir);
 
+/* from dofont.c */
+
+extern int read_font_info (pointer u, strnumber nom, strnumber aire, scaled s, integer ndir);
+extern int find_font_id (char *nom, char *aire, scaled s);
