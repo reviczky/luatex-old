@@ -509,7 +509,7 @@ void write_fontdictionary(fo_entry * fo)
     pdf_printf("/FirstChar %i\n/LastChar %i\n/Widths %i 0 R\n",
                (int) fo->first_char, (int) fo->last_char,
                (int) fo->cw->cw_objnum);
-    if (fo->fe != NULL && fo->fe->fe_objnum != 0)
+    if (!is_truetype(fo->fd->fm) && fo->fe != NULL && fo->fe->fe_objnum != 0)
         pdf_printf("/Encoding %i 0 R\n", (int) fo->fe->fe_objnum);
     if (fo->tounicode_objnum != 0)
         pdf_printf("/ToUnicode %i 0 R\n", (int) fo->tounicode_objnum);
