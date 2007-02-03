@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-01-18}
+\TitlePage{Snapshot 2007-02-02}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -62,7 +62,7 @@ need arises, anything can (and will) be changed without prior notice.
 \LUATEX\ consists of a number of interrelated but (still) distinguishable
  parts:
 \startitemize
-\item \PDFTEX\ version 1.40.1
+\item \PDFTEX\ version 1.40.2
 \item \ALEPH\ RC4 (from the \TEXLIVE\ repository)
 \item Functionality of \ETEX\ 2.2
 \item Lua 5.1.1
@@ -359,6 +359,15 @@ The new table is allocated globally: it will not go away after the
 current group has ended. If the supplied number is the currently
 active table, an error is raised.
 
+\subsection{Font syntax}
+
+LuaTeX will accept a braced argument as a font name:
+\starttyping
+\font\myfont = {cmr10}
+\stoptyping
+This allows for embedded spaces, without the need for double quotes.
+Macro expansion takes place in the argument. 
+
 \chapter {Lua general}
 
 \section{Initialization}
@@ -437,6 +446,8 @@ switch \type{nil}s the following functions:
 
 \starttable[|l|l|]
 \NC \type{os.execute()}\NC\AR
+\NC \type{os.exec()}\NC\AR
+\NC \type{os.setenv()}\NC\AR
 \NC \type{os.rename()}\NC\AR
 \NC \type{os.remove()}\NC\AR
 \NC \type{io.popen()}\NC\AR
@@ -502,6 +513,24 @@ strings of length one), "bytes" (a single byte value), and "bytepairs"
 (two byte values).  The "bytepairs" will produce nil instead of a
 number as its second return value if the string length was odd.
 "characterpairs" will produce an empty second string in that case.
+
+The \type{os} library has a few extra functions and variables:
+
+\startitemize
+\item \type{os.exec('command')} is a non-returning version of \type{os.execute}. 
+  The advantage of this command is that it cleans out the current
+  process before starting the new one, making it especially useful for
+  use in \type{luatexlua}. 
+
+\item \type{os.setenv('key','value')}
+  This sets a variable in the environment. Passing `nil' instead of a
+  value string will remove the variable.
+
+\item \type{os.environ}
+  This is a read-only hash table containing all of the variables and
+  values in the process environment.
+
+\stopitemize
 
 
 \chapter{Lua Libraries}
@@ -1150,7 +1179,8 @@ for writing is always opened in the current directory).
 
 \subsubsection{\callback{find_vf_file}}
 
-Like \callback{find_font_file}, but for virtual fonts.
+Like \callback{find_font_file}, but for virtual fonts. This applies to
+both Aleph's \type{ovf} files and traditional Knuthian \type{vf} files.
 
 \subsubsection{\callback{find_ocp_file}}
 
@@ -1775,7 +1805,8 @@ the executable after loading and executing the startup file.
 The font library will provide the interface into the internals of the
 font system, as well as contain some binary font loaders. 
 
-At the moment, there is only one loader function defined:
+
+\subsection{Loading a tfm file}
 
 \startfunctioncall
      table fnt = font.read_tfm(string name, number s)
@@ -1788,12 +1819,23 @@ The number is a bit special:
 setting relative to the designsize of the font.
 \stopitemize
 
-The font `\type{cmr10 at 12pt}' would be asked for as
-\type{font.read_tfm("cmr10", 798432)}, and the simple specification 
-`\type{cmbx10}' is \type{font.read_tfm("cmbx10", -1000)}
+The internal structure of the virtual font table that is returned is
+explained in \in{chapter}[fonts].
 
-The internal structure of the font table that is returned is explained
-in \in{chapter}[fonts]
+
+\subsection{Loading a vf file}
+
+\startfunctioncall
+     table vf_fnt = font.read_vf(string name, number s)
+\stopfunctioncall
+
+The number is a bit special: 
+\startitemize
+\item if it is positive, it specifies an `at size' in scaled points. 
+\item if it is negative, its absolute value represents a `scaled'
+setting relative to the designsize of the font.
+\stopitemize
+
 
 \subsection{The fonts array}
 
@@ -1802,7 +1844,7 @@ in \in{chapter}[fonts]
      table f = font.fonts[n]
 \stoptyping
 
-See below for the structure of the tables.
+See \in{chapter}[fonts] for the structure of the tables.
 
 The associated function calls are
 
@@ -1817,6 +1859,8 @@ that definition. This limits the usability of the write access to
 font.fonts quite a lot, a less stringent ruleset will be implemented
 later.
 
+\subsection{Checking a font's status}
+
 You can test for the status of a font calling this function:
 
 \startfunctioncall
@@ -1826,28 +1870,66 @@ You can test for the status of a font calling this function:
 The return value is one of true (unassignable), false (can be changed)
 or nil (not a valid font at all).
 
+\subsection{Defining a font directly}
+
+You can define your own font into \type{font.fonts}
+
+\startfunctioncall
+     number i = font.define(table f)
+\stopfunctioncall
+
+The return value is the internal id number of the defined font (the
+index into \type{font.fonts}). If the font creation fails, an error is
+raised. The table is a font structure, as explained in
+\in{chapter}[fonts].
+
+The value of this function is debatable, because there is no direct
+way of accessing the newly defined font, except from Lua code.
 
 \chapter[fonts]{Font structure}
 
-\TeX\ fonts are represented as Lua tables. The top-level keys in the
-table are as follows:
+All \TeX\ fonts are represented to Lua code as tables, an internally
+as C structures. All keys in the table below are saved in the internal
+font structure if they are present in the table returned by the
+`define_font' callback, or if they result from the normal tfm/vf 
+reading routines if there is no `define_font' callback defined.
 
-\starttabulate[|l|l|l|p|]
-\NC key                \NC required \NC value type \NC description \NC\FR
-\NC name               \NC yes      \NC string \NC the font's (file)name\NC\NR
-\NC area               \NC no       \NC string \NC the font's (directory)name, typically empty\NC\NR
-\NC designsize         \NC no       \NC number \NC default is 10pt \NC \NR
-\NC size               \NC no       \NC number \NC default: same as designsize \NC \NR
-\NC checksum           \NC no       \NC number \NC default: 0 \NC \NR
-\NC direction          \NC no       \NC number \NC default: 0 (LTR) \NR
-% \NC boundarychar_label \NC unused   \NC number \NC (this is a relic, will be removed)\NC \NR
-\NC boundarychar       \NC no       \NC number \NC default: 0 \NC \NR
-\NC false_boundarychar \NC no       \NC number \NC default: 0 \NC \NR
-\NC hyphenchar         \NC no       \NC number \NC default: TeX's \type{\hyphenchar} \NC \NR
-\NC skewchar           \NC no       \NC number \NC default: TeX's \type{\skewchar}  \NC \NR
-\NC parameters         \NC no       \NC array  \NC default: [1]--[7], all zeroed \NC \NR
-\NC characters         \NC no       \NC table  \NC default: no characters \NC \NR
+The column `from VF' means that this key will be created by the
+`font.read_vf()' routine, `from TFM' means that the key will be created
+by the `font.read_tfm()' routine, and `used' means whether or not the
+luatex engine itself will do something with the key.
+
+
+The top-level keys in the table are as follows:
+
+\starttabulate[|l|l|l|l|l|p|]
+\NC key                \NC from VF  \NC from TFM \NC used\NC value type \NC description \NC\FR
+\NC name               \NC yes      \NC yes      \NC yes \NC string \NC metric (file) name\NC\NR
+\NC area               \NC no       \NC yes      \NC yes \NC string \NC (directory)location, typically empty\NC\NR
+\NC used               \NC no       \NC yes      \NC yes \NC boolean\NC used already? (initial: false)\NC \NR
+\NC boundarychar       \NC no       \NC yes      \NC yes \NC number \NC right boundary character (default: 0)\NC \NR
+\NC boundarychar_label \NC no       \NC yes      \NC yes \NC number \NC (this is a relic, will be removed)\NC \NR
+\NC characters         \NC yes      \NC yes      \NC yes \NC table  \NC the defined glyphs of this font \NC \NR
+\NC checksum           \NC yes      \NC yes      \NC no  \NC number \NC default: 0 \NC \NR
+\NC designsize         \NC no       \NC yes      \NC yes \NC number \NC expected size (default: 655360 == 10pt) \NC \NR
+\NC direction          \NC no       \NC yes      \NC yes \NC number \NC default: 0 (LTR) \NR
+\NC encodingname       \NC no       \NC no       \NC no  \NC string \NC encoding (file) name\NC\NR
+\NC false_boundarychar \NC no       \NC yes      \NC yes \NC number \NC (this is a relic, will be removed)\NC \NR
+\NC fonts              \NC yes      \NC no       \NC yes \NC table  \NC locally used fonts\NC \NR
+\NC fullname           \NC no       \NC no       \NC no  \NC string \NC actual (PostScript) name\NC\NR
+\NC header             \NC yes      \NC no       \NC no  \NC string \NC header comments, if any\NC \NR
+\NC hyphenchar         \NC no       \NC no       \NC yes \NC number \NC default: TeX's \type{\hyphenchar} \NC \NR
+\NC parameters         \NC no       \NC yes      \NC yes \NC array  \NC default: [1]--[7], all zeroed \NC \NR
+\NC size               \NC no       \NC yes      \NC yes \NC number \NC loaded (at) size. (default: same as designsize) \NC \NR
+\NC skewchar           \NC no       \NC no       \NC yes \NC number \NC default: TeX's \type{\skewchar}  \NC \NR
+\NC type               \NC yes      \NC no       \NC yes \NC string \NC basic type of this font\NC \NR
 \stoptabulate
+
+The key \type{name} is always required.
+
+The key \type{used} is set by the engine when a font is actively in
+use, this makes sure that the font's definition is written to the
+output file (DVI or PDF). The \type{TFM} reader sets it to false.
 
 The \type{direction} is a number signalling the `normal' direction for
 this font. There are sixteen possibilities:
@@ -1870,6 +1952,7 @@ seen first in the writing direction), the second the `top' side.
 The \type{parameters} is a Lua array: It is a table of consecutive
 integer items starting at index \type{[1]}. Holes are not allowed, and
 non-integer values are ignored.
+
 
 The \type{characters} table is a list of character hashes indexed by
 number. The number is the `internal code' TeX knows this character
@@ -1908,18 +1991,21 @@ character `f' (decimal 102) in the font cmr10 at 10 points:
      }
 \stoptyping
 
-The following top-level keys can be present:
+The following top-level keys can be present inside a character hash:
 
-\starttabulate[|l|l|p|]
-\NC key               \NC value type \NC description \NC\FR
-\NC width             \NC number \NC character's width, in sp (default 0)\NC\NR
-\NC height            \NC number \NC character's height, in sp (default 0)\NC\NR
-\NC depth             \NC number \NC character's depth, in sp (default 0)\NC\NR
-\NC italic            \NC number \NC character's italic correction, in sp (default zero)\NC\NR
-\NC next              \NC number \NC the `next larger' character index \NC\NR
-\NC extensible        \NC table  \NC the constituent bits of an extensible recipe\NC\NR
-\NC kerns             \NC table  \NC the constituent bits of an extensible recipe\NC\NR
-\NC ligatures         \NC table  \NC the constituent bits of an extensible recipe\NC\NR
+\starttabulate[|l|c|c|c|l|p|]
+\NC key               \NC from VF  \NC from TFM \NC used\NC value type \NC description \NC\FR
+\NC width             \NC yes      \NC yes      \NC yes \NC number \NC character's width, in sp (default 0)\NC\NR
+\NC height            \NC no       \NC yes      \NC yes \NC number \NC character's height, in sp (default 0)\NC\NR
+\NC depth             \NC no       \NC yes      \NC yes \NC number \NC character's depth, in sp (default 0)\NC\NR
+\NC italic            \NC no       \NC yes      \NC yes \NC number \NC character's italic correction, in sp (default zero)\NC\NR
+\NC next              \NC no       \NC yes      \NC yes \NC number \NC the `next larger' character index \NC\NR
+\NC extensible        \NC no       \NC yes      \NC yes \NC table  \NC the constituent bits of an extensible recipe\NC\NR
+\NC kerns             \NC no       \NC yes      \NC yes \NC table  \NC kerning information\NC\NR
+\NC ligatures         \NC no       \NC yes      \NC yes \NC table  \NC ligaturing information\NC\NR
+\NC commands          \NC yes      \NC no       \NC yes \NC array  \NC virtual font commands\NC\NR
+\NC name              \NC no       \NC no       \NC no  \NC string \NC the character (PostScript) name\NC\NR
+\NC used              \NC no       \NC yes      \NC yes \NC boolean\NC typeset already (default: false)?\NC\NR
 \stoptabulate
 
 The presence of \type{extensible} will overrule \type{next}, if that is also present.
@@ -1945,8 +2031,8 @@ being yet another small hash, with two fields:
 \stoptabulate
 The \type{char} field in a ligature is required.
 
-The \type{type} field is the numerical value of one of the eight possible ligature
-types supported by \TeX:
+The \type{type} field inside a ligature is the numerical value of one
+of the eight possible ligature types supported by \TeX:
 
 \def\|{\string|}
 \def\>{\string>}
@@ -1961,6 +2047,126 @@ types supported by \TeX:
 \NC l + r \|=:\|\>  n \NC 7       \NC l*nr \NC\NR
 \NC l + r \|=:\|\>\> n \NC 11      \NC ln*r \NC\NR
 \stoptabulate
+
+The \type{commands} array is explained below.
+
+\section {Virtual fonts}
+
+You have to take the following steps if you want \LUATEX\ to treat the
+returned table from `define_font' as a virtual font:
+
+\startitemize
+\item Set the top-level key `type' to `virtual'.
+\item Make sure there is at least one valid entry in `fonts' (see below)
+\item Give a `commands' array to every character (see below)
+\stopitemize
+
+
+The presence of the toplevel `type' key with the specific value
+'virtual' will trigger handling of the rest of the special virtual
+font fields in the table, but the mere existance of 'type' is enough
+to prevent luatex from looking for a virtual font on its own.
+
+Therefore, this also works `in reverse': if you are absolutely certain
+that a font is not a virtual font, assigning the value `base' or
+`real' to `type' will inhibit \LUATEX\ from looking for a virtual font
+file, thereby saving you a disk search.
+
+
+The \type{fonts} is another Lua array. The values are two-value arrays
+themselves, each entry indicating one of the base fonts in a virtual
+font. An example makes this  easy to understand
+
+\starttyping
+    "fonts" = { {"ptmr8a",655360}, {"psyr", 600000} }
+\stoptyping
+
+says that the first referenced font (index 1) in this virtual font is
+\type{ptrmr8a.tfm} loaded at 10pt, and the second is \type{psyr.tfm} 
+loaded at a little over 9pt. These index numbers are used by the
+character command definitions that are part of each character.
+
+
+The \type{commands} array is a hash here each item is another small array, with first 
+entry representing a command and the extra items the parameters to that command. The
+allowed commands and their arguments are:
+\starttabulate[|l|l|l|l|p|]
+\NC command name      \NC arguments \NC arg type  \NC description \NC\FR
+\NC font              \NC 1         \NC number    \NC select a new font from the local 'fonts' table\NC\NR
+\NC char              \NC 1         \NC number    \NC typeset this character number from the current 
+                                                      font, and move right\NC\NR
+\NC push              \NC 0         \NC --        \NC save current position\NC\NR
+\NC pop               \NC 0         \NC --        \NC pop position \NC\NR
+\NC rule              \NC 2         \NC 2 numbers \NC output a rule $w*h$, and move right\NC\NR
+\NC down              \NC 1         \NC number    \NC move down on the page\NC\NR
+\NC right             \NC 1         \NC number    \NC move right on the page\NC\NR
+\NC special           \NC 1         \NC string    \NC output a \type{\special} command\NC\NR
+\stoptabulate
+
+Here is a rather elaborate example:
+\starttyping  
+     ...
+     "commands" = {
+        {"push"},                     -- remember where we are
+        {"right", 5000},              -- move right about 0.08pt
+        {"font", 1},                  -- select the fonts[1] entry
+        {"char", 97},                 -- place character 97 'a'
+        {"pop"},                      -- go all the way back
+        {"down", -200000},            -- move *up* about 3pt
+        {"special", "pdf: 1 0 0 rg"}  -- switch to red color
+        {"rule", 500000, 20000}       -- draw a bar
+        {'special',"pdf: 0 g"}        -- back to black
+     }
+     ...
+\stoptyping
+
+The default value for `font' is always 1, for each character anew. If
+the virtual font is essentially only a re-encoding, then you do usually
+do not have create an explicit `font' entry. 
+
+Regardless of the amount of movement you create within the `commands',
+the output pointer will always move by exactly the width as given in
+the `width' key of the character hash, after running the `commands.
+
+
+Finally, here is a plain \TEX\ input file with a demonstration:
+
+\starttyping
+% start of virtual-demo.tex
+
+\pdfoutput=1
+\directlua0 {
+   callback.register("define_font",
+     function (name,area,size)
+        if name == 'cmr10-red' then
+            f = font.read_tfm('cmr10',size)
+            f.name = 'cmr10-red'
+            f.type = 'virtual'
+            f.fonts = {{'cmr10', size}}
+            for i,v in pairs(f.characters) do
+                if (string.char(i)):find("[tacohanshartmut]") then
+                    v.commands = {
+                        {'special','pdf: 1 0 0 rg'},
+                        {'char',i},
+                        {'special','pdf: 0 g'},
+                    }
+                else
+                    v.commands = {{'char',i}}
+                end
+            end
+        else
+          f = font.tfm_read(name,size)
+        end
+        return f
+        end )
+     }
+
+\font\myfont = cmr10-red \myfont  This is a line of text \par
+\font\myfontx= cmr10 \myfontx Here is another line of text \par
+
+\bye
+% end of virtual-demo.tex
+\stoptyping
 
 \chapter{Modifications}
 
@@ -1980,7 +2186,6 @@ necessary to clean up the internal interfaces.
 simply typeset.
 
 \stopitemize
-
 
 \section{Changes from \ETEX\ 2.2}
 
@@ -2179,9 +2384,34 @@ mostly used \type{getc} calls), it can be quite a bit faster
 
 \chapter{Known bugs}
 
+The bugs below are going to be fixed eventually. 
+
+The top ones will be fixed soon, but in the later items either the
+actual problem is hard to find, or the code that causes the bug is
+going to be replaced by a new subsystem soon anyway.
+
 \startitemize
 
-\item {\bf Hyphenation} can only deal with the Base Multilingual Plane (BMP)
+\item The virtual font commands in 'define_font' lua tables that accept 
+numeric arguments are probably not correct yet. There is a conversion
+factor (linked to the font designsize) that seemingly has to be taken 
+into account.
+
+\item Font expansion is currently non-functional due to massive 
+changes in the virtual font handling.
+
+\item Left-boundary ligature processing is broken, because of a change 
+in the internal font structure.
+
+\item Letter spacing (\type{\letterspacefont}) is currently non-functional 
+due to massive changes in the virtual font handling. This
+functionality may actually be removed completely in the future,
+because it is straightforward to set up letterspacing using the Lua
+'define_font' interface.
+
+\item Attempting hyphenation in initex (sometimes) creates segfaults.
+
+\item Hyphenation can only deal with the Base Multilingual Plane (BMP)
 
 \item There are (sometimes?) UTF-8 encoded UTF-8 bytes in the
 pseudo-buffer lines that are shown during error()
