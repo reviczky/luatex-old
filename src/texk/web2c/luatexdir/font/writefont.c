@@ -22,10 +22,6 @@ $Id: writefont.c,v 1.3 2005/12/27 19:04:42 hahe Exp $
 
 #include "ptexlib.h"
 
-/* sigh */
-#if defined(fontname)
-#undef fontname
-#endif
 
 /**********************************************************************/
 

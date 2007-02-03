@@ -24,12 +24,6 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writettf.c#16 $
 #include "writettf.h"
 #include <string.h>
 
-/* sigh */
-#if defined(fontname)
-#undef fontname
-#endif
-
-
 #define DEFAULT_NTABS       14
 #define NEW_CMAP_SIZE       2
 

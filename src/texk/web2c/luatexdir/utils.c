@@ -36,11 +36,6 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/utils.c#24 $
 #include "zlib.h"
 #include "ptexlib.h"
 
-/* sigh */
-#if defined(fontname)
-#undef fontname
-#endif
-
 #include "openbsd-compat.h"
 #include "png.h"
 #include "xpdf/config.h"        /* just to get the xpdf version */

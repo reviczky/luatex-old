@@ -27,12 +27,6 @@ $Id $
 #  include <string.h>
 #  include "luatex-api.h"
 
-/* sigh */
-#if defined(fontname)
-#undef fontname
-#endif
-
-
 #  define t1_log(s)        if(tracefilenames) tex_printf(s)
 #  define get_length1()    t1_length1 = t1_offset() - t1_save_offset
 #  define get_length2()    t1_length2 = t1_offset() - t1_save_offset

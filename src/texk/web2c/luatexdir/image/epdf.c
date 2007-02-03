@@ -22,11 +22,6 @@ $Id: epdf.c,v 1.45 2006/08/20 10:56:04 hahe Exp hahe $
 
 #include "ptexlib.h"
 
-/* sigh */
-#if defined(fontname)
-#undef fontname
-#endif
-
 
 #include <kpathsea/c-vararg.h>
 #include <kpathsea/c-proto.h>
