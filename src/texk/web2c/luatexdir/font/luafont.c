@@ -123,7 +123,17 @@ font_to_lua (lua_State *L, int f) {
   lua_newtable(L);
   for (k=1;k<=font_params(f);k++) {
     lua_pushnumber(L,font_param(f,k));
-    lua_rawseti(L,-2,k);
+    switch (k) {
+    case slant_code:         lua_setfield(L,-2,"slant");         break;
+    case space_code:         lua_setfield(L,-2,"space");         break;
+    case space_stretch_code: lua_setfield(L,-2,"space_stretch"); break;
+    case space_shrink_code:  lua_setfield(L,-2,"space_shrink");  break;
+    case x_height_code:      lua_setfield(L,-2,"x_height");      break;
+    case quad_code:          lua_setfield(L,-2,"quad");          break;
+    case extra_space_code:   lua_setfield(L,-2,"extra_space");   break;
+    default:
+      lua_rawseti(L,-2,k);
+    }
   }
   lua_setfield(L,-2,"parameters");
   
@@ -308,14 +318,70 @@ string_field (lua_State *L, char *name, char *dflt) {
   return i;
 }
 
+static void
+read_lua_parameters (lua_State *L, int f) {
+  int i, n;
+  char *s;
+  lua_getfield(L,-1,"parameters");
+  if (lua_istable(L,-1)) {	
+    /* the number of parameters is the max(IntegerKeys(L)),7) */
+    n = 7;
+    lua_pushnil(L);  /* first key */
+    while (lua_next(L, -2) != 0) {
+      if (lua_isnumber(L,-2)) {
+	i = lua_tonumber(L,-2);
+	if (i>n)
+	  n = i;
+      }
+      lua_pop(L,1); /* pop value */
+    }
+    lua_pop(L,1); /* pop nil from next */
+
+    if (n>7) set_font_params(f,n);
+
+    lua_pushnil(L);  /* first key */
+    while (lua_next(L, -2) != 0) {
+      if (lua_isnumber(L,-2)) {
+	i = lua_tointeger(L,-2);
+	if (i>=8) {
+	  n = (lua_isnumber(L,-1) ? lua_tointeger(L,-1) : 0);
+	  set_font_param(f,i, n);
+	}
+      } else if (lua_isstring(L,-2)) {
+	s = (char *)lua_tostring(L,-2);
+	n = (lua_isnumber(L,-1) ? lua_tointeger(L,-1) : 0);
+
+	if       (strcmp("slant",s)== 0)         {  set_font_param(f,slant_code,n); }
+	else if  (strcmp("space",s)== 0)         {  set_font_param(f,space_code,n); }
+	else if  (strcmp("space_stretch",s)== 0) {  set_font_param(f,space_stretch_code,n); }
+	else if  (strcmp("space_shrink",s)== 0)  {  set_font_param(f,space_shrink_code,n); }
+	else if  (strcmp("x_height",s)== 0)      {  set_font_param(f,x_height_code,n); }
+	else if  (strcmp("quad",s)== 0)          {  set_font_param(f,quad_code,n); }
+	else if  (strcmp("extra_space",s)== 0)   {  set_font_param(f,extra_space_code,n); }
+
+      }
+      lua_pop(L,1); /* pop value */
+    }
+    lua_pop(L,1); /* pop nil from next */
+  }
+  lua_pop(L,1);
+
+}
+
 /* The caller has fix the state of the lua stack when there is an error! */
 
 boolean
 font_from_lua (lua_State *L, int f) {
   int i,k,n,r,t;
-  int s_top; /* lua stack */
+  int s_top; /* lua stack top */
   scaled j;
-  int bc,ec,nc,nk,nl,ne,np;
+  int bc; /* first char index */
+  int ec; /* last char index */
+  int nc; /* number of character info items */
+  int ne; /* number of extensible table items */
+  int nl; /* number of ligature table items */
+  int nk; /* number of kern table items */
+  int np; /* number of virtual packet bytes */
   int ctr;
   char *s;
   int adj, krn;
@@ -387,6 +453,7 @@ font_from_lua (lua_State *L, int f) {
 	}
 	lua_pop(L,1); /* pop list entry */
       }
+      lua_pop(L,1); /* pop list entry */
     } else {
       set_font_type(f,new_font_type);
       fprintf(stderr, "No local fonts");
@@ -394,68 +461,46 @@ font_from_lua (lua_State *L, int f) {
   }
 
   /* parameters */
-  lua_getfield(L,-1,"parameters");
-  if (lua_istable(L,-1)) {	
-    n = lua_objlen(L,-1);
-    if (n>7) set_font_params(f,n);
-    for (i=1;i<=n;i++) {
-      lua_rawgeti(L,-1,i);
-      if (lua_isnumber(L,-1)) {	
-	set_font_param(f,i,lua_tonumber(L,-1));
-      } else {
-	set_font_param(f,i,0);
-      }
-      lua_pop(L,1);
-    }
-  } /* else clause handled by new_font() */
-  lua_pop(L,1);
-
+  read_lua_parameters(L,f);
 
   /* characters */
 
   lua_getfield(L,-1,"characters");
   if (lua_istable(L,-1)) {	
-	/* find the bc and ec values */
-	ec = 0; bc = -1;
-	ne = 0; /* extens */
-	nl = 0; /* ligs */
-	nk = 0; /* kerns */
-	nc = 0; /* characters */
-	np = 0; /* virtual packets */
-	lua_pushnil(L);  /* first key */
-	while (lua_next(L, -2) != 0) {
-	  /* value is now -1, new key at -2 */
-	  if (lua_isnumber(L,-2)) {
-	    i = lua_tonumber(L,-2);
-	    if (i>=0) {
-	      if (lua_istable(L,-1)) {
-		nc++;
-		if (i>ec) ec = i;
-		if (bc<0) bc = i;
-		if (bc>=0 && i<bc) bc = i;
-		lua_getfield(L,-1,"extensible");
-		if (!lua_isnil(L,-1)) {
-		  ne++;
-		}
-		lua_pop(L,1);
-		
-		k = count_hash_items(L,"kerns");
-		if (k>0) nk += k+1; 
-		k = count_hash_items(L,"ligatures");
-		if (k>0) nl += k+1; 
+    /* find the array size values */
+    ec = 0; bc = -1; nc = 0;	
+    ne = 0; nl = 0; nk = 0; np = 0;
+    lua_pushnil(L);  /* first key */
+    while (lua_next(L, -2) != 0) {
+      if (lua_isnumber(L,-2)) {
+	i = lua_tointeger(L,-2);
+	if (i>=0) {
+	  if (lua_istable(L,-1)) {
+	    nc++;
+	    if (i>ec) ec = i;
+	    if (bc<0) bc = i;
+	    if (bc>=0 && i<bc) bc = i;
+	    lua_getfield(L,-1,"extensible");
+	    if (!lua_isnil(L,-1)) { ne++; }
+	    lua_pop(L,1);
+	    
+	    k = count_hash_items(L,"kerns");
+	    if (k>0) nk += k+1; 
+	    k = count_hash_items(L,"ligatures");
+	    if (k>0) nl += k+1; 
 
-		if (font_type(f)==virtual_font_type) {
-		  lua_getfield(L,-1,"commands");
-		  k  = lua_objlen(L,-1);
-		  /* this is an approximation */
-		  if (k>0) np += (5*k)+1; 
-		  lua_pop(L,1);
-		}
-	      }
+	    if (font_type(f)==virtual_font_type) {
+	      lua_getfield(L,-1,"commands");
+	      k = lua_objlen(L,-1);
+	      /* this is an approximation */
+	      if (k>0) np += (5*k)+1; 
+	      lua_pop(L,1);
 	    }
 	  }
-	  lua_pop(L, 1);
 	}
+      }
+      lua_pop(L, 1);
+    }
 	if (bc != -1) {
 	  /* todo: check what happens if bc=ec=0 */
 	  set_font_bc(f,bc);
