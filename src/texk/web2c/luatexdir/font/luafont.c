@@ -68,21 +68,38 @@ font_char_to_lua (lua_State *L, internalfontnumber f, int k) {
   }
 }
 
+static void
+write_lua_parameters (lua_State *L, int f) {
+  int k;
+  lua_newtable(L);
+  for (k=1;k<=font_params(f);k++) {
+    lua_pushnumber(L,font_param(f,k));
+    switch (k) {
+    case slant_code:         lua_setfield(L,-2,"slant");         break;
+    case space_code:         lua_setfield(L,-2,"space");         break;
+    case space_stretch_code: lua_setfield(L,-2,"space_stretch"); break;
+    case space_shrink_code:  lua_setfield(L,-2,"space_shrink");  break;
+    case x_height_code:      lua_setfield(L,-2,"x_height");      break;
+    case quad_code:          lua_setfield(L,-2,"quad");          break;
+    case extra_space_code:   lua_setfield(L,-2,"extra_space");   break;
+    default:
+      lua_rawseti(L,-2,k);
+    }
+  }
+  lua_setfield(L,-2,"parameters");
+}
+
+
 int
 font_to_lua (lua_State *L, int f) {
   int k;
   if (font_cache_id(f)) {
-	/* fetch the table from the registry if  it was 
-	   saved there by font_from_lua() */ 
-	lua_rawgeti(L,LUA_REGISTRYINDEX,font_cache_id(f));
-	/* fontdimens can be changed from tex code */
-	lua_newtable(L);
-	for (k=1;k<=font_params(f);k++) {
-	  lua_pushnumber(L,font_param(f,k));
-	  lua_rawseti(L,-2,k);
-	}
-	lua_setfield(L,-2,"parameters");
-	return 1;
+    /* fetch the table from the registry if  it was 
+       saved there by font_from_lua() */ 
+    lua_rawgeti(L,LUA_REGISTRYINDEX,font_cache_id(f));
+    /* fontdimens can be changed from tex code */
+    write_lua_parameters(L,f);
+    return 1;
   }
 
   lua_newtable(L);
@@ -120,22 +137,7 @@ font_to_lua (lua_State *L, int f) {
   lua_setfield(L,-2,"false_boundarychar");
 
   /* params */
-  lua_newtable(L);
-  for (k=1;k<=font_params(f);k++) {
-    lua_pushnumber(L,font_param(f,k));
-    switch (k) {
-    case slant_code:         lua_setfield(L,-2,"slant");         break;
-    case space_code:         lua_setfield(L,-2,"space");         break;
-    case space_stretch_code: lua_setfield(L,-2,"space_stretch"); break;
-    case space_shrink_code:  lua_setfield(L,-2,"space_shrink");  break;
-    case x_height_code:      lua_setfield(L,-2,"x_height");      break;
-    case quad_code:          lua_setfield(L,-2,"quad");          break;
-    case extra_space_code:   lua_setfield(L,-2,"extra_space");   break;
-    default:
-      lua_rawseti(L,-2,k);
-    }
-  }
-  lua_setfield(L,-2,"parameters");
+  write_lua_parameters(L,f);
   
   /* chars */
   lua_newtable(L); /* all characters */
