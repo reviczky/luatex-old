@@ -469,7 +469,6 @@ void libpdffinish ()
     t1_free ();
     enc_free ();
     img_free ();
-    vf_free ();
     epdf_free ();
     ttf_free ();
     sfd_free ();
