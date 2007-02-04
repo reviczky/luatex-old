@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-02-02}
+\TitlePage{Snapshot 2007-02-05}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -1919,7 +1919,7 @@ The top-level keys in the table are as follows:
 \NC fullname           \NC no       \NC no       \NC no  \NC string \NC actual (PostScript) name\NC\NR
 \NC header             \NC yes      \NC no       \NC no  \NC string \NC header comments, if any\NC \NR
 \NC hyphenchar         \NC no       \NC no       \NC yes \NC number \NC default: TeX's \type{\hyphenchar} \NC \NR
-\NC parameters         \NC no       \NC yes      \NC yes \NC array  \NC default: [1]--[7], all zeroed \NC \NR
+\NC parameters         \NC no       \NC yes      \NC yes \NC hash   \NC default: 7 parameters, all zero \NC \NR
 \NC size               \NC no       \NC yes      \NC yes \NC number \NC loaded (at) size. (default: same as designsize) \NC \NR
 \NC skewchar           \NC no       \NC no       \NC yes \NC number \NC default: TeX's \type{\skewchar}  \NC \NR
 \NC type               \NC yes      \NC no       \NC yes \NC string \NC basic type of this font\NC \NR
@@ -1949,9 +1949,22 @@ These are Omega-style direction abbreviations: the first character
 indicates the `first' edge of the character glyphs (the edge that is
 seen first in the writing direction), the second the `top' side.
 
-The \type{parameters} is a Lua array: It is a table of consecutive
-integer items starting at index \type{[1]}. Holes are not allowed, and
-non-integer values are ignored.
+The \type{parameters} is a hash with mixed key types. There are seven
+possible string keys, as well as a number of integer indices (these
+start from 8 up). The seven strings are actually used instead of the
+bottom seven indices, because that gives a nicer user interface.
+
+The names and their internal remapping:
+\starttabulate[|l|p]
+\NC name          \NC internal remapped number \NC\FR
+\NC slant         \NC 1  \NC\NR
+\NC space         \NC 2  \NC\NR
+\NC space_stretch \NC 3  \NC\NR
+\NC space_shrink  \NC 4  \NC\NR
+\NC x_height      \NC 5  \NC\NR
+\NC quad          \NC 6  \NC\NR
+\NC extra_space   \NC 7  \NC\LR
+\stoptabulate
 
 
 The \type{characters} table is a list of character hashes indexed by
@@ -2032,21 +2045,30 @@ being yet another small hash, with two fields:
 The \type{char} field in a ligature is required.
 
 The \type{type} field inside a ligature is the numerical value of one
-of the eight possible ligature types supported by \TeX:
+of the eight possible ligature types supported by \TeX.  When \TEX\
+inserts a new ligature, it puts the new glyph in the middle of the
+left and right glyphs. The original left and right glyphs can
+optionally be retained, and when at least one of them is kept, it
+is also possible to move the new `insertion point' forward one or two
+places. The glyph that ends up to the right of the insertion point
+will become the next `left'.
 
 \def\|{\string|}
 \def\>{\string>}
 \starttabulate[|l|l|p|]
-\NC textual        \NC numeric value \NC result (* = final `current point')\NC\FR
-\NC l + r =:     n \NC 0       \NC *n   \NC\NR
-\NC l + r =:\|    n \NC 1       \NC *nr  \NC\NR
-\NC l + r  =:\|\>  n \NC 5       \NC n*r  \NC\NR
-\NC l + r \|=:    n \NC 2       \NC *ln  \NC\NR
-\NC l + r \|=:\>   n \NC 6       \NC l*n  \NC\NR
-\NC l + r \|=:\|   n \NC 3       \NC *lnr \NC\NR
-\NC l + r \|=:\|\>  n \NC 7       \NC l*nr \NC\NR
-\NC l + r \|=:\|\>\> n \NC 11      \NC ln*r \NC\NR
+\NC textual (Knuth)      \NC value         \NC result (\| = final `insertion point')\NC\FR
+\NC l + r =:     n       \NC 0             \NC \|n   \NC\NR
+\NC l + r =:\|    n      \NC 1             \NC \|nr  \NC\NR
+\NC l + r  =:\|\>  n     \NC 5             \NC n\|r  \NC\NR
+\NC l + r \|=:    n      \NC 2             \NC \|ln  \NC\NR
+\NC l + r \|=:\>   n     \NC 6             \NC l\|n  \NC\NR
+\NC l + r \|=:\|   n     \NC 3             \NC \|lnr \NC\NR
+\NC l + r \|=:\|\>  n    \NC 7             \NC l\|nr \NC\NR
+\NC l + r \|=:\|\>\> n   \NC 11            \NC ln\|r \NC\NR
 \stoptabulate
+
+The default value is 0, and can be left out. That signifies a `normal'
+ligature where the ligature replaces both original glyphs. 
 
 The \type{commands} array is explained below.
 
