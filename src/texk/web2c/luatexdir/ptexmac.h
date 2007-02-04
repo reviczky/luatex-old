@@ -79,10 +79,10 @@ $Id: ptexmac.h,v 1.14 2005/11/29 22:05:23 hahe Exp $
 
 #  define pdftex_debug    tex_printf
 
-#  define check_buf(size, buf_size)									\
-     if ((unsigned)(size) > (unsigned)(buf_size))		            \
-	   pdftex_fail("buffer overflow: %d > %d at file %s, line %d",	\
-				   size, buf_size, __FILE__,  __LINE__ )
+#  define check_buf(size, buf_size)					\
+     if ((unsigned)(size) > (unsigned)(buf_size))	                \
+       pdftex_fail("buffer overflow: %d > %d at file %s, line %d",	\
+		   (int)(size), (int)(buf_size), __FILE__,  __LINE__ )
 
 #  define append_char_to_buf(c, p, buf, buf_size) do {       \
     if (c == 9)                                            \
