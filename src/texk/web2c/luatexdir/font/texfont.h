@@ -378,13 +378,14 @@ extern void set_font_params(internal_font_number f, int b);
 
 /* Font parameters are sometimes referred to as |slant(f)|, |space(f)|, etc.*/
 
-#define slant_code 1
-#define space_code 2
-#define space_stretch_code 3
-#define space_shrink_code 4
-#define x_height_code 5
-#define quad_code 6
-#define extra_space_code 7
+typedef enum {
+  slant_code = 1,
+  space_code = 2,
+  space_stretch_code = 3,
+  space_shrink_code = 4,
+  x_height_code = 5,
+  quad_code = 6,
+  extra_space_code = 7 } font_parameter_codes ;
 
 #define slant(f)         font_param(f,slant_code)
 #define space(f)         font_param(f,space_code)
