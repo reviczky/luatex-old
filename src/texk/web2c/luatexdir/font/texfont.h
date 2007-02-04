@@ -482,3 +482,23 @@ int read_tfm_info(internalfontnumber f, char *nom, char *aire, scaled s);
 
 extern int read_font_info (pointer u, strnumber nom, strnumber aire, scaled s, integer ndir);
 extern int find_font_id (char *nom, char *aire, scaled s);
+
+
+/* for and from vfpacket.c */
+
+#define scan_special 3 /* look into special text */ /* this is a hack */
+
+typedef enum {  packet_char_code,
+		packet_font_code,
+		packet_pop_code,
+		packet_push_code,
+		packet_special_code,
+		packet_right_code,
+		packet_down_code,
+		packet_rule_code,
+		packet_end_code } packet_command_codes;
+
+extern scaled sqxfw (scaled sq, integer fw);
+
+extern void do_vf_packet (internal_font_number vf_f, eight_bits c);
+
