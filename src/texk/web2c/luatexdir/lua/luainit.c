@@ -364,18 +364,17 @@ lua_initialize(int ac, char **av)
 	  
 	luainterpreter(0);
 	  
-	/* hide the 'tex' and 'pdf' table */
-	tex_table_id = hide_lua_table(Luas[0], "tex");
-	pdf_table_id = hide_lua_table(Luas[0], "pdf");
-	
-    prepare_cmdline(Luas[0], argv, argc, lua_offset);	/* collect arguments */
-    /* */
+	prepare_cmdline(Luas[0], argv, argc, lua_offset);	/* collect arguments */
 
     if (startup_filename != NULL)
 	  startup_filename = find_filename(startup_filename, "LUATEXDIR");
 
     /* now run the file */
     if (startup_filename != NULL) {
+	  /* hide the 'tex' and 'pdf' table */
+	  tex_table_id = hide_lua_table(Luas[0], "tex");
+	  pdf_table_id = hide_lua_table(Luas[0], "pdf");
+
 	  if (luaL_loadfile(Luas[0], startup_filename)
 		  || lua_pcall(Luas[0], 0, 0, 0)) {
 	    fprintf(stdout, "Error in lua file loading: %s\n",
