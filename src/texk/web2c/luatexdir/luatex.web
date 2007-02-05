@@ -235,8 +235,8 @@ known as `\eTeX'.
 @d Aleph_revision==".0" { \.{\\Alephrevision} }
 @#
 @d pdftex_version==140 { \.{\\pdftexversion} }
-@d pdftex_revision=="2" { \.{\\pdftexrevision} }
-@d pdftex_version_string=='-1.40.2' {current \pdfTeX\ version}
+@d pdftex_revision=="3" { \.{\\pdftexrevision} }
+@d pdftex_version_string=='-1.40.3' {current \pdfTeX\ version}
 @#
 @d luatex_version_string=='-0.1-alpha-20070204' {current \luaTeX\ version}
 @#
