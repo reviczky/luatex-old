@@ -189,7 +189,7 @@ versions of the program.
 @!inf_dvi_buf_size = 800;
 @!sup_dvi_buf_size = 65536;
 
-@!inf_pool_size = 32000;
+@!inf_pool_size = 128000;
 @!sup_pool_size = 40000000;
 @!inf_pool_free = 1000;
 @!sup_pool_free = sup_pool_size;
