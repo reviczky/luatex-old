@@ -6,6 +6,10 @@
 /* this function is in vfovf.c for the moment */
 extern int make_vf_table(lua_State *L, char *name, scaled s);
 
+/* this function is in ttfotf.c for the moment */
+extern int make_ttf_table(lua_State *L, char *name, scaled s);
+
+
 static int 
 font_read_tfm (lua_State *L) {
   internalfontnumber f;
@@ -56,6 +60,52 @@ font_read_vf (lua_State *L) {
   }
   return 2; /* not reached */
 }
+
+static int 
+font_read_ttf (lua_State *L) {
+  scaled s;
+  char *cnom;
+  if(lua_isstring(L, 1)) {
+    cnom = (char *)lua_tostring(L, 1);
+	/*
+	 if(lua_isnumber(L, 2)) {
+  	  s = lua_tonumber(L,2);
+	 } else {
+	   lua_pushstring(L, "expected an integer size as second argument");
+	   lua_error(L);
+     }
+	*/
+	return make_ttf_table(L,cnom,1);
+  } else {
+    lua_pushstring(L, "expected vf name as first argument"); 
+    lua_error(L);
+  }
+  return 2; /* not reached */
+}
+
+
+static int 
+font_read_otf (lua_State *L) {
+  scaled s;
+  char *cnom;
+  if(lua_isstring(L, 1)) {
+    cnom = (char *)lua_tostring(L, 1);
+    /*
+    if(lua_isnumber(L, 2)) {
+      s = lua_tonumber(L,2);
+    } else {
+      lua_pushstring(L, "expected an integer size as second argument");
+      lua_error(L);
+    }
+    */
+    return make_otf_table(L,cnom,s);
+  } else {
+    lua_pushstring(L, "expected vf name as first argument"); 
+    lua_error(L);
+  }
+  return 2; /* not reached */
+}
+
 
 static int frozenfont (lua_State *L) {
   int i;
@@ -135,6 +185,8 @@ static int getfont (lua_State *L) {
 
 
 static const struct luaL_reg fontlib [] = {
+  {"read_otf",    font_read_otf},
+  {"read_ttf",    font_read_ttf},
   {"read_tfm",    font_read_tfm},
   {"read_vf",     font_read_vf},
   {"getfont",     getfont},
