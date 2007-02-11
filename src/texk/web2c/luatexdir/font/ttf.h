@@ -839,6 +839,8 @@ extern void SFDummyUpCIDs(struct glyphinfo *gi,SplineFont *sf);
 
 #define COLOR_DEFAULT 0xfffffffe
 
+#define getsid cff_getsid
+
 /* TH: everything below this point is simply stubs */
 
 #define AltUniAdd(a,b)
