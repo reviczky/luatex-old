@@ -4612,7 +4612,7 @@ static void readttfos2metrics(FILE *ttf,struct ttfinfo *info) {
 
     fseek(ttf,info->os2_start,SEEK_SET);
     info->os2_version = getushort(ttf);
-    /* avgWidth */ getushort(ttf);
+    info->pfminfo.avgwidth = getushort(ttf);
     info->pfminfo.weight = getushort(ttf);
     info->pfminfo.width = getushort(ttf);
     info->pfminfo.fstype = getushort(ttf);
@@ -4646,8 +4646,8 @@ static void readttfos2metrics(FILE *ttf,struct ttfinfo *info) {
 	info->use_typo_metrics = (sel&128)?1:0;
 	info->weight_width_slope_only = (sel&256)?1:0;
     }
-    /* firstchar */ getushort(ttf);
-    /* lastchar */ getushort(ttf);
+    info->pfminfo.firstchar = getushort(ttf);
+    info->pfminfo.lastchar = getushort(ttf);
     info->pfminfo.os2_typoascent = getushort(ttf);
     info->pfminfo.os2_typodescent = (short) getushort(ttf);
     if ( info->pfminfo.os2_typoascent-info->pfminfo.os2_typodescent == info->emsize ) {

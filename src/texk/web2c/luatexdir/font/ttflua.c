@@ -433,17 +433,21 @@ handle_pfminfo (lua_State *L, struct pfminfo pfm) {
   dump_intfield (L, "weight",            pfm.weight);
   dump_intfield (L, "width",             pfm.width);
 
+  dump_intfield (L, "avgwidth",          pfm.avgwidth);
+  dump_intfield (L, "firstchar",         pfm.firstchar);
+  dump_intfield (L, "lastchar",          pfm.lastchar);
+
   lua_newtable(L);
-  dump_enumfield(L,"FamilyType",      pfm.panose[0], panose_values_0);
-  dump_enumfield(L,"SerifStyle",      pfm.panose[1], panose_values_1);
-  dump_enumfield(L,"Weight",          pfm.panose[2], panose_values_2);
-  dump_enumfield(L,"Proportion",      pfm.panose[3], panose_values_3);
-  dump_enumfield(L,"Contrast",        pfm.panose[4], panose_values_4);
-  dump_enumfield(L,"StrokeVariation", pfm.panose[5], panose_values_5);
-  dump_enumfield(L,"ArmStyle",        pfm.panose[6], panose_values_6);
-  dump_enumfield(L,"Letterform",      pfm.panose[7], panose_values_7);
-  dump_enumfield(L,"Midline",         pfm.panose[8], panose_values_8);
-  dump_enumfield(L,"XHeight",         pfm.panose[9], panose_values_9);
+  dump_enumfield(L,"familytype",      pfm.panose[0], panose_values_0);
+  dump_enumfield(L,"serifstyle",      pfm.panose[1], panose_values_1);
+  dump_enumfield(L,"weight",          pfm.panose[2], panose_values_2);
+  dump_enumfield(L,"proportion",      pfm.panose[3], panose_values_3);
+  dump_enumfield(L,"contrast",        pfm.panose[4], panose_values_4);
+  dump_enumfield(L,"strokevariation", pfm.panose[5], panose_values_5);
+  dump_enumfield(L,"armstyle",        pfm.panose[6], panose_values_6);
+  dump_enumfield(L,"letterform",      pfm.panose[7], panose_values_7);
+  dump_enumfield(L,"midline",         pfm.panose[8], panose_values_8);
+  dump_enumfield(L,"xheight",         pfm.panose[9], panose_values_9);
   lua_setfield  (L,-2,"panose");
 
   dump_intfield (L, "fstype",            pfm.fstype);

@@ -1036,6 +1036,7 @@ typedef struct splinefont {
 	unsigned int hheadset: 1;
 	unsigned int vheadset: 1;
 	unsigned char pfmfamily;
+        int16 avgwidth;
 	int16 weight;
 	int16 width;
 	char panose[10];
@@ -1049,6 +1050,8 @@ typedef struct splinefont {
 	int16 os2_supxsize, os2_supysize, os2_supxoff, os2_supyoff;
 	int16 os2_strikeysize, os2_strikeypos;
 	char os2_vendor[4];
+        uint16 firstchar;
+        uint16 lastchar;
 	int16 os2_family_class;
 	int16 os2_xheight;
 	int16 os2_capheight;
