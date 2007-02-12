@@ -1050,6 +1050,10 @@ typedef struct splinefont {
 	int16 os2_strikeysize, os2_strikeypos;
 	char os2_vendor[4];
 	int16 os2_family_class;
+	int16 os2_xheight;
+	int16 os2_capheight;
+	uint16 os2_defaultchar;
+	uint16 os2_breakchar;
     } pfminfo;
     struct ttflangname *names;
     char *cidregistry, *ordering;

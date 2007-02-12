@@ -276,10 +276,12 @@ handle_splinechar (lua_State *L,struct splinechar *glyph) {
   dump_stringfield(L,"name",        glyph->name);
   dump_intfield(L,"unicodeenc",     glyph->unicodeenc);
 
-  dump_intfield(L,"xmin",           glyph->xmin);
-  dump_intfield(L,"ymin",           glyph->ymin);
-  dump_intfield(L,"xmax",           glyph->xmax);
-  dump_intfield(L,"ymax",           glyph->ymax);
+  lua_newtable(L);
+  lua_pushnumber(L,1);  lua_pushnumber(L,glyph->xmin); lua_rawset(L,-3);
+  lua_pushnumber(L,2);  lua_pushnumber(L,glyph->ymin); lua_rawset(L,-3);
+  lua_pushnumber(L,3);  lua_pushnumber(L,glyph->xmax); lua_rawset(L,-3);
+  lua_pushnumber(L,4);  lua_pushnumber(L,glyph->ymax); lua_rawset(L,-3);
+  lua_setfield(L,-2,"boundingbox");
 
   dump_intfield(L,"orig_pos",       glyph->orig_pos);
   dump_intfield(L,"width",          glyph->width);
@@ -377,9 +379,44 @@ handle_splinechar (lua_State *L,struct splinechar *glyph) {
   /*  struct altuni { struct altuni *next; int unienc; } *altuni; */
 }
 
- 
+char *panose_values_0[] = { "Any", "No Fit", "Text and Display", "Script", "Decorative", "Pictorial" };
+
+char *panose_values_1[] = { "Any", "No Fit", "Cove", "Obtuse Cove", "Square Cove", "Obtuse Square Cove",
+			    "Square", "Thin", "Bone", "Exaggerated", "Triangle", "Normal Sans",
+			    "Obtuse Sans", "Perp Sans", "Flared", "Rounded" } ;
+
+char *panose_values_2[] = { "Any", "No Fit", "Very Light", "Light", "Thin", "Book",
+			    "Medium", "Demi", "Bold", "Heavy", "Black", "Nord" } ;
+
+char *panose_values_3[] = { "Any", "No Fit", "Old Style", "Modern", "Even Width",
+			    "Expanded", "Condensed", "Very Expanded", "Very Condensed", "Monospaced" };
+
+char *panose_values_4[] = { "Any", "No Fit", "None", "Very Low", "Low", "Medium Low",
+			    "Medium", "Medium High", "High", "Very High" };
+
+char *panose_values_5[] = { "Any", "No Fit", "Gradual/Diagonal", "Gradual/Transitional","Gradual/Vertical", 
+			    "Gradual/Horizontal", "Rapid/Vertical",  "Rapid/Horizontal",  "Instant/Vertical" };
+
+char *panose_values_6[] = {"Any","No Fit","Straight Arms/Horizontal","Straight Arms/Wedge","Straight Arms/Vertical",
+			   "Straight Arms/Single Serif","Straight Arms/Double Serif","Non-Straight Arms/Horizontal",
+			   "Non-Straight Arms/Wedge","Non-Straight Arms/Vertical","Non-Straight Arms/Single Serif",
+			   "Non-Straight Arms/Double Serif" };
+
+char *panose_values_7[] = { "Any", "No Fit","Normal/Contact","Normal/Weighted","Normal/Boxed","Normal/Flattened",
+			    "Normal/Rounded","Normal/Off Center","Normal/Square","Oblique/Contact","Oblique/Weighted",
+			    "Oblique/Boxed","Oblique/Flattened","Oblique/Rounded","Oblique/Off Center","Oblique/Square" };
+
+char *panose_values_8[] = { "Any","No Fit","Standard/Trimmed","Standard/Pointed","Standard/Serifed","High/Trimmed",
+			    "High/Pointed","High/Serifed","Constant/Trimmed","Constant/Pointed","Constant/Serifed",
+			    "Low/Trimmed","Low/Pointed","Low/Serifed"};
+
+char *panose_values_9[] = { "Any","No Fit", "Constant/Small",  "Constant/Standard",
+			    "Constant/Large", "Ducking/Small", "Ducking/Standard", "Ducking/Large" };
+
+
 void 
 handle_pfminfo (lua_State *L, struct pfminfo pfm) {
+  int i;
 
   dump_intfield (L, "pfmset",            pfm.pfmset);
   dump_intfield (L, "winascent_add",     pfm.winascent_add);
@@ -388,18 +425,26 @@ handle_pfminfo (lua_State *L, struct pfminfo pfm) {
   dump_intfield (L, "hheaddescent_add",  pfm.hheaddescent_add);
   dump_intfield (L, "typoascent_add",    pfm.typoascent_add);
   dump_intfield (L, "typodescent_add",   pfm.typodescent_add);
-
   dump_intfield (L, "subsuper_set",      pfm.subsuper_set);
   dump_intfield (L, "panose_set",        pfm.panose_set);
-
   dump_intfield (L, "hheadset",          pfm.hheadset);
   dump_intfield (L, "vheadset",          pfm.vheadset);
-
   dump_intfield (L, "pfmfamily",         pfm.pfmfamily);
   dump_intfield (L, "weight",            pfm.weight);
   dump_intfield (L, "width",             pfm.width);
 
-  dump_stringfield (L, "panose",         copy(pfm.panose));
+  lua_newtable(L);
+  dump_enumfield(L,"FamilyType",      pfm.panose[0], panose_values_0);
+  dump_enumfield(L,"SerifStyle",      pfm.panose[1], panose_values_1);
+  dump_enumfield(L,"Weight",          pfm.panose[2], panose_values_2);
+  dump_enumfield(L,"Proportion",      pfm.panose[3], panose_values_3);
+  dump_enumfield(L,"Contrast",        pfm.panose[4], panose_values_4);
+  dump_enumfield(L,"StrokeVariation", pfm.panose[5], panose_values_5);
+  dump_enumfield(L,"ArmStyle",        pfm.panose[6], panose_values_6);
+  dump_enumfield(L,"Letterform",      pfm.panose[7], panose_values_7);
+  dump_enumfield(L,"Midline",         pfm.panose[8], panose_values_8);
+  dump_enumfield(L,"XHeight",         pfm.panose[9], panose_values_9);
+  lua_setfield  (L,-2,"panose");
 
   dump_intfield (L, "fstype",            pfm.fstype);
   dump_intfield (L, "linegap",           pfm.linegap);
@@ -425,8 +470,13 @@ handle_pfminfo (lua_State *L, struct pfminfo pfm) {
   dump_intfield (L, "os2_strikeysize",    pfm.os2_strikeysize );
   dump_intfield (L, "os2_strikeypos",     pfm.os2_strikeypos  );
 	                                   
-  dump_stringfield (L, "os2_vendor",      copy(pfm.os2_vendor));
+  dump_stringfield (L, "os2_vendor",      pfm.os2_vendor);
   dump_intfield (L, "os2_family_class",   pfm.os2_family_class);
+
+  dump_intfield (L, "os2_xheight",        pfm.os2_xheight);
+  dump_intfield (L, "os2_capheight",      pfm.os2_capheight);
+  dump_intfield (L, "os2_defaultchar",    pfm.os2_defaultchar);
+  dump_intfield (L, "os2_breakchar",      pfm.os2_breakchar);
   
 }
 
@@ -586,8 +636,8 @@ handle_ttflangname (lua_State *L, struct ttflangname *names) {
 void
 do_handle_anchorclass (lua_State *L, struct anchorclass *anchor) {
 
-  dump_stringfield(L,"name",           copy(anchor->name));
-  dump_tag(L,"feature_tag",       anchor->feature_tag);
+  dump_stringfield(L,"name",           anchor->name);
+  dump_tag(L,"feature_tag",            anchor->feature_tag);
   dump_intfield(L,"script_lang_index", anchor->script_lang_index);
   dump_intfield(L,"flags",             anchor->flags);
   dump_intfield(L,"merge_with",        anchor->merge_with);
@@ -631,7 +681,7 @@ do_handle_ttf_table  (lua_State *L, struct ttf_table *ttf_tab) {
   dump_tag(L,"tag",               ttf_tab->tag);
   dump_intfield(L,"len",          ttf_tab->len);
   dump_intfield(L,"maxlen",       ttf_tab->maxlen);
-  dump_lstringfield(L,"data", ttf_tab->data, ttf_tab->len);
+  dump_lstringfield(L,"data", (char *)ttf_tab->data, ttf_tab->len);
 
 }
 
@@ -751,41 +801,47 @@ handle_kernclass (lua_State *L, struct kernclass *kerns) {
 
 
 
-void handle_fpst_rule (lua_State *L, struct fpst_rule *rule) {
+void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
   int k;
 
-  lua_newtable(L);
 
-  lua_newtable(L);
-  dump_stringfield(L,"names",rule->u.glyph.names);
-  dump_stringfield(L,"back",rule->u.glyph.back);
-  dump_stringfield(L,"fore",rule->u.glyph.fore);
-  lua_setfield(L,-2,"glyph");
+  if (format == pst_glyphs) {
+
+    lua_newtable(L);
+    dump_stringfield(L,"names",rule->u.glyph.names);
+    dump_stringfield(L,"back",rule->u.glyph.back);
+    dump_stringfield(L,"fore",rule->u.glyph.fore);
+    lua_setfield(L,-2,"glyph");
+
+  } else if (format == pst_class) {
   
-  lua_newtable(L);
-  DUMP_NUMBER_ARRAY("nclasses", rule->u.class.ncnt,rule->u.class.nclasses);
-  DUMP_NUMBER_ARRAY("bclasses", rule->u.class.bcnt,rule->u.class.bclasses);
-  DUMP_NUMBER_ARRAY("fclasses", rule->u.class.fcnt,rule->u.class.fclasses);
+    lua_newtable(L);
+    DUMP_NUMBER_ARRAY("nclasses", rule->u.class.ncnt,rule->u.class.nclasses);
+    DUMP_NUMBER_ARRAY("bclasses", rule->u.class.bcnt,rule->u.class.bclasses);
+    DUMP_NUMBER_ARRAY("fclasses", rule->u.class.fcnt,rule->u.class.fclasses);
 #if 0
-  DUMP_NUMBER_ARRAY("allclasses", 0,rule->u.class.allclasses);
+    DUMP_NUMBER_ARRAY("allclasses", 0,rule->u.class.allclasses);
 #endif
-  lua_setfield(L,-2,"class");
+    lua_setfield(L,-2,"class");
 
-  lua_newtable(L);
-  DUMP_STRING_ARRAY("ncovers", rule->u.coverage.ncnt,rule->u.coverage.ncovers);
-  DUMP_STRING_ARRAY("bcovers", rule->u.coverage.bcnt,rule->u.coverage.bcovers);
-  DUMP_STRING_ARRAY("fcovers", rule->u.coverage.fcnt,rule->u.coverage.fcovers);
-  lua_setfield(L,-2,"coverage");
+  } else if (format == pst_coverage) {
+
+    lua_newtable(L);
+    DUMP_STRING_ARRAY("ncovers", rule->u.coverage.ncnt,rule->u.coverage.ncovers);
+    DUMP_STRING_ARRAY("bcovers", rule->u.coverage.bcnt,rule->u.coverage.bcovers);
+    DUMP_STRING_ARRAY("fcovers", rule->u.coverage.fcnt,rule->u.coverage.fcovers);
+    lua_setfield(L,-2,"coverage");
+
+  } else if (format == pst_reversecoverage) {
+
+    lua_newtable(L);
+    DUMP_STRING_ARRAY("ncovers", rule->u.rcoverage.always1,rule->u.rcoverage.ncovers);
+    DUMP_STRING_ARRAY("bcovers", rule->u.rcoverage.bcnt,rule->u.rcoverage.bcovers);
+    DUMP_STRING_ARRAY("fcovers", rule->u.rcoverage.fcnt,rule->u.rcoverage.fcovers);
+    dump_stringfield(L,"replacements", rule->u.rcoverage.replacements);
+    lua_setfield(L,-2,"rcoverage");
+  }
   
-  lua_newtable(L);
-  DUMP_STRING_ARRAY("ncovers", rule->u.rcoverage.always1,rule->u.rcoverage.ncovers);
-  DUMP_STRING_ARRAY("bcovers", rule->u.rcoverage.bcnt,rule->u.rcoverage.bcovers);
-  DUMP_STRING_ARRAY("fcovers", rule->u.rcoverage.fcnt,rule->u.rcoverage.fcovers);
-  dump_stringfield(L,"replacements", rule->u.rcoverage.replacements);
-  lua_setfield(L,-2,"rcoverage");
-  
-  lua_setfield(L,-2,"u");
-    
   if (rule->lookup_cnt>0) {
     lua_newtable(L);
     for (k=0;k<rule->lookup_cnt;k++) {
@@ -799,13 +855,14 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule) {
   }
 }
 
+static char *fpossub_format_enum [] = { "glyphs", "class","coverage","reversecoverage"};
 
 
 void 
 do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
 
   dump_intfield (L,"type", fpst->type);
-  dump_intfield (L,"format", fpst->format);
+  dump_enumfield(L,"format", fpst->format, fpossub_format_enum);
   dump_intfield (L,"script_lang_index", fpst->script_lang_index);
   dump_intfield (L,"flags", fpst->flags);
   dump_tag(L,"tag",fpst->tag);
@@ -824,7 +881,7 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
     for (k=0;k<fpst->rule_cnt;k++) {
       lua_pushnumber(L,(k+1));
       lua_newtable(L);
-      handle_fpst_rule(L,&(fpst->rules[k]));
+      handle_fpst_rule(L,&(fpst->rules[k]),fpst->format);
       lua_rawset(L,-3);
     }
     lua_setfield(L,-2,"rules");
@@ -1190,7 +1247,6 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   dump_intfield(L,"modificationtime", sf->modificationtime);
 
   dump_intfield(L,"os2_version",      sf->os2_version);
-  dump_intfield(L,"compression",      sf->compression);
   dump_intfield(L,"gasp_version",     sf->gasp_version);
   dump_intfield(L,"gasp_cnt",         sf->gasp_cnt);
   

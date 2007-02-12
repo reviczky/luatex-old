@@ -2092,7 +2092,9 @@ return( sc );
     sc->ymin = getushort(ttf);
     sc->xmax = getushort(ttf);
     sc->ymax = getushort(ttf);
+    /* TH: this is just plain ugly, and no longer needed
     sc->lsidebearing = sc->ymax;
+    */
     sc->orig_pos = gid;
     if ( path_cnt>=0 )
 	readttfsimpleglyph(ttf,info,sc,path_cnt);
@@ -3630,6 +3632,7 @@ static void cidfigure(struct ttfinfo *info, struct topdicts *dict,
     int i, j, cstype, uni, cid;
     struct pschars *subrs;
     SplineFont *sf;
+    DBounds bb;
     struct cidmap *map;
     char buffer[100];
     struct pscontext pscontext;
@@ -3696,6 +3699,13 @@ static void cidfigure(struct ttfinfo *info, struct topdicts *dict,
 		subrs,gsubrs,buffer);
 	info->chars[i]->vwidth = sf->ascent+sf->descent;
 	info->chars[i]->unicodeenc = uni;
+
+	SplineCharFindBounds(info->chars[i],&bb);
+	info->chars[i]->xmin = bb.minx;
+	info->chars[i]->ymin = bb.miny;
+	info->chars[i]->xmax = bb.maxx;
+	info->chars[i]->ymax = bb.maxy;
+
 	sf->glyphs[cid] = info->chars[i];
 	sf->glyphs[cid]->parent = sf;
 	sf->glyphs[cid]->orig_pos = cid;		/* Bug! should be i, but I assume sf->chars[orig_pos]->orig_pos==orig_pos */
@@ -3863,7 +3873,7 @@ static void readttfvwidths(FILE *ttf,struct ttfinfo *info) {
 	if ( info->chars[i]!=NULL ) {		/* can happen in ttc files */
 	    info->chars[i]->vwidth = lastvwidth;
 	    if ( info->cff_start==0 ) {
-		voff += tsb + info->chars[i]->lsidebearing /* actually maxy */;
+	      voff += tsb + info->chars[i]->ymax ;
 		++cnt;
 	    }
 	}
@@ -4647,6 +4657,14 @@ static void readttfos2metrics(FILE *ttf,struct ttfinfo *info) {
     info->pfminfo.os2_typolinegap = getushort(ttf);
     info->pfminfo.os2_winascent = getushort(ttf);
     info->pfminfo.os2_windescent = getushort(ttf);
+    if ( info->os2_version>=3 ) { /* TH just in case */
+      /* unicoderange[] */ getlong(ttf);
+      /* unicoderange[] */ getlong(ttf);
+      info->pfminfo.os2_xheight     = getushort(ttf); /* four new fields */
+      info->pfminfo.os2_capheight   = getushort(ttf);
+      info->pfminfo.os2_defaultchar = getushort(ttf);
+      info->pfminfo.os2_breakchar   = getushort(ttf);
+    }
     info->pfminfo.winascent_add = info->pfminfo.windescent_add = false;
     info->pfminfo.typoascent_add = info->pfminfo.typodescent_add = false;
     info->pfminfo.pfmset = true;
@@ -5047,9 +5065,11 @@ return;
       /*  copy too for those fields we can't compute on our own */
       /* Like size of twilight zone, etc. */
 	TtfCopyTableBlindly(info,ttf,info->maxp_start,info->maxp_len,CHR('m','a','x','p'));
-	TtfCopyTableBlindly(info,ttf,info->cvt_start,info->cvt_len,CHR('c','v','t',' '));
-	TtfCopyTableBlindly(info,ttf,info->fpgm_start,info->fpgm_len,CHR('f','p','g','m'));
-	TtfCopyTableBlindly(info,ttf,info->prep_start,info->prep_len,CHR('p','r','e','p'));
+	
+	/* TH: we do not need the actual instructions copied in luatex */
+	/* TtfCopyTableBlindly(info,ttf,info->cvt_start,info->cvt_len,CHR('c','v','t',' ')); */
+	/* TtfCopyTableBlindly(info,ttf,info->fpgm_start,info->fpgm_len,CHR('f','p','g','m'));*/
+	/* TtfCopyTableBlindly(info,ttf,info->prep_start,info->prep_len,CHR('p','r','e','p'));*/
     }
     for ( i=0; i<info->savecnt; ++i ) if ( info->savetab[i].offset!=0 )
 	TtfCopyTableBlindly(info,ttf,info->savetab[i].offset,info->savetab[i].len,info->savetab[i].tag);
