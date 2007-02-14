@@ -387,23 +387,29 @@ do_vf(internal_font_number f) {
   vf_nf = 0;
   save_cur_byte = vf_cur;
   cmd = vf_byte();
-  while ((cmd >= fnt_def1) && (cmd <= fnt_def1 + 3)) {
-    cmd = vf_byte();
-    vf_nf++;
+  while ((cmd >= fnt_def1) && (cmd <= (fnt_def1 + 3))) {
+    (void)vf_read(cmd - fnt_def1 + 1);
+    (void)vf_read(4);
+    (void)vf_read(4);
+	(void)vf_read(4);
+    k = vf_byte();
+    k += vf_byte();
+    while (k-- > 0) {  (void)vf_byte(); } 
+    incr(vf_nf);
+	cmd = vf_byte();
   }
   vf_cur = save_cur_byte;
   cmd = vf_byte();
-
   /* malloc and fill the local font arrays */
   if (vf_nf>0) {
-    i = (vf_nf+1)*sizeof(integer);
+    i = vf_nf*sizeof(integer);
     vf_local_fnts= xmalloc(i);
     memset(vf_local_fnts,0,i);
     vf_real_fnts= xmalloc(i);
     memset(vf_real_fnts,0,i);
     vf_nf = 0;
-    while ((cmd >= fnt_def1) && (cmd <= fnt_def1 + 3)) {
-      vf_local_fnts[vf_nf] = vf_read(cmd - fnt_def1 + 1);
+    while ((cmd >= fnt_def1) && (cmd <= (fnt_def1 + 3))) {
+	  vf_local_fnts[vf_nf] = vf_read(cmd - fnt_def1 + 1);
       vf_real_fnts[vf_nf] = vf_def_font(f);
       incr(vf_nf);    
       cmd = vf_byte();
