@@ -7,7 +7,7 @@
 extern int make_vf_table(lua_State *L, char *name, scaled s);
 
 /* this function is in ttfotf.c for the moment */
-extern int make_ttf_table(lua_State *L, char *name, scaled s);
+extern int make_ttf_table(lua_State *L, char *name, scaled s, char *tt_type, int info_only);
 
 
 static int 
@@ -61,23 +61,15 @@ font_read_vf (lua_State *L) {
   return 2; /* not reached */
 }
 
+
 static int 
-font_read_ttf (lua_State *L) {
-  scaled s;
-  char *cnom;
+do_font_read_ttf (lua_State *L, char *thetype, int onlyinfo) {
+  scaled s = 0;
   if(lua_isstring(L, 1)) {
-    cnom = (char *)lua_tostring(L, 1);
-	/*
-	 if(lua_isnumber(L, 2)) {
-  	  s = lua_tonumber(L,2);
-	 } else {
-	   lua_pushstring(L, "expected an integer size as second argument");
-	   lua_error(L);
-     }
-	*/
-	return make_ttf_table(L,cnom,1);
+    char *cnom = (char *)lua_tostring(L, 1);
+    return make_ttf_table(L,cnom,s,thetype,onlyinfo);
   } else {
-    lua_pushstring(L, "expected vf name as first argument"); 
+    lua_pushstring(L, "expected a font file name as first argument"); 
     lua_error(L);
   }
   return 2; /* not reached */
@@ -86,24 +78,23 @@ font_read_ttf (lua_State *L) {
 
 static int 
 font_read_otf (lua_State *L) {
-  scaled s;
-  char *cnom;
-  if(lua_isstring(L, 1)) {
-    cnom = (char *)lua_tostring(L, 1);
-    /*
-    if(lua_isnumber(L, 2)) {
-      s = lua_tonumber(L,2);
-    } else {
-      lua_pushstring(L, "expected an integer size as second argument");
-      lua_error(L);
-    }
-    */
-    return make_otf_table(L,cnom,s);
-  } else {
-    lua_pushstring(L, "expected vf name as first argument"); 
-    lua_error(L);
-  }
-  return 2; /* not reached */
+  return do_font_read_ttf(L,"otf",0);
+}
+
+static int 
+font_read_otf_info (lua_State *L) {  
+  return do_font_read_ttf(L,"otf",1); 
+}
+
+static int 
+font_read_ttf (lua_State *L) {  
+  return do_font_read_ttf(L,"ttf",0); 
+}
+
+
+static int 
+font_read_ttf_info (lua_State *L) {  
+  return do_font_read_ttf(L,"ttf",1); 
 }
 
 
@@ -185,14 +176,16 @@ static int getfont (lua_State *L) {
 
 
 static const struct luaL_reg fontlib [] = {
-  {"read_otf",    font_read_otf},
-  {"read_ttf",    font_read_ttf},
-  {"read_tfm",    font_read_tfm},
-  {"read_vf",     font_read_vf},
-  {"getfont",     getfont},
-  {"setfont",     setfont},
-  {"define",      deffont},
-  {"frozen",      frozenfont},
+  {"read_otf",      font_read_otf},
+  {"read_ttf",      font_read_ttf},
+  {"read_otf_info", font_read_otf_info},
+  {"read_ttf_info", font_read_ttf_info},
+  {"read_tfm",      font_read_tfm},
+  {"read_vf",       font_read_vf},
+  {"getfont",       getfont},
+  {"setfont",       setfont},
+  {"define",        deffont},
+  {"frozen",        frozenfont},
   {NULL, NULL}  /* sentinel */
 };
 
