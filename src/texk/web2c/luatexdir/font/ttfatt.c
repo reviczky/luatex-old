@@ -2586,7 +2586,8 @@ static void FigureScriptIndeces(struct ttfinfo *info,struct lookup_subtable *sub
 	    info->script_lang[j] = galloc((k+1)*sizeof(struct script_record));
 	    for ( k=0, sl=subs[i].sl; sl!=NULL; sl=sl->next, ++k ) {
 		info->script_lang[j][k].script = sl->script;
-		info->script_lang[j][k].langs = galloc((sl->lang_cnt+1)*sizeof(uint32));
+		/* TH BUGFIX this was a galloc */
+		info->script_lang[j][k].langs = gcalloc((sl->lang_cnt+1),sizeof(uint32));
 		memcpy(info->script_lang[j][k].langs,sl->langs,sl->lang_cnt*sizeof(uint32));
 		info->script_lang[j][k].langs[sl->lang_cnt]=0;
 	    }
