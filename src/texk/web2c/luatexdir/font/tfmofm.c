@@ -380,6 +380,8 @@ open_tfm_file(char *nom, char *aire, unsigned char **tfm_buf, integer *tfm_siz) 
   integer callback_id;
   FILE *tfm_file;
   /* packfilename(nom,aire,getnullstr()); */
+  if(nameoffile != NULL)
+    xfree(nameoffile);
   nameoffile = malloc(strlen(nom)+2);
   strcpy(stringcast(nameoffile+1),nom);
   namelength = strlen(nom);
