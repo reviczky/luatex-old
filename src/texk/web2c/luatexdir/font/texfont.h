@@ -32,17 +32,18 @@
 #define do_realloc(a,b,d)    a = xrealloc(a,(b)*sizeof(d))
 
 typedef struct characterinfo {
-  unsigned short _width_index ;
-  unsigned short _height_index;
-  unsigned short _depth_index ;
-  unsigned short _italic_index;
-  unsigned short _tag;
   char * _name;
-  boolean _used;
+  unsigned int _index;
   integer _lig_index;
   integer _kern_index;
   integer _packet_index;
   integer _remainder;
+  unsigned short _width_index ;
+  unsigned short _height_index;
+  unsigned short _depth_index ;
+  unsigned short _italic_index;
+  char _tag ;
+  char _used ;
 } characterinfo;
 
 typedef struct liginfo {
@@ -64,8 +65,8 @@ typedef struct texfont {
   char * _font_encodingname ;
   integer _font_ec ;
   integer _font_checksum ;   /* internal information */
-  boolean _font_used ;       /* internal information */
-  boolean _font_touched ;    /* internal information */
+  char    _font_used ;       /* internal information */
+  char    _font_touched ;    /* internal information */
   integer _font_cache_id ;   /* internal information */
   fm_entry_ptr _font_map;
   integer _font_type;
@@ -430,10 +431,12 @@ typedef enum {
 #define char_tag(f,b)         (char_info(f,b))._tag
 #define char_used(f,b)        (char_info(f,b))._used
 #define char_name(f,b)        (char_info(f,b))._name
+#define char_index(f,b)       (char_info(f,b))._index
 
 #define set_char_tag(f,b,c)       char_tag(f,b) = c
 #define set_char_remainder(f,b,c) char_remainder(f,b) = c
 #define set_char_used(f,b,c)      char_used(f,b) = c
+#define set_char_index(f,b,c)     char_index(f,b) = c
 #define set_char_name(f,b,c)     { if (char_name(f,b)!=NULL)	\
 	  free(char_name(f,b)); char_name(f,b) = c; }
 
@@ -442,7 +445,7 @@ typedef enum {
 #define set_char_packet(f,b,c) packet_index(f,b) = c
 
 #define char_exists(f,b)     ((b<=font_ec(f))&&(b>=font_bc(f))&&	\
-			      (width_index(f,b)>0))
+							  (width_index(f,b)>0))
 #define has_lig(f,b)          (char_exists(f,b) && lig_index(f,b)>0)
 #define has_kern(f,b)         (char_exists(f,b) && kern_index(f,b)>0)
 #define has_packet(f,b)       (char_exists(f,b) && packet_index(f,b)>0)
