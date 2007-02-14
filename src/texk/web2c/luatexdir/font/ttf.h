@@ -846,15 +846,13 @@ extern void SFDummyUpCIDs(struct glyphinfo *gi,SplineFont *sf);
 #define AltUniAdd(a,b)
 #define CID2NameUni(a,b,c,d) 0
 #define CIDFindBounds(a,b)
-#define KernClassListFree(a)
-#define MMMakeMasterFontname(a,b,c) "<MMMakeMasterFontname>"
-#define MSLangString(a) "<MSLangString>"
+#define MMMakeMasterFontname(a,b,c) copy("<MMMakeMasterFontname>")
+#define MSLangString(a) copy("<MSLangString>")
 #define MacEncToUnicode(a,b) NULL /* const int32 * */
 #define MacFeatureToOTTag(a,b) 0
-#define MacLanguageFromCode(a) "<MacLanguageFromCode>" /* char * */
+#define MacLanguageFromCode(a) copy("<MacLanguageFromCode>") /* char * */
 #define MacNameCopy(a) copy(a)
 #define MacStrToUtf8(a,b,c) copy(a)
-#define PSTFree(a) 
 #define SCCatagorizePoints(a) 
 #define SCConvertToOrder2(a)
 #define SCDefaultAscent(a,b)
@@ -867,13 +865,12 @@ extern void SFDummyUpCIDs(struct glyphinfo *gi,SplineFont *sf);
 #define SFGenerateNewFeatureTag(a,b,c) 0
 #define SFInstanciateRefs(a)
 #define SPInterpolate(a) 1
-#define SplineCharFree(a) 
 #define SplineMake(a,b,c)
 #define SplineRefigure(s) 
-#define TTFNameIds(a) "<TTFNameIds>"
+#define TTFNameIds(a) copy("<TTFNameIds>")
 #define TTF_PSDupsDefault(a)
-#define WinLangFromMac(l) l
-#define XUIDFromFD(a) "<XUIDFromFD>"
+#define WinLangFromMac(l) copy(l)
+#define XUIDFromFD(a) copy("<XUIDFromFD>")
 #define getAdobeEnc(a) 0
 #define gwwv_choose(a,b,c,d,e) -2
 #define interp_from_encoding(a,b) 0
