@@ -24,20 +24,17 @@ $Id$
 #include "luatex-api.h"
 #include "ttf.h"
 
-extern char *copy (char *a);
-extern char *copyn (char *a, int b);
-
 static void 
 dump_intfield (lua_State *L, char *name, long int field) {
-  lua_pushstring(L,copy(name));
+  lua_pushstring(L,name);
   lua_pushnumber(L,field);
   lua_rawset(L,-3);
 }
 
 static void 
 dump_stringfield (lua_State *L, char *name, char *field) {
-  lua_pushstring(L,copy(name));
-  lua_pushstring(L,copy(field));
+  lua_pushstring(L,name);
+  lua_pushstring(L,field);
   lua_rawset(L,-3);
 }
 
@@ -52,39 +49,38 @@ dump_char_ref (lua_State *L, struct splinechar *spchar) {
 
 static void 
 dump_lstringfield (lua_State *L, char *name, char *field, int len) {
-  lua_pushstring(L,copy(name));
-  lua_pushlstring(L,copyn(field,len),len);
+  lua_pushstring(L,name);
+  lua_pushlstring(L,field,len);
   lua_rawset(L,-3);
 }
 
 static void 
 dump_enumfield (lua_State *L, char *name, int fid, char **fields) {
-  lua_pushstring(L,copy(name));
-  lua_pushstring(L,copy(fields[fid]));
+  lua_pushstring(L,name);
+  lua_pushstring(L,fields[fid]);
   lua_rawset(L,-3);
 }
 
 static void 
 dump_floatfield (lua_State *L, char *name, double field) {
-  lua_pushstring(L,copy(name));
+  lua_pushstring(L,name);
   lua_pushnumber(L,field);
   lua_rawset(L,-3);
 }
 
+static char tag_string [5] = {0};
+
 static char *make_tag_string (unsigned int field) {
-  char *s ;
-  s = xmalloc(5);
-  s[0] = (field&0xFF000000) >> 24;
-  s[1] = (field&0x00FF0000) >> 16;
-  s[2] = (field&0x0000FF00) >> 8;
-  s[3] = (field&0x000000FF);
-  s[4] = 0;
-  return (char *)s;
+  tag_string[0] = (field&0xFF000000) >> 24;
+  tag_string[1] = (field&0x00FF0000) >> 16;
+  tag_string[2] = (field&0x0000FF00) >> 8;
+  tag_string[3] = (field&0x000000FF);
+  return (char *)tag_string;
 }
 
 static void 
 dump_tag (lua_State *L, char *name, unsigned int field) {
-  lua_pushstring(L,copy(name));
+  lua_pushstring(L,name);
   lua_pushstring(L,make_tag_string(field));
   lua_rawset(L,-3);
 }
@@ -506,7 +502,7 @@ do_handle_enc (lua_State *L, struct enc *enc) {
 	lua_newtable(L);
 	for (i=0;i<enc->char_cnt;i++) {
 	  lua_pushnumber(L,i);
-	  lua_pushstring(L,copy(enc->psnames[i]));
+	  lua_pushstring(L,enc->psnames[i]);
 	  lua_rawset(L,-3);
 	}
 	lua_setfield(L,-2,"psnames");
@@ -601,8 +597,8 @@ handle_psdict (lua_State *L, struct psdict *private) {
   int k;
   if (private->keys != NULL && private->values != NULL) {
 	for (k=0;k<private->next;k++) {
-	  lua_pushstring(L,copy(private->keys[k]));
-	  lua_pushstring(L,copy(private->values[k]));
+	  lua_pushstring(L,private->keys[k]);
+	  lua_pushstring(L,private->values[k]);
 	  lua_rawset(L,-3);
 	}
   }
@@ -622,8 +618,8 @@ do_handle_ttflangname (lua_State *L, struct ttflangname *names) {
   dump_intfield(L,"lang", names->lang) ;
   lua_newtable(L);
   for (k=0;k<ttf_namemax;k++) {
-	lua_pushstring(L,copy(ttfnames_enum[k]));
-	lua_pushstring(L,copy(names->names[k]));
+	lua_pushstring(L,ttfnames_enum[k]);
+	lua_pushstring(L,names->names[k]);
 	lua_rawset(L,-3);
   }
   lua_setfield(L, -2 , "names");
@@ -971,7 +967,7 @@ handle_macfeat (lua_State *L, struct macfeat *features) {
   NESTED_TABLE(do_handle_macfeat,features);
 }
 
-
+void free_splinefont(struct splinefont *sf) ; /* forward */
 
 char *tex_type_enum[4] = { "unset", "text", "math", "mathext"};
 
@@ -981,13 +977,20 @@ char *uni_interp_enum[9] = {
   "trad_chinese", "simp_chinese", "korean", "ams" };
 	
 void
-handle_splinefont(lua_State *L, struct splinefont *sf) {
-  int k;
-
+handle_splinefont_info(lua_State *L, struct splinefont *sf) {
   dump_stringfield(L,"fontname",        sf->fontname);
   dump_stringfield(L,"fullname",        sf->fullname);
   dump_stringfield(L,"familyname",      sf->familyname);
   dump_stringfield(L,"weight",          sf->weight);
+}
+
+
+void
+handle_splinefont(lua_State *L, struct splinefont *sf) {
+  int k;
+
+  handle_splinefont_info (L,sf);
+
   dump_stringfield(L,"copyright",       sf->copyright);
   dump_stringfield(L,"filename",        sf->filename);
   dump_stringfield(L,"defbasefilename", sf->defbasefilename);
@@ -1260,24 +1263,29 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     dump_intfield(L,"flags",      sf->gasp->flags);
     lua_setfield(L,-1,"gasp");
   }
+
 }
 
 int 
-make_ttf_table (lua_State *L, char *filename, scaled atsize) {
+make_ttf_table (lua_State *L, char *filename, scaled atsize, char *tt_type, int info_only) {
   FILE *ttf;
   SplineFont *sf;
   int k;
-
   ttf = fopen(filename,"rb");
   if ( ttf == NULL ) {
 	lua_pushboolean(L,0);
   }  else {
-    sf = _SFReadTTF(ttf,0,0,filename,0,"ttf");
+    sf = _SFReadTTF(ttf,0,0,filename,0,tt_type);
     fclose(ttf);
     if (sf!=NULL) {
       lua_newtable(L);
-      handle_splinefont(L,sf);
-      /* no setfield, this is top-level */
+      if(info_only) {
+	handle_splinefont_info(L,sf);
+	free_splinefont(sf);
+      } else {
+	handle_splinefont(L,sf);
+	free_splinefont(sf);
+      }
 
     } else {
       lua_pushboolean(L,0);
@@ -1286,26 +1294,479 @@ make_ttf_table (lua_State *L, char *filename, scaled atsize) {
   return 1;
 }
 
-int 
-make_otf_table (lua_State *L, char *filename, scaled atsize) {
-  FILE *ttf;
-  SplineFont *sf;
-  int k;
 
-  ttf = fopen(filename,"rb");
-  if ( ttf == NULL ) {
-	lua_pushboolean(L,0);
-  }  else {
-    sf = _SFReadTTF(ttf,0,0,filename,0,"otf");
-    fclose(ttf);
-    if (sf!=NULL) {
-      lua_newtable(L);
-      handle_splinefont(L,sf);
-      /* no setfield, this is top-level */
+#define save_free(what) { if (what != NULL) {  free (what);  what = NULL;  } }
 
-    } else {
-      lua_pushboolean(L,0);
+#define free_pfminfo(a) save_free(a)
+#define free_otfname OtfNameListFree
+#define free_ttflangname TTFLangNamesFree
+#define free_ttf_table TtfTablesFree
+#define free_anchorclass AnchorClassesFree
+#define free_table_ordering TableOrdersFree
+#define free_asm ASMFree
+#define free_macfeat MacFeatListFree
+#define free_encmap EncMapFree
+#define free_psdict PSDictFree
+#define free_generic_fpst FPSTFree
+#define free_kernclass KernClassListFree
+#define free_scriptrecordlist ScriptRecordListFree
+#define free_splinechar  SplineCharFree
+
+
+void SplineCharFreeContents(SplineChar *sc) {
+    int i;
+    if ( sc==NULL )
+      return;
+    free(sc->name);
+    free(sc->comment);
+    for ( i=0; i<sc->layer_cnt; ++i ) {
+	SplinePointListsFree(sc->layers[i].splines);
+	RefCharsFree(sc->layers[i].refs);
+	/* ImageListsFree(sc->layers[i].images); */
+	/* image garbage collection????!!!! */
+	/* UndoesFree(sc->layers[i].undoes); */
+	/* UndoesFree(sc->layers[i].redoes); */
     }
+    /* StemInfosFree(sc->hstem); */
+    /* StemInfosFree(sc->vstem); */
+    DStemInfosFree(sc->dstem);
+    MinimumDistancesFree(sc->md);
+    KernPairsFree(sc->kerns);
+    KernPairsFree(sc->vkerns);
+    AnchorPointsFree(sc->anchor);
+    SplineCharListsFree(sc->dependents);
+    PSTFree(sc->possub);
+    free(sc->ttf_instrs);
+    free(sc->countermasks);
+#ifdef FONTFORGE_CONFIG_TYPE3
+    free(sc->layers);
+#endif
+    AltUniFree(sc->altuni);
+}
+
+
+void SplineCharFree(SplineChar *sc) {
+    if ( sc==NULL )
+      return;
+    SplineCharFreeContents(sc);
+    chunkfree(sc,sizeof(SplineChar));
+}
+
+
+void KernClassListFree(KernClass *kc) {
+    int i;
+    KernClass *n;
+
+    while ( kc ) {
+	for ( i=1; i<kc->first_cnt; ++i )
+	    free(kc->firsts[i]);
+	for ( i=1; i<kc->second_cnt; ++i )
+	    free(kc->seconds[i]);
+	free(kc->firsts);
+	free(kc->seconds);
+	free(kc->offsets);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	for ( i=kc->first_cnt*kc->second_cnt-1; i>=0 ; --i )
+	    free(kc->adjusts[i].corrections);
+	free(kc->adjusts);
+#endif
+	n = kc->next;
+	chunkfree(kc,sizeof(KernClass));
+	kc = n;
+    }
+}
+
+
+void PSDictFree(struct psdict *dict) {
+    int i;
+
+    if ( dict==NULL )
+      return;
+    for ( i=0; i<dict->next; ++i ) {
+        if ( dict->keys!=NULL ) free(dict->keys[i]);
+        free(dict->values[i]);
+    }
+    free(dict->keys);
+    free(dict->values);
+    free(dict);
+}
+
+static void EncodingFree(Encoding *enc) {
+    int i;
+
+    if ( enc==NULL )
+      return;
+    free(enc->enc_name);
+    free(enc->unicode);
+    if ( enc->psnames!=NULL ) {
+	for ( i=0; i<enc->char_cnt; ++i )
+	    free(enc->psnames[i]);
+	free(enc->psnames);
+    }
+    free(enc);
+}
+
+void EncMapFree(EncMap *map) {
+    if ( map==NULL )
+      return;
+
+    if ( map->enc->is_temporary )
+	EncodingFree(map->enc);
+    free(map->map);
+    free(map->backmap);
+    free(map->remap);
+    chunkfree(map,sizeof(EncMap));
+}
+
+void AnchorClassesFree(AnchorClass *an) {
+    AnchorClass *anext;
+    for ( ; an!=NULL; an = anext ) {
+	anext = an->next;
+	free(an->name);
+	chunkfree(an,sizeof(AnchorClass));
+    }
+}
+
+void TableOrdersFree(struct table_ordering *ord) {
+    struct table_ordering *onext;
+    for ( ; ord!=NULL; ord = onext ) {
+	onext = ord->next;
+	free(ord->ordered_features);
+	chunkfree(ord,sizeof(struct table_ordering));
+    }
+}
+
+void TtfTablesFree(struct ttf_table *tab) {
+    struct ttf_table *next;
+
+    for ( ; tab!=NULL; tab = next ) {
+	next = tab->next;
+	free(tab->data);
+	chunkfree(tab,sizeof(struct ttf_table));
+    }
+}
+
+
+void TTFLangNamesFree(struct ttflangname *l) {
+    struct ttflangname *next;
+    int i;
+
+    while ( l!=NULL ) {
+	next = l->next;
+	for ( i=0; i<ttf_namemax; ++i )
+	    free(l->names[i]);
+	chunkfree(l,sizeof(*l));
+	l = next;
+    }
+}
+
+void OtfNameListFree(struct otfname *on) {
+    struct otfname *on_next;
+
+    for ( ; on!=NULL; on = on_next ) {
+	on_next = on->next;
+	free(on->name);
+	chunkfree(on,sizeof(*on));
+    }
+}
+
+
+void MacNameListFree(struct macname *mn) {
+    struct macname *next;
+    while ( mn!=NULL ) {
+	next = mn->next;
+	free(mn->name);
+	chunkfree(mn,sizeof(struct macname));
+	mn = next;
+    }
+}
+
+void MacSettingListFree(struct macsetting *ms) {
+    struct macsetting *next;
+    while ( ms!=NULL ) {
+	next = ms->next;
+	MacNameListFree(ms->setname);
+	chunkfree(ms,sizeof(struct macsetting));
+	ms = next;
+    }
+}
+
+void MacFeatListFree(MacFeat *mf) {
+    MacFeat *next;
+    while ( mf!=NULL ) {
+	next = mf->next;
+	MacNameListFree(mf->featname);
+	MacSettingListFree(mf->settings);
+	chunkfree(mf,sizeof(MacFeat));
+	mf = next;
+    }
+}
+
+void ASMFree(ASM *sm) {
+    ASM *next;
+    int i;
+
+    while ( sm!=NULL ) {
+	next = sm->next;
+	if ( sm->type==asm_insert ) {
+	    for ( i=0; i<sm->class_cnt*sm->state_cnt; ++i ) {
+		free( sm->state[i].u.insert.mark_ins );
+		free( sm->state[i].u.insert.cur_ins );
+	    }
+	} else if ( sm->type==asm_kern ) {
+	    for ( i=0; i<sm->class_cnt*sm->state_cnt; ++i ) {
+		free( sm->state[i].u.kern.kerns );
+	    }
+	}
+	for ( i=4; i<sm->class_cnt; ++i )
+	    free(sm->classes[i]);
+	free(sm->state);
+	free(sm->classes);
+	chunkfree(sm,sizeof(ASM));
+	sm = next;
+    }
+}
+
+
+static void FPSTRuleContentsFree(struct fpst_rule *r, enum fpossub_format format) {
+    int j;
+
+    switch ( format ) {
+      case pst_glyphs:
+	free(r->u.glyph.names);
+	free(r->u.glyph.back);
+	free(r->u.glyph.fore);
+      break;
+      case pst_class:
+	free(r->u.class.nclasses);
+	free(r->u.class.bclasses);
+	free(r->u.class.fclasses);
+      break;
+      case pst_reversecoverage:
+	free(r->u.rcoverage.replacements);
+      case pst_coverage:
+	for ( j=0 ; j<r->u.coverage.ncnt ; ++j )
+	    free(r->u.coverage.ncovers[j]);
+	free(r->u.coverage.ncovers);
+	for ( j=0 ; j<r->u.coverage.bcnt ; ++j )
+	    free(r->u.coverage.bcovers[j]);
+	free(r->u.coverage.bcovers);
+	for ( j=0 ; j<r->u.coverage.fcnt ; ++j )
+	    free(r->u.coverage.fcovers[j]);
+	free(r->u.coverage.fcovers);
+      break;
+    }
+    free(r->lookups);
+}
+
+
+void FPSTFree(FPST *fpst) {
+    FPST *next;
+    int i;
+
+    while ( fpst!=NULL ) {
+	next = fpst->next;
+	for ( i=0; i<fpst->nccnt; ++i )
+	    free(fpst->nclass[i]);
+	for ( i=0; i<fpst->bccnt; ++i )
+	    free(fpst->bclass[i]);
+	for ( i=0; i<fpst->fccnt; ++i )
+	    free(fpst->fclass[i]);
+	free(fpst->nclass); free(fpst->bclass); free(fpst->fclass);
+	for ( i=0; i<fpst->rule_cnt; ++i ) {
+	    FPSTRuleContentsFree( &fpst->rules[i],fpst->format );
+	}
+	free(fpst->rules);
+	chunkfree(fpst,sizeof(FPST));
+	fpst = next;
+    }
+}
+
+void DStemInfosFree(DStemInfo *h) {
+    DStemInfo *hnext;
+
+    for ( ; h!=NULL; h = hnext ) {
+	hnext = h->next;
+	chunkfree(h,sizeof(DStemInfo));
+    }
+}
+
+void KernPairsFree(KernPair *kp) {
+    KernPair *knext;
+    for ( ; kp!=NULL; kp = knext ) {
+	knext = kp->next;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	if ( kp->adjust!=NULL ) {
+	    free(kp->adjust->corrections);
+	    chunkfree(kp->adjust,sizeof(DeviceTable));
+	}
+#endif
+	chunkfree(kp,sizeof(KernPair));
+    }
+}
+
+void AnchorPointsFree(AnchorPoint *ap) {
+    AnchorPoint *anext;
+    for ( ; ap!=NULL; ap = anext ) {
+	anext = ap->next;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	free(ap->xadjust.corrections);
+	free(ap->yadjust.corrections);
+#endif
+	chunkfree(ap,sizeof(AnchorPoint));
+    }
+}
+
+void PSTFree(PST *pst) {
+    PST *pnext;
+    for ( ; pst!=NULL; pst = pnext ) {
+	pnext = pst->next;
+	if ( pst->type==pst_lcaret )
+	    free(pst->u.lcaret.carets);
+	else if ( pst->type==pst_pair ) {
+	    free(pst->u.pair.paired);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	    ValDevFree(pst->u.pair.vr[0].adjust);
+	    ValDevFree(pst->u.pair.vr[1].adjust);
+#endif
+	    chunkfree(pst->u.pair.vr,sizeof(struct vr [2]));
+	} else if ( pst->type!=pst_position ) {
+	    free(pst->u.subs.variant);
+	} else if ( pst->type==pst_position ) {
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	    ValDevFree(pst->u.pos.adjust);
+#endif
+	}
+	chunkfree(pst,sizeof(PST));
+    }
+}
+
+void MinimumDistancesFree(MinimumDistance *md) {
+    MinimumDistance *next;
+
+    while ( md!=NULL ) {
+	next = md->next;
+	chunkfree(md,sizeof(MinimumDistance));
+	md = next;
+    }
+}
+
+void AltUniFree(struct altuni *altuni) {
+    struct altuni *next;
+
+    while ( altuni ) {
+	next = altuni->next;
+	chunkfree(altuni,sizeof(struct altuni));
+	altuni = next;
+    }
+}
+
+void SplineCharListsFree(struct splinecharlist *dlist) {
+    struct splinecharlist *dnext;
+    for ( ; dlist!=NULL; dlist = dnext ) {
+	dnext = dlist->next;
+	chunkfree(dlist,sizeof(struct splinecharlist));
+    }
+}
+
+
+void ScriptRecordFree(struct script_record *sr) {
+    int i;
+
+    for ( i=0; sr[i].script!=0; ++i )
+	free( sr[i].langs );
+    free( sr );
+}
+
+void ScriptRecordListFree(struct script_record **script_lang) {
+    int i;
+
+    if ( script_lang==NULL )
+return;
+    for ( i=0; script_lang[i]!=NULL; ++i )
+	ScriptRecordFree(script_lang[i]);
+    free( script_lang );
+}
+
+
+
+void
+free_splinefont(struct splinefont *sf) {
+  int k, i;
+
+  /* struct mmset *mm;*/ /* TH: TODO (Adobe MM) */
+  
+  /* struct fontview *fv; */ /* TH: looks like this is unused */
+  /* NameList *for_new_glyphs; */ /* TH: looks like this is unused */
+  /* Layer grid; */ /* TH: unused */
+  /* struct glyphnamehash *glyphnames; */ /* TH unused */
+  /* struct instrdata *instr_dlgs;  */ /* TH unused. */
+  /* struct shortview *cvt_dlg; */ /* TH unused, this is a window object */
+  /* struct kernclasslistdlg *kcld; */ /* TH unused, this is a window object */
+  /* struct kernclasslistdlg *vkcld; */ /* TH unused, this is a window object */
+
+  for (k=0;k<sf->glyphcnt;k++) {    free_splinechar(sf->glyphs[k]);  }
+
+  if (sf->sm != NULL)             {  free_asm(sf->sm); }
+  if (sf->map != NULL )           {  free_encmap(sf->map);  }
+  if (sf->private != NULL)        {  free_psdict( sf->private);  }
+  if (sf->names != NULL)          {  free_ttflangname(sf->names);  }
+  if (sf->anchor != NULL)         {  free_anchorclass(sf->anchor);  }
+  if (sf->orders != NULL)         {  free_table_ordering(sf->orders);  }
+  if (sf->ttf_tables != NULL)     {  free_ttf_table(sf->ttf_tables);  }
+  if (sf->ttf_tab_saved != NULL)  {  free_ttf_table(sf->ttf_tab_saved);  }
+  if (sf->kerns != NULL)          {  free_kernclass(sf->kerns);  }
+  if (sf->vkerns != NULL)         {  free_kernclass(sf->vkerns);  }
+  if (sf->possub != NULL)         {  free_generic_fpst(sf->possub);  }
+  if (sf->features != NULL)       {  free_macfeat(sf->features);  }
+  if (sf->fontstyle_name != NULL) {  free_otfname(sf->fontstyle_name);  }
+     
+  /* free(sf->pfminfo); */ /* not needed */
+  
+  if (sf->subfontcnt>0) {
+    for (k=0;k<sf->subfontcnt;k++) {
+      free_splinefont(sf->subfonts[k]);
+    }
+    save_free(sf->subfonts);
   }
-  return 1;
+    
+  if (sf->script_lang != NULL) {
+    free_scriptrecordlist(sf->script_lang);
+  }
+
+
+  if (sf->mark_class_cnt>0) {
+    for ( k=0; k<sf->mark_class_cnt; ++k ) {
+      save_free(sf->mark_classes[k]);
+      save_free(sf->mark_class_names[k]);
+    }
+    save_free(sf->mark_classes );
+    save_free(sf->mark_class_names );
+  }
+    
+  /* simple structures */
+  save_free(sf->gasp);
+  save_free(sf->gentags.tagtype);
+  save_free(sf->glyphs);
+
+  /* string fields */
+  save_free(sf->fontname);
+  save_free(sf->fullname);
+  save_free(sf->familyname);
+  save_free(sf->weight);
+  save_free(sf->copyright);
+  save_free(sf->filename);
+  save_free(sf->defbasefilename);
+  save_free(sf->version);
+  save_free(sf->origname);
+  save_free(sf->autosavename);
+  save_free(sf->xuid);
+  save_free(sf->cidregistry);
+  save_free(sf->ordering);
+  save_free(sf->comments);
+  save_free(sf->chosenname);
+  save_free(sf->fondname);
+
+  /* done */
+  free(sf);
 }
