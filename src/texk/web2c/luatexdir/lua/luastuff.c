@@ -222,7 +222,7 @@ void put_env (lua_State *L){
 } 
 
 void find_env (lua_State *L){
-  char *envitem;
+  char *envitem, *envitem_orig;
   char *envkey;
   char **envpointer;
   envpointer = environ;
@@ -234,7 +234,8 @@ void find_env (lua_State *L){
     while (*envpointer) {
       /* TODO: perhaps a memory leak here  */
       luaL_checkstack(L,2,"out of stack space");
-      envitem = strdup(*envpointer);
+      envitem = xstrdup(*envpointer);
+      envitem_orig = envitem;
       envkey=envitem;
       while (*envitem != '=') {
 	envitem++;
@@ -245,6 +246,7 @@ void find_env (lua_State *L){
       lua_pushstring(L,envitem);
       lua_rawset(L,-3);
       envpointer++;
+      free(envitem_orig);
     }
     lua_rawset(L,-3);
   }
@@ -390,13 +392,12 @@ void
 luacall(int n, int s) {
   LoadS ls;
   int i, j, k ;
-  char *lua_id;
-  lua_id = (char *)xmalloc(12);
+  char lua_id[12];
   if (Luas[n] == NULL) {
     luainterpreter(n);
   }
   luatex_load_init(s,&ls);
-  snprintf(lua_id,12,"luas[%d]",n);
+  snprintf((char *)lua_id,12,"luas[%d]",n);
   i = lua_load(Luas[n], getS, &ls, lua_id);
   if (i != 0) {
     Luas[n] = luatex_error(Luas[n],(i == LUA_ERRSYNTAX ? 0 : 1));

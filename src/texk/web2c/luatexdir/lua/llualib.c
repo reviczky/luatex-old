@@ -210,7 +210,7 @@ int luaopen_lua (lua_State *L, int n, char *fname)
   if (fname == NULL) {
 	lua_pushnil(L);
   } else {
-	lua_pushstring(L, strdup(fname));
+	lua_pushstring(L, fname);
   }
   lua_setfield(L, -2, "startupfile");
   return 1;

@@ -105,10 +105,11 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
 int 
 read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
                integer natural_dir) {
-  char *cnom, *caire;
+  char *cnom, *caire = NULL;
   integer f;
   cnom  = xstrdup(makecstring(nom));
-  caire = xstrdup(makecstring(aire));
+  if (aire != 0) 
+    caire = xstrdup(makecstring(aire));
 
   f = new_font();
   if (do_define_font(f, cnom,caire,s,natural_dir)) {

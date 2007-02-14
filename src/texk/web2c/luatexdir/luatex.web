@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="3" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.3' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070204' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070213' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -16403,7 +16403,7 @@ end;
 
 function new_dummy_font: internal_font_number;
 begin
-    new_dummy_font := read_font_info(null_cs, "dummy", "", -1000, -1);
+    new_dummy_font := read_font_info(null_cs, "dummy", 0, -1000, -1);
 end;
 
 function get_hash_size: integer;
@@ -18512,7 +18512,7 @@ begin
         if pdf_font_auto_expand[f] then
             k := auto_expand_font(f, e)
         else
-           k := read_font_info(null_cs, s, "", font_size(f), font_natural_dir(f)); 
+           k := read_font_info(null_cs, s, 0, font_size(f), font_natural_dir(f)); 
     end;
     copy_expand_params(k, f, e);
     load_expand_font := k;
@@ -32893,7 +32893,10 @@ else natural_dir:=-1;
 name_in_progress:=false;
 @<If this font has already been loaded, set |f| to the internal
   font number and |goto common_ending|@>;
-f:=read_font_info(u,cur_name,cur_area,s,natural_dir);
+if cur_area = "" then
+  f:=read_font_info(u,cur_name,0,s,natural_dir)
+else
+  f:=read_font_info(u,cur_name,cur_area,s,natural_dir);
 common_ending: equiv(u):=f; eqtb[font_id_base+f]:=eqtb[u]; font_id_text(f):=t;
 end;
 
