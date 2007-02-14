@@ -1746,7 +1746,7 @@ static SplineSet *ttfbuildcontours(int path_cnt,uint16 *endpt, char *flags,
 
     for ( path=i=0; path<path_cnt; ++path ) {
 	if ( endpt[path]<i )	/* Sigh. Yes there are fonts with bad endpt info */
-    continue;
+	  continue;
 	cur = chunkalloc(sizeof(SplineSet));
 	if ( head==NULL )
 	    head = cur;
@@ -1919,8 +1919,8 @@ return;
 	    pts[i].y = last_pos + (short) getushort(ttf);
 	last_pos = pts[i].y;
     }
-
-    sc->layers[ly_fore].splines = ttfbuildcontours(path_cnt,endpt,flags,pts,info->to_order2);
+    /* TH there is no need to actually build the truetype contours */
+    sc->layers[ly_fore].splines = NULL; /* ttfbuildcontours(path_cnt,endpt,flags,pts,info->to_order2);*/
     if ( info->to_order2 && len!=0 ) {
 	sc->ttf_instrs_len = len;
 	sc->ttf_instrs = instructions;
@@ -2084,7 +2084,7 @@ static SplineChar *readttfglyph(FILE *ttf,struct ttfinfo *info,int start, int en
     if ( start==end ) {
 	/* This isn't mentioned, but we seem to get some glyphs with no size,*/
 	/*  not even a path cnt. They appear to be empty glyphs */
-return( sc );
+      return( sc );
     }
     fseek(ttf,info->glyph_start+start,SEEK_SET);
     path_cnt = (short) getushort(ttf);
@@ -2104,7 +2104,7 @@ return( sc );
 	LogError(_("Bad glyph (%d), disordered 'loca' table (start comes after end)\n"), gid );
     else if ( ftell(ttf)>info->glyph_start+end )
 	LogError(_("Bad glyph (%d), its definition extends beyond the space allowed for it\n"), gid );
-return( sc );
+    return( sc );
 }
 
 static void readttfencodings(FILE *ttf,struct ttfinfo *info, int justinuse);
@@ -5610,7 +5610,7 @@ static SplineFont *SFFillFromTTF(struct ttfinfo *info) {
     }
     SFRelativeWinAsDs(sf);
     free(info->savetab);
-return( sf );
+    return( sf );
 }
 
 
