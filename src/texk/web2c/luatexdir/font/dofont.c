@@ -77,6 +77,9 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
   callback_id=callback_defined("define_font");
   if (callback_id>0) {
     callback_id = run_and_save_callback(callback_id,"SSd->",cnom,caire,s);
+    free(cnom);
+    if(caire!=NULL && strlen(caire))
+      free(caire);
     if (callback_id>0) {
       luaL_checkstack(Luas[0],1,"out of stack space");
       lua_rawgeti(Luas[0],LUA_REGISTRYINDEX, callback_id);

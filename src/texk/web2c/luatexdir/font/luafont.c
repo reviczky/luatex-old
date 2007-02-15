@@ -416,6 +416,7 @@ font_from_lua (lua_State *L, int f) {
     } else {
       set_font_type(f,real_font_type);
     }
+    free(s); /* because it is not actually used */
   }
   
   /* now fetch the base fonts, if needed */
