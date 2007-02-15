@@ -154,14 +154,15 @@ copy_sa_tree(sa_tree b) {
 
 sa_tree
 new_sa_tree (integer size, sa_tree_item dflt) {
-  sa_tree a  = (sa_tree)Mxmalloc_array(sa_tree_head,1);
+  sa_tree_head *a;
+  a = (sa_tree_head *)xmalloc(sizeof(sa_tree_head));
   a->dflt    = dflt;
   a->stack   = NULL;
   a->tree    = NULL;
   a->size    = size;
   a->step    = size;
   a->ptr     = 0;
-  return a;
+  return (sa_tree)a;
 }
 
 void
