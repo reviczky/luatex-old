@@ -238,7 +238,7 @@ known as `\eTeX'.
 @d pdftex_revision=="3" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-1.40.3' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-0.1-alpha-20070213' {current \luaTeX\ version}
+@d luatex_version_string=='-0.1-alpha-20070215' {current \luaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string
    {printed when \luaTeX\ starts}
@@ -18876,8 +18876,20 @@ end;
 procedure pdf_hlist_out; {output an |hlist_node| box}
 label reswitch, move_past, fin_rule, next_p;
 var base_line: scaled; {the baseline coordinate for this box}
+c_wd,c_ht,c_dp: scaled;
+  {the real width, height and depth of the character}
+edge_v: scaled;
+edge_h: scaled;
+effective_horizontal: scaled;
+basepoint_horizontal: scaled;
+basepoint_vertical: scaled;
+saving_h: scaled;
+saving_v: scaled;
+save_direction: integer;
+dir_tmp,dir_ptr:pointer;
+dvi_dir_h,dvi_dir_ptr,dvi_temp_ptr:integer;
 @!left_edge: scaled; {the left coordinate for this box}
-@!save_h: scaled; {what |cur_h| should pop to}
+@!save_h,@!save_v: scaled; {what |cur_h| should pop to}
 @!this_box: pointer; {pointer to containing box}
 @!g_order: glue_ord; {applicable order of infinity for glue}
 @!g_sign: normal..shrinking; {selects type of glue}
@@ -18895,15 +18907,22 @@ var base_line: scaled; {the baseline coordinate for this box}
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
+save_direction:=dvi_direction;
+dvi_direction:=box_dir(this_box);
+@<DIR: Initialize |dir_ptr| for |ship_out|@>;
+saving_h:=cur_h; saving_v:=cur_v;
 incr(cur_s);
 base_line:=cur_v;
-prev_p:=this_box+list_offset;
 left_edge:=cur_h;
+prev_p:=this_box+list_offset;
 @<Create link annotations for the current hbox if needed@>;
 while p<>null do
     @<Output node |p| for |pdf_hlist_out| and move to the next node,
     maintaining the condition |cur_v=base_line|@>;
+cur_h:=saving_h; cur_v:=saving_v;
 decr(cur_s);
+dvi_direction:=save_direction;
+@<DIR: Reset |dir_ptr|@>;
 end;
 
 @ @<Create link annotations for the current hbox if needed@>=
@@ -18913,15 +18932,147 @@ for i := 1 to pdf_link_stack_ptr do begin
         append_link(this_box, left_edge, base_line, i);
 end
 
-@ @<Output node |p| for |pdf_hlist_out|...@>=
-reswitch: if is_char_node(p) then
+@ 
+
+@d pdf_dvicmd_set(#)==output_one_char(f,#)
+@d pdf_dvicmd_put(#)==output_one_char(f,#); cur_h:=cur_h-c_wd
+@d pdf_dvicmd_right(#)==cur_h := cur_h + #
+@d pdf_dvicmd_left(#)== cur_h := cur_h - #
+@d pdf_dvicmd_down(#)== cur_v := cur_v - #
+@d pdf_dvicmd_up(#)==   cur_v := cur_v + #
+@d pdf_dvicmd_h(#)==case box_direction(dvi_direction) of
+  dir_TL_: begin cur_h := cur_h + #;  end;
+  dir_TR_: begin cur_h := cur_h - #;  end;
+  dir_LT_: begin do_nothing; {if o=right1 then o:=down1 else o:=right1;}  end;
+  dir_LB_: begin do_nothing; {if o=right1 then begin o:=down1; negate(w); end else o:=right1;} end;
+  dir_BL_: begin do_nothing; {if o=down1 then negate(w); } end;
+  dir_BR_: begin do_nothing; {  negate(w);} end;
+  dir_RT_: begin do_nothing; {if o=right1 then o:=down1 else begin o:=right1; negate(w); end;} end;
+  dir_RB_: begin do_nothing; {if o=right1 then o:=down1 else o:=right1;  negate(w);} end;
+  end
+
+
+@<Output node |p| for |pdf_hlist_out|...@>=
+reswitch: if is_char_node(p) then 
   begin
   repeat f:=font(p); c:=character(p);
-  if is_valid_char(c) then
-      output_one_char(f, c)
+  if is_valid_char(c) then begin
+  if is_rotated(dvi_direction) then begin
+    c_ht:=char_width(f,c) div 2;
+    c_wd:=char_height(f,c)+char_depth(f,c);
+    end
+  else begin
+    c_ht:=char_height(f,c);
+    c_dp:=char_depth(f,c);
+    c_wd:=char_width(f,c);
+    end;
+  if (font_natural_dir(f)<>-1) then
+    case font_direction(dvi_direction) of
+    dir__LT,dir__LB: begin
+      pdf_dvicmd_set(c);
+      end;
+    dir__RT,dir__RB: begin
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_left(c_wd);
+      end;
+    dir__TL,dir__TR: begin
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_down(c_wd);
+      end;
+    dir__BL,dir__BR: begin
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_up(c_wd);
+      end;
+    dir__LL,dir__LR: begin
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_right(c_wd);
+      end;
+    dir__RL,dir__RR: begin
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_left(c_wd);
+      end;
+    dir__TT,dir__TB: begin
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_down(c_wd);
+      end;
+    dir__BT,dir__BB: begin
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_up(c_wd);
+      end;
+    end
   else
-      char_warning(f, c);
-  cur_h:=cur_h+char_width(f,c);
+    case font_direction(dvi_direction) of
+    dir__LT: begin
+      pdf_dvicmd_set(c);
+      end;
+    dir__LB: begin
+      pdf_dvicmd_down(c_ht);
+      pdf_dvicmd_set(c);
+      pdf_dvicmd_up(c_ht);
+      end;
+    dir__RT: begin
+      pdf_dvicmd_left(c_wd);
+      pdf_dvicmd_put(c);
+      end;
+    dir__RB: begin
+      pdf_dvicmd_left(c_wd);
+      pdf_dvicmd_down(c_ht);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_up(c_ht);
+      end;
+    dir__TL: begin
+      pdf_dvicmd_down(c_wd);
+      pdf_dvicmd_left(c_ht);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_right(c_ht);
+      end;
+    dir__TR: begin
+      pdf_dvicmd_down(c_wd);
+      pdf_dvicmd_left(c_dp);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_right(c_dp);
+      end;
+    dir__BL: begin
+      pdf_dvicmd_left(c_ht);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_right(c_ht);
+      pdf_dvicmd_up(c_wd);
+      end;
+    dir__BR: begin
+      pdf_dvicmd_left(c_dp);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_right(c_dp);
+      pdf_dvicmd_up(c_wd);
+      end;
+    dir__LL,dir__LR: begin
+      pdf_dvicmd_down(c_ht);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_up(c_ht);
+      pdf_dvicmd_right(c_wd);
+      end;
+    dir__RL,dir__RR: begin
+      pdf_dvicmd_left(c_wd);
+      pdf_dvicmd_down(c_ht);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_up(c_ht);
+      end;
+    dir__TT,dir__TB: begin
+      pdf_dvicmd_down(c_wd);
+      pdf_dvicmd_left(c_ht);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_right(c_ht);
+      end;
+    dir__BT,dir__BB: begin
+      pdf_dvicmd_left(c_ht);
+      pdf_dvicmd_put(c);
+      pdf_dvicmd_right(c_ht);
+      pdf_dvicmd_up(c_wd);
+      end;
+    end;
+    cur_h:=cur_h+c_wd;
+  end
+  else
+    char_warning(f, c);
   prev_p:=link(prev_p); {N.B.: not |prev_p:=p|, |p| might be |lig_trick|}
   p:=link(p);
   until not is_char_node(p);
@@ -18938,24 +19089,59 @@ rule_node: begin rule_ht:=height(p); rule_dp:=depth(p); rule_wd:=width(p);
 whatsit_node: @<Output the whatsit node |p| in |pdf_hlist_out|@>;
 glue_node: @<(\pdfTeX) Move right or output leaders@>;
 margin_kern_node,
-kern_node,math_node:cur_h:=cur_h+width(p);
+kern_node,math_node: pdf_dvicmd_h(width(p));
 ligature_node: @<Make node |p| look like a |char_node| and |goto reswitch|@>;
 othercases do_nothing
 endcases;@/
 goto next_p;
 fin_rule: @<(\pdfTeX) Output a rule in an hlist@>;
-move_past: cur_h:=cur_h+rule_wd;
+move_past: pdf_dvicmd_h(rule_wd);
 next_p:prev_p:=p; p:=link(p);
 end
 
 @ @<(\pdfTeX) Output a box in an hlist@>=
-if list_ptr(p)=null then cur_h:=cur_h+width(p)
-else  begin
-  cur_v:=base_line+shift_amount(p); {shift the box down}
-  temp_ptr:=p; edge:=cur_h;
-  if type(p)=vlist_node then pdf_vlist_out@+else pdf_hlist_out;
-  cur_h:=edge+width(p); cur_v:=base_line;
+begin
+if not (dir_orthogonal(dir_primary[box_dir(p)])(dir_primary[dvi_direction]))
+  then begin
+  effective_horizontal:=width(p);
+  basepoint_vertical:=0;
+  if dir_opposite(dir_secondary[box_dir(p)])(dir_secondary[dvi_direction]) then
+    basepoint_horizontal:=width(p)
+  else
+    basepoint_horizontal:=0;
   end
+else begin
+  effective_horizontal:=height(p)+depth(p);
+  if not (is_mirrored(box_dir(p))) then
+    if dir_eq(dir_primary[box_dir(p)])(dir_secondary[dvi_direction]) then
+      basepoint_horizontal:=height(p)
+    else
+      basepoint_horizontal:=depth(p)
+  else
+    if dir_eq(dir_primary[box_dir(p)])(dir_secondary[dvi_direction]) then
+      basepoint_horizontal:=depth(p)
+    else
+      basepoint_horizontal:=height(p);
+  if dir_eq(dir_secondary[box_dir(p)])(dir_primary[dvi_direction]) then
+    basepoint_vertical:= -(width(p) div 2)
+  else
+    basepoint_vertical:= (width(p) div 2);
+  end;
+if not (is_mirrored(dvi_direction)) then
+  basepoint_vertical := basepoint_vertical + shift_amount(p)
+    {shift the box `down'}
+else
+  basepoint_vertical := basepoint_vertical - shift_amount(p);
+    {shift the box `up'}
+if list_ptr(p)=null then begin pdf_dvicmd_h(effective_horizontal); end
+else begin
+  temp_ptr:=p; 
+  edge:=cur_h; cur_h:=cur_h+basepoint_horizontal;
+  edge_v:=cur_v; cur_v:=base_line + basepoint_vertical;
+  if type(p)=vlist_node then pdf_vlist_out@+else pdf_hlist_out;
+  cur_h:=edge+effective_horizontal; cur_v:=base_line;
+  end
+end
 
 @ @<(\pdfTeX) Output a rule in an hlist@>=
 if is_running(rule_ht) then rule_ht:=height(this_box);
@@ -19026,7 +19212,7 @@ end
 label move_past, fin_rule, next_p;
 var left_edge: scaled; {the left coordinate for this box}
 @!top_edge: scaled; {the top coordinate for this box}
-@!save_v: scaled; {what |cur_v| should pop to}
+@!save_h,@!save_v: scaled; {what |cur_v| should pop to}
 @!this_box: pointer; {pointer to containing box}
 @!g_order: glue_ord; {applicable order of infinity for glue}
 @!g_sign: normal..shrinking; {selects type of glue}
@@ -19039,16 +19225,28 @@ var left_edge: scaled; {the left coordinate for this box}
 @!glue_temp:real; {glue value before rounding}
 @!cur_glue:real; {glue seen so far}
 @!cur_g:scaled; {rounded equivalent of |cur_glue| times the glue ratio}
+@!save_direction: integer;
+@!effective_vertical: scaled;
+@!basepoint_horizontal: scaled;
+@!basepoint_vertical: scaled;
+@!edge_v: scaled;
+@!saving_v: scaled;
+@!saving_h: scaled;
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
+saving_v:=cur_v; saving_h:=cur_h;
+save_direction:=dvi_direction;
+dvi_direction:=box_dir(this_box);
 incr(cur_s);
 left_edge:=cur_h; cur_v:=cur_v-height(this_box); top_edge:=cur_v;
 @<Create thread for the current vbox if needed@>;
 while p<>null do
     @<Output node |p| for |pdf_vlist_out| and move to the next node,
     maintaining the condition |cur_h=left_edge|@>;
+cur_v:=saving_v; cur_h:=saving_h;
 decr(cur_s);
+dvi_direction:=save_direction;
 end;
 
 @ @<Create thread for the current vbox if needed@>=
@@ -19080,13 +19278,49 @@ move_past: cur_v:=cur_v+rule_ht;
 end
 
 @ @<(\pdfTeX) Output a box in a vlist@>=
-if list_ptr(p)=null then cur_v:=cur_v+height(p)+depth(p)
-else  begin cur_v:=cur_v+height(p); save_v:=cur_v;
-  cur_h:=left_edge+shift_amount(p); {shift the box right}
+begin
+if not (dir_orthogonal(dir_primary[box_dir(p)])(dir_primary[dvi_direction]))
+  then begin
+  effective_vertical:=height(p)+depth(p);
+  if (type(p)=hlist_node) and (is_mirrored(box_dir(p))) then
+    basepoint_vertical:=depth(p)
+  else
+    basepoint_vertical:=height(p);
+  if dir_opposite(dir_secondary[box_dir(p)])(dir_secondary[dvi_direction]) then
+    basepoint_horizontal:=width(p)
+  else
+    basepoint_horizontal:=0;
+  end
+else begin
+  effective_vertical:=width(p);
+  if not (is_mirrored(box_dir(p))) then
+    if dir_eq(dir_primary[box_dir(p)])(dir_secondary[dvi_direction]) then
+      basepoint_horizontal:=height(p)
+    else
+      basepoint_horizontal:=depth(p)
+  else
+    if dir_eq(dir_primary[box_dir(p)])(dir_secondary[dvi_direction]) then
+      basepoint_horizontal:=depth(p)
+    else
+      basepoint_horizontal:=height(p);
+  if dir_eq(dir_secondary[box_dir(p)])(dir_primary[dvi_direction]) then
+    basepoint_vertical:=0
+  else
+    basepoint_vertical:=width(p);
+  end;
+basepoint_horizontal := basepoint_horizontal + shift_amount(p);
+if list_ptr(p)=null then begin
+  cur_v:=cur_v+effective_vertical;
+  end
+else  begin 
+  edge_v:=cur_v;
+  cur_h:=left_edge + basepoint_horizontal;
+  cur_v:=cur_v + basepoint_vertical; 
   temp_ptr:=p;
   if type(p)=vlist_node then pdf_vlist_out@+else pdf_hlist_out;
-  cur_v:=save_v+depth(p); cur_h:=left_edge;
+  cur_h:=left_edge; cur_v:=edge_v + effective_vertical;
   end
+end
 
 @ @<(\pdfTeX) Output a rule in a vlist...@>=
 if is_running(rule_wd) then rule_wd:=width(this_box);
@@ -19262,6 +19496,7 @@ temp_ptr:=p;
 prepare_mag;
 pdf_last_resources := pdf_new_objnum;
 @<Reset resource lists@>;
+dvi_direction:=page_direction;
 if not shipping_page then begin
     pdf_xform_width := width(p);
     pdf_xform_height := height(p);
@@ -19279,8 +19514,13 @@ else begin
     obj_aux(pdf_last_page) := 1; {mark that this page has beed created}
     pdf_new_dict(obj_type_others, 0, 0);
     pdf_last_stream := obj_ptr;
-    cur_h := cur_h_offset;
-    cur_v := height(p) + cur_v_offset;
+	cur_v := height(p) + cur_v_offset; 
+   	case box_direction(dvi_direction) of
+    dir_TL_,dir_LT_: begin cur_h:=cur_h_offset; end;
+    dir_TR_,dir_RT_: begin cur_h:=cur_page_width-cur_right_offset; end;
+    dir_RB_,dir_BR_: begin cur_h:=-cur_right_offset;  cur_v:=-cur_bottom_offset;  end;
+    dir_BL_,dir_LB_: begin cur_v:=-cur_bottom_offset; end; 
+    end;
     pdf_origin_h := 0;
     pdf_origin_v := cur_page_height;
     @<Reset PDF mark lists@>;
@@ -19315,7 +19555,16 @@ else
 if page_height <> 0 then
     cur_page_height := page_height
 else
-    cur_page_height := height(p) + depth(p) + 2*cur_v_offset
+    cur_page_height := height(p) + depth(p) + 2*cur_v_offset;
+if page_bottom_offset <> 0 then
+    cur_bottom_offset := page_bottom_offset
+else
+    cur_bottom_offset := 4736286;
+if page_right_offset <> 0 then
+    cur_right_offset := page_right_offset
+else
+    cur_right_offset :=  4736286
+
 
 @ Here we write out the header for Form.
 
