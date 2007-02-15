@@ -252,12 +252,19 @@ cmp_font_name (integer id, strnumber t) {
 
 boolean
 cmp_font_area (integer id, strnumber t) {
-  char *tt = makecstring(t);
+  char *tt = NULL;
   char *tid = font_area(id);
-  if (tt == NULL && tid == NULL)
-	return 1;
+  if (t == 0) {
+    if (tid == NULL || strlen(tid)==0)
+      return 1;
+    else 
+      return 0;
+  }
+  tt = makecstring(t);
+  if ((tt == NULL || strlen(tt)==0) && (tid == NULL  || strlen(tid)==0))
+    return 1;
   if (tt == NULL || strcmp(tid,tt)!=0)
-	return 0;
+    return 0;
   return 1;
 }
 
