@@ -5,6 +5,7 @@
 
 typedef struct {
   char *text;
+  unsigned int tsize;
   void *next;
   unsigned char partial;
   int cattable;
@@ -13,6 +14,7 @@ typedef struct {
 typedef struct {
   rope *head;
   rope *tail;
+  char complete; /* currently still writing ? */
 } spindle;
 
 #define  PARTIAL_LINE       1
@@ -32,10 +34,11 @@ static int      spindle_index = 0;
 static int 
 do_luacprint (lua_State * L, int partial, int deftable) {
   int i, n;
-  char *st;
+  unsigned int tsize;
+  char *st, *sttemp;
+  rope *rn;
   int cattable = deftable;
   int startstrings = 1;
-  rope *rn;
   n = lua_gettop(L);
   if (cattable != NO_CAT_TABLE) {
     if (lua_type(L,1)==LUA_TNUMBER && n>1) {
@@ -48,21 +51,26 @@ do_luacprint (lua_State * L, int partial, int deftable) {
       lua_pushstring(L, "no string to print");
       lua_error(L);
     }
-    st = strdup(lua_tostring(L, i));
+    sttemp = (char *)lua_tolstring(L, i,&tsize);
+    st = xmalloc((tsize+1)); 
+    memcpy(st,sttemp,(tsize+1));
     if (st) {
       // fprintf(stderr,"W[%d]:=%s\n",spindle_index,st);
       luacstrings++; 
       rn = (rope *)xmalloc(sizeof(rope)); /* valgrind says we leak here */
       rn->text      = st;
-      rn->partial  = partial;
-      rn->cattable = cattable;
+      rn->tsize     = tsize;
+      rn->partial   = partial;
+      rn->cattable  = cattable;
       rn->next = NULL;
       if (write_spindle.head == NULL) {
-	write_spindle.head  = rn;
+	assert(write_spindle.tail == NULL);
+	write_spindle.head = rn;
       } else {
 	write_spindle.tail->next  = rn;
       }
       write_spindle.tail = rn;
+      write_spindle.complete = 0;
     }
   }
   return 0;
@@ -108,48 +116,50 @@ luacstring_penultimate (void) {
 int 
 luacstring_input (void) {
   char *st;
-  rope *t;
-  int ret,len;
-  t = read_spindle.head;
-  if (t != NULL && t->text != NULL) {
+  int ret;
+  rope *t = read_spindle.head;
+  if (!read_spindle.complete) {
+    read_spindle.complete =1;
+    read_spindle.tail = NULL;
+  }
+  if (t == NULL) {
+    if(read_spindle.tail != NULL)
+      free(read_spindle.tail);
+    read_spindle.tail = NULL;
+    return 0;
+  }
+  if (t->text != NULL) {
     st = t->text;
-    //    fprintf(stderr,"R[%d]:=%s\n",(spindle_index-1),st);
     /* put that thing in the buffer */
     last = first;
     ret = last;
-    len = strlen(st);
-    // fprintf(stderr,"buffer -- string: %d+%d -- %d\n",last,len, bufsize);
-    check_buf (last + len,buf_size);
-    while (len-->0)
+    check_buf (last + t->tsize,buf_size);
+    while (t->tsize-->0)
       buffer[last++] = *st++;
     if (!t->partial) {
       while (last-1>ret && buffer[last-1] == ' ')
 	last--;
     }
-    /* shift */
-    if (read_spindle.tail!=NULL) {
-      free(read_spindle.tail);
-    } 
-    read_spindle.tail = t;
     free (t->text);
     t->text = NULL;
-    read_spindle.head = t->next;
-    return 1;
   }
-  return 0;
+  if (read_spindle.tail != NULL) { /* not a one-liner */
+    free(read_spindle.tail);
+  }
+  read_spindle.tail = t;
+  read_spindle.head = t->next;
+  return 1;
 }
 
 /* open for reading, and make a new one for writing */
 void 
 luacstring_start (int n) {
-  //  fprintf(stderr,"O[%d]\n",spindle_index);
-  spindles[spindle_index].tail = NULL;
   spindle_index++;
-  if(spindle_size == spindle_index) {
-    /* add a new one */
+  if(spindle_size == spindle_index) { /* add a new one */
     spindles = xrealloc(spindles,sizeof(spindle)*(spindle_size+1));
     spindles[spindle_index].head = NULL;
     spindles[spindle_index].tail = NULL;
+    spindles[spindle_index].complete = 0;
     spindle_size++;
   }
 }
@@ -158,15 +168,21 @@ luacstring_start (int n) {
 
 void 
 luacstring_close (int n) {
-  if (read_spindle.head != NULL) {
-    if (read_spindle.head->text != NULL) 
-      free(read_spindle.head->text);
-    free(read_spindle.head);
-    read_spindle.head = NULL;
-    read_spindle.tail = NULL;
+  rope *next, *t;
+  next = read_spindle.head;
+  while (next != NULL) {
+    if (next->text != NULL)
+      free(next->text);
+    t = next;
+    next = next->next;
+    free(t);
   }
+  read_spindle.head = NULL;
+  if(read_spindle.tail != NULL)
+    free(read_spindle.tail);
+  read_spindle.tail = NULL;
+  read_spindle.complete = 0;
   spindle_index--;
-  //  fprintf(stderr,"C[%d]\n",spindle_index);
 }
 
 
