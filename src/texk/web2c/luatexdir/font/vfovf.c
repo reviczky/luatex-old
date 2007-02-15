@@ -162,15 +162,28 @@ vf_byte (void) {
 /* read |k| bytes as an integer from \.{VF} file */
 static integer  vf_read(integer k) {
   integer i,j;
+  int d = k;
   pdfassert((k > 0) && (k <= 4));
-  i = vf_byte();
-  if ((k == 4) && (i > 127))
-    i = i - 256;
-  decr(k);
-  while (k > 0) {
+  i = 0;
+  while (d > 0) {
+    j = vf_byte();
+    if ((d==k) && j>127)
+      j = j - 256;
+    i  = i*256 + j;
+    decr(d);
+  }
+  return i;
+}
+
+static unsigned int vf_read_u(integer k) {
+  unsigned int  i,j;
+  int d = k;
+  pdfassert((k > 0) && (k <= 4));
+  i = 0;
+  while (d > 0) {
     j = vf_byte();
     i  = i*256 + j;
-    decr(k);
+    decr(d);
   }
   return i;
 }
@@ -409,7 +422,7 @@ do_vf(internal_font_number f) {
     memset(vf_real_fnts,0,i);
     vf_nf = 0;
     while ((cmd >= fnt_def1) && (cmd <= (fnt_def1 + 3))) {
-	  vf_local_fnts[vf_nf] = vf_read(cmd - fnt_def1 + 1);
+      vf_local_fnts[vf_nf] = vf_read_u(cmd - fnt_def1 + 1);
       vf_real_fnts[vf_nf] = vf_def_font(f);
       incr(vf_nf);    
       cmd = vf_byte();
@@ -427,7 +440,7 @@ do_vf(internal_font_number f) {
     /* @<Build a character packet@>;@/ */
     if (cmd == long_char) {
       packet_length = vf_read(4);
-      cc = vf_read(4);
+      cc = vf_read_u(4);
       if (!char_exists(f,cc)) {
         bad_vf("invalid character code");
       }
@@ -470,7 +483,7 @@ do_vf(internal_font_number f) {
       } else if (((fnt_num_0 <= cmd) && (cmd <= fnt_num_0 + 63)) ||
 		 ((fnt1 <= cmd) && (cmd <= fnt1 + 3))) {
 	if (cmd >= fnt1) {
-	  k = vf_read(cmd - fnt1 + 1);
+	  k = vf_read_u(cmd - fnt1 + 1);
 	  packet_length -= (cmd - fnt1 + 1);
 	} else {
 	  k = cmd - fnt_num_0;
@@ -513,7 +526,7 @@ do_vf(internal_font_number f) {
 	    k = vf_real_fnts[0];
 	    append_fnt_set(k);
 	  }
-	  i = vf_read(cmd - set1 + 1);
+	  i = vf_read_u(cmd - set1 + 1);
 	  append_packet(packet_char_code);
 	  append_four(i);
 	  packet_length -= (cmd - set1 + 1);
@@ -526,7 +539,7 @@ do_vf(internal_font_number f) {
 	    k = vf_real_fnts[0];
 	    append_fnt_set(k);
 	  }
-	  i = vf_read(cmd - put1 + 1);
+	  i = vf_read_u(cmd - put1 + 1);
 	  append_packet(packet_push_code);
 	  append_packet(packet_char_code);
 	  append_four(i);
@@ -563,7 +576,7 @@ do_vf(internal_font_number f) {
 	case down1:  
 	case down2:  
 	case down3:  
-	case down4:  
+	case down4:
 	  i = vf_read(cmd - down1 + 1);
 	  append_packet(packet_down_code);
 	  append_four(i);
