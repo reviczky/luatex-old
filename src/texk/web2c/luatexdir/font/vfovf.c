@@ -1063,7 +1063,7 @@ auto_expand_vf(internal_font_number f) {
   if ((! pdf_font_auto_expand[f]) || (pdf_font_blink[f] == null_font))
     return false ; /* not an auto-expanded font */
   bf = pdf_font_blink[f];
-  if (font_type(bf) == new_font_type) /* we must process the base font first */
+  if (font_type(bf) ==unknown_font_type) /* we must process the base font first */
     do_vf(bf);
   
   if (font_type(bf) != virtual_font_type)
