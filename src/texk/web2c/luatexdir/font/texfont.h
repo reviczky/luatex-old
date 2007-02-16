@@ -61,7 +61,7 @@ typedef struct texfont {
   integer _font_dsize ;
   char * _font_name ;
   char * _font_area ;
-  char * _font_fullname ;
+  char * _font_filename ;
   char * _font_encodingname ;
   integer _font_ec ;
   integer _font_checksum ;   /* internal information */
@@ -70,6 +70,8 @@ typedef struct texfont {
   integer _font_cache_id ;   /* internal information */
   fm_entry_ptr _font_map;
   integer _font_type;
+  integer _font_format;
+  integer _font_embedding;
   integer _font_bc ;
   integer _hyphen_char ;
   integer _skew_char ;
@@ -113,11 +115,25 @@ typedef struct texfont {
 } texfont;
 
 typedef enum {
-  new_font_type=0, /* new font (has not been used yet) */
-  virtual_font_type=1, /* virtual font */
-  real_font_type=2, /* real font */
+  unknown_font_type=0, /* new font (has not been used yet) */
+  virtual_font_type, /* virtual font */
+  real_font_type, /* real font */
 } font_types;
 
+typedef enum {
+  unknown_format=0, 
+  type1_format, 
+  type3_format, 
+  truetype_format, 
+  opentype_format, 
+} font_formats;
+
+typedef enum {
+  unknown_embedding=0, 
+  no_embedding, 
+  subset_embedding, 
+  full_embedding, 
+} font_embedding_option;
 
 #define font_checksum(a)          font_tables[a]->_font_checksum
 #define set_font_checksum(a,b)    font_checksum(a) = b
@@ -148,9 +164,9 @@ boolean cmp_font_name (integer, strnumber);
 
 boolean cmp_font_area (integer, strnumber);
 
-#define font_fullname(a)           font_tables[a]->_font_fullname
-#define set_font_fullname(f,b)     { if (font_fullname(f)!=NULL) \
-	  free(font_fullname(f)); font_fullname(f) = b; }
+#define font_filename(a)           font_tables[a]->_font_filename
+#define set_font_filename(f,b)     { if (font_filename(f)!=NULL) \
+	  free(font_filename(f)); font_filename(f) = b; }
 
 #define font_encodingname(a)       font_tables[a]->_font_encodingname
 #define set_font_encodingname(f,b) { if (font_encodingname(f)!=NULL) \
@@ -174,6 +190,12 @@ boolean cmp_font_area (integer, strnumber);
 
 #define font_type(a)              font_tables[a]->_font_type
 #define set_font_type(a,b)        font_type(a) = b
+
+#define font_format(a)              font_tables[a]->_font_format
+#define set_font_format(a,b)        font_format(a) = b
+
+#define font_embedding(a)           font_tables[a]->_font_embedding
+#define set_font_embedding(a,b)     font_embedding(a) = b
 
 #define font_map(a)              font_tables[a]->_font_map
 #define set_font_map(a,b)        font_map(a) = b
