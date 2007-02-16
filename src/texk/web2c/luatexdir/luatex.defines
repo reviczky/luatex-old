@@ -244,10 +244,14 @@ $Id $
 @define var non_char;
 @define var non_address;
 
-@define var new_font_type;
+@define var unknown_font_type;
 @define var virtual_font_type;
 @define var real_font_type;
 @define function font_type();
+
+@define var opentype_format;
+@define function font_format();
+@define function char_index();
 
 @define function font_map();
 @define procedure set_font_map();
