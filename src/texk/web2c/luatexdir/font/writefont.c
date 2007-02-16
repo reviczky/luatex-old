@@ -316,6 +316,10 @@ void create_charwidth_array(fo_entry * fo, internalfontnumber f)
     assert(fo->cw == NULL);
     fo->cw = new_cw_entry();
     fo->cw->width = xtalloc(256, integer);
+	assert(fo->first_char>=0);
+	assert(fo->first_char<256);
+	assert(fo->last_char>=0);
+	assert(fo->last_char<256);
     for (i = 0; i < fo->first_char; i++)
         fo->cw->width[i] = 0;
     for (i = fo->first_char; i <= fo->last_char; i++)
@@ -606,14 +610,106 @@ void create_fontdictionary(fm_entry * fm, integer font_objnum,
 
 /**********************************************************************/
 
+void write_0_fontdictionary(fo_entry * fo);
+void create_0_fontdictionary(integer font_objnum, internalfontnumber f);
+
+
 void do_pdf_font(integer font_objnum, internalfontnumber f)
 {
     fm_entry *fm;
-    fm = hasfmentry(f) ? (fm_entry *) font_map(f) : NULL;
-    if (fm == NULL || (fm->ps_name == NULL && fm->ff_name == NULL))
-        writet3(font_objnum, f);
-    else
-        create_fontdictionary(fm, font_objnum, f);
+	if (font_format(f) == opentype_format) {
+	  /* do something else */
+	  create_0_fontdictionary(font_objnum, f);
+
+	} else {
+	  fm = hasfmentry(f) ? (fm_entry *) font_map(f) : NULL;
+	  if (fm == NULL || (fm->ps_name == NULL && fm->ff_name == NULL))
+		writet3(font_objnum, f);
+	  else
+		create_fontdictionary(fm, font_objnum, f);
+	}
 }
 
 /**********************************************************************/
+
+void write_0_otffile(internalfontnumber f)
+{
+  FILE *otf_file;
+  int i;
+  unsigned char *ttf_buffer = NULL;
+  unsigned long ttf_size = 0;
+  otf_file = fopen(font_filename(f),"rb");
+  readbinfile(otf_file,&ttf_buffer,&ttf_size);
+  for (i=0;i<ttf_size;i++)
+	fb_putchar(ttf_buffer[i]);
+  fclose(otf_file);
+}
+
+void create_0_fontdictionary(integer font_objnum, internalfontnumber f)
+{
+    fo_entry *fo = new_fo_entry();
+    fo->fo_objnum = font_objnum;
+    fo->tex_font = f;
+
+	write_0_fontdictionary(fo);
+}
+
+void write_0_fontdictionary(fo_entry * fo)
+{
+    int i,j,k;
+
+    assert(fo != NULL);
+    assert(fo->fo_objnum != 0); /* reserved as pdf_font_num[f] in pdftex.web */
+
+    /* write ToUnicode entry if needed */
+
+    pdf_begin_dict(fo->fo_objnum, 1);
+    pdf_puts("/Type /Font\n");
+    pdf_puts("/Subtype /Type0\n");
+    pdf_puts("/Encoding /Identity-H\n");
+    pdf_printf("/BaseFont /OTF+%s\n", font_name(fo->tex_font));
+	i  = pdf_new_objnum();
+    pdf_printf("/DescendantFonts [%i 0 R]\n", i);
+	/* todo: the ToUnicode CMap */
+    pdf_end_dict();
+
+    pdf_begin_dict(i, 1);
+    pdf_puts("/Type /Font\n");
+    pdf_puts("/Subtype /CIDFontType0\n");
+    pdf_printf("/BaseFont /OTF+%s\n", font_name(fo->tex_font));
+	j  = pdf_new_objnum();
+    pdf_printf("/FontDescriptor %i 0 R\n", j);
+    pdf_printf("/CIDSystemInfo <<\n");
+	pdf_printf("/Registry (LuaTeX)\n");
+	pdf_printf("/Ordering (cid-%s)\n",font_name(fo->tex_font));
+	pdf_printf("/Supplement 0\n");
+	pdf_puts("/DW 200\n");
+    pdf_printf(">>\n");
+    pdf_end_dict();
+
+    pdf_begin_dict(j, 1);
+    pdf_puts("/Type /FontDescriptor\n");
+    pdf_printf("/FontName /OTF+%s\n", font_name(fo->tex_font));
+    pdf_puts("/Flags 4\n");
+    pdf_puts("/FontBBox [0 0 1000 1000]\n");
+    pdf_puts("/ItalicAngle 0\n");
+    pdf_puts("/Ascent 800\n");
+    pdf_puts("/Descent 2000\n");
+    pdf_puts("/CapHeight 700\n");
+    pdf_puts("/StemV 25\n");
+	k =  pdf_new_objnum();
+	pdf_printf("/FontFile3 %i 0 R\n", k);
+    pdf_end_dict();
+
+	
+	write_0_otffile(fo->tex_font);
+    pdf_begin_dict(k, 0);
+	pdf_puts("/Subtype /OpenType\n");
+    pdf_begin_stream();
+    fb_flush();
+    pdf_end_stream();
+	
+
+}
+
+
