@@ -16403,7 +16403,7 @@ end;
 
 function new_dummy_font: internal_font_number;
 begin
-    new_dummy_font := read_font_info(null_cs, "dummy", 0, -1000, -1);
+    new_dummy_font := read_font_info(null_cs, "dummy", "", -1000, -1);
 end;
 
 function get_hash_size: integer;
@@ -16845,18 +16845,34 @@ begin
   end;
 end;
 
-procedure pdf_print_char(f: internal_font_number; c: integer);
+procedure pdf_print_char(f: internal_font_number; cc: integer);
 { print out a character to PDF buffer; the character will be printed in octal
   form in the following cases: chars <= 32, backslash (92), left parenthesis
   (40) and  right parenthesis (41) }
+var c: integer;
 begin
-    pdf_mark_char(f, c);
-    if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
+    pdf_mark_char(f, cc);
+	if font_format(f)=opentype_format then begin
+      c := char_index(f, cc);
+      c := c div 256;
+	  if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
+    	 pdf_out(92);           {output a backslash}
+         pdf_print_octal(c);
+         end
+      else
+        pdf_out(c);
+      c := char_index(f, cc);
+      c := c mod 256;
+    end else
+      c := cc;
+    begin
+      if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
         pdf_out(92);           {output a backslash}
         pdf_print_octal(c);
-    end
-    else
+      end
+      else
         pdf_out(c);
+    end;
 end;
 
 procedure pdf_print(s: str_number); {print out a string to PDF buffer}
@@ -18220,7 +18236,7 @@ fonts too. Information about virtual fonts can be found in the source of some
 Whenever we want to write out a character in a font to PDF output, we
 should check whether the used font is a new (has not been used yet),
 virtual or real font. The |font_type()| holds a flag of each used
-font. After initialization the flag of each font is set to |new_font_type|.
+font. After initialization the flag of each font is set to |unknown_font_type|.
 The first time a character of a font is written out, \pdfTeX{} looks for
 the corresponding virtual font. If the corresponding virtual font exists, then
 the font type is set to |virtual_font_type|; otherwise it will be set to
@@ -18230,7 +18246,7 @@ the font type is set to |virtual_font_type|; otherwise it will be set to
 
 @p procedure output_one_char(ff:internal_font_number;c:ASCII_code);
 begin
-  if font_type(ff) = new_font_type then
+  if font_type(ff) = unknown_font_type then
       do_vf(ff);
   if font_type(ff) = virtual_font_type then
       do_vf_packet(ff, c)
@@ -18512,7 +18528,7 @@ begin
         if pdf_font_auto_expand[f] then
             k := auto_expand_font(f, e)
         else
-           k := read_font_info(null_cs, s, 0, font_size(f), font_natural_dir(f)); 
+           k := read_font_info(null_cs, s, "", font_size(f), font_natural_dir(f)); 
     end;
     copy_expand_params(k, f, e);
     load_expand_font := k;
@@ -18649,7 +18665,7 @@ begin
             pdf_error("font expansion", "font has been expanded with different parameters");
     end
     else begin
-        if font_type(f) <> new_font_type then
+        if font_type(f) <> unknown_font_type then
             pdf_warning("font expansion", "font should be expanded before its first use",
                         true, true);
         set_expand_params(f, auto_expand, font_stretch, font_shrink, font_step, 0);
@@ -33143,7 +33159,7 @@ name_in_progress:=false;
 @<If this font has already been loaded, set |f| to the internal
   font number and |goto common_ending|@>;
 if cur_area = "" then
-  f:=read_font_info(u,cur_name,0,s,natural_dir)
+  f:=read_font_info(u,cur_name,"",s,natural_dir)
 else
   f:=read_font_info(u,cur_name,cur_area,s,natural_dir);
 common_ending: equiv(u):=f; eqtb[font_id_base+f]:=eqtb[u]; font_id_text(f):=t;
