@@ -2,6 +2,11 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
+char *font_type_strings[]      = {"unknown","virtual","real"};
+char *font_format_strings[]    = {"unknown","type1","type3","truetype", "opentype"};
+char *font_embedding_strings[] = {"unknown","no","subset", "full"};
+
+
 void
 font_char_to_lua (lua_State *L, internalfontnumber f, int k) {
   int i;
@@ -15,6 +20,12 @@ font_char_to_lua (lua_State *L, internalfontnumber f, int k) {
   lua_setfield(L,-2,"depth");
   lua_pushnumber(L,char_italic(f,k));
   lua_setfield(L,-2,"italic");
+
+  if(font_format(f) == opentype_format 
+	 || font_format(f) == truetype_format ) {
+	lua_pushnumber(L,char_index(f,k));
+	lua_setfield(L,-2,"index");
+  }
 
   if (char_name(f,k)!=NULL) {
 	lua_pushstring(L,char_name(f,k));
@@ -109,9 +120,9 @@ font_to_lua (lua_State *L, int f) {
 	lua_pushstring(L,font_area(f));
 	lua_setfield(L,-2,"area");
   }
-  if(font_fullname(f)!=NULL) {
-	lua_pushstring(L,font_fullname(f));
-	lua_setfield(L,-2,"fullname");
+  if(font_filename(f)!=NULL) {
+	lua_pushstring(L,font_filename(f));
+	lua_setfield(L,-2,"filename");
   }
   if(font_encodingname(f)!=NULL) {
 	lua_pushstring(L,font_encodingname(f));
@@ -121,6 +132,14 @@ font_to_lua (lua_State *L, int f) {
   lua_pushboolean(L,(font_used(f) ? true : false));
   lua_setfield(L,-2,"used");
 
+  
+  lua_pushstring(L,font_type_strings[font_type(f)]);
+  lua_setfield(L,-2,"type");
+  lua_pushstring(L,font_format_strings[font_format(f)]);
+  lua_setfield(L,-2,"format");
+  lua_pushstring(L,font_embedding_strings[font_embedding(f)]);
+  lua_setfield(L,-2,"embedding");
+  
   lua_pushnumber(L,font_size(f));
   lua_setfield(L,-2,"size");
   lua_pushnumber(L,font_dsize(f));
@@ -387,8 +406,8 @@ font_from_lua (lua_State *L, int f) {
   integer *l_fonts = NULL;
   /* the table is at stack index -1 */
 
-  s = string_field(L,"area",NULL);               set_font_area(f,s);
-  s = string_field(L,"fullname",NULL);           set_font_fullname(f,s);
+  s = string_field(L,"area",strdup(""));         set_font_area(f,s);
+  s = string_field(L,"filename",NULL);           set_font_filename(f,s);
   s = string_field(L,"encodingname",NULL);       set_font_encodingname(f,s);
 
   s = string_field(L,"name",NULL);               set_font_name(f,s);
@@ -418,6 +437,26 @@ font_from_lua (lua_State *L, int f) {
     }
     free(s); /* because it is not actually used */
   }
+
+  s = string_field(L,"format",NULL);
+  if (s != NULL){
+    if      (strcmp(s,"type1") == 0)    {  set_font_format(f,type1_format); }
+    else if (strcmp(s,"type3") == 0)    {  set_font_format(f,type3_format); }
+    else if (strcmp(s,"truetype") == 0) {  set_font_format(f,truetype_format); }
+    else if (strcmp(s,"opentype") == 0) {  set_font_format(f,opentype_format); }
+    else                                {  set_font_format(f,unknown_format); }
+    free(s); /* because it is not actually used */
+  }
+
+  s = string_field(L,"embedding",NULL);
+  if (s != NULL){
+    if      (strcmp(s,"no") == 0)        {  set_font_embedding(f,no_embedding); }
+    else if (strcmp(s,"subset") == 0)    {  set_font_embedding(f,subset_embedding); }
+    else if (strcmp(s,"full") == 0)      {  set_font_embedding(f,full_embedding); }
+    else                                 {  set_font_embedding(f,unknown_embedding); }
+    free(s); /* because it is not actually used */
+  }
+
   
   /* now fetch the base fonts, if needed */
   if(font_type(f) == virtual_font_type) {
@@ -449,7 +488,7 @@ font_from_lua (lua_State *L, int f) {
       }
       lua_pop(L,1); /* pop list entry */
     } else {
-      set_font_type(f,new_font_type);
+      set_font_type(f,unknown_font_type);
       fprintf(stderr, "No local fonts");
     }
   }
@@ -536,46 +575,48 @@ font_from_lua (lua_State *L, int f) {
 	      j = numeric_field(L,"italic",0); set_font_italic(f,nc,j); italic_index(f,i) = nc;
 	      
 	      k = boolean_field(L,"used",0);   set_char_used(f,i,k);
+	      j = numeric_field(L,"index",0);  set_char_index(f,i,j);
+		  /*fprintf(stderr,"font[%d].characters[%d].index = [%d]\n",f,i,j);*/
 	      s = string_field(L,"name",NULL); set_char_name(f,i,s);
 	      
 	      char_tag(f,i) = 0; 
 	     
 	      k = numeric_field(L,"next",-1); 
 	      if (j>=0) {
-		char_tag(f,i) = list_tag; 
-		char_remainder(f,i) = k;
+			char_tag(f,i) = list_tag; 
+			char_remainder(f,i) = k;
 	      }
 			  
 	      lua_getfield(L,-1,"extensible");
 	      if (lua_istable(L,-1)){ 
-		char_tag(f,i) = ext_tag; 
-		char_remainder(f,i) = ne++;
-		k = numeric_field(L,"top",0);  ext_top(f,i) = k;
-		k = numeric_field(L,"bot",0);  ext_bot(f,i) = k;
-		k = numeric_field(L,"mid",0);  ext_mid(f,i) = k;
-		k = numeric_field(L,"rep",0);  ext_rep(f,i) = k;
+			char_tag(f,i) = ext_tag; 
+			char_remainder(f,i) = ne++;
+			k = numeric_field(L,"top",0);  ext_top(f,i) = k;
+			k = numeric_field(L,"bot",0);  ext_bot(f,i) = k;
+			k = numeric_field(L,"mid",0);  ext_mid(f,i) = k;
+			k = numeric_field(L,"rep",0);  ext_rep(f,i) = k;
 	      }
 	      lua_pop(L,1);
 		  
 	      kern_index(f,i) = 0;
 	      lua_getfield(L,-1,"kerns");
 	      if (lua_istable(L,-1)) {  /* there are kerns */
-		ctr = 0;
-		lua_pushnil(L);
-		while (lua_next(L, -2) != 0) {
-		  k = lua_tonumber(L,-2); /* adjacent char */
-		  j = lua_tonumber(L,-1); /* movement */
-		  if (!has_kern(f,i)) 
-		    kern_index(f,i) = nk;
-		  set_font_kern(f,nk,k,j);
-		  ctr++;
-		  nk++;
-		  lua_pop(L,1);
-		}
-		if (ctr>0) {
-		  set_font_kern(f,nk,end_ligkern,0);
-		  nk++;
-		}
+			ctr = 0;
+			lua_pushnil(L);
+			while (lua_next(L, -2) != 0) {
+			  k = lua_tonumber(L,-2); /* adjacent char */
+			  j = lua_tonumber(L,-1); /* movement */
+			  if (!has_kern(f,i)) 
+				kern_index(f,i) = nk;
+			  set_font_kern(f,nk,k,j);
+			  ctr++;
+			  nk++;
+			  lua_pop(L,1);
+			}
+			if (ctr>0) {
+			  set_font_kern(f,nk,end_ligkern,0);
+			  nk++;
+			}
 	      }
 	      lua_pop(L,1);
 
