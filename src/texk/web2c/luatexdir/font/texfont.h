@@ -62,6 +62,7 @@ typedef struct texfont {
   char * _font_name ;
   char * _font_area ;
   char * _font_filename ;
+  char * _font_fullname ;
   char * _font_encodingname ;
   integer _font_ec ;
   integer _font_checksum ;   /* internal information */
@@ -167,6 +168,11 @@ boolean cmp_font_area (integer, strnumber);
 #define font_filename(a)           font_tables[a]->_font_filename
 #define set_font_filename(f,b)     { if (font_filename(f)!=NULL) \
 	  free(font_filename(f)); font_filename(f) = b; }
+
+#define font_fullname(a)           font_tables[a]->_font_fullname
+#define set_font_fullname(f,b)     { if (font_fullname(f)!=NULL) \
+	  free(font_fullname(f)); font_fullname(f) = b; }
+
 
 #define font_encodingname(a)       font_tables[a]->_font_encodingname
 #define set_font_encodingname(f,b) { if (font_encodingname(f)!=NULL) \

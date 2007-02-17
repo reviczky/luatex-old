@@ -149,6 +149,7 @@ copy_font (integer f) {
   set_font_touched(k,0);
   set_font_name(k,font_name(f));
   set_font_filename(k,font_filename(f));
+  set_font_fullname(k,font_fullname(f));
   set_font_encodingname(k,font_encodingname(f));
   set_font_area(k,font_area(f));
   
@@ -212,6 +213,7 @@ void delete_font (integer f) {
 
     set_font_name(f,NULL);
     set_font_filename(f,NULL);
+    set_font_fullname(f,NULL);
     set_font_encodingname(f,NULL);
     set_font_area(f,NULL);
     
@@ -403,6 +405,13 @@ dump_font (int f)
 	x = 0; dump_int(x);
   }
 
+  if (font_fullname(f)!=NULL) {
+	x = strlen(font_fullname(f))+1;
+	dump_int(x);  dump_things(*font_fullname(f), x);
+  } else {
+	x = 0; dump_int(x);
+  }
+
   if (font_encodingname(f)!=NULL) {
 	x = strlen(font_encodingname(f))+1;
 	dump_int(x);  dump_things(*font_encodingname(f), x);
@@ -464,6 +473,13 @@ undump_font(int f)
 	font_bytes += x; 
 	s = xmalloc(x); undump_things(*s,x);
 	set_font_filename(f,s);
+  }
+
+  undump_int (x); 
+  if (x>0) {
+	font_bytes += x; 
+	s = xmalloc(x); undump_things(*s,x);
+	set_font_fullname(f,s);
   }
 
   undump_int (x); 
