@@ -22,6 +22,9 @@ $Id: writefont.c,v 1.3 2005/12/27 19:04:42 hahe Exp $
 
 #include "ptexlib.h"
 
+void write_cid_fontdictionary(fo_entry * fo);
+void create_cid_fontdictionary(fm_entry * fm, integer font_objnum, internalfontnumber f);
+void write_cid_otffile(fd_entry * fd);
 
 /**********************************************************************/
 
@@ -387,28 +390,36 @@ void register_fo_entry(fo_entry * fo)
 static void write_fontfile(fd_entry * fd)
 {
     assert(is_included(fd->fm));
-    if (is_type1(fd->fm))
+    if (is_cidkeyed(fd->fm)) {
+      write_cid_otffile(fd);
+    } else {
+      if (is_type1(fd->fm))
         writet1(fd);
-    else if (is_truetype(fd->fm))
+      else if (is_truetype(fd->fm))
         writettf(fd);
-    else if (is_opentype(fd->fm))
+      else if (is_opentype(fd->fm))
         writeotf(fd);
-    else
+      else
         assert(0);
+    }
     if (!fd->ff_found)
         return;
     assert(fd->ff_objnum == 0);
     fd->ff_objnum = pdf_new_objnum();
     pdf_begin_dict(fd->ff_objnum, 0);     /* font file stream */
-    if (is_type1(fd->fm))
+    if (is_cidkeyed(fd->fm)) {
+      pdf_puts("/Subtype /OpenType\n");
+    } else {
+      if (is_type1(fd->fm))
         pdf_printf("/Length1 %i\n/Length2 %i\n/Length3 %i\n",
                    (int) t1_length1, (int) t1_length2, (int) t1_length3);
-    else if (is_truetype(fd->fm))
+      else if (is_truetype(fd->fm))
         pdf_printf("/Length1 %i\n", (int) ttf_length);
-    else if (is_opentype(fd->fm))
+      else if (is_opentype(fd->fm))
         pdf_puts("/Subtype /Type1C\n");
-    else
+      else
         assert(0);
+    }
     pdf_begin_stream();
     fb_flush();
     pdf_end_stream();
@@ -610,105 +621,211 @@ void create_fontdictionary(fm_entry * fm, integer font_objnum,
 
 /**********************************************************************/
 
-void write_0_fontdictionary(fo_entry * fo);
-void create_0_fontdictionary(integer font_objnum, internalfontnumber f);
-
 
 void do_pdf_font(integer font_objnum, internalfontnumber f)
 {
     fm_entry *fm;
-	if (font_format(f) == opentype_format) {
-	  /* do something else */
-	  create_0_fontdictionary(font_objnum, f);
-
-	} else {
-	  fm = hasfmentry(f) ? (fm_entry *) font_map(f) : NULL;
-	  if (fm == NULL || (fm->ps_name == NULL && fm->ff_name == NULL))
-		writet3(font_objnum, f);
-	  else
-		create_fontdictionary(fm, font_objnum, f);
-	}
+    /* this test is not correct. It should really check whether the
+       font in question is a wide (CID-keyed) font, because that is
+       the main difference.
+       8-bit Encoded subsets of OpenType can be represented already,
+       as Type1C (in writettf.c)
+    */
+    if (font_format(f) == opentype_format) {
+      /* Create an fm entry, as this is needed by the rest of the font mechanism.
+	 I am not sure wether it makes sense to store it in the avl_tree.
+       */
+      /* todo: take slant and extend from the texfont struct */
+      fm = new_fm_entry();
+      fm->tfm_name = font_name(f);          /* or whatever, not a real tfm */
+      fm->ff_name = font_filename(f);       /* the actual file */
+      fm->encname = font_encodingname(f);   /* for the CIDSystemInfo */
+      fm->ps_name = font_fullname(f);       /* the true name */
+      fm->fd_flags = 4;                     /* can perhaps be done better */
+      fm->in_use = true;
+      set_opentype(fm);
+      set_included(fm);
+      set_cidkeyed(fm);
+      create_cid_fontdictionary(fm, font_objnum, f);
+      
+    } else {
+      fm = hasfmentry(f) ? (fm_entry *) font_map(f) : NULL;
+      if (fm == NULL || (fm->ps_name == NULL && fm->ff_name == NULL))
+	writet3(font_objnum, f);
+      else
+	create_fontdictionary(fm, font_objnum, f);
+    }
 }
 
 /**********************************************************************/
 
-void write_0_otffile(internalfontnumber f)
+void write_cid_otffile(fd_entry *fd)
 {
   FILE *otf_file;
-  int i;
+  long i;
+  int callback_id;
+  int file_opened = 0;
+  char *ftemp = NULL;
   unsigned char *ttf_buffer = NULL;
-  unsigned long ttf_size = 0;
-  otf_file = fopen(font_filename(f),"rb");
-  readbinfile(otf_file,&ttf_buffer,&ttf_size);
+  long ttf_size = 0;
+  otf_file = fopen(fd->fm->ff_name,"rb");
+  if(otf_file == NULL) {
+    callback_id=callback_defined("find_opentype_file");
+    if (callback_id>0) {
+      if(run_callback(callback_id,"S->S",fd->fm->ff_name,&ftemp)) {
+	if(ftemp!=NULL&&strlen(ftemp)) {
+	  free(fd->fm->ff_name);
+	  fd->fm->ff_name = ftemp;
+	}
+      }
+    }
+  }
+  callback_id=callback_defined("read_opentype_file");
+  if (callback_id>0) {
+    if(run_callback(callback_id,"S->bSd",fd->fm->ff_name,
+		    &file_opened, &ttf_buffer,&ttf_size) &&
+       file_opened && ttf_size>0) {
+    } else {
+      pdftex_fail ("cannot open OpenType font file for reading");
+    }
+  } else {
+    otf_file = fopen(fd->fm->ff_name,"rb");
+    if (otf_file == NULL) {
+      pdftex_fail ("cannot open OpenType font file for reading");
+    }
+    readbinfile(otf_file,&ttf_buffer,&ttf_size);
+    fclose(otf_file);
+  }
+  if (ttf_size>0)
+    fd->ff_found = true;
   for (i=0;i<ttf_size;i++)
-	fb_putchar(ttf_buffer[i]);
-  fclose(otf_file);
+    fb_putchar(ttf_buffer[i]);
 }
 
-void create_0_fontdictionary(integer font_objnum, internalfontnumber f)
+/* 
+   It is possible to compress the widths array even better, by using the
+   alternate 'range' syntax and possibly even using /DW to set 
+   a default value.
+  
+   There is a some optimization here already: glyphs that are
+   not used do not appear in the widths array at all. 
+
+   We have to make sure that we do not output an (incorrect!)
+   width for a character that exists in the font, but is not used
+   in typesetting. An enormous negative width is used as sentinel value
+
+   fo->first_char and fo->last_char are still potentially large 
+   CMAP keys, but the strings that are written out use CIDs, and 
+   CIDs are conveniently limited to 16-bit values in PDF.
+*/
+
+#define MAX_CID 0xFFFF
+#define IMPOSSIBLE_WIDTH 0x8FFFFFFF
+
+void create_cid_charwidth_array(fo_entry * fo, internalfontnumber f)
+{
+  int i,j;
+    assert(fo != NULL);
+    assert(fo->cw == NULL);
+    fo->cw = new_cw_entry();
+    fo->cw->width = xtalloc((MAX_CID+1), integer);
+
+    for (i = 0; i <= MAX_CID; i++)
+        fo->cw->width[i] = IMPOSSIBLE_WIDTH;
+    /* find the existing chars. */
+    for (i = fo->first_char; i <= fo->last_char; i++) {
+      if (char_exists(f,i) && char_used(f,i)) {
+	j = char_index(f,i);
+	assert(j>=0);
+	assert(j<=MAX_CID);
+	fo->cw->width[j] = divide_scaled(char_width(f, i), pdf_font_size[f], 4);
+      }
+    }
+}
+
+static void write_cid_charwidth_array(fo_entry * fo)
+{
+  int i, j, k;
+    assert(fo->cw != NULL);
+    assert(fo->cw->cw_objnum == 0);
+    fo->cw->cw_objnum = pdf_new_objnum();
+    pdf_begin_obj(fo->cw->cw_objnum, 1);
+    for (k=MAX_CID;fo->cw->width[k]==IMPOSSIBLE_WIDTH && k>0    ;k--) ;
+    for (i=0;      fo->cw->width[i]==IMPOSSIBLE_WIDTH && i<k;i++) ;
+    pdf_printf("[ %i [", i);
+    for (; i<=k; i++) {
+      j = fo->cw->width[i];
+      if (j == IMPOSSIBLE_WIDTH) {
+	for (; fo->cw->width[i]==IMPOSSIBLE_WIDTH && i<k;i++) ;
+	pdf_printf("] %i [", i);
+	j = fo->cw->width[i];
+      } 
+      pdf_printf("%i", (j/10));
+      if ((j % 10) != 0)
+	pdf_printf(".%i", (j % 10));
+      if (i<k && fo->cw->width[i+1]!=IMPOSSIBLE_WIDTH)  
+	pdf_puts(" ");
+    }
+    pdf_puts("]]\n");
+    pdf_end_obj();
+}
+
+
+void create_cid_fontdictionary(fm_entry * fm, integer font_objnum,
+			     internalfontnumber f)
 {
     fo_entry *fo = new_fo_entry();
+    get_char_range(fo, f);      /* set fo->first_char and fo->last_char from f */
+    assert(fo->last_char >= fo->first_char);
+    fo->fm = fm;
     fo->fo_objnum = font_objnum;
     fo->tex_font = f;
-
-	write_0_fontdictionary(fo);
+    create_fontdescriptor(fo, f);
+    create_cid_charwidth_array(fo, f);
+    write_cid_charwidth_array(fo);
+    write_fontdescriptor(fo->fd);
+    
+    write_cid_fontdictionary(fo);
 }
 
-void write_0_fontdictionary(fo_entry * fo)
+void write_cid_fontdictionary(fo_entry * fo)
 {
-    int i,j,k;
-
-    assert(fo != NULL);
-    assert(fo->fo_objnum != 0); /* reserved as pdf_font_num[f] in pdftex.web */
-
-    /* write ToUnicode entry if needed */
+    int i;
 
     pdf_begin_dict(fo->fo_objnum, 1);
     pdf_puts("/Type /Font\n");
     pdf_puts("/Subtype /Type0\n");
     pdf_puts("/Encoding /Identity-H\n");
-    pdf_printf("/BaseFont /OTF+%s\n", font_name(fo->tex_font));
-	i  = pdf_new_objnum();
+    write_fontname(fo->fd, "BaseFont");
+    i  = pdf_new_objnum();
     pdf_printf("/DescendantFonts [%i 0 R]\n", i);
-	/* todo: the ToUnicode CMap */
+    /* todo: the ToUnicode CMap */
+    /*
+      if (fo->tounicode_objnum != 0)
+        pdf_printf("/ToUnicode %i 0 R\n", (int) fo->tounicode_objnum);
+    */
     pdf_end_dict();
 
     pdf_begin_dict(i, 1);
     pdf_puts("/Type /Font\n");
     pdf_puts("/Subtype /CIDFontType0\n");
-    pdf_printf("/BaseFont /OTF+%s\n", font_name(fo->tex_font));
-	j  = pdf_new_objnum();
-    pdf_printf("/FontDescriptor %i 0 R\n", j);
+    write_fontname(fo->fd, "BaseFont");
+    pdf_printf("/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
+    pdf_printf("/W %i 0 R\n",(int) fo->cw->cw_objnum);
     pdf_printf("/CIDSystemInfo <<\n");
-	pdf_printf("/Registry (LuaTeX)\n");
-	pdf_printf("/Ordering (cid-%s)\n",font_name(fo->tex_font));
-	pdf_printf("/Supplement 0\n");
-	pdf_puts("/DW 200\n");
+    pdf_printf("  /Registry (TeX)\n");
+    pdf_printf("  /Ordering (%s)\n",fo->fm->encname);
+    pdf_printf("  /Supplement 0\n");
     pdf_printf(">>\n");
     pdf_end_dict();
 
-    pdf_begin_dict(j, 1);
-    pdf_puts("/Type /FontDescriptor\n");
-    pdf_printf("/FontName /OTF+%s\n", font_name(fo->tex_font));
-    pdf_puts("/Flags 4\n");
-    pdf_puts("/FontBBox [0 0 1000 1000]\n");
-    pdf_puts("/ItalicAngle 0\n");
-    pdf_puts("/Ascent 800\n");
-    pdf_puts("/Descent 2000\n");
-    pdf_puts("/CapHeight 700\n");
-    pdf_puts("/StemV 25\n");
-	k =  pdf_new_objnum();
-	pdf_printf("/FontFile3 %i 0 R\n", k);
-    pdf_end_dict();
-
-	
-	write_0_otffile(fo->tex_font);
-    pdf_begin_dict(k, 0);
-	pdf_puts("/Subtype /OpenType\n");
-    pdf_begin_stream();
-    fb_flush();
-    pdf_end_stream();
-	
+    /* I doubt there is anything useful that could be written here */
+    /*      
+      if (pdf_font_attr[fo->tex_font] != get_nullstr()) {
+      pdf_print(pdf_font_attr[fo->tex_font]);
+      pdf_puts("\n");
+      }
+    */
 
 }
 
