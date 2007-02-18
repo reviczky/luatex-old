@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-02-05}
+\TitlePage{Snapshot 2007-02-18}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -54,7 +54,7 @@ need arises, anything can (and will) be changed without prior notice.
 
 \blank
 
-\bf If you are unhappy with this situation, wait for the public beta's.
+\bf If you are unhappy with this situation, wait for the public betas.
 \stopframedtext
 
 \blank[2*line]
@@ -68,6 +68,7 @@ need arises, anything can (and will) be changed without prior notice.
 \item Lua 5.1.1
 \item Dedicated lua libraries
 \item Various \TeX\ extensions
+\item The (OpenType) Font Parser from FontForge 2006.12.20
 \item Compiled source code to glue it all together
 \stopitemize
 
@@ -75,10 +76,7 @@ need arises, anything can (and will) be changed without prior notice.
 
 \startitemize[n]
 \item When \type{\pdfoutput} is set to one, \LUATEX\ behaves like \PDFTEX,
-with the addition of (8-bit) OTP processing.  In this mode, fonts are
-limited to 256 characters, and hyphenation is only available for 8-bit
-font encodings. Attempts to use the \ALEPH\ direction commands will
-generate erroneous output.
+with the addition of OTP processing and Aleph directionality commands.  
 
 \item When \type{\pdfoutput} is zero, \LUATEX\ behaves like \ALEPH\ with the
 addition of the micro-typography features. In this mode, fonts can have
@@ -88,8 +86,8 @@ specific to the PDF output format should work.
 \stopitemize
 
 In either mode, I/O translation processes, tcx files, enctex, cannot
-be used. The encoding items are superseded by a \LUA-based solution
-(\type{reader} callbacks).
+be used. All these encoding-related functions are superseded by a
+\LUA-based solution (\type{reader} callbacks).
 
 
 \chapter{Basic \TEX\ enhancements}
@@ -102,9 +100,8 @@ characters can use the full range of Unicode ($2^{20}+2^{16} =
 
 For now, it only makes sense to use values above the base plane (\hex
 FFFF) for \type{\mathcode} and \type{\catcode} assignments, since the
-fonts as well as the hyphenation patterns are still limited to at the
-most 16-bit values, so the other command will not know what to do with
-those high values.
+hyphenation patterns are still limited to at the most 16-bit values,
+so the other commands will not know what to do with those high values.
 
 Many primitives are affected by this. For instance,
 \type{\char} now accepts values between 0 and 1114111. This should not
@@ -1837,6 +1834,557 @@ setting relative to the designsize of the font.
 \stopitemize
 
 
+\subsection{Loading an opentype or truetype file}
+
+If you want to use an OpenType font, you have to get the metric
+information from somewhere. The next two functions provide a way of
+doing that. 
+
+\startfunctioncall
+     table ttf_metrics = font.read_otf(string filename)
+     table ttf_metrics = font.read_ttf(string filename)
+\stopfunctioncall
+
+The result is identical in both cases, but you have to use the
+`read_otf' for loading of information from PostScript-based OpenType
+and `read_ttf' for loading of TrueType-based OpenType (or simply a
+TrueType font). Bitmap-only OpenType fonts are not supported.
+
+At the moment, the \type{filename} font file is actually parsed and
+even partially interpreted by the OpenType/TrueType loading routines
+from FontForge. There are a few reasons for this:
+
+\startitemize
+\item The font is automatically re-encoded, so that the \type{ttf_metrics} 
+   table is using unicode for the character indices.
+\item Many features are pre-processed into a format that is easier to handle
+   than just the bare tables would be.
+\item PostScript-based OpenType fonts do not store the character height and 
+  depth in the font file, so the actual character boundingbox has to be 
+  calculated.
+\item In the future, it may be interesting to allow Lua scripts access to 
+  the actual font programs.
+\stopitemize
+
+The top||level keys in the returned table are (this documentation is
+not yet finished):
+
+\starttabulate[|l|l|p|]
+\NC key                          \NC type     \NC explanation \NC\FR
+\NC fontname                     \NC string   \NC \NC\NR
+\NC fullname                     \NC string   \NC \NC\NR
+\NC familyname                   \NC string   \NC \NC\NR
+\NC weight                       \NC string   \NC \NC\NR
+\NC copyright                    \NC string   \NC \NC\NR
+\NC filename                     \NC string   \NC \NC\NR
+\NC defbasefilename              \NC string   \NC \NC\NR
+\NC version                      \NC string   \NC \NC\NR
+\NC italicangle                  \NC float    \NC \NC\NR
+\NC upos                         \NC float    \NC \NC\NR
+\NC uwidth                       \NC float    \NC \NC\NR
+\NC ascent                       \NC number   \NC \NC\NR
+\NC descent                      \NC number   \NC \NC\NR
+\NC vertical_origin              \NC number   \NC \NC\NR
+\NC uniqueid                     \NC number   \NC \NC\NR
+\NC glyphcnt                     \NC number   \NC \NC\NR
+\NC glyphmax                     \NC number   \NC \NC\NR
+\NC glyphs                       \NC array    \NC \NC\NR
+\NC changed                      \NC number   \NC \NC\NR
+\NC hasvmetrics                  \NC number   \NC \NC\NR
+\NC order2                       \NC number   \NC \NC\NR
+\NC strokedfont                  \NC number   \NC \NC\NR
+\NC weight_width_slope_only      \NC number   \NC \NC\NR
+\NC head_optimized_for_cleartype \NC number   \NC \NC\NR
+\NC uni_interp                   \NC enum     \NC Possible values:  "unset", "none", "adobe", "greek", "japanese",
+                                                  "trad_chinese", "simp_chinese", "korean", "ams"\NC\NR
+\NC map                          \NC table    \NC \NC\NR
+\NC private                      \NC table    \NC \NC\NR
+\NC xuid                         \NC string   \NC \NC\NR
+\NC pfminfo                      \NC table    \NC \NC\NR
+\NC names                        \NC table    \NC \NC\NR
+\NC cidregistry                  \NC string   \NC \NC\NR
+\NC ordering                     \NC string   \NC \NC\NR
+\NC supplement                   \NC number   \NC \NC\NR
+\NC subfonts                     \NC array    \NC \NC\NR
+\NC cidmaster                    \NC array    \NC \NC\NR
+\NC cidversion                   \NC number   \NC \NC\NR
+\NC commments                    \NC string   \NC \NC\NR
+\NC anchor                       \NC table    \NC \NC\NR
+\NC orders                       \NC table    \NC \NC\NR
+\NC ttf_tables                   \NC table    \NC \NC\NR
+%\NC ttf_tab_saved                \NC table    \NC \NC\NR
+\NC script_lang                  \NC table    \NC \NC\NR
+\NC kerns                        \NC table    \NC \NC\NR
+\NC vkerns                       \NC table    \NC \NC\NR
+\NC texdata                      \NC table    \NC \NC\NR
+\NC tt_cur                       \NC number   \NC \NC\NR
+\NC tt_max                       \NC number   \NC \NC\NR
+\NC gentags                      \NC table    \NC \NC\NR
+\NC possub                       \NC table    \NC \NC\NR
+\NC features                     \NC table    \NC \NC\NR
+\NC chosenname                   \NC string   \NC \NC\NR
+\NC macstyle                     \NC number   \NC \NC\NR
+\NC sli_cnt                      \NC number   \NC \NC\NR
+\NC fondname                     \NC string   \NC \NC\NR
+\NC design_size                  \NC number   \NC \NC\NR
+\NC fontstyle_id                 \NC number   \NC \NC\NR
+\NC fontstyle_name               \NC table    \NC \NC\NR
+\NC design_range_bottom          \NC number   \NC \NC\NR
+\NC design_range_top             \NC number   \NC \NC\NR
+\NC strokewidth                  \NC float    \NC \NC\NR
+\NC mark_class_cnt               \NC number   \NC \NC\NR
+\NC mark_classes                 \NC array    \NC \NC\NR
+\NC mark_class_names             \NC array    \NC \NC\NR
+\NC creationtime                 \NC number   \NC \NC\NR
+\NC modificationtime             \NC number   \NC \NC\NR
+\NC os2_version                  \NC number   \NC \NC\NR
+\NC gasp_version                 \NC number   \NC \NC\NR
+\NC gasp_cnt                     \NC number   \NC \NC\NR
+\NC gasp                         \NC table    \NC \NC\NR
+\stoptabulate
+
+
+\subsubsection{Glyph items}
+
+The \type{glyphs} is an array containing the per-character information.
+
+\starttabulate[|l|l|p|]
+\NC key                          \NC type     \NC explanation \NC\FR
+\NC name                         \NC string   \NC \NC\NR
+\NC unicodeenc                   \NC number   \NC \NC\NR
+\NC boundingbox                  \NC array    \NC Array of four numbers\NC\NR
+\NC orig_pos                     \NC number   \NC \NC\NR
+\NC width                        \NC number   \NC \NC\NR
+\NC vwidth                       \NC number   \NC \NC\NR
+\NC lsidebearing                 \NC number   \NC \NC\NR
+\NC ticked                       \NC number   \NC \NC\NR
+\NC widthset                     \NC number   \NC \NC\NR
+\NC glyph_class                  \NC number   \NC \NC\NR
+\NC kerns                        \NC array    \NC \NC\NR
+\NC vkerns                       \NC array    \NC \NC\NR
+\NC dependents                   \NC array    \NC Linear array of glyph name strings\NC\NR
+\NC possub                       \NC table    \NC \NC\NR
+\NC ligofme                      \NC table    \NC \NC\NR
+\NC comment                      \NC string   \NC \NC\NR
+\NC color                        \NC number   \NC \NC\NR
+\NC tex_height                   \NC number   \NC \NC\NR
+\NC tex_depth                    \NC number   \NC \NC\NR
+\NC tex_sub_pos                  \NC number   \NC \NC\NR
+\NC tex_super_pos                \NC number   \NC \NC\NR
+\stoptabulate
+
+The \type{kerns} and \type{vkerns} are linear arrays of small hashes:
+
+\starttabulate[|l|l|p|]
+\NC key                          \NC type     \NC explanation \NC\FR
+\NC char                         \NC string   \NC \NC\NR
+\NC off                          \NC number   \NC \NC\NR
+\NC sli                          \NC number   \NC \NC\NR
+\NC flags                        \NC number   \NC \NC\NR
+\stoptabulate
+
+The \type{possub} is a linear array of small hashes:
+\starttabulate[|l|l|p|]
+\NC key                          \NC type     \NC explanation \NC\FR
+\NC type                         \NC enum     \NC "position", "pair",  "substitution", "alternate",
+                                                  "multiple", "ligature", "lcaret",  "kerning", "vkerning", "anchors",
+                                                  "contextpos", "contextsub", "chainpos", "chainsub",
+                                                  "reversesub", "max", "kernback", "vkernback" \NC\NR
+\NC macfeature                   \NC number   \NC \NC\NR
+\NC flags                        \NC number   \NC \NC\NR
+\NC tag                          \NC string   \NC \NC\NR
+\NC script_lang_index            \NC number   \NC \NC\NR
+\stoptabulate
+
+For the first seven values of \type{type}, there can be additional sub-information:
+\starttabulate[|l|l|l|p|]
+\NC value        \NC key                \NC type     \NC explanation \NC\FR
+\NC position     \NC pos                \NC table    \NC `vr' table\NC\NR
+\NC pair         \NC pair               \NC table    \NC one string: 'paired', and a 'vr' (sub)table\NC\NR
+\NC substitution \NC subs               \NC table    \NC one string: 'variant'\NC\NR
+\NC alternate    \NC alt                \NC table    \NC one string: 'components'\NC\NR
+\NC multiple     \NC mult               \NC table    \NC one string: 'components'\NC\NR
+\NC ligature     \NC lig                \NC table    \NC two strings: 'components', 'char'\NC\NR
+\NC lcaret       \NC lcaret             \NC array    \NC linear array of numbers\NC\NR
+\stoptabulate
+The `vr' table contains for number-valued fields: \type{xoff},
+\type{yoff}, \type{h_adv_off} and \type{v_adv_off}.
+
+The other values of \type{type} could probably use some extra
+information as well, but I do not know which case of the union is
+supposed to be selected.
+
+
+The \type{ligofme} is a linear array of small hashes:
+\starttabulate[|l|l|p|]
+\NC key                \NC type     \NC explanation \NC\FR
+\NC lig                \NC table    \NC uses the same substructure as a single `possub' item\NC\NR
+\NC char               \NC string   \NC \NC\NR
+\NC components         \NC array    \NC linear array of named components\NC\NR
+\NC ccnt               \NC number   \NC \NC\NR
+\stoptabulate
+
+\subsubsection{map table}
+
+The top-level map is a list of encoding mappings. Each of those is a table itself.
+
+\starttabulate[|l|l|p|]
+\NC key                \NC type     \NC explanation \NC\FR
+\NC enccount           \NC number   \NC \NC\NR
+\NC encmax             \NC number   \NC \NC\NR
+\NC backmax            \NC number   \NC \NC\NR
+\NC ticked             \NC number   \NC \NC\NR
+\NC remap              \NC table    \NC \NC\NR
+\NC map                \NC array    \NC non-linear array of mappings\NC\NR
+\NC backmap            \NC array    \NC non-linear array of backward mappings\NC\NR
+\NC enc                \NC table    \NC \NC\NR
+\stoptabulate
+
+The `remap' table is very small:
+\starttabulate[|l|l|p|]
+\NC key                \NC type     \NC explanation \NC\FR
+\NC firstenc           \NC number   \NC \NC\NR
+\NC lastenc            \NC number   \NC \NC\NR
+\NC infont             \NC number   \NC \NC\NR
+\stoptabulate
+
+The `enc' table is a bit more verbose:
+\starttabulate[|l|l|p|]
+\NC key                \NC type     \NC explanation \NC\FR
+\NC enc_name           \NC string   \NC \NC\NR
+\NC char_cnt           \NC number   \NC \NC\NR
+\NC char_max           \NC number   \NC \NC\NR
+\NC unicode            \NC array    \NC of unicode position numbers\NC\NR
+\NC psnames            \NC array    \NC of postscript glyph names\NC\NR
+\NC builtin            \NC number   \NC \NC\NR
+\NC hidden             \NC number   \NC \NC\NR
+\NC only_1byte         \NC number   \NC \NC\NR
+\NC has_1byte          \NC number   \NC \NC\NR
+\NC has_2byte          \NC number   \NC \NC\NR
+\NC is_unicodebmp      \NC number   \NC \NC\NR
+\NC is_unicodefull     \NC number   \NC \NC\NR
+\NC is_custom          \NC number   \NC \NC\NR
+\NC is_original        \NC number   \NC \NC\NR
+\NC is_compact         \NC number   \NC \NC\NR
+\NC is_japanese        \NC number   \NC \NC\NR
+\NC is_korean          \NC number   \NC \NC\NR
+\NC is_tradchinese     \NC number   \NC \NC\NR
+\NC is_simplechinese   \NC number   \NC \NC\NR
+\NC low_page           \NC number   \NC \NC\NR
+\NC high_page          \NC number   \NC \NC\NR
+\NC is_temporary       \NC number   \NC \NC\NR
+\NC iconv_name         \NC string   \NC \NC\NR
+\NC iso_2022_escape    \NC string   \NC \NC\NR
+\stoptabulate
+
+\subsubsection{private table}
+
+This is the font's private PostScript dictionary, if any. Keys and
+values are both strings.
+
+\subsubsection{pfminfo table}
+
+The `pfminfo' table contains most of the OS/2 information:
+
+\starttabulate[|l|l|p|]
+\NC key                \NC type     \NC explanation \NC\FR
+\NC pfmset             \NC number  \NC \NC\NR
+\NC winascent_add      \NC number  \NC \NC\NR
+\NC windescent_add     \NC number  \NC \NC\NR
+\NC hheadascent_add    \NC number  \NC \NC\NR
+\NC hheaddescent_add   \NC number  \NC \NC\NR
+\NC typoascent_add     \NC number  \NC \NC\NR
+\NC typodescent_add    \NC number  \NC \NC\NR
+\NC subsuper_set       \NC number  \NC \NC\NR
+\NC panose_set         \NC number  \NC \NC\NR
+\NC hheadset           \NC number  \NC \NC\NR
+\NC vheadset           \NC number  \NC \NC\NR
+\NC pfmfamily          \NC number  \NC \NC\NR
+\NC weight             \NC number  \NC \NC\NR
+\NC width              \NC number  \NC \NC\NR
+\NC avgwidth           \NC number  \NC \NC\NR
+\NC firstchar          \NC number  \NC \NC\NR
+\NC lastchar           \NC number  \NC \NC\NR
+\NC fstype             \NC number  \NC \NC\NR
+\NC linegap            \NC number  \NC \NC\NR
+\NC vlinegap           \NC number  \NC \NC\NR
+\NC hhead_ascent       \NC number  \NC \NC\NR
+\NC hhead_descent      \NC number  \NC \NC\NR
+\NC hhead_descent      \NC number  \NC \NC\NR
+\NC os2_typoascent     \NC number  \NC \NC\NR
+\NC os2_typodescent    \NC number  \NC \NC\NR
+\NC os2_typolinegap    \NC number  \NC \NC\NR
+\NC os2_winascent      \NC number  \NC \NC\NR
+\NC os2_windescent     \NC number  \NC \NC\NR
+\NC os2_subxsize       \NC number  \NC \NC\NR
+\NC os2_subysize       \NC number  \NC \NC\NR
+\NC os2_subxoff        \NC number  \NC \NC\NR
+\NC os2_subyoff        \NC number  \NC \NC\NR
+\NC os2_supxsize       \NC number  \NC \NC\NR
+\NC os2_supysize       \NC number  \NC \NC\NR
+\NC os2_supxoff        \NC number  \NC \NC\NR
+\NC os2_supyoff        \NC number  \NC \NC\NR
+\NC os2_strikeysize    \NC number  \NC \NC\NR
+\NC os2_strikeypos     \NC number  \NC \NC\NR
+\NC os2_family_class   \NC number  \NC \NC\NR
+\NC os2_xheight        \NC number  \NC \NC\NR
+\NC os2_capheight      \NC number  \NC \NC\NR
+\NC os2_defaultchar    \NC number  \NC \NC\NR
+\NC os2_breakchar      \NC number  \NC \NC\NR
+\NC os2_vendor         \NC string  \NC \NC\NR  
+\NC panose             \NC table  \NC \NC\NR  
+\stoptabulate
+
+The \type{panose} subtable has exactly 10 string keys:
+\starttabulate[|l|l|p|]
+\NC key                \NC type     \NC explanation \NC\FR
+familytype             \NC string   \NC Values as in the OpenType font specification: 
+                   "Any", "No Fit", "Text and Display", "Script", "Decorative", "Pictorial"\NC\NR
+serifstyle             \NC string   \NC See the OpenType font specification for values\NC\NR
+weight                 \NC string   \NC id. \NC\NR
+proportion             \NC string   \NC id. \NC\NR
+contrast               \NC string   \NC id. \NC\NR
+strokevariation        \NC string   \NC id. \NC\NR
+armstyle               \NC string   \NC id. \NC\NR
+letterform             \NC string   \NC id. \NC\NR
+midline                \NC string   \NC id. \NC\NR
+xheight                \NC string   \NC id. \NC\NR
+\stoptabulate
+
+\subsubsection{names table}
+
+Each item has two top-level keys:
+
+\starttabulate[|l|l|p|]
+\NC key                \NC type     \NC explanation \NC\FR
+lang                   \NC number   \NC language for this entry \NC\NR
+names                  \NC table    \NC \NC\NR
+\stoptabulate
+
+The \type{names} keys are the actual TrueType name strings. The
+possible keys are:
+\starttabulate[|l|p|]
+\NC key               \NC explanation \NC\FR
+\NC copyright   \NC \NC\NR 
+\NC family   \NC \NC\NR 
+\NC subfamily   \NC \NC\NR 
+\NC uniqueid   \NC \NC\NR
+\NC fullname   \NC \NC\NR 
+\NC version   \NC \NC\NR 
+\NC postscriptname   \NC \NC\NR 
+\NC trademark   \NC \NC\NR
+\NC manufacturer   \NC \NC\NR 
+\NC designer   \NC \NC\NR 
+\NC descriptor   \NC \NC\NR
+\NC venderurl   \NC \NC\NR
+\NC designerurl   \NC \NC\NR 
+\NC license   \NC \NC\NR 
+\NC licenseurl   \NC \NC\NR 
+\NC idontknow   \NC \NC\NR
+\NC preffamilyname   \NC \NC\NR 
+\NC prefmodifiers   \NC \NC\NR 
+\NC compatfull   \NC \NC\NR 
+\NC sampletext   \NC \NC\NR
+\NC cidfindfontname   \NC \NC\NR
+\stoptabulate
+
+\subsubsection{anchor table}
+
+The anchor classes:
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC name                   \NC string   \NC \NC\NR
+\NC feature_tag            \NC string   \NC \NC\NR
+\NC script_lang_index      \NC number   \NC \NC\NR
+\NC flags                  \NC number   \NC \NC\NR
+\NC merge_with             \NC number   \NC \NC\NR
+\NC type                   \NC number   \NC \NC\NR
+\NC processed              \NC number   \NC \NC\NR
+\NC has_mark               \NC number   \NC \NC\NR
+\NC matches                \NC number   \NC \NC\NR
+\NC ac_num                 \NC number   \NC \NC\NR
+\stoptabulate
+
+\subsubsection{orders table}
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC table_tag              \NC string   \NC \NC\NR
+\NC ordered_features       \NC array    \NC list of tag strings\NC\NR
+\stoptabulate
+
+\subsubsection{ttf_tables table}
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC tag                    \NC string   \NC \NC\NR
+\NC len                    \NC number   \NC \NC\NR
+\NC maxlen                 \NC number   \NC \NC\NR
+\NC data                   \NC number   \NC \NC\NR
+\stoptabulate
+
+\subsubsection{script_lang table}
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC script                 \NC string   \NC \NC\NR
+\NC langs                  \NC array    \NC list of language tags\NC\NR
+\stoptabulate
+
+\subsubsection{kerns table}
+
+Substructure is identical to the per-glyph subtable.
+
+\subsubsection{vkerns table}
+
+Substructure is identical to the per-glyph subtable.
+
+\subsubsection{texdata table}
+
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC type                   \NC string   \NC possible values: "unset", "text", "math", "mathext"\NC\NR
+\NC params                 \NC array    \NC 22 font numeric parameters\NC\NR
+\stoptabulate
+
+\subsubsection{gentags table}
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC tagtype                \NC array    \NC \NC\NR
+\stoptabulate
+
+The array items are mini-hashes:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC type                   \NC enum     \NC allowed values: "null", "position", "pair",  "substitution", "alternate",
+  "multiple", "ligature", "lcaret",  "kerning", "vkerning", "anchors",
+  "contextpos", "contextsub", "chainpos", "chainsub",
+  "reversesub", "max", "kernback", "vkernback"\NC\NR
+\NC tag                    \NC string   \NC \NC\NR
+\stoptabulate
+
+
+\subsubsection{possub table}
+
+Top-level \type{possub} is quite different from the ones at character level.
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC type                   \NC number   \NC \NC\NR
+\NC format                 \NC enum     \NC Possible values:  "glyphs", "class","coverage","reversecoverage" \NC\NR
+\NC script_lang_index      \NC number   \NC \NC\NR
+\NC flags                  \NC number   \NC \NC\NR
+\NC tag                    \NC string   \NC \NC\NR
+\NC nccnt                  \NC number   \NC \NC\NR
+\NC bccnt                  \NC number   \NC \NC\NR
+\NC fccnt                  \NC number   \NC \NC\NR
+\NC rule_cnt               \NC number   \NC \NC\NR
+\NC nclass                 \NC array   \NC \NC\NR
+\NC bclass                 \NC array   \NC \NC\NR
+\NC fclass                 \NC array   \NC \NC\NR
+\NC rules                  \NC array   \NC an array of rule items\NC\NR
+\NC ticked                 \NC number   \NC \NC\NR
+\stoptabulate
+
+Rule items have one common item and one specialized item:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC lookups                \NC array    \NC A list of `lookup items'\NC\NR
+\NC glyph                  \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
+\NC class                  \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
+\NC coverage               \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
+\NC rcoverage              \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
+\stoptabulate
+
+Each of the lookup item is:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC seq                    \NC number   \NC \NC\NR
+\NC lookup_tag             \NC string   \NC \NC\NR
+\stoptabulate
+
+glyph:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC names                  \NC string   \NC \NC\NR
+\NC back                   \NC string   \NC \NC\NR
+\NC fore                   \NC string   \NC \NC\NR
+\stoptabulate
+
+
+class:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC nclasses               \NC array    \NC of numbers \NC\NR
+\NC bclasses               \NC array    \NC of numbers  \NC\NR
+\NC fclasses               \NC array    \NC of numbers  \NC\NR
+\stoptabulate
+
+coverage:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC ncovers                \NC array    \NC of strings \NC\NR
+\NC bcovers                \NC array    \NC of strings\NC\NR
+\NC fcovers                \NC array    \NC of strings \NC\NR
+\stoptabulate
+
+rcoverage:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC ncovers                \NC array    \NC of strings \NC\NR
+\NC bcovers                \NC array    \NC of strings\NC\NR
+\NC fcovers                \NC array    \NC of strings \NC\NR
+\NC replacements           \NC string   \NC \NC\NR
+\stoptabulate
+
+\subsubsection{features table}
+ 
+These are Apple features.
+
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC feature                \NC number   \NC \NC\NR
+\NC ismutex                \NC number   \NC \NC\NR
+\NC default_setting        \NC number   \NC \NC\NR
+\NC strid                  \NC number   \NC \NC\NR
+\NC featname               \NC array    \NC array of `macname' items\NC\NR
+\NC settings               \NC array    \NC \NC\NR
+\stoptabulate
+
+The \type{settings} items are hashes:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC setting                \NC number   \NC \NC\NR
+\NC strid                  \NC number   \NC \NC\NR
+\NC initially_enabled      \NC number   \NC \NC\NR
+\NC setname                \NC array    \NC array of `macname' items\NC\NR
+\stoptabulate
+
+The `macname' hashes:
+\starttabulate[|l|l|p|]
+\NC key                    \NC type     \NC explanation \NC\FR
+\NC enc                    \NC number   \NC \NC\NR
+\NC lang                   \NC number   \NC \NC\NR
+\NC name                   \NC string   \NC \NC\NR
+\stoptabulate
+
+
+\subsection{Loading opentype or truetype name information}
+
+\startfunctioncall
+     table ttf_info    = font.read_otf_info(string name)
+     table ttf_info    = font.read_ttf_info(string name)
+\stopfunctioncall
+
+These two functions are very similar to the two commands from previous
+section, but they only return a small subset of the information. The
+returned table only has four keys: \type{fontname}, \type{fullname},
+\type{familyname} and \type{weight}. 
+
+
 \subsection{The fonts array}
 
 \starttyping
@@ -1913,16 +2461,19 @@ The top-level keys in the table are as follows:
 \NC checksum           \NC yes      \NC yes      \NC no  \NC number \NC default: 0 \NC \NR
 \NC designsize         \NC no       \NC yes      \NC yes \NC number \NC expected size (default: 655360 == 10pt) \NC \NR
 \NC direction          \NC no       \NC yes      \NC yes \NC number \NC default: 0 (LTR) \NR
-\NC encodingname       \NC no       \NC no       \NC no  \NC string \NC encoding (file) name\NC\NR
+\NC encodingname       \NC no       \NC no       \NC yes \NC string \NC encoding name\NC\NR
 \NC false_boundarychar \NC no       \NC yes      \NC yes \NC number \NC (this is a relic, will be removed)\NC \NR
 \NC fonts              \NC yes      \NC no       \NC yes \NC table  \NC locally used fonts\NC \NR
-\NC fullname           \NC no       \NC no       \NC no  \NC string \NC actual (PostScript) name\NC\NR
+\NC fullname           \NC no       \NC no       \NC yes \NC string \NC actual (PostScript) name\NC\NR
 \NC header             \NC yes      \NC no       \NC no  \NC string \NC header comments, if any\NC \NR
 \NC hyphenchar         \NC no       \NC no       \NC yes \NC number \NC default: TeX's \type{\hyphenchar} \NC \NR
 \NC parameters         \NC no       \NC yes      \NC yes \NC hash   \NC default: 7 parameters, all zero \NC \NR
 \NC size               \NC no       \NC yes      \NC yes \NC number \NC loaded (at) size. (default: same as designsize) \NC \NR
 \NC skewchar           \NC no       \NC no       \NC yes \NC number \NC default: TeX's \type{\skewchar}  \NC \NR
 \NC type               \NC yes      \NC no       \NC yes \NC string \NC basic type of this font\NC \NR
+\NC format             \NC no       \NC no       \NC yes \NC string \NC disk format type\NC \NR
+\NC embedding          \NC no       \NC no       \NC yes \NC string \NC PDF inclusion\NC \NR
+\NC filename           \NC no       \NC no       \NC yes \NC string \NC disk file name\NC\NR
 \stoptabulate
 
 The key \type{name} is always required.
@@ -1966,6 +2517,8 @@ The names and their internal remapping:
 \NC extra_space   \NC 7  \NC\LR
 \stoptabulate
 
+The keys \type{type}, \type{format}, \type{embedding}, \type{fullname} and
+\type{filename} are used to embed OpenType fonts in the result PDF.
 
 The \type{characters} table is a list of character hashes indexed by
 number. The number is the `internal code' TeX knows this character
@@ -2018,6 +2571,7 @@ The following top-level keys can be present inside a character hash:
 \NC ligatures         \NC no       \NC yes      \NC yes \NC table  \NC ligaturing information\NC\NR
 \NC commands          \NC yes      \NC no       \NC yes \NC array  \NC virtual font commands\NC\NR
 \NC name              \NC no       \NC no       \NC no  \NC string \NC the character (PostScript) name\NC\NR
+\NC index             \NC no       \NC no       \NC yes \NC number \NC the (opentype) font glyph index\NC\NR
 \NC used              \NC no       \NC yes      \NC yes \NC boolean\NC typeset already (default: false)?\NC\NR
 \stoptabulate
 
@@ -2072,6 +2626,97 @@ ligature where the ligature replaces both original glyphs.
 
 The \type{commands} array is explained below.
 
+\section {Real fonts}
+
+Whether or not a \TEX\ font is a `real' font that should be written to
+the PDF document is decided by the \type{type} value in the top-level
+font structure. If the value is \type{real}, then this is a proper
+font, and the inclusion mechanism will attempt to add the proper
+definitions to the PDF.
+
+Values for \type{type}:
+\starttabulate[|l|p|]
+\NC value          \NC description \NC\FR
+\NC real          \NC This is a base font\NC\NR
+\NC virtual       \NC This is a virtual font\NC\NR
+\stoptabulate
+
+
+The actions to be taken depend on a number of different variables:
+
+\startitemize
+\item Whether the used font fits in an 8-bit encoding scheme or not
+\item The type of the disk font file
+\item The level of embedding requested
+\stopitemize
+
+A font that uses anything other than an 8-bit encoding vector has to
+be written to the PDF in a different way. 
+
+The test that decides if this is the case is fairly simple in the
+version of \LUATEX: If a `real' font is using character metrics above
+the value 255, then it is assumed to be a wide font. A more lenient
+approach is often possible, and will perhaps be implemented later.
+
+If no special care is needed, \LUATEX\ currently falls back to the
+mapfile||based solution used by \PDFTEX\ and DVIPS. This behaviour
+will be removed in the future, when the existing code becomes
+integrated in the new subsystem.
+
+But if this is a `wide' font, then the new subsystem kicks in, and
+some extra fields have to be present in the font structure. In this
+case, \LUATEX\ does not use a map file at all.
+
+The extra fields are: \type{format}, \type{embedding}, \type{fullname},
+\type{encodingname}, \type{filename}, and the \type{index} key in 
+the separate characters. 
+
+Values for \type{format}:
+\starttabulate[|l|p|]
+\NC value          \NC description \NC\FR
+\NC type1          \NC This is a PostScript Type1 font\NC\NR
+\NC type3          \NC This is a bitmapped (PK) font\NC\NR
+\NC truetype       \NC This is a TrueType or TrueType-based OpenType font\NC\NR
+\NC opentype       \NC This is a PostScript-based OpenType font\NC\NR
+\stoptabulate
+
+Only \type{truetype} and \type{opentype} fonts can be `wide' fonts.
+On top of that, \type{truetype} format requires the
+\type{\pdfminorversion} to be at least~6, otherwise an invalid PDF would 
+be produced.
+
+Values for \type{embedding}:
+\starttabulate[|l|p|]
+\NC value          \NC description \NC\FR
+\NC no             \NC Don't embed the font at all\NC\NR
+\NC subset         \NC Include and atttempt to subset the font\NC\NR
+\NC full           \NC Include this font in it's entirety\NC\NR
+\stoptabulate
+
+At the moment, \type{full} is the only implemented form.
+
+It is not possible to artificially modify the transformation matrix
+for the font at the moment.
+
+The other fields are used as follows: The \type{fullname} will be the
+PostScript/PDF font name. The \type{encodingname} will be used as the
+character set (the CID \type{/Ordering} key). The
+\type{filename} points to the actual font file. If you include the 
+full path in the \type{filename} or if the file is in the local
+directory, \LUATEX\ will run a little bit more efficient because it
+will not have to re-run the \type{find_xxx_file} callback in that
+case.
+
+Typeset strings are written out in a wide format using 2 bytes per
+glyph, using the \type{index} key in the character information as
+value. The overall effect is like having an encoding based on numbers
+instead of traditional (PostScript) name-based reencoding.
+
+This type of reencoding means that there is no longer a clear
+connection between the text in your input file and the strings in the
+output PDF file; I have not found a convenient away around that yet.
+
+
 \section {Virtual fonts}
 
 You have to take the following steps if you want \LUATEX\ to treat the
@@ -2117,7 +2762,9 @@ allowed commands and their arguments are:
 \NC font              \NC 1         \NC number    \NC select a new font from the local 'fonts' table\NC\NR
 \NC char              \NC 1         \NC number    \NC typeset this character number from the current 
                                                       font, and move right\NC\NR
+\NC slot              \NC 2         \NC number    \NC a shortcut for a font, char set\NC\NR
 \NC push              \NC 0         \NC --        \NC save current position\NC\NR
+\NC nop               \NC 0         \NC --        \NC do nothing \NC\NR
 \NC pop               \NC 0         \NC --        \NC pop position \NC\NR
 \NC rule              \NC 2         \NC 2 numbers \NC output a rule $w*h$, and move right\NC\NR
 \NC down              \NC 1         \NC number    \NC move down on the page\NC\NR
@@ -2414,16 +3061,16 @@ going to be replaced by a new subsystem soon anyway.
 
 \startitemize
 
-\item The virtual font commands in 'define_font' lua tables that accept 
-numeric arguments are probably not correct yet. There is a conversion
-factor (linked to the font designsize) that seemingly has to be taken 
-into account.
+\item Not all of Aleph's direction commands are handled properly in 
+PDF mode yet. This is especially true for the Top-Bottom and
+Bottom-Top writing directions, but it there are also some remaining
+problems with Right-Left.
 
 \item Font expansion is currently non-functional due to massive 
 changes in the virtual font handling.
 
-\item Left-boundary ligature processing is broken, because of a change 
-in the internal font structure.
+\item Left- and rightboundary ligature processing is broken, because of
+a change in the internal font structure.
 
 \item Letter spacing (\type{\letterspacefont}) is currently non-functional 
 due to massive changes in the virtual font handling. This
