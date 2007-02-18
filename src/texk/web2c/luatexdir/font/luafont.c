@@ -22,9 +22,9 @@ font_char_to_lua (lua_State *L, internalfontnumber f, int k) {
   lua_setfield(L,-2,"italic");
 
   if(font_format(f) == opentype_format 
-	 || font_format(f) == truetype_format ) {
-	lua_pushnumber(L,char_index(f,k));
-	lua_setfield(L,-2,"index");
+     || font_format(f) == truetype_format ) {
+    lua_pushnumber(L,char_index(f,k));
+    lua_setfield(L,-2,"index");
   }
 
   if (char_name(f,k)!=NULL) {
@@ -123,6 +123,10 @@ font_to_lua (lua_State *L, int f) {
   if(font_filename(f)!=NULL) {
 	lua_pushstring(L,font_filename(f));
 	lua_setfield(L,-2,"filename");
+  }
+  if(font_fullname(f)!=NULL) {
+	lua_pushstring(L,font_fullname(f));
+	lua_setfield(L,-2,"fullname");
   }
   if(font_encodingname(f)!=NULL) {
 	lua_pushstring(L,font_encodingname(f));
@@ -226,6 +230,16 @@ read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, inte
 		    do_store_four(ff);
 		  }
 		} 
+		else if (streq(s,"slot"))    {  cmd = packet_nop_code;
+		  lua_rawgeti(L,-2,2);  n = lua_tointeger(L,-1);
+		  ff = l_fonts[n];
+		  lua_rawgeti(L,-3,3);  n = lua_tointeger(L,-1);
+		  lua_pop(L,2);
+		  append_packet(packet_font_code);
+		  do_store_four(ff);
+		  append_packet(packet_char_code);
+		  do_store_four(n);
+		} 
 		else if (streq(s,"push"))    {  cmd = packet_push_code;    } 
 		else if (streq(s,"pop"))     {  cmd = packet_pop_code;     } 
 		else if (streq(s,"rule"))    {  cmd = packet_rule_code;    }
@@ -233,12 +247,13 @@ read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, inte
 		else if (streq(s,"down"))    {  cmd = packet_down_code;    }
 		else if (streq(s,"special")) {  cmd = packet_special_code; } 
 		
-		append_packet(cmd);
 		switch(cmd) {
 		case packet_push_code:
 		case packet_pop_code:
+		  append_packet(cmd);
 		  break;
 		case packet_font_code:
+		  append_packet(cmd);
 		  lua_rawgeti(L,-2,2);
 		  n = lua_tointeger(L,-1);
 		  ff = l_fonts[n];
@@ -246,6 +261,7 @@ read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, inte
 		  lua_pop(L,1);
 		  break;
 		case packet_char_code:
+		  append_packet(cmd);
 		  lua_rawgeti(L,-2,2);
 		  n = lua_tointeger(L,-1);
 		  do_store_four(n);
@@ -253,6 +269,7 @@ read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, inte
 		  break;
 		case packet_right_code:
 		case packet_down_code:
+		  append_packet(cmd);
 		  lua_rawgeti(L,-2,2);
 		  n = lua_tointeger(L,-1);
 		  /* TODO this multiplier relates to the font size, apparently */
@@ -260,6 +277,7 @@ read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, inte
 		  lua_pop(L,1);
 		  break;
 		case packet_rule_code:
+		  append_packet(cmd);
 		  lua_rawgeti(L,-2,2);
 		  n = lua_tointeger(L,-1);
 		  /* here too, twice */
@@ -269,6 +287,7 @@ read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, inte
 		  do_store_four(((n<<4)/10));
 		  lua_pop(L,2);
 		case packet_special_code:
+		  append_packet(cmd);
 		  lua_rawgeti(L,-2,2);
 		  s = (char *)lua_tolstring(L,-1,&l);
  		  if (l>0) {
@@ -280,6 +299,8 @@ read_char_packets  (lua_State *L, integer *l_fonts, internal_font_number f, inte
 		    }
 		  }
 		  lua_pop(L,1);
+		  break;
+		case packet_nop_code:
 		  break;
 		default:
 		  fprintf(stdout,"Unknown char packet code % in font %d\n",cmd,(int)f);
@@ -432,7 +453,7 @@ font_from_lua (lua_State *L, int f) {
   if (s != NULL){
     if (strcmp(s,"virtual") == 0) {
       set_font_type(f,virtual_font_type);
-    } else {
+    } else if (strcmp(s,"real") == 0) {
       set_font_type(f,real_font_type);
     }
     free(s); /* because it is not actually used */
