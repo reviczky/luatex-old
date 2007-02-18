@@ -24,7 +24,6 @@ $Id: writefont.c,v 1.3 2005/12/27 19:04:42 hahe Exp $
 
 void write_cid_fontdictionary(fo_entry * fo);
 void create_cid_fontdictionary(fm_entry * fm, integer font_objnum, internalfontnumber f);
-void write_cid_otffile(fd_entry * fd);
 
 /**********************************************************************/
 
@@ -391,7 +390,10 @@ static void write_fontfile(fd_entry * fd)
 {
     assert(is_included(fd->fm));
     if (is_cidkeyed(fd->fm)) {
-      write_cid_otffile(fd);
+      if (is_opentype(fd->fm))
+	writeotf(fd);
+      else
+	writettf(fd);
     } else {
       if (is_type1(fd->fm))
         writet1(fd);
@@ -408,7 +410,11 @@ static void write_fontfile(fd_entry * fd)
     fd->ff_objnum = pdf_new_objnum();
     pdf_begin_dict(fd->ff_objnum, 0);     /* font file stream */
     if (is_cidkeyed(fd->fm)) {
-      pdf_puts("/Subtype /OpenType\n");
+      /* Subtype /OpenType is used for TrueType-based OpenType fonts */
+      if (is_opentype(fd->fm))
+	pdf_puts("/Subtype /CIDFontType0C\n");
+      else
+	pdf_puts("/Subtype /OpenType\n");
     } else {
       if (is_type1(fd->fm))
         pdf_printf("/Length1 %i\n/Length2 %i\n/Length3 %i\n",
@@ -467,6 +473,15 @@ static void write_fontdescriptor(fd_entry * fd)
         else
             assert(0);
     }
+    /* TODO: Optional keys for CID fonts. 
+    
+       The most interesting ones are
+          /Style << /Panose <12-byte string>>>
+       and
+          /CIDSET <stream>
+       the latter can be used in subsets, to give the included CIDs
+       as a bitmap on the whole list.
+    */
     pdf_end_dict();
 }
 
@@ -625,17 +640,12 @@ void create_fontdictionary(fm_entry * fm, integer font_objnum,
 void do_pdf_font(integer font_objnum, internalfontnumber f)
 {
     fm_entry *fm;
-    /* this test is not correct. It should really check whether the
-       font in question is a wide (CID-keyed) font, because that is
-       the main difference.
-       8-bit Encoded subsets of OpenType can be represented already,
-       as Type1C (in writettf.c)
-    */
-    if (font_format(f) == opentype_format) {
+    /* this test is not 100% correct, but close */
+    if (font_ec(f) > 255) {
       /* Create an fm entry, as this is needed by the rest of the font mechanism.
 	 I am not sure wether it makes sense to store it in the avl_tree.
        */
-      /* todo: take slant and extend from the texfont struct */
+      /* TODO: take slant and extend from the texfont struct */
       fm = new_fm_entry();
       fm->tfm_name = font_name(f);          /* or whatever, not a real tfm */
       fm->ff_name = font_filename(f);       /* the actual file */
@@ -643,7 +653,14 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
       fm->ps_name = font_fullname(f);       /* the true name */
       fm->fd_flags = 4;                     /* can perhaps be done better */
       fm->in_use = true;
-      set_opentype(fm);
+
+      if (font_format(f)==opentype_format)
+	set_opentype(fm);
+      else if (font_format(f)==truetype_format)
+	set_truetype(fm);
+      else
+	assert(0);
+
       set_included(fm);
       set_cidkeyed(fm);
       create_cid_fontdictionary(fm, font_objnum, f);
@@ -658,49 +675,6 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
 }
 
 /**********************************************************************/
-
-void write_cid_otffile(fd_entry *fd)
-{
-  FILE *otf_file;
-  long i;
-  int callback_id;
-  int file_opened = 0;
-  char *ftemp = NULL;
-  unsigned char *ttf_buffer = NULL;
-  long ttf_size = 0;
-  otf_file = fopen(fd->fm->ff_name,"rb");
-  if(otf_file == NULL) {
-    callback_id=callback_defined("find_opentype_file");
-    if (callback_id>0) {
-      if(run_callback(callback_id,"S->S",fd->fm->ff_name,&ftemp)) {
-	if(ftemp!=NULL&&strlen(ftemp)) {
-	  free(fd->fm->ff_name);
-	  fd->fm->ff_name = ftemp;
-	}
-      }
-    }
-  }
-  callback_id=callback_defined("read_opentype_file");
-  if (callback_id>0) {
-    if(run_callback(callback_id,"S->bSd",fd->fm->ff_name,
-		    &file_opened, &ttf_buffer,&ttf_size) &&
-       file_opened && ttf_size>0) {
-    } else {
-      pdftex_fail ("cannot open OpenType font file for reading");
-    }
-  } else {
-    otf_file = fopen(fd->fm->ff_name,"rb");
-    if (otf_file == NULL) {
-      pdftex_fail ("cannot open OpenType font file for reading");
-    }
-    readbinfile(otf_file,&ttf_buffer,&ttf_size);
-    fclose(otf_file);
-  }
-  if (ttf_size>0)
-    fd->ff_found = true;
-  for (i=0;i<ttf_size;i++)
-    fb_putchar(ttf_buffer[i]);
-}
 
 /* 
    It is possible to compress the widths array even better, by using the
@@ -808,7 +782,15 @@ void write_cid_fontdictionary(fo_entry * fo)
 
     pdf_begin_dict(i, 1);
     pdf_puts("/Type /Font\n");
-    pdf_puts("/Subtype /CIDFontType0\n");
+    if (is_opentype(fo->fm)) {
+      pdf_puts("/Subtype /CIDFontType0\n");
+    } else {
+      if (fixed_pdf_minor_version < 6) {
+	pdftex_fail("writefont.c: ttf-based OpenType requires \\pdfminorverson >= 6");
+      } else {
+	pdf_puts("/Subtype /CIDFontType2\n");
+      }
+    }
     write_fontname(fo->fd, "BaseFont");
     pdf_printf("/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
     pdf_printf("/W %i 0 R\n",(int) fo->cw->cw_objnum);
