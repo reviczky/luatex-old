@@ -404,7 +404,7 @@ do_vf(internal_font_number f) {
     (void)vf_read(cmd - fnt_def1 + 1);
     (void)vf_read(4);
     (void)vf_read(4);
-	(void)vf_read(4);
+    (void)vf_read(4);
     k = vf_byte();
     k += vf_byte();
     while (k-- > 0) {  (void)vf_byte(); } 
@@ -439,7 +439,7 @@ do_vf(internal_font_number f) {
   while (cmd <= long_char) {
     /* @<Build a character packet@>;@/ */
     if (cmd == long_char) {
-      packet_length = vf_read(4);
+      packet_length = vf_read_u(4);
       cc = vf_read_u(4);
       if (!char_exists(f,cc)) {
         bad_vf("invalid character code");
@@ -604,7 +604,7 @@ do_vf(internal_font_number f) {
 	case xxx2: 
 	case xxx3: 
 	case xxx4:
-	  cmd_length = vf_read(cmd - xxx1 + 1);
+	  cmd_length = vf_read_u(cmd - xxx1 + 1);
 	  packet_length -= (cmd - xxx1 + 1);
 	  if (cmd_length <= 0)
 	    bad_vf("special of negative length");
@@ -796,7 +796,7 @@ make_vf_table(lua_State *L, char *cnom, scaled atsize) {
   while ((cmd >= fnt_def1) && (cmd <= fnt_def1 + 3)) {
 
     lua_newtable(L);      
-    vf_nf = vf_read(cmd - fnt_def1 + 1)+1;
+    vf_nf = vf_read_u(cmd - fnt_def1 + 1)+1;
     /* checksum */
     cs.b0 = vf_byte(); cs.b1 = vf_byte(); cs.b2 = vf_byte(); cs.b3 = vf_byte(); 
 
@@ -833,8 +833,8 @@ make_vf_table(lua_State *L, char *cnom, scaled atsize) {
   while (cmd <= long_char) {
     /* @<Build a character packet@>;@/ */
     if (cmd == long_char) {
-      packet_length = vf_read(4);
-      cc = vf_read(4);
+      packet_length = vf_read_u(4);
+      cc = vf_read_u(4);
       tfm_width = vf_read(4);
     } else {
       packet_length = cmd;
@@ -867,7 +867,7 @@ make_vf_table(lua_State *L, char *cnom, scaled atsize) {
       } else if (((fnt_num_0 <= cmd) && (cmd <= fnt_num_0 + 63)) ||
 		 ((fnt1 <= cmd) && (cmd <= fnt1 + 3))) {
 	if (cmd >= fnt1) {
-	  vf_nf = vf_read(cmd - fnt1 + 1) + 1;
+	  vf_nf = vf_read_u(cmd - fnt1 + 1) + 1;
 	  packet_length -= (cmd - fnt1 + 1);
 	} else {
 	  vf_nf = cmd - fnt_num_0 + 1;
@@ -897,7 +897,7 @@ make_vf_table(lua_State *L, char *cnom, scaled atsize) {
 	    vf_nf  = 1;
 	    make_command1("font",vf_nf,k);
 	  }
-	  i = vf_read(cmd - set1 + 1);
+	  i = vf_read_u(cmd - set1 + 1);
 	  make_command1("char",i,k);
 	  packet_length -= (cmd - set1 + 1);
 	  break;
@@ -909,7 +909,7 @@ make_vf_table(lua_State *L, char *cnom, scaled atsize) {
 	    vf_nf  = 1;
 	    make_command1("font",vf_nf,k);
 	  }
-	  i = vf_read(cmd - put1 + 1);
+	  i = vf_read_u(cmd - put1 + 1);
 	  make_command0("push",k);
 	  make_command1("char",i,k);
 	  make_command0("pop",k);
@@ -967,7 +967,7 @@ make_vf_table(lua_State *L, char *cnom, scaled atsize) {
 	case xxx2: 
 	case xxx3: 
 	case xxx4:
-	  cmd_length = vf_read(cmd - xxx1 + 1);
+	  cmd_length = vf_read_u(cmd - xxx1 + 1);
 	  packet_length -= (cmd - xxx1 + 1);
 	  if (cmd_length <= 0)
 	    lua_bad_vf("special of negative length");
