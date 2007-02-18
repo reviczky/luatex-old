@@ -174,6 +174,8 @@ do_vf_packet (internal_font_number vf_f, eight_bits c) {
       literal(s, scan_special, false);
       flush_str(s);
       break;
+    case packet_nop_code:
+      break;
     default: 
       pdf_error("vf", "invalid DVI command");     
     }
