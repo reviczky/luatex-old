@@ -208,13 +208,13 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
 
     lua_newtable(L);
     dump_stringfield(L,"components",pst->u.mult.components);
-    lua_setfield(L,-2,"mult");
+    lua_setfield(L,-2,"alt");
 
   } else if (pst->type == pst_multiple) {
 
     lua_newtable(L);
     dump_stringfield(L,"components",pst->u.alt.components);
-    lua_setfield(L,-2,"alt");
+    lua_setfield(L,-2,"mult");
 
   } else if (pst->type == pst_ligature) {
     
