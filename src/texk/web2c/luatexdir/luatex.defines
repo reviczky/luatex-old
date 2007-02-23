@@ -249,9 +249,9 @@ $Id $
 @define var real_font_type;
 @define function font_type();
 
-@define var opentype_format;
 @define function font_format();
 @define function char_index();
+@define function font_cidregistry();
 
 @define function font_map();
 @define procedure set_font_map();
@@ -276,6 +276,8 @@ $Id $
 @define procedure do_vf();
 @define procedure do_vf_packet();
 @define procedure alloc_vf_arrays();
+@define function expand_font_name();
+@define function auto_expand_font();
 @define procedure vf_expand_local_fonts();
 @define function letter_space_font();
 @define function read_font_info();

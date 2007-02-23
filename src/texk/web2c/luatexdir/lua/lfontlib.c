@@ -22,12 +22,12 @@ font_read_tfm (lua_State *L) {
       s = (integer)lua_tonumber(L,2);
       f = new_font();
       if (read_tfm_info(f, cnom, "", s)) {
-	k =  font_to_lua(L,f);
-	delete_font(f);
-	return k;
+		k =  font_to_lua(L,f);
+		delete_font(f);
+		return k;
       } else {
-	lua_pushstring(L, "font loading failed");
-	lua_error(L);
+		lua_pushstring(L, "font loading failed");
+		lua_error(L);
       }
     } else {
       lua_pushstring(L, "expected an integer size as second argument");

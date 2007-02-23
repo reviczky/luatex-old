@@ -27,24 +27,11 @@
    the end of luatexcoerce.h, as well as from the C sources 
 */
 
+#include "luatexdir/managed-sa.h"
+
 #define pointer halfword
 
 #define do_realloc(a,b,d)    a = xrealloc(a,(b)*sizeof(d))
-
-typedef struct characterinfo {
-  char * _name;
-  unsigned int _index;
-  integer _lig_index;
-  integer _kern_index;
-  integer _packet_index;
-  integer _remainder;
-  unsigned short _width_index ;
-  unsigned short _height_index;
-  unsigned short _depth_index ;
-  unsigned short _italic_index;
-  char _tag ;
-  char _used ;
-} characterinfo;
 
 typedef struct liginfo {
   integer type_char;
@@ -56,6 +43,23 @@ typedef struct kerninfo {
   scaled sc;
 } kerninfo;
 
+typedef struct charinfo {
+  char *name;                /* postscript character name */
+  liginfo *ligatures;        /* ligature items */
+  kerninfo *kerns;           /* kern items */
+  real_eight_bits *packets;  /* virtual commands.  */
+  integer *extensible;       /* extensible recipe (if any) */
+  unsigned int index;        /* CID index */
+  integer remainder;         /* spare value for odd items, could be union-ed with extensible */
+  scaled width;              /* width */
+  scaled height;             /* height */
+  scaled depth;              /* depth */
+  scaled italic;             /* italic correction */
+  char tag ;                 /* list / ext taginfo */
+  char used ;                /* char is typeset ? */
+} charinfo;
+
+
 typedef struct texfont {
   integer _font_size ;
   integer _font_dsize ;
@@ -64,6 +68,11 @@ typedef struct texfont {
   char * _font_filename ;
   char * _font_fullname ;
   char * _font_encodingname ;
+  char * _font_cidregistry ;
+  char * _font_cidordering ;
+  integer _font_cidversion ;
+  integer _font_cidsupplement ;
+
   integer _font_ec ;
   integer _font_checksum ;   /* internal information */
   char    _font_used ;       /* internal information */
@@ -81,37 +90,13 @@ typedef struct texfont {
   integer _font_false_bchar;
   integer _font_natural_dir;
 
-  integer _char_infos;
-  characterinfo *_char_base;
-
   integer _font_params;
   scaled  *_param_base;
 
-  integer _font_widths;
-  integer *_width_base;
-
-  integer _font_depths;
-  integer *_depth_base;
-
-  integer _font_heights;
-  integer *_height_base;
-
-  integer _font_italics;
-  integer *_italic_base;
-
-  integer _font_ligs;
-  liginfo *_lig_base;
-
-  integer _font_kerns;
-  kerninfo *_kern_base;
-  
-  integer _font_extens;
-  fourquarters *_exten_base;
-
-  /* virtual packet commands. this is a byte sequence because 
-     literal strings can appear inside */
-  integer _font_packets;
-  real_eight_bits *_packet_base;
+  sa_tree   characters;
+  integer   charinfo_count;
+  integer   charinfo_size;
+  charinfo *charinfo;
 
 } texfont;
 
@@ -136,6 +121,11 @@ typedef enum {
   full_embedding, 
 } font_embedding_option;
 
+extern char *font_type_strings[];
+extern char *font_format_strings[];
+extern char *font_embedding_strings[];
+
+
 #define font_checksum(a)          font_tables[a]->_font_checksum
 #define set_font_checksum(a,b)    font_checksum(a) = b
 
@@ -147,11 +137,9 @@ typedef enum {
 #define font_size(a)              font_tables[a]->_font_size
 #define set_font_size(a,b)        font_size(a) = b
 #define font_dsize(a)             font_tables[a]->_font_dsize
-#define get_font_dsize            font_dsize
 #define set_font_dsize(a,b)       font_dsize(a) = b
 
 #define font_name(a)              font_tables[a]->_font_name
-#define get_font_name             font_name
 #define set_font_name(f,b)        font_name(f) = b
 #define tex_font_name(a)          maketexstring(font_name(a))
 #define set_tex_font_name(a,b)    font_name(a) = makecstring(b)
@@ -165,75 +153,74 @@ boolean cmp_font_name (integer, strnumber);
 
 boolean cmp_font_area (integer, strnumber);
 
-#define font_filename(a)           font_tables[a]->_font_filename
-#define set_font_filename(f,b)     { if (font_filename(f)!=NULL) \
-	  free(font_filename(f)); font_filename(f) = b; }
+#define font_string(a,b)            { if (a!=NULL) free(a); a = b; }
 
-#define font_fullname(a)           font_tables[a]->_font_fullname
-#define set_font_fullname(f,b)     { if (font_fullname(f)!=NULL) \
-	  free(font_fullname(f)); font_fullname(f) = b; }
+#define font_filename(a)            font_tables[a]->_font_filename
+#define set_font_filename(f,b)      font_string(font_filename(f),b)
 
+#define font_fullname(a)            font_tables[a]->_font_fullname
+#define set_font_fullname(f,b)      font_string(font_fullname(f),b)
 
-#define font_encodingname(a)       font_tables[a]->_font_encodingname
-#define set_font_encodingname(f,b) { if (font_encodingname(f)!=NULL) \
-	  free(font_encodingname(f)); font_encodingname(f) = b; }
+#define font_encodingname(a)        font_tables[a]->_font_encodingname
+#define set_font_encodingname(f,b)  font_string(font_encodingname(f),b)
 
+#define font_bc(a)                  font_tables[a]->_font_bc
+#define set_font_bc(f,b)            font_bc(f) = b
 
-#define font_bc(a)                font_tables[a]->_font_bc
-#define get_font_bc               font_bc
-#define set_font_bc(f,b)          font_bc(f) = b
+#define font_ec(a)                  font_tables[a]->_font_ec
+#define set_font_ec(f,b)            font_ec(f) = b
 
-#define font_ec(a)                font_tables[a]->_font_ec
-#define get_font_ec               font_ec
-#define set_font_ec(f,b)          font_ec(f) = b
+#define font_used(a)                font_tables[a]->_font_used
+#define set_font_used(a,b)          font_used(a) = b
 
-#define font_used(a)              font_tables[a]->_font_used
-#define get_font_used             font_used
-#define set_font_used(a,b)        font_used(a) = b
-
-#define font_touched(a)           font_tables[a]->_font_touched
-#define set_font_touched(a,b)     font_touched(a) = b
-
-#define font_type(a)              font_tables[a]->_font_type
-#define set_font_type(a,b)        font_type(a) = b
+#define font_touched(a)             font_tables[a]->_font_touched
+#define set_font_touched(a,b)       font_touched(a) = b
+ 
+#define font_type(a)                font_tables[a]->_font_type
+#define set_font_type(a,b)          font_type(a) = b
 
 #define font_format(a)              font_tables[a]->_font_format
+#define font_format_name(a)         font_format_strings[font_tables[a]->_font_format]
 #define set_font_format(a,b)        font_format(a) = b
 
 #define font_embedding(a)           font_tables[a]->_font_embedding
 #define set_font_embedding(a,b)     font_embedding(a) = b
 
-#define font_map(a)              font_tables[a]->_font_map
-#define set_font_map(a,b)        font_map(a) = b
+#define font_cidversion(a)          font_tables[a]->_font_cidversion
+#define set_font_cidversion(a,b)    font_cidversion(a) = b
 
-#define font_cache_id(a)              font_tables[a]->_font_cache_id
-#define set_font_cache_id(a,b)        font_cache_id(a) = b
+#define font_cidsupplement(a)       font_tables[a]->_font_cidsupplement
+#define set_font_cidsupplement(a,b) font_cidsupplement(a) = b
 
-#define hyphen_char(a)            font_tables[a]->_hyphen_char
-#define set_hyphen_char(a,b)      hyphen_char(a) = b
-#define skew_char(a)              font_tables[a]->_skew_char
-#define set_skew_char(a,b)        skew_char(a) = b
-#define bchar_label(a)            font_tables[a]->_bchar_label
-#define set_bchar_label(a,b)      bchar_label(a) = b
-#define font_bchar(a)             font_tables[a]->_font_bchar
-#define set_font_bchar(a,b)       font_bchar(a) = b
-#define font_false_bchar(a)       font_tables[a]->_font_false_bchar
-#define set_font_false_bchar(a,b) font_false_bchar(a) = b
-#define font_natural_dir(a)       font_tables[a]->_font_natural_dir
-#define set_font_natural_dir(a,b) font_natural_dir(a) = b
+#define font_cidordering(a)         font_tables[a]->_font_cidordering
+#define set_font_cidordering(f,b)   font_string(font_cidordering(f),b)
 
-/* character information */
+#define font_cidregistry(a)         font_tables[a]->_font_cidregistry
+#define set_font_cidregistry(f,b)   font_string(font_cidregistry(f),b)
 
-#define char_infos(a)             font_tables[a]->_char_infos
-#define char_base(a)              font_tables[a]->_char_base
-#define char_info(f,b)            font_tables[f]->_char_base[b]
+#define font_map(a)                 font_tables[a]->_font_map
+#define set_font_map(a,b)           font_map(a) = b
 
-/* too hard to do inline, new space needs to be zeroed */
-extern void set_char_infos(internal_font_number f, int b);
+#define font_cache_id(a)            font_tables[a]->_font_cache_id
+#define set_font_cache_id(a,b)      font_cache_id(a) = b
 
-#define set_char_info(f,n,b)							   \
-  { if (char_infos(f)<n) set_char_infos(f,n);		       \
-    char_info(f,n) = b; }
+#define hyphen_char(a)              font_tables[a]->_hyphen_char
+#define set_hyphen_char(a,b)        hyphen_char(a) = b
+
+#define skew_char(a)                font_tables[a]->_skew_char
+#define set_skew_char(a,b)          skew_char(a) = b
+
+#define bchar_label(a)              font_tables[a]->_bchar_label
+#define set_bchar_label(a,b)        bchar_label(a) = b
+
+#define font_bchar(a)               font_tables[a]->_font_bchar
+#define set_font_bchar(a,b)         font_bchar(a) = b
+
+#define font_false_bchar(a)         font_tables[a]->_font_false_bchar
+#define set_font_false_bchar(a,b)   font_false_bchar(a) = b
+
+#define font_natural_dir(a)         font_tables[a]->_font_natural_dir
+#define set_font_natural_dir(a,b)   font_natural_dir(a) = b
 
 /* font parameters */
 
@@ -247,162 +234,6 @@ extern void set_font_params(internal_font_number f, int b);
 #define set_font_param(f,n,b)                                   \
   { if (font_params(f)<n) set_font_params(f,n);                 \
     font_param(f,n) = b; }
-
-
-/* character widths */
-
-#define font_widths(a)       font_tables[a]->_font_widths
-#define width_base(a)        font_tables[a]->_width_base
-#define font_width(a,b)      font_tables[a]->_width_base[b]
-
-#define set_font_widths(f,b)						\
-  { if (font_widths(f)!=b) {						\
-      font_bytes += (b-font_widths(f))*sizeof(integer);			\
-      do_realloc(width_base(f), b, integer);				\
-      font_widths(f) = b;  } }
-
-#define set_font_width(f,n,b)                                   \
-  { if (font_widths(f)<n) set_font_widths(f,n);                 \
-    font_width(f,n) = (b); }
-
-
-/* character heights */
-
-#define font_heights(a)       font_tables[a]->_font_heights
-#define height_base(a)        font_tables[a]->_height_base
-#define font_height(a,b)      font_tables[a]->_height_base[b]
-
-#define set_font_heights(f,b)						\
-  { if (font_heights(f)!=b) {						\
-      font_bytes += (b-font_heights(f))*sizeof(integer);			\
-      do_realloc(height_base(f), b, integer);				\
-      font_heights(f) = b;  } }
-
-#define set_font_height(f,n,b)                                   \
-  { if (font_heights(f)<n) set_font_heights(f,n);		 \
-    font_height(f,n) = b; }
-
-/* character depths */
-
-#define font_depths(a)       font_tables[a]->_font_depths
-#define depth_base(a)        font_tables[a]->_depth_base
-#define font_depth(a,b)      font_tables[a]->_depth_base[b]
-
-#define set_font_depths(f,b)						\
-  { if (font_depths(f)!=b) {						\
-      font_bytes += (b-font_depths(f))*sizeof(integer);			\
-      do_realloc(depth_base(f), b, integer);				\
-      font_depths(f) = b;  } }
-
-#define set_font_depth(f,n,b)					\
-  { if (font_depths(f)<n) set_font_depths(f,n);			\
-    font_depth(f,n) = b; }
-
-
-/* character italics */
-
-#define font_italics(a)       font_tables[a]->_font_italics
-#define italic_base(a)        font_tables[a]->_italic_base
-#define font_italic(a,b)      font_tables[a]->_italic_base[b]
-
-#define set_font_italics(f,b)						\
-  { if (font_italics(f)!=b) {						\
-      font_bytes += (b-font_italics(f))*sizeof(integer);			\
-      do_realloc(italic_base(f), b, integer);				\
-      font_italics(f) = b;  } }
-
-#define set_font_italic(f,n,b)                                   \
-  { if (font_italics(f)<n) set_font_italics(f,n);		 \
-    font_italic(f,n) = b; }
-
-/* character kerns */
-
-#define font_kerns(a)       font_tables[a]->_font_kerns
-#define kern_base(a)        font_tables[a]->_kern_base
-#define font_kern(a,b)      font_tables[a]->_kern_base[b]
-#define font_kern_sc(a,b)   font_tables[a]->_kern_base[b].sc
-
-#define set_font_kerns(f,b)					 \
-  { if (font_kerns(f)!=b) {					 \
-      font_bytes += (b-font_kerns(f))*sizeof(kerninfo);		 \
-      do_realloc(kern_base(f), b, kerninfo);			 \
-      font_kerns(f) = b;  } }
-
-#define set_font_kern(f,n,b,c)				 \
-  { if (font_kerns(f)<n) set_font_kerns(f,n);		 \
-    font_kern(f,n).adj = b;				 \
-    font_kern(f,n).sc = c; }
-
-#define adjust_font_kern(f,n,c)				 \
-  { font_kern(f,n).sc = c; }
-
-#define kern_char(f,b)       font_kern(f,b).adj
-#define kern_kern(f,b)       font_kern(f,b).sc
-
- /* disabled item has bit 24 set */ 
-#define kern_disabled(f,b)   (font_kern(f,b).adj > end_ligkern)
-#define kern_end(f,b)        (font_kern(f,b).adj == end_ligkern)
-
-/* character ligatures */
-
-#define font_ligs(a)       font_tables[a]->_font_ligs
-#define lig_base(a)        font_tables[a]->_lig_base
-#define font_lig(a,b)      font_tables[a]->_lig_base[b]
-
-#define set_font_ligs(f,b)					 \
-  { if (font_ligs(f)!=b) {					 \
-      font_bytes += (b-font_ligs(f))*sizeof(liginfo);		 \
-      do_realloc(lig_base(f), b, liginfo);			 \
-      font_ligs(f) = b;  } }
-
-#define set_font_lig(f,n,b,c,d)				 \
-  { if (font_ligs(f)<n) set_font_ligs(f,n);		 \
-    font_lig(f,n).type_char = ((b<<24)+c);		 \
-    font_lig(f,n).lig = d; }
-
-#define is_ligature(a)        (a.type_char&0xFF000000!=0)
-#define lig_type(a)           ((a.type_char&0xFF000000)>>25)
-#define lig_char(a)           (a.type_char&0x00FFFFFF)
-#define lig_replacement(a)     a.lig
-
-#define lig_end(u)          (lig_char(u) == end_ligkern)
-
- /* disabled item has bit 24 set */ 
-#define lig_disabled(u)     (lig_char(u) > end_ligkern)
-
-
-/* extensibles */
-
-#define font_extens(a)       font_tables[a]->_font_extens
-#define exten_base(a)        font_tables[a]->_exten_base
-#define font_exten(a,b)      font_tables[a]->_exten_base[b]
-
-#define set_font_extens(f,b)						\
-  { if (font_extens(f)!=b) {						\
-      font_bytes += (b-font_extens(f))*sizeof(fourquarters);		\
-      do_realloc(exten_base(f), b, fourquarters);			\
-      font_extens(f) = b;  } }
-
-#define set_font_exten(f,n,b)					\
-  { if (font_extens(f)<n) set_font_extens(f,n);			\
-    font_exten(f,n) = b; }
-
-
-/* character packets */
-
-#define font_packets(a)       font_tables[a]->_font_packets
-#define packet_base(a)        font_tables[a]->_packet_base
-#define font_packet(a,b)      font_tables[a]->_packet_base[b]
-
-#define set_font_packets(f,b)						\
-  { if (font_packets(f)!=b) {						\
-      font_bytes += (b-font_packets(f))*sizeof(fourquarters);		\
-      do_realloc(packet_base(f), b, fourquarters);			\
-      font_packets(f) = b;  } }
-
-#define set_font_packet(f,n,b)						\
-  { if (font_packets(f)<n) set_font_packets(f,n);			\
-    font_packet(f,n) = b; }
 
 
 /* Font parameters are sometimes referred to as |slant(f)|, |space(f)|, etc.*/
@@ -426,65 +257,116 @@ typedef enum {
 
 /* now for characters  */
 
+charinfo *get_charinfo (internal_font_number f, integer c) ;
+void set_charinfo_width       (charinfo *ci, scaled val);
+void set_charinfo_height      (charinfo *ci, scaled val);
+void set_charinfo_depth       (charinfo *ci, scaled val);
+void set_charinfo_italic      (charinfo *ci, scaled val);
+void set_charinfo_tag         (charinfo *ci, scaled val);
+void set_charinfo_remainder   (charinfo *ci, scaled val);
+void set_charinfo_used        (charinfo *ci, scaled val);
+void set_charinfo_index       (charinfo *ci, scaled val);
+void set_charinfo_name        (charinfo *ci, char *val) ;
+void set_charinfo_ligatures   (charinfo *ci, liginfo *val);
+void set_charinfo_kerns       (charinfo *ci, kerninfo *val);
+void set_charinfo_packets     (charinfo *ci, real_eight_bits *val);
+void set_charinfo_extensible  (charinfo *ci, int a, int b, int c, int d);
+
+#define set_char_used(f,a,b)  set_charinfo_used(get_charinfo(f,a),b)
+
+scaled get_charinfo_width             (charinfo *ci);
+scaled get_charinfo_height            (charinfo *ci);
+scaled get_charinfo_depth             (charinfo *ci);
+scaled get_charinfo_italic            (charinfo *ci);
+char    get_charinfo_tag              (charinfo *ci);
+integer get_charinfo_remainder        (charinfo *ci);
+char    get_charinfo_used             (charinfo *ci);
+integer get_charinfo_index            (charinfo *ci);
+char * get_charinfo_name              (charinfo *ci) ;
+liginfo * get_charinfo_ligatures      (charinfo *ci);
+kerninfo *get_charinfo_kerns          (charinfo *ci);
+real_eight_bits *get_charinfo_packets (charinfo *ci);
+integer get_charinfo_extensible       (charinfo *ci, int which);
+
+integer ext_top                       (internal_font_number f, integer c);
+integer ext_bot                       (internal_font_number f, integer c);
+integer ext_rep                       (internal_font_number f, integer c);
+integer ext_mid                       (internal_font_number f, integer c);
+
+#define set_ligature_item(f,b,c,d)  { f.type_char = ((b<<24)+c);  f.lig = d; }
+
+#define set_kern_item(f,b,c)	    { f.adj = b;  f.sc = c; }
+
+
+/* character information */
+
+extern integer char_exists (internal_font_number f, integer c);
+extern charinfo *char_info (internal_font_number f, integer c);
+
 #define non_char 65536 /* a code that can't match a real character */
 #define non_address 0  /* a spurious |bchar_label| */
 
-#define end_ligkern     0x7FFFFF /* otherchar value meaning "stop" */
-#define ignored_ligkern 0x800000 /* otherchar value meaning "disabled" */
 
+/* character kerns and ligatures */
+
+#define end_ligature          0x7FFFFF /* otherchar value meaning "stop" */
+#define ignored_ligature      0x800000 /* otherchar value meaning "disabled" */
+
+#define char_kern(b,c)        b->kerns[c]
+
+#define kern_char(b)          (b).adj
+#define kern_kern(b)          (b).sc
+#define kern_end(b)          ((b).adj == end_ligature)
+#define kern_disabled(b)     ((b).adj > end_ligature)
+
+/* character ligatures */
+
+#define end_kern               0x7FFFFF /* otherchar value meaning "stop" */
+#define ignored_kern           0x800000 /* otherchar value meaning "disabled" */
+
+#define char_ligature(b,c)     b->ligatures[c]
+
+#define is_ligature(a)         (((a).type_char&0xFF000000)!=0)
+#define lig_type(a)            (((a).type_char&0xFF000000)>>25)
+#define lig_char(a)            ((a).type_char&0x00FFFFFF)
+#define lig_replacement(a)     (a).lig
+#define lig_end(a)             (lig_char(a) == end_kern)
+#define lig_disabled(a)        (lig_char(a) > end_kern)
 
 #define no_tag 0   /* vanilla character */
 #define lig_tag 1  /* character has a ligature/kerning program */
 #define list_tag 2 /* character has a successor in a charlist */
 #define ext_tag 3  /* character is extensible */
 
-#define width_index(f,c)      (char_info(f,c))._width_index
-#define height_index(f,c)     (char_info(f,c))._height_index
-#define depth_index(f,c)      (char_info(f,c))._depth_index
-#define italic_index(f,c)     (char_info(f,c))._italic_index
-#define kern_index(f,c)       (char_info(f,c))._kern_index
-#define lig_index(f,c)        (char_info(f,c))._lig_index
-#define packet_index(f,c)     (char_info(f,c))._packet_index
+extern scaled char_height (internal_font_number f, integer c);
+extern scaled char_width  (internal_font_number f, integer c);
+extern scaled char_depth  (internal_font_number f, integer c);
+extern scaled char_italic (internal_font_number f, integer c);
 
-#define char_width(f,b)       font_width (f,width_index(f,b))
-#define char_height(f,b)      font_height(f,height_index(f,b))
-#define char_depth(f,b)       font_depth (f,depth_index(f,b))
-#define char_italic(f,b)      font_italic(f,italic_index(f,b))
+extern liginfo * char_ligatures (internal_font_number f, integer c);
+extern kerninfo * char_kerns (internal_font_number f, integer c);
+extern real_eight_bits * char_packets (internal_font_number f, integer c);
 
-#define char_kern(f,b)        font_kern  (f,kern_index(f,b))
-#define char_lig(f,b)         font_lig   (f,lig_index(f,b))
-#define char_packet(f,b)      font_packet(f,packet_index(f,b))
 
-#define char_remainder(f,b)   (char_info(f,b))._remainder
-#define char_tag(f,b)         (char_info(f,b))._tag
-#define char_used(f,b)        (char_info(f,b))._used
-#define char_name(f,b)        (char_info(f,b))._name
-#define char_index(f,b)       (char_info(f,b))._index
+#define has_lig(f,b)          (char_exists(f,b) &&( char_ligatures(f,b) != NULL))
+#define has_kern(f,b)         (char_exists(f,b) && (char_kerns(f,b) != NULL))
+#define has_packet(f,b)       (char_exists(f,b) && (char_packets(f,b) != NULL))
 
-#define set_char_tag(f,b,c)       char_tag(f,b) = c
-#define set_char_remainder(f,b,c) char_remainder(f,b) = c
-#define set_char_used(f,b,c)      char_used(f,b) = c
-#define set_char_index(f,b,c)     char_index(f,b) = c
-#define set_char_name(f,b,c)     { if (char_name(f,b)!=NULL)	\
-	  free(char_name(f,b)); char_name(f,b) = c; }
+#define char_packet(b,c)       b->packets[c]
 
-#define set_char_kern(f,b,c)   kern_index(f,b) = c
-#define set_char_lig(f,b,c)    lig_index(f,b) = c
-#define set_char_packet(f,b,c) packet_index(f,b) = c
-
-#define char_exists(f,b)     ((b<=font_ec(f))&&(b>=font_bc(f))&&	\
-							  (width_index(f,b)>0))
-#define has_lig(f,b)          (char_exists(f,b) && lig_index(f,b)>0)
-#define has_kern(f,b)         (char_exists(f,b) && kern_index(f,b)>0)
-#define has_packet(f,b)       (char_exists(f,b) && packet_index(f,b)>0)
+extern integer char_remainder (internal_font_number f, integer c);
+extern char char_tag (internal_font_number f, integer c);
+extern char char_used (internal_font_number f, integer c);
+extern char * char_name (internal_font_number f, integer c);
+extern integer char_index (internal_font_number f, integer c);
 
 scaled get_kern(internalfontnumber f, integer lc, integer rc);
 liginfo get_ligature(internalfontnumber f, integer lc, integer rc);
 
-#define ext_top(f,c)          font_exten(f,char_remainder(f,c)).b0
-#define ext_mid(f,c)          font_exten(f,char_remainder(f,c)).b1
-#define ext_bot(f,c)          font_exten(f,char_remainder(f,c)).b2
-#define ext_rep(f,c)          font_exten(f,char_remainder(f,c)).b3
+#define EXT_TOP 0
+#define EXT_BOT 1
+#define EXT_MID 2
+#define EXT_REP 3
 
 extern texfont **font_tables;
 
@@ -498,22 +380,21 @@ void create_null_font (void);
 void delete_font(integer id);
 boolean is_valid_font (integer id);
 
-
 void dump_font (int font_number);
 void undump_font (int font_number);
 
-integer test_no_ligatures (internalfontnumber f) ;
+integer test_no_ligatures (internal_font_number f) ;
 void set_no_ligatures (internal_font_number f) ;
-integer get_tag_code (internalfontnumber f, eight_bits c);
 
-int read_tfm_info(internalfontnumber f, char *nom, char *aire, scaled s);
+integer get_tag_code (internal_font_number f, integer c);
+
+int read_tfm_info(internal_font_number f, char *nom, char *aire, scaled s);
 
 
 /* from dofont.c */
 
 extern int read_font_info (pointer u, strnumber nom, strnumber aire, scaled s, integer ndir);
 extern int find_font_id (char *nom, char *aire, scaled s);
-
 
 /* for and from vfpacket.c */
 
@@ -532,5 +413,5 @@ typedef enum {  packet_char_code,
 
 extern scaled sqxfw (scaled sq, integer fw);
 
-extern void do_vf_packet (internal_font_number vf_f, eight_bits c);
-
+extern void do_vf_packet (internal_font_number vf_f, integer c);
+extern int vf_packet_bytes (charinfo *co);

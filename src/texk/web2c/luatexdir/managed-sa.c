@@ -66,7 +66,7 @@ set_sa_item (sa_tree head, integer n, sa_tree_item v, integer gl) {
     head->tree[h][m] = (sa_tree_item *) Mxmalloc_array(sa_tree_item,LOWPART);
     for  (i=0; i<LOWPART; i++) { head->tree[h][m][i] = head->dflt; }  
   }
-  if (gl==1) {
+  if (gl<=1) {
     skip_in_stack(head,n);
   } else {
     store_sa_stack(head,n,head->tree[h][m][l],gl);

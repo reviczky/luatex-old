@@ -7,14 +7,6 @@ typedef void (*texio_printer) (strnumber s);
 
 static char *loggable_info = NULL;
 
-typedef enum {
-  no_print=16,
-  term_only=17,
-  log_only=18,
-  term_and_log=19,
-  pseudo=20,
-  new_string=21 } selector_settings;
-
 static int
 do_texio_print (lua_State *L, texio_printer printfunction) {
   strnumber s,u;

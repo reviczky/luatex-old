@@ -22,7 +22,7 @@ $Id: writefont.c,v 1.3 2005/12/27 19:04:42 hahe Exp $
 
 #include "ptexlib.h"
 
-void write_cid_fontdictionary(fo_entry * fo);
+void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f);
 void create_cid_fontdictionary(fm_entry * fm, integer font_objnum, internalfontnumber f);
 
 /**********************************************************************/
@@ -390,10 +390,11 @@ static void write_fontfile(fd_entry * fd)
 {
     assert(is_included(fd->fm));
     if (is_cidkeyed(fd->fm)) {
-      if (is_opentype(fd->fm))
+      if (is_opentype(fd->fm)) {
 	writeotf(fd);
-      else
+      } else {
 	writettf(fd);
+      }
     } else {
       if (is_type1(fd->fm))
         writet1(fd);
@@ -413,8 +414,8 @@ static void write_fontfile(fd_entry * fd)
       /* Subtype /OpenType is used for TrueType-based OpenType fonts */
       if (is_opentype(fd->fm))
 	pdf_puts("/Subtype /CIDFontType0C\n");
-      else
-	pdf_puts("/Subtype /OpenType\n");
+      /* else
+	 pdf_puts("/Subtype /OpenType\n");*/
     } else {
       if (is_type1(fd->fm))
         pdf_printf("/Length1 %i\n/Length2 %i\n/Length3 %i\n",
@@ -641,7 +642,7 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
 {
     fm_entry *fm;
     /* this test is not 100% correct, but close */
-    if (font_ec(f) > 255) {
+    if (font_cidregistry(f)) {
       /* Create an fm entry, as this is needed by the rest of the font mechanism.
 	 I am not sure wether it makes sense to store it in the avl_tree.
        */
@@ -654,12 +655,14 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
       fm->fd_flags = 4;                     /* can perhaps be done better */
       fm->in_use = true;
 
-      if (font_format(f)==opentype_format)
+      if (font_format(f)==opentype_format) {
 	set_opentype(fm);
-      else if (font_format(f)==truetype_format)
+      } else if (font_format(f)==truetype_format) {
 	set_truetype(fm);
-      else
-	assert(0);
+      } else {
+	pdftex_fail("writefont.c: The file format (%s) for font `%s' is incompatible with wide characters\n", 
+		    font_format_name(f),font_name(f));
+      }
 
       set_included(fm);
       set_cidkeyed(fm);
@@ -759,10 +762,10 @@ void create_cid_fontdictionary(fm_entry * fm, integer font_objnum,
     write_cid_charwidth_array(fo);
     write_fontdescriptor(fo->fd);
     
-    write_cid_fontdictionary(fo);
+    write_cid_fontdictionary(fo,f);
 }
 
-void write_cid_fontdictionary(fo_entry * fo)
+void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f)
 {
     int i;
 
@@ -785,19 +788,16 @@ void write_cid_fontdictionary(fo_entry * fo)
     if (is_opentype(fo->fm)) {
       pdf_puts("/Subtype /CIDFontType0\n");
     } else {
-      if (fixed_pdf_minor_version < 6) {
-	pdftex_fail("writefont.c: ttf-based OpenType requires \\pdfminorverson >= 6");
-      } else {
-	pdf_puts("/Subtype /CIDFontType2\n");
-      }
+      pdf_puts("/Subtype /CIDFontType2\n");
+      pdf_printf("/CIDToGIDMap /Identity\n");
     }
     write_fontname(fo->fd, "BaseFont");
     pdf_printf("/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
     pdf_printf("/W %i 0 R\n",(int) fo->cw->cw_objnum);
     pdf_printf("/CIDSystemInfo <<\n");
-    pdf_printf("  /Registry (TeX)\n");
-    pdf_printf("  /Ordering (%s)\n",fo->fm->encname);
-    pdf_printf("  /Supplement 0\n");
+    pdf_printf("  /Registry (%s)\n", font_cidregistry(f));
+    pdf_printf("  /Ordering (%s)\n",font_cidordering(f));
+    pdf_printf("  /Supplement %i\n",font_cidsupplement(f));
     pdf_printf(">>\n");
     pdf_end_dict();
 

@@ -1902,12 +1902,9 @@ not yet finished):
 \NC xuid                         \NC string   \NC \NC\NR
 \NC pfminfo                      \NC table    \NC \NC\NR
 \NC names                        \NC table    \NC \NC\NR
-\NC cidregistry                  \NC string   \NC \NC\NR
-\NC ordering                     \NC string   \NC \NC\NR
-\NC supplement                   \NC number   \NC \NC\NR
+\NC cidinfo                      \NC table    \NC \NC\NR
 \NC subfonts                     \NC array    \NC \NC\NR
 \NC cidmaster                    \NC array    \NC \NC\NR
-\NC cidversion                   \NC number   \NC \NC\NR
 \NC commments                    \NC string   \NC \NC\NR
 \NC anchor                       \NC table    \NC \NC\NR
 \NC orders                       \NC table    \NC \NC\NR
@@ -2081,6 +2078,16 @@ The `enc' table is a bit more verbose:
 
 This is the font's private PostScript dictionary, if any. Keys and
 values are both strings.
+
+
+\subsubsection{cidinfo table}
+
+\starttabulate[|l|l|p|]
+\NC registry                  \NC string   \NC \NC\NR
+\NC ordering                  \NC string   \NC \NC\NR
+\NC supplement                \NC number   \NC \NC\NR
+\NC version                   \NC number   \NC \NC\NR
+\stoptabulate
 
 \subsubsection{pfminfo table}
 
@@ -2824,7 +2831,7 @@ Finally, here is a plain \TEX\ input file with a demonstration:
                 end
             end
         else
-          f = font.tfm_read(name,size)
+          f = font.read_tfm(name,size)
         end
         return f
         end )

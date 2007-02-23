@@ -340,6 +340,15 @@ static const key_entry font_key[FONT_KEYS_NUM] = {
 
 /**********************************************************************/
 
+typedef enum {
+  no_print=16,
+  term_only=17,
+  log_only=18,
+  term_and_log=19,
+  pseudo=20,
+  new_string=21 } selector_settings;
+
+
 #include "font/texfont.h"
 
 /* prevent some of the more common problems with the restored underscores */

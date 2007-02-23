@@ -22,11 +22,17 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/vfpacket.c#7 $
 
 #include "ptexlib.h"
 
+/*
+  The |do_vf_packet| procedure is called in order to interpret the
+  character packet for a virtual character. Such a packet may contain
+  the instruction to typeset a character from the same or an other
+  virtual font; in such cases |do_vf_packet| calls itself
+  recursively. The recursion level, i.e., the number of times this has
+  happened, is kept in the global variable |packet_cur_s| and should
+  not exceed |packet_max_recursion|.
+*/
+
 #define packet_max_recursion 100
-
-static integer cur_packet_byte;
-
-#define do_packet_byte() font_packet(vf_f,cur_packet_byte++)
 
 typedef unsigned char packet_stack_index ;  /* an index into the stack */
 
@@ -41,69 +47,80 @@ static packet_stack_record packet_stack [packet_max_recursion];
 static packet_stack_index  packet_stack_ptr = 0; /* pointer into |packet_stack| */
 
 
-/*
-@ The |do_vf_packet| procedure is called in order to interpret the
-character packet for a virtual character. Such a packet may contain the
-instruction to typeset a character from the same or an other virtual
-font; in such cases |do_vf_packet| calls itself recursively. The
-recursion level, i.e., the number of times this has happened, is kept
-in the global variable |vf_cur_s| and should not exceed |packet_max_recursion|.
-*/
+/* Some macros for processing character packets. */
 
-/* Some functions for processing character packets. */
+#define do_packet_byte() vf_packets[cur_packet_byte++]
 
-/* read |k| bytes as an integer from character packet */
+#define packet_number(fw)  {					\
+	fw = do_packet_byte();						\
+	fw = fw*256 + do_packet_byte();				\
+	fw = fw*256 + do_packet_byte();				\
+	fw = fw*256 + do_packet_byte(); }
 
-static integer packet_read (internal_font_number vf_f, integer k) {
-  integer i;
-  pdfassert((k > 0) && (k <= 4));
-  i = do_packet_byte();
-  if ((k == 4) && (i > 127)) {
-    i = i - 256;
+#define packet_scaled(a,fs) { integer fw;		\
+	fw = do_packet_byte();						\
+	if (fw>127) fw = fw - 256;					\
+	fw = fw*256 + do_packet_byte();				\
+	fw = fw*256 + do_packet_byte();				\
+	fw = fw*256 + do_packet_byte();				\
+    a = sqxfw(fw, fs); }
+
+
+/* count the number of bytes in a command packet */
+int 
+vf_packet_bytes (charinfo *co) {
+  real_eight_bits *vf_packets;
+  integer cur_packet_byte;
+  unsigned k;
+  int cmd;
+
+  vf_packets = get_charinfo_packets(co);
+  if (vf_packets == NULL) {
+    return 0;
   }
-  decr(k);			
-  while (k > 0) {		
-    i = (i*256) + do_packet_byte();
-    k--;				
-  }	 	     
-  return i;
-}
-
-
-static integer 
-packet_scaled(internal_font_number vf_f, integer k, scaled fs) { /* get |k| bytes from packet as a scaled */
-  integer fw;
-  fw = packet_read(vf_f, k);
-  /* fprintf(stdout,"packet_scaled(%d,%d,%d)=>%d\n",vf_f,k,fs,fw);*/
-  switch (k) {
-  case 1:  
-    if (fw > 127) 
-      fw = fw - 256; 
-    break;
-  case 2:  
-    if (fw > 0x8000)
-      fw = fw - 0x10000; 
-    break;
-  case 3:  
-    if (fw > 0x800000)
-      fw = fw - 0x1000000; 
-    break;
+  cur_packet_byte = 0;
+  while ((cmd = vf_packets[cur_packet_byte]) != packet_end_code) {
+    cur_packet_byte++;
+    switch (cmd) {
+    case packet_char_code: 
+    case packet_font_code:
+    case packet_right_code:
+    case packet_down_code:
+	  cur_packet_byte += 4;
+      break;
+    case packet_push_code: 
+    case packet_pop_code:
+      break;
+    case packet_rule_code: 
+	  cur_packet_byte += 8;
+      break;
+    case packet_special_code:
+      packet_number(k); /* +4 */
+	  cur_packet_byte += k;
+      break;
+    case packet_nop_code:
+      break;
+    default: 
+      pdf_error("vf", "invalid DVI command");     
+    }
   };
-  return sqxfw(fw, fs);
+  return (cur_packet_byte +1);
 }
-
 
 
 /* typeset the \.{DVI} commands in the
    character packet for character |c| in current font |f| */
 
 void 
-do_vf_packet (internal_font_number vf_f, eight_bits c) {
+do_vf_packet (internal_font_number vf_f, integer c) {
   internal_font_number lf;
+  charinfo *co;
   scaled save_cur_h, save_cur_v;
-  integer cmd;
+  real_eight_bits *vf_packets;
+  integer cur_packet_byte;
+  integer cmd, fs_f;
   scaled i;
-  int k;
+  unsigned k;
   str_number s;
 
   packet_cur_s++;
@@ -113,21 +130,19 @@ do_vf_packet (internal_font_number vf_f, eight_bits c) {
   save_cur_h = cur_h;
   
   lf = 0; /* for -Wall */
-  
-  cur_packet_byte = packet_index(vf_f,c);
-  if (cur_packet_byte == 0) {
+  co = get_charinfo(vf_f,c);
+  vf_packets = get_charinfo_packets(co);
+  if (vf_packets == NULL) {
     packet_cur_s--;
     return ;
   }
-  while ((cmd = font_packet(vf_f,cur_packet_byte)) != packet_end_code) {
-
+  cur_packet_byte = 0;
+  fs_f = font_size(vf_f);
+  while ((cmd = vf_packets[cur_packet_byte]) != packet_end_code) {
     cur_packet_byte++;
     switch (cmd) {
     case packet_font_code:
-      lf = do_packet_byte();
-      lf = lf*256 + do_packet_byte();
-      lf = lf*256 + do_packet_byte();
-      lf = lf*256 + do_packet_byte();
+      packet_number(lf);
       break;
     case packet_push_code: 
       packet_stack[packet_stack_ptr].stack_h = cur_h;
@@ -140,35 +155,36 @@ do_vf_packet (internal_font_number vf_f, eight_bits c) {
       cur_v = packet_stack[packet_stack_ptr].stack_v;
       break;
     case packet_char_code: 
-      c = packet_read(vf_f,4);
-      if (!char_exists(lf,c)) {
-	char_warning(lf, c);
+      packet_number(k);
+      if (!char_exists(lf,k)) {
+		char_warning(lf, k);
       } else {
-	output_one_char(lf, c);
+		output_one_char(lf, k);
       }
-      cur_h = cur_h + char_width(lf,c);
+      cur_h = cur_h + char_width(lf,k);
       break;
     case packet_rule_code: 
-      rule_ht = packet_scaled(vf_f,4,font_size(vf_f));
-      rule_wd = packet_scaled(vf_f,4,font_size(vf_f));
+      packet_scaled(rule_ht,fs_f);
+      packet_scaled(rule_wd,fs_f);
       if ((rule_wd > 0) && (rule_ht > 0)) {
-	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-	cur_h = cur_h + rule_wd;
+		pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+		cur_h = cur_h + rule_wd;
       }
       break;
     case packet_right_code:
-      i = packet_scaled(vf_f,4,font_size(vf_f));
+      packet_scaled(i,fs_f);
       cur_h = cur_h + i;
       break;
     case packet_down_code:
-      cur_v = cur_v + packet_scaled(vf_f,4,font_size(vf_f));
+	  packet_scaled(i,fs_f);
+      cur_v = cur_v + i;
       break;
     case packet_special_code:
-      k = packet_read(vf_f,4);
+      packet_number(k);
       string_room(k);
       while (k > 0) {
-	k--;
-	append_pool_char(do_packet_byte());
+		k--;
+		append_pool_char(do_packet_byte());
       }
       s = make_string();
       literal(s, scan_special, false);
@@ -180,7 +196,6 @@ do_vf_packet (internal_font_number vf_f, eight_bits c) {
       pdf_error("vf", "invalid DVI command");     
     }
   };
-  /* pop_packet_state();*/
   cur_h = save_cur_h;
   cur_v = save_cur_v;
   packet_cur_s--;

@@ -1085,10 +1085,12 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     lua_setfield(L,-2,"names");
   }
   
-  dump_stringfield(L,"cidregistry",    sf->cidregistry);
+  lua_newtable(L);
+  dump_stringfield(L,"registry",    sf->cidregistry);
   dump_stringfield(L,"ordering",    sf->ordering);
-  
-  dump_intfield(L,"supplement",    sf->supplement);
+  dump_intfield   (L,"version",     sf->cidversion);
+  dump_intfield   (L,"supplement",  sf->supplement);
+  lua_setfield(L,-2,"cidinfo");
   
   if (sf->subfontcnt>0) {
     lua_newtable(L);
@@ -1106,7 +1108,6 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     lua_setfield(L,-2,"cidmaster");
   }
   
-  dump_intfield(L,"cidversion",    sf->cidversion);
   dump_stringfield(L,"comments",    sf->comments);
   
   if (sf->anchor != NULL) {

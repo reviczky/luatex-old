@@ -207,7 +207,7 @@ static boolean writepk (internalfontnumber f)
 
 	if (callback_id>0) {
       dpi = round (fixed_pk_resolution *
-		   (((float) pdf_font_size[f]) / get_font_dsize(f)));
+		   (((float) pdf_font_size[f]) / font_dsize(f)));
       /* <base>.dpi/<fontname>.<tdpi>pk */
       cur_file_name = font_name(f);
       mallocsize = strlen(cur_file_name)+24+9;
@@ -224,7 +224,7 @@ static boolean writepk (internalfontnumber f)
       dpi =
         kpse_magstep_fix (round
                           (fixed_pk_resolution *
-                           (((float) pdf_font_size[f]) / get_font_dsize(f))),
+                           (((float) pdf_font_size[f]) / font_dsize(f))),
                           fixed_pk_resolution, NULL);
       cur_file_name = font_name(f);
       name = kpse_find_pk (cur_file_name, (unsigned) dpi, &font_ret);

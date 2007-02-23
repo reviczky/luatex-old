@@ -16852,7 +16852,7 @@ procedure pdf_print_char(f: internal_font_number; cc: integer);
 var c: integer;
 begin
     pdf_mark_char(f, cc);
-	if font_format(f)=opentype_format then begin
+	if font_cidregistry(f)<>0 then begin
       c := char_index(f, cc);
       c := c div 256;
 	  if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
@@ -18423,38 +18423,6 @@ begin
     end;
 end;
 
-function expand_font_name(f: internal_font_number; e: integer): str_number;
-var old_setting:0..max_selector; {holds |selector| setting}
-begin
-    old_setting:=selector; selector:=new_string;
-    print_font_name(f);
-    if e > 0 then
-        print("+"); {minus sign will be printed by |print_int|}
-    print_int(e);
-    selector:=old_setting;
-    expand_font_name := make_string;
-end;
-
-function auto_expand_font(f: internal_font_number; e: integer): internal_font_number;
-{creates an expanded font from the base font; doesn't load expanded tfm at all}
-var k: internal_font_number;
-    i: integer;
-begin
-	k := copy_font(f);
-    font_id_text(k) := font_id_text(f);
-    set_tex_font_name(k,expand_font_name(f, e));
-    for i := 0 to font_widths(k) do begin
-      set_font_width(k,i,round_xn_over_d(font_width(f,i), 1000 + e, 1000));
-      end;
-    for i := 0 to font_italics(k) do begin
-      set_font_italic(k,i, round_xn_over_d(font_italic(f,i), 1000 + e, 1000));
-      end;
-    for i := 0 to font_kerns(k) do begin
-      adjust_font_kern(k,i, round_xn_over_d(font_kern_sc(f,i), 1000 + e, 1000));
-      end;
-    auto_expand_font := k;
-end;
-
 
 procedure copy_expand_params(k, f: internal_font_number; e: integer);
 {set expansion-related parameters for an expanded font |k|, based on the base
@@ -18525,8 +18493,10 @@ begin
     s := expand_font_name(f, e);
     k := tfm_lookup(s, font_size(f));
     if k = null_font then begin
-        if pdf_font_auto_expand[f] then
-            k := auto_expand_font(f, e)
+        if pdf_font_auto_expand[f] then begin
+            k := auto_expand_font(f, e);
+	        font_id_text(k) := font_id_text(f);
+            end
         else
            k := read_font_info(null_cs, s, "", font_size(f), font_natural_dir(f)); 
     end;

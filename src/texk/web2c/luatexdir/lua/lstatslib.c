@@ -19,8 +19,14 @@ char *getbanner (void) {
   return ptexbanner;
 }
 
+/* hack, I really should implement the makecstring */
 char *getfilename (void) {
-  return makecstring(get_current_name());
+  integer t;
+  t = get_current_name();
+  if (t>(2<<21))
+	return makecstring(t);
+  else
+	return xstrdup ("");
 }
 
 char *getlasterror (void) {
