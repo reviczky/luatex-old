@@ -38,6 +38,8 @@
 
 #define proper_char_index(c) (c<=font_ec(f) && c>=font_bc(f))
 #define dxfree(a,b) { xfree(a); a = b ; }
+#define do_realloc(a,b,d)    a = xrealloc(a,(b)*sizeof(d))
+
 
 texfont **font_tables = NULL;
 
@@ -171,7 +173,7 @@ void set_charinfo_kerns       (charinfo *ci, kerninfo *val)       { dxfree(ci->k
 void set_charinfo_packets     (charinfo *ci, real_eight_bits *val){ dxfree(ci->packets,val);     }
 
 void set_charinfo_extensible  (charinfo *ci, int top, int bot, int mid, int rep) { 
-  if (top == bot == mid == rep == 0) {
+  if (top == 0 && bot == 0 && mid == 0 && rep == 0) {
     if (ci->extensible != NULL) {
       free(ci->extensible);
       ci->extensible = NULL;
@@ -200,43 +202,58 @@ liginfo         *get_charinfo_ligatures   (charinfo *ci) { return ci->ligatures;
 kerninfo        *get_charinfo_kerns       (charinfo *ci) { return ci->kerns;     }
 real_eight_bits *get_charinfo_packets     (charinfo *ci) { return ci->packets;   }
 
-integer get_charinfo_extensible  (charinfo *ci, int which) { 
-  if (ci->extensible == NULL) 
-    return 0;
-  return ci->extensible[which];
+integer get_charinfo_extensible  (charinfo *ci, int whch) { 
+  int w = 0;
+  if (ci->extensible != NULL) 
+    w = ci->extensible[whch];
+  return w;
 }
 
 integer ext_top  (internal_font_number f, integer c) { 
   charinfo *ci = char_info(f,c);
-  return get_charinfo_extensible(ci,EXT_TOP);
+  integer w = get_charinfo_extensible(ci,EXT_TOP);
+  /*  fprintf(stdout,"top of char 0x%4x in font %s: %i\n",c,font_name(f),w);*/
+  return w;
 }
 
 integer ext_bot  (internal_font_number f, integer c) { 
   charinfo *ci = char_info(f,c);
-  return get_charinfo_extensible(ci,EXT_BOT);
+  integer w = get_charinfo_extensible(ci,EXT_BOT);
+  /*fprintf(stdout,"bot of char 0x%4x in font %s: %i\n",c,font_name(f),w);*/
+  return w;
 }
 integer ext_mid  (internal_font_number f, integer c) { 
   charinfo *ci = char_info(f,c);
-  return get_charinfo_extensible(ci,EXT_MID);
+  integer w = get_charinfo_extensible(ci,EXT_MID);
+  /*fprintf(stdout,"mid of char 0x%4x in font %s: %i\n",c,font_name(f),w);*/
+  return w;
 }
 integer ext_rep  (internal_font_number f, integer c) { 
   charinfo *ci = char_info(f,c);
-  return get_charinfo_extensible(ci,EXT_REP);
+  integer w = get_charinfo_extensible(ci,EXT_REP);
+  /*fprintf(stdout,"rep of char 0x%4x in font %s: %i\n",c,font_name(f),w);*/
+  return w;
 }
 
 scaled char_width (internal_font_number f, integer c) { 
   charinfo *ci = char_info(f,c);
-  return get_charinfo_width(ci);
+  scaled w = get_charinfo_width(ci);
+  /*fprintf(stdout,"width of char 0x%x in font %s: %i\n",c,font_name(f),w);*/
+  return w;
 }
 
 scaled char_depth (internal_font_number f, integer c) { 
   charinfo *ci = char_info(f,c);
-  return get_charinfo_depth(ci);
+  scaled w = get_charinfo_depth(ci);
+  /*fprintf(stdout,"depth of char 0x%x in font %s: %i\n",c,font_name(f),w);*/
+  return w;
 }
 
 scaled char_height (internal_font_number f, integer c) { 
   charinfo *ci = char_info(f,c);
-  return get_charinfo_height(ci);
+  scaled w = get_charinfo_height(ci);
+  /*fprintf(stdout,"height of char 0x%x in font %s: %i\n",c,font_name(f),w);*/
+  return w;
 }
 
 scaled char_italic (internal_font_number f, integer c) { 
@@ -305,8 +322,11 @@ set_font_params(internal_font_number f, int b) {
 
 integer
 copy_font (integer f) {
-  int i;
-  charinfo *co;
+  int i, x;
+  kerninfo *kern;
+  liginfo *lig;
+  real_eight_bits *packet;
+  charinfo *co, *ci;
   integer k = new_font();
   memcpy(font_tables[k],font_tables[f],sizeof(texfont));
 
@@ -320,34 +340,68 @@ copy_font (integer f) {
   font_tables[k]->_font_encodingname = NULL;   
   font_tables[k]->_font_area = NULL;   
   font_tables[k]->_font_cidregistry = NULL;   
-  font_tables[k]->_font_cidordering = NULL;   
-  set_font_name(k,xstrdup(font_name(f)));
-  set_font_filename(k,xstrdup(font_filename(f)));
-  set_font_fullname(k,xstrdup(font_fullname(f)));
-  set_font_encodingname(k,xstrdup(font_encodingname(f)));
-  set_font_area(k,xstrdup(font_area(f)));
-  set_font_cidregistry(k,xstrdup(font_cidregistry(f)));
-  set_font_cidordering(k,xstrdup(font_cidordering(f)));
+  font_tables[k]->_font_cidordering = NULL; 
 
+  set_font_name(k,xstrdup(font_name(f)));
+  if (font_filename(f)!= NULL)
+    set_font_filename(k,xstrdup(font_filename(f)));
+  if (font_fullname(f)!= NULL)
+    set_font_fullname(k,xstrdup(font_fullname(f)));
+  if (font_encodingname(f)!= NULL)
+    set_font_encodingname(k,xstrdup(font_encodingname(f)));
+  if (font_area(f)!= NULL)
+    set_font_area(k,xstrdup(font_area(f)));
+  if (font_cidregistry(f)!= NULL)
+    set_font_cidregistry(k,xstrdup(font_cidregistry(f)));
+  if (font_cidordering(f)!= NULL)
+    set_font_cidordering(k,xstrdup(font_cidordering(f)));
 
   i = sizeof(*param_base(f))*font_params(f);  
   font_bytes += i;
   param_base(k) = xmalloc (i);
   memcpy(param_base(k),param_base(f), i);
   
-  i = sizeof(font_tables[f]->charinfo) * font_tables[f]->charinfo_size;   
-  font_bytes += i;
-  font_tables[k]->charinfo = xmalloc (i);
-  memcpy(font_tables[k]->charinfo,font_tables[f]->charinfo,i);
-  
-  font_tables[k]->characters = copy_sa_tree(font_tables[f]->characters);
-
-  for(i=font_bc(k); i<=font_ec(k); i++) {
-    if (char_exists(k,i)) {
-      co = char_info(k,i);
+  for(i=font_bc(f); i<=font_ec(f); i++) {
+    if (char_exists(f,i)) {
+      ci = char_info(f,i);
+      co = get_charinfo(k,i);
+      memcpy(co,ci,sizeof(charinfo));
       set_charinfo_used(co,false);
-      if (co->name!=NULL) {
-	co->name = xstrdup(co->name);
+      co->name = NULL;
+      co->packets = NULL;
+      co->ligatures = NULL;
+      co->kerns = NULL;
+      co->extensible = NULL;
+      if (ci->name!=NULL) {
+	co->name = xstrdup(ci->name);
+      }
+      /* kerns */
+      if ((kern = get_charinfo_kerns(ci)) != NULL) {
+	x = 0;
+	while (!kern_end(kern[x])) { x++; } x++;
+	co->kerns = xmalloc (x*sizeof(kerninfo));
+	memcpy(co->kerns,ci->kerns,(x*sizeof(kerninfo)));
+      } 
+      /* ligs */
+      if ((lig = get_charinfo_ligatures(ci)) != NULL) {
+	x = 0;
+	while (!lig_end(lig[x])) { x++; } x++;
+	co->ligatures = xmalloc (x*sizeof(liginfo));
+	memcpy(co->ligatures,ci->ligatures,(x*sizeof(liginfo)));
+      } 
+      /* packets */
+      if ((packet = get_charinfo_packets(ci)) != NULL) {
+	x = vf_packet_bytes(ci);
+	co->packets = xmalloc (x);
+	memcpy(co->packets,ci->packets,x);
+      }
+      if (get_charinfo_tag(ci)==ext_tag) {
+	int top, bot, rep, mid;
+	top = get_charinfo_extensible(ci,EXT_TOP);
+	bot = get_charinfo_extensible(ci,EXT_BOT);
+	mid = get_charinfo_extensible(ci,EXT_MID);
+	rep = get_charinfo_extensible(ci,EXT_REP);
+	set_charinfo_extensible(co,top,bot,mid,rep);
       }
     }
   }
@@ -512,7 +566,7 @@ get_ligature (internal_font_number f, integer lc, integer rc) {
   k = 0;
   co = char_info(f,lc);
   while (1) {
-    u = char_ligature(co,k);
+    u = charinfo_ligature(co,k);
     if (lig_end(u))
       break;    
     if (lig_char(u) == rc) {
@@ -539,7 +593,7 @@ get_kern(internal_font_number f, integer lc, integer rc)
   k = 0;
   co = char_info(f,lc);
   while (1) {
-    u = char_kern(co,k);
+    u = charinfo_kern(co,k);
     if (kern_end(u))
       break;
     if (kern_char(u) == rc) {
@@ -610,10 +664,12 @@ dump_charinfo (int f , int c) {
     dump_things(*get_charinfo_packets(co), x);
   }
 
-  dump_int(get_charinfo_extensible(co,EXT_TOP));
-  dump_int(get_charinfo_extensible(co,EXT_BOT));
-  dump_int(get_charinfo_extensible(co,EXT_MID));
-  dump_int(get_charinfo_extensible(co,EXT_REP));
+  if (get_charinfo_tag(co)==ext_tag) {
+    x = get_charinfo_extensible(co,EXT_TOP);       dump_int(x);
+    x = get_charinfo_extensible(co,EXT_BOT);       dump_int(x);
+    x = get_charinfo_extensible(co,EXT_MID);       dump_int(x);
+    x = get_charinfo_extensible(co,EXT_REP);       dump_int(x);
+  }
 }
 
 void
@@ -698,11 +754,13 @@ undump_charinfo (int f) {
   }
   set_charinfo_packets(co,packet); 
 
-  undump_int(top);
-  undump_int(bot);
-  undump_int(mid);
-  undump_int(rep);
-  set_charinfo_extensible(co,top,bot,mid,rep);
+  if (get_charinfo_tag(co)==ext_tag) {
+    undump_int(top);
+    undump_int(bot);
+    undump_int(mid);
+    undump_int(rep);
+    set_charinfo_extensible(co,top,bot,mid,rep);
+  }
   return i;
 }
 

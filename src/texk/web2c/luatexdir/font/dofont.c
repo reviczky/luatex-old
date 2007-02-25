@@ -96,6 +96,7 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
     }
   }
   if (res) {
+    do_vf(f);
     set_font_natural_dir(f,natural_dir);
     return f;
   } else {

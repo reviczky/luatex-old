@@ -526,7 +526,7 @@ typedef struct tfmcharacterinfo {
   integer _depth_index; 
   integer _italic_index;
   integer _remainder;   
-  char _tag ;           
+  unsigned char _tag ;           
 } tfmcharacterinfo;
 
 
@@ -798,10 +798,10 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
     set_charinfo_tag       (co,ci._tag);
     if (ci._tag == ext_tag) {
       set_charinfo_extensible(co,
-			      extens[ci._remainder].b0,
-			      extens[ci._remainder].b1,
-			      extens[ci._remainder].b2,
-			      extens[ci._remainder].b3);
+			      extens[ci._remainder].b0, /* top */
+			      extens[ci._remainder].b2, /* bot */
+			      extens[ci._remainder].b1, /* mid */
+			      extens[ci._remainder].b3); /* rep */
       set_charinfo_remainder (co,0);
     } else {
       set_charinfo_remainder (co,ci._remainder);

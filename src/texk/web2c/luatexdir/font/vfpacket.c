@@ -201,6 +201,126 @@ do_vf_packet (internal_font_number vf_f, integer c) {
   packet_cur_s--;
 }
 
+
+integer *packet_local_fonts(internal_font_number f, integer *num) {
+  int c, cmd, cur_packet_byte, lf, k,l;
+  integer localfonts[256] = {0};
+  integer *lfs;
+  charinfo *co;
+  
+  real_eight_bits *vf_packets;
+  k = 0;
+  for (c = font_bc(f);c <= font_ec(f);c++) {
+    if (char_exists(f,c)) {
+      co = get_charinfo(f,c);
+      vf_packets = get_charinfo_packets(co);
+      if (vf_packets == NULL) 
+	continue;
+      cur_packet_byte = 0;
+      while ((cmd = vf_packets[cur_packet_byte]) != packet_end_code) {
+	cur_packet_byte++;
+	switch (cmd) {
+	case packet_font_code:
+	  packet_number(lf);
+	  for (l=0;l<k;l++) {
+	    if (localfonts[l]==lf) {
+	      break;
+	    }
+	  }
+	  if (l==k) {
+	    localfonts[k++]==lf;
+	  }
+	  break;
+	case packet_push_code: 
+	case packet_pop_code:
+	case packet_nop_code:
+	  break;
+	case packet_char_code: 
+	case packet_right_code:
+	case packet_down_code:
+	  cur_packet_byte+=4;
+	  break;
+	case packet_rule_code: 
+	  cur_packet_byte+=8;
+	  break;
+	case packet_special_code:
+	  packet_number(k);
+	  while (k-- > 0) 
+	    do_packet_byte();
+	  break;
+	default: 
+	  pdf_error("vf", "invalid DVI command");     
+	}
+      }
+    }
+  }  
+  *num = k;
+  if (k>0) {
+    lfs = xmalloc (k*sizeof(integer));
+    memcpy(lfs,localfonts,k*sizeof(integer));
+    return lfs;
+  }
+  return NULL;
+}
+
+
+void 
+replace_packet_fonts(internal_font_number f, integer *old_fontid, integer *new_fontid, int count) {
+  int c, cmd, cur_packet_byte, lf, k,l;
+  charinfo *co;
+  real_eight_bits *vf_packets;
+
+  k = 0;
+  for (c = font_bc(f);c <= font_ec(f);c++) {
+    if (char_exists(f,c)) {
+      co = get_charinfo(f,c);
+      vf_packets = get_charinfo_packets(co);
+      if (vf_packets == NULL) 
+	continue;
+      cur_packet_byte = 0;
+      while ((cmd = vf_packets[cur_packet_byte]) != packet_end_code) {
+	cur_packet_byte++;
+	switch (cmd) {
+	case packet_font_code:
+	  packet_number(lf);
+	  for (l=0;l<count;l++) {
+	    if (old_fontid[l]==lf) {
+	      break;
+	    }
+	  }
+	  if(l<count) {
+	    k = new_fontid[l];
+	    vf_packets[(cur_packet_byte-4)] = (k&0xFF000000)>>24;
+	    vf_packets[(cur_packet_byte-3)] = (k&0x00FF0000)>>16;
+	    vf_packets[(cur_packet_byte-2)] = (k&0x0000FF00)>>8;
+	    vf_packets[(cur_packet_byte-1)] = (k&0x000000FF);
+	  }
+	  break;
+	case packet_push_code: 
+	case packet_pop_code:
+	case packet_nop_code:
+	  break;
+	case packet_char_code: 
+	case packet_right_code:
+	case packet_down_code:
+	  cur_packet_byte+=4;
+	  break;
+	case packet_rule_code: 
+	  cur_packet_byte+=8;
+	  break;
+	case packet_special_code:
+	  packet_number(k);
+	  while (k-- > 0) 
+	    do_packet_byte();
+	  break;
+	default: 
+	  pdf_error("vf", "invalid DVI command");     
+	}
+      }
+    }
+  }  
+}
+
 /* this function was copied/borrowed/stolen from dvipdfm code */
 
 scaled sqxfw (scaled sq, integer fw)

@@ -632,20 +632,24 @@ font_from_lua (lua_State *L, int f) {
 	      s = string_field (L,"name",NULL); set_charinfo_name(co,s);
 	      
 	      k = numeric_field(L,"next",-1); 
-	      if (j>=0) {
+	      if (k>=0) {
 		set_charinfo_tag       (co,list_tag);
 		set_charinfo_remainder (co,k);
 	      }
 			  
 	      lua_getfield(L,-1,"extensible");
 	      if (lua_istable(L,-1)){ 
- 		int top=0, bot=0 ,mid=0, rep=0;
-		set_charinfo_tag       (co,ext_tag);
+ 		int top, bot,mid, rep;
 		top = numeric_field(L,"top",0);
 		bot = numeric_field(L,"bot",0);
 		mid = numeric_field(L,"mid",0);
 		rep = numeric_field(L,"rep",0);
-		set_charinfo_extensible (co,top,bot,mid,rep);
+		if (top != 0 || bot != 0 || mid != 0 || rep != 0) {
+		  set_charinfo_tag       (co,ext_tag);
+		  set_charinfo_extensible (co,top,bot,mid,rep);
+		} else {
+		  pdftex_warn("lua-loaded font %s char [%d] has an invalid extensible field!",font_name(f),i);
+		}
 	      }
 	      lua_pop(L,1);
 
@@ -667,6 +671,8 @@ font_from_lua (lua_State *L, int f) {
 		  if (ctr>0) {
 		    set_kern_item(ckerns[ctr],end_kern,0);
 		    set_charinfo_kerns(co,ckerns);
+		  } else {
+		    pdftex_warn("lua-loaded font %s char [%d] has an invalid kerns field!",font_name(f),i);
 		  }
 		}
 		lua_pop(L,1);
@@ -707,6 +713,8 @@ font_from_lua (lua_State *L, int f) {
 		  if (ctr>0) {
 		    set_ligature_item(cligs[ctr],0,end_ligature,0);
 		    set_charinfo_ligatures(co,cligs);
+		  } else {
+		    pdftex_warn("lua-loaded font %s char [%d] has an invalid ligatures field!",font_name(f),i);
 		  }
 		}
 		lua_pop(L,1); /* ligatures table */

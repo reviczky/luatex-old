@@ -31,8 +31,6 @@
 
 #define pointer halfword
 
-#define do_realloc(a,b,d)    a = xrealloc(a,(b)*sizeof(d))
-
 typedef struct liginfo {
   integer type_char;
   integer lig;
@@ -228,13 +226,11 @@ boolean cmp_font_area (integer, strnumber);
 #define param_base(a)        font_tables[a]->_param_base
 #define font_param(a,b)      font_tables[a]->_param_base[b]
 
-/* too hard to do inline, new space needs to be zeroed */
 extern void set_font_params(internal_font_number f, int b);
 
 #define set_font_param(f,n,b)                                   \
   { if (font_params(f)<n) set_font_params(f,n);                 \
     font_param(f,n) = b; }
-
 
 /* Font parameters are sometimes referred to as |slant(f)|, |space(f)|, etc.*/
 
@@ -257,41 +253,45 @@ typedef enum {
 
 /* now for characters  */
 
-charinfo *get_charinfo (internal_font_number f, integer c) ;
-void set_charinfo_width       (charinfo *ci, scaled val);
-void set_charinfo_height      (charinfo *ci, scaled val);
-void set_charinfo_depth       (charinfo *ci, scaled val);
-void set_charinfo_italic      (charinfo *ci, scaled val);
-void set_charinfo_tag         (charinfo *ci, scaled val);
-void set_charinfo_remainder   (charinfo *ci, scaled val);
-void set_charinfo_used        (charinfo *ci, scaled val);
-void set_charinfo_index       (charinfo *ci, scaled val);
-void set_charinfo_name        (charinfo *ci, char *val) ;
-void set_charinfo_ligatures   (charinfo *ci, liginfo *val);
-void set_charinfo_kerns       (charinfo *ci, kerninfo *val);
-void set_charinfo_packets     (charinfo *ci, real_eight_bits *val);
-void set_charinfo_extensible  (charinfo *ci, int a, int b, int c, int d);
+extern charinfo *get_charinfo (internal_font_number f, integer c) ;
+extern integer char_exists (internal_font_number f, integer c);
+extern charinfo *char_info (internal_font_number f, integer c);
+
+
+extern void set_charinfo_width       (charinfo *ci, scaled val);
+extern void set_charinfo_height      (charinfo *ci, scaled val);
+extern void set_charinfo_depth       (charinfo *ci, scaled val);
+extern void set_charinfo_italic      (charinfo *ci, scaled val);
+extern void set_charinfo_tag         (charinfo *ci, scaled val);
+extern void set_charinfo_remainder   (charinfo *ci, scaled val);
+extern void set_charinfo_used        (charinfo *ci, scaled val);
+extern void set_charinfo_index       (charinfo *ci, scaled val);
+extern void set_charinfo_name        (charinfo *ci, char *val) ;
+extern void set_charinfo_ligatures   (charinfo *ci, liginfo *val);
+extern void set_charinfo_kerns       (charinfo *ci, kerninfo *val);
+extern void set_charinfo_packets     (charinfo *ci, real_eight_bits *val);
+extern void set_charinfo_extensible  (charinfo *ci, int a, int b, int c, int d);
 
 #define set_char_used(f,a,b)  set_charinfo_used(get_charinfo(f,a),b)
 
-scaled get_charinfo_width             (charinfo *ci);
-scaled get_charinfo_height            (charinfo *ci);
-scaled get_charinfo_depth             (charinfo *ci);
-scaled get_charinfo_italic            (charinfo *ci);
-char    get_charinfo_tag              (charinfo *ci);
-integer get_charinfo_remainder        (charinfo *ci);
-char    get_charinfo_used             (charinfo *ci);
-integer get_charinfo_index            (charinfo *ci);
-char * get_charinfo_name              (charinfo *ci) ;
-liginfo * get_charinfo_ligatures      (charinfo *ci);
-kerninfo *get_charinfo_kerns          (charinfo *ci);
-real_eight_bits *get_charinfo_packets (charinfo *ci);
-integer get_charinfo_extensible       (charinfo *ci, int which);
+extern scaled get_charinfo_width             (charinfo *ci);
+extern scaled get_charinfo_height            (charinfo *ci);
+extern scaled get_charinfo_depth             (charinfo *ci);
+extern scaled get_charinfo_italic            (charinfo *ci);
+extern char    get_charinfo_tag              (charinfo *ci);
+extern integer get_charinfo_remainder        (charinfo *ci);
+extern char    get_charinfo_used             (charinfo *ci);
+extern integer get_charinfo_index            (charinfo *ci);
+extern char * get_charinfo_name              (charinfo *ci) ;
+extern liginfo * get_charinfo_ligatures      (charinfo *ci);
+extern kerninfo *get_charinfo_kerns          (charinfo *ci);
+extern real_eight_bits *get_charinfo_packets (charinfo *ci);
+extern integer get_charinfo_extensible       (charinfo *ci, int which);
 
-integer ext_top                       (internal_font_number f, integer c);
-integer ext_bot                       (internal_font_number f, integer c);
-integer ext_rep                       (internal_font_number f, integer c);
-integer ext_mid                       (internal_font_number f, integer c);
+extern integer ext_top                       (internal_font_number f, integer c);
+extern integer ext_bot                       (internal_font_number f, integer c);
+extern integer ext_rep                       (internal_font_number f, integer c);
+extern integer ext_mid                       (internal_font_number f, integer c);
 
 #define set_ligature_item(f,b,c,d)  { f.type_char = ((b<<24)+c);  f.lig = d; }
 
@@ -299,9 +299,6 @@ integer ext_mid                       (internal_font_number f, integer c);
 
 
 /* character information */
-
-extern integer char_exists (internal_font_number f, integer c);
-extern charinfo *char_info (internal_font_number f, integer c);
 
 #define non_char 65536 /* a code that can't match a real character */
 #define non_address 0  /* a spurious |bchar_label| */
@@ -312,7 +309,7 @@ extern charinfo *char_info (internal_font_number f, integer c);
 #define end_ligature          0x7FFFFF /* otherchar value meaning "stop" */
 #define ignored_ligature      0x800000 /* otherchar value meaning "disabled" */
 
-#define char_kern(b,c)        b->kerns[c]
+#define charinfo_kern(b,c)        b->kerns[c]
 
 #define kern_char(b)          (b).adj
 #define kern_kern(b)          (b).sc
@@ -324,7 +321,7 @@ extern charinfo *char_info (internal_font_number f, integer c);
 #define end_kern               0x7FFFFF /* otherchar value meaning "stop" */
 #define ignored_kern           0x800000 /* otherchar value meaning "disabled" */
 
-#define char_ligature(b,c)     b->ligatures[c]
+#define charinfo_ligature(b,c)     b->ligatures[c]
 
 #define is_ligature(a)         (((a).type_char&0xFF000000)!=0)
 #define lig_type(a)            (((a).type_char&0xFF000000)>>25)
@@ -347,12 +344,9 @@ extern liginfo * char_ligatures (internal_font_number f, integer c);
 extern kerninfo * char_kerns (internal_font_number f, integer c);
 extern real_eight_bits * char_packets (internal_font_number f, integer c);
 
-
 #define has_lig(f,b)          (char_exists(f,b) &&( char_ligatures(f,b) != NULL))
 #define has_kern(f,b)         (char_exists(f,b) && (char_kerns(f,b) != NULL))
 #define has_packet(f,b)       (char_exists(f,b) && (char_packets(f,b) != NULL))
-
-#define char_packet(b,c)       b->packets[c]
 
 extern integer char_remainder (internal_font_number f, integer c);
 extern char char_tag (internal_font_number f, integer c);
