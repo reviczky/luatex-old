@@ -2662,7 +2662,6 @@ pdf_font_st_bs_base:=xmallocarray(integer, font_max);
 pdf_font_sh_bs_base:=xmallocarray(integer, font_max);
 pdf_font_kn_bc_base:=xmallocarray(integer, font_max);
 pdf_font_kn_ac_base:=xmallocarray(integer, font_max);
-alloc_vf_arrays(font_max);
 
 for font_k := font_base to font_max do begin
     pdf_font_size[font_k] := 0;
@@ -3167,7 +3166,6 @@ pdf_font_st_bs_base:=xmallocarray(integer, font_max);
 pdf_font_sh_bs_base:=xmallocarray(integer, font_max);
 pdf_font_kn_bc_base:=xmallocarray(integer, font_max);
 pdf_font_kn_ac_base:=xmallocarray(integer, font_max);
-alloc_vf_arrays(font_max);
 
 for font_k := font_base to font_max do begin
     pdf_font_size[font_k] := 0;
