@@ -244,9 +244,7 @@ $Id $
 @define var non_char;
 @define var non_address;
 
-@define var unknown_font_type;
 @define var virtual_font_type;
-@define var real_font_type;
 @define function font_type();
 
 @define function font_format();
@@ -273,9 +271,8 @@ $Id $
 @define procedure set_char_tag();
 @define function char_remainder();
 
-@define procedure do_vf();
+@define function has_packet();
 @define procedure do_vf_packet();
-@define procedure alloc_vf_arrays();
 @define function expand_font_name();
 @define function auto_expand_font();
 @define procedure vf_expand_local_fonts();
