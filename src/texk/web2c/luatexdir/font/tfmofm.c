@@ -529,6 +529,7 @@ typedef struct tfmcharacterinfo {
   unsigned char _tag ;           
 } tfmcharacterinfo;
 
+extern charinfo *copy_charinfo(charinfo *ci);
 
 int 
 read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
@@ -703,11 +704,9 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
   bch_label=nl; /* infinity*/ 
   bchar=65536;
   if (nl>0) {
-    /* set_font_lig_kerns(f,nl); */
     for (k=0;k<nl;k++) { 
       read_four_quarters(qw);
       lig_kerns[k] = qw;
-      /* set_font_lig_kern(f,k,qw); */
       if (a>128) { 
         if (256*c+d>=nl)  tfm_abort;
         if (a==255 && k==0) bchar=b;
@@ -731,14 +730,7 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
 
   /* @<Read extensible character recipes@>; */
   for (k=0;k<ne;k++) {
-    read_four_quarters(qw); 
-    extens[k] = qw;
-    /*
-      if (a!=0) check_existence(a);
-      if (b!=0) check_existence(b);
-      if (c!=0) check_existence(c);
-      check_existence(d);
-    */
+    read_four_quarters(qw);  extens[k] = qw;
   }
 
   /* @<Read font parameters@>; */
@@ -767,6 +759,76 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
   if (tfm_byte<tfm_size-1) tfm_abort;
 
   tfm_byte = saved_tfm_byte ;
+
+  /* fix up the left boundary character */
+  fligs = 0;
+  fkerns = 0;
+  if (bch_label != nl ) {
+    k = bch_label;
+    /*
+    if (skip_byte(k) > stop_flag)
+      k = lig_kern_restart(k);
+    */
+    while (1) {
+      if (skip_byte(k) <= stop_flag) {
+	if(op_byte(k) >= kern_flag) {	 /* kern */
+	  fkerns++;
+	} else {  /* lig */
+	  fligs++;
+	}
+      }
+      if (skip_byte(k) == 0) {
+	k++;
+      } else {
+	if (skip_byte(k) >= stop_flag) 
+	  break;
+	k += skip_byte(k) + 1;
+      }
+    }
+  }
+  if (fkerns >0 || fligs > 0) {
+    if (fligs>0)	cligs  = xcalloc((fligs+1),sizeof(liginfo));
+    if (fkerns>0)	ckerns = xcalloc((fkerns+1),sizeof(kerninfo));
+    fligs = 0;
+    fkerns = 0;
+    k = bch_label;
+    /*
+    if (skip_byte(k) > stop_flag)
+      k = lig_kern_restart(k);
+    */
+    while (1) {
+      if (skip_byte(k) <= stop_flag) {
+	if(op_byte(k) >= kern_flag) {  /* kern */
+	  set_kern_item(ckerns[fkerns],next_char(k),kerns[256*(op_byte(k)-128)+rem_byte(k)]);
+	  fkerns++;
+	} else {  /* lig */
+	  set_ligature_item(cligs[fligs],(op_byte(k)*2+1),next_char(k),rem_byte(k));
+	  fligs++;
+	}
+      }
+      if (skip_byte(k) == 0) {
+	k++;
+      } else {
+	if (skip_byte(k) >= stop_flag) 
+	  break;
+	k += skip_byte(k) + 1;
+      }
+    }
+    if (fkerns>0 || fligs>0){
+      co = get_charinfo(f,left_boundarychar);
+      if (fkerns>0) {
+	set_kern_item(ckerns[fkerns],end_kern,0);
+	fkerns++;
+	set_charinfo_kerns(co,ckerns);
+      }
+      if (fligs>0){
+	set_ligature_item(cligs[fligs],0,end_ligature,0);
+	fligs++;
+	set_charinfo_ligatures(co,cligs);
+      }
+      set_charinfo_remainder(co,0); 
+    }
+  }
 
   /* @<Read character data@>; */
   for (k=bc;k<=ec;k++) {
@@ -827,8 +889,12 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
 	if (skip_byte(k) <= stop_flag) {
 	  if(op_byte(k) >= kern_flag) {	 /* kern */
 	    xkerns[i]++;
+	    if (next_char(k) == bchar)
+	      xkerns[i]++;
 	  } else {  /* lig */
 	    xligs[i]++;
+	    if (next_char(k) == bchar)
+	      xligs[i]++;
 	  }
 	}
 	if (skip_byte(k) == 0) {
@@ -858,9 +924,17 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
       while (1) {
 	if (skip_byte(k) <= stop_flag) {
 	  if(op_byte(k) >= kern_flag) {  /* kern */
+	    if (next_char(k) == bchar) {
+	      set_kern_item(ckerns[fkerns],right_boundarychar,kerns[256*(op_byte(k)-128)+rem_byte(k)]);
+	      fkerns++;
+	    }
 	    set_kern_item(ckerns[fkerns],next_char(k),kerns[256*(op_byte(k)-128)+rem_byte(k)]);
 	    fkerns++;
 	  } else {  /* lig */
+	    if (next_char(k) == bchar) {
+	      set_ligature_item(cligs[fligs],(op_byte(k)*2+1),right_boundarychar,rem_byte(k));
+	      fligs++;
+	    }
 	    set_ligature_item(cligs[fligs],(op_byte(k)*2+1),next_char(k),rem_byte(k));
 	    fligs++;
 	  }
@@ -897,17 +971,10 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
      file, and all we need to do is put the finishing touches on the data for
      the new font.
   */
-  
-  if (bch_label<nl) {
-    set_bchar_label(f,bch_label);
-  } else {
-    set_bchar_label(f,non_address);
-  }
-  set_font_bchar(f,bchar);
-  if (char_exists(f,bchar)) {
-    set_font_false_bchar(f,non_char);
-  } else {
-    set_font_false_bchar(f,bchar);
+
+  if (bchar!= 65536) {
+    co = copy_charinfo(char_info(f,bchar));
+    set_right_boundary(f,co);
   }
   set_font_name(f,cnom);
   set_font_area(f,caire);

@@ -32,8 +32,9 @@
 #define pointer halfword
 
 typedef struct liginfo {
-  integer type_char;
+  integer adj;
   integer lig;
+  char type;
 } liginfo;
 
 typedef struct kerninfo {
@@ -83,10 +84,10 @@ typedef struct texfont {
   integer _font_bc ;
   integer _hyphen_char ;
   integer _skew_char ;
-  integer _bchar_label;
-  integer _font_bchar;
-  integer _font_false_bchar;
   integer _font_natural_dir;
+
+  charinfo *_left_boundary;
+  charinfo *_right_boundary;
 
   integer _font_params;
   scaled  *_param_base;
@@ -151,16 +152,16 @@ boolean cmp_font_name (integer, strnumber);
 
 boolean cmp_font_area (integer, strnumber);
 
-#define font_string(a,b)            { if (a!=NULL) free(a); a = b; }
+#define font_reassign(a,b)            { if (a!=NULL) free(a); a = b; }
 
 #define font_filename(a)            font_tables[a]->_font_filename
-#define set_font_filename(f,b)      font_string(font_filename(f),b)
+#define set_font_filename(f,b)      font_reassign(font_filename(f),b)
 
 #define font_fullname(a)            font_tables[a]->_font_fullname
-#define set_font_fullname(f,b)      font_string(font_fullname(f),b)
+#define set_font_fullname(f,b)      font_reassign(font_fullname(f),b)
 
 #define font_encodingname(a)        font_tables[a]->_font_encodingname
-#define set_font_encodingname(f,b)  font_string(font_encodingname(f),b)
+#define set_font_encodingname(f,b)  font_reassign(font_encodingname(f),b)
 
 #define font_bc(a)                  font_tables[a]->_font_bc
 #define set_font_bc(f,b)            font_bc(f) = b
@@ -191,10 +192,10 @@ boolean cmp_font_area (integer, strnumber);
 #define set_font_cidsupplement(a,b) font_cidsupplement(a) = b
 
 #define font_cidordering(a)         font_tables[a]->_font_cidordering
-#define set_font_cidordering(f,b)   font_string(font_cidordering(f),b)
+#define set_font_cidordering(f,b)   font_reassign(font_cidordering(f),b)
 
 #define font_cidregistry(a)         font_tables[a]->_font_cidregistry
-#define set_font_cidregistry(f,b)   font_string(font_cidregistry(f),b)
+#define set_font_cidregistry(f,b)   font_reassign(font_cidregistry(f),b)
 
 #define font_map(a)                 font_tables[a]->_font_map
 #define set_font_map(a,b)           font_map(a) = b
@@ -208,17 +209,22 @@ boolean cmp_font_area (integer, strnumber);
 #define skew_char(a)                font_tables[a]->_skew_char
 #define set_skew_char(a,b)          skew_char(a) = b
 
-#define bchar_label(a)              font_tables[a]->_bchar_label
-#define set_bchar_label(a,b)        bchar_label(a) = b
-
-#define font_bchar(a)               font_tables[a]->_font_bchar
-#define set_font_bchar(a,b)         font_bchar(a) = b
-
-#define font_false_bchar(a)         font_tables[a]->_font_false_bchar
-#define set_font_false_bchar(a,b)   font_false_bchar(a) = b
-
 #define font_natural_dir(a)         font_tables[a]->_font_natural_dir
 #define set_font_natural_dir(a,b)   font_natural_dir(a) = b
+
+#define left_boundarychar  -1
+#define right_boundarychar -2
+#define non_boundarychar -3
+
+#define left_boundary(a)              font_tables[a]->_left_boundary
+#define has_left_boundary(a)          (left_boundary(a)!=NULL)
+#define set_left_boundary(a,b)        font_reassign(left_boundary(a),b)
+
+#define right_boundary(a)             font_tables[a]->_right_boundary
+#define has_right_boundary(a)         (right_boundary(a)!=NULL)
+#define set_right_boundary(a,b)       font_reassign(right_boundary(a),b)
+
+#define font_bchar(a)       (right_boundary(a)!=NULL ? right_boundarychar : non_boundarychar)
 
 /* font parameters */
 
@@ -293,7 +299,7 @@ extern integer ext_bot                       (internal_font_number f, integer c)
 extern integer ext_rep                       (internal_font_number f, integer c);
 extern integer ext_mid                       (internal_font_number f, integer c);
 
-#define set_ligature_item(f,b,c,d)  { f.type_char = ((b<<24)+c);  f.lig = d; }
+#define set_ligature_item(f,b,c,d)  { f.type = b; f.adj = c;  f.lig = d; }
 
 #define set_kern_item(f,b,c)	    { f.adj = b;  f.sc = c; }
 
@@ -306,29 +312,29 @@ extern integer ext_mid                       (internal_font_number f, integer c)
 
 /* character kerns and ligatures */
 
-#define end_ligature          0x7FFFFF /* otherchar value meaning "stop" */
-#define ignored_ligature      0x800000 /* otherchar value meaning "disabled" */
+#define end_kern               0x7FFFFF /* otherchar value meaning "stop" */
+#define ignored_kern           0x800000 /* otherchar value meaning "disabled" */
 
 #define charinfo_kern(b,c)        b->kerns[c]
 
 #define kern_char(b)          (b).adj
 #define kern_kern(b)          (b).sc
-#define kern_end(b)          ((b).adj == end_ligature)
-#define kern_disabled(b)     ((b).adj > end_ligature)
+#define kern_end(b)          ((b).adj == end_kern)
+#define kern_disabled(b)     ((b).adj > end_kern)
 
 /* character ligatures */
 
-#define end_kern               0x7FFFFF /* otherchar value meaning "stop" */
-#define ignored_kern           0x800000 /* otherchar value meaning "disabled" */
+#define end_ligature          0x7FFFFF /* otherchar value meaning "stop" */
+#define ignored_ligature      0x800000 /* otherchar value meaning "disabled" */
 
 #define charinfo_ligature(b,c)     b->ligatures[c]
 
-#define is_ligature(a)         (((a).type_char&0xFF000000)!=0)
-#define lig_type(a)            (((a).type_char&0xFF000000)>>25)
-#define lig_char(a)            ((a).type_char&0x00FFFFFF)
+#define is_ligature(a)         ((a).type!=0)
+#define lig_type(a)            ((a).type>>1)
+#define lig_char(a)            (a).adj
 #define lig_replacement(a)     (a).lig
-#define lig_end(a)             (lig_char(a) == end_kern)
-#define lig_disabled(a)        (lig_char(a) > end_kern)
+#define lig_end(a)             (lig_char(a) == end_ligature)
+#define lig_disabled(a)        (lig_char(a) > end_ligature)
 
 #define no_tag 0   /* vanilla character */
 #define lig_tag 1  /* character has a ligature/kerning program */
