@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-02-18}
+\TitlePage{Snapshot 2007-02-24}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -2462,14 +2462,12 @@ The top-level keys in the table are as follows:
 \NC name               \NC yes      \NC yes      \NC yes \NC string \NC metric (file) name\NC\NR
 \NC area               \NC no       \NC yes      \NC yes \NC string \NC (directory)location, typically empty\NC\NR
 \NC used               \NC no       \NC yes      \NC yes \NC boolean\NC used already? (initial: false)\NC \NR
-\NC boundarychar       \NC no       \NC yes      \NC yes \NC number \NC right boundary character (default: 0)\NC \NR
-\NC boundarychar_label \NC no       \NC yes      \NC yes \NC number \NC (this is a relic, will be removed)\NC \NR
 \NC characters         \NC yes      \NC yes      \NC yes \NC table  \NC the defined glyphs of this font \NC \NR
+\NC left_boundary      \NC no       \NC yes      \NC yes \NC number \NC left boundary glyph (default: none)\NC \NR
 \NC checksum           \NC yes      \NC yes      \NC no  \NC number \NC default: 0 \NC \NR
 \NC designsize         \NC no       \NC yes      \NC yes \NC number \NC expected size (default: 655360 == 10pt) \NC \NR
 \NC direction          \NC no       \NC yes      \NC yes \NC number \NC default: 0 (LTR) \NR
 \NC encodingname       \NC no       \NC no       \NC yes \NC string \NC encoding name\NC\NR
-\NC false_boundarychar \NC no       \NC yes      \NC yes \NC number \NC (this is a relic, will be removed)\NC \NR
 \NC fonts              \NC yes      \NC no       \NC yes \NC table  \NC locally used fonts\NC \NR
 \NC fullname           \NC no       \NC no       \NC yes \NC string \NC actual (PostScript) name\NC\NR
 \NC header             \NC yes      \NC no       \NC no  \NC string \NC header comments, if any\NC \NR
@@ -2578,7 +2576,7 @@ The following top-level keys can be present inside a character hash:
 \NC ligatures         \NC no       \NC yes      \NC yes \NC table  \NC ligaturing information\NC\NR
 \NC commands          \NC yes      \NC no       \NC yes \NC array  \NC virtual font commands\NC\NR
 \NC name              \NC no       \NC no       \NC no  \NC string \NC the character (PostScript) name\NC\NR
-\NC index             \NC no       \NC no       \NC yes \NC number \NC the (opentype) font glyph index\NC\NR
+\NC index             \NC no       \NC no       \NC yes \NC number \NC the (opentype or truetyoe) font glyph index\NC\NR
 \NC used              \NC no       \NC yes      \NC yes \NC boolean\NC typeset already (default: false)?\NC\NR
 \stoptabulate
 
@@ -2593,11 +2591,15 @@ The \type{extensible} table is very simple:
 \NC rep               \NC number \NC `repeatable' character index\NC\NR
 \stoptabulate
 
-The \type{kerns} table is a hash indexed by character index, with the values the kerning
-to be appled, in scaled points.
+The \type{kerns} table is a hash indexed by character index (and
+`character index' is defined as either a non-negative integer or the
+string value `right_boundary'), with the values the kerning to be
+appled, in scaled points.
 
-The \type{ligatures} table is a hash indexed by character index, with the values 
-being yet another small hash, with two fields:
+The \type{ligatures} table is a hash indexed by character index (and
+`character index' is defined as either a non-negative integer or the
+string value `right_boundary'), with the values being yet another small 
+hash, with two fields:
 \starttabulate[|l|l|p|]
 \NC key               \NC value type \NC description \NC\FR
 \NC type              \NC number \NC the type of this ligature command, default 0\NC\NR
@@ -2747,17 +2749,18 @@ that a font is not a virtual font, assigning the value `base' or
 file, thereby saving you a disk search.
 
 
-The \type{fonts} is another Lua array. The values are two-value arrays
+The \type{fonts} is another Lua array. The values are two-value hashes
 themselves, each entry indicating one of the base fonts in a virtual
 font. An example makes this  easy to understand
 
 \starttyping
-    "fonts" = { {"ptmr8a",655360}, {"psyr", 600000} }
+    "fonts" = { { name = "ptmr8a", size = 655360}, 
+                { name = "psyr", size = 600000} }
 \stoptyping
 
 says that the first referenced font (index 1) in this virtual font is
-\type{ptrmr8a.tfm} loaded at 10pt, and the second is \type{psyr.tfm} 
-loaded at a little over 9pt. These index numbers are used by the
+\type{ptrmr8a} loaded at 10pt, and the second is \type{psyr}  loaded 
+at a little over 9pt. The array index numbers are used by the
 character command definitions that are part of each character.
 
 
@@ -3075,9 +3078,6 @@ problems with Right-Left.
 
 \item Font expansion is currently non-functional due to massive 
 changes in the virtual font handling.
-
-\item Left- and rightboundary ligature processing is broken, because of
-a change in the internal font structure.
 
 \item Letter spacing (\type{\letterspacefont}) is currently non-functional 
 due to massive changes in the virtual font handling. This
