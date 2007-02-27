@@ -176,7 +176,8 @@ boolean cmp_font_area (integer, strnumber);
 #define set_font_touched(a,b)       font_touched(a) = b
  
 #define font_type(a)                font_tables[a]->_font_type
-#define set_font_type(a,b)          font_type(a) = b
+#define set_font_type(a,b)          {  fprintf(stdout,"set font type of %s to %i: %s\n",font_name(a),b,__FILE__); \
+                                       font_type(a) = b; }
 
 #define font_format(a)              font_tables[a]->_font_format
 #define font_format_name(a)         font_format_strings[font_tables[a]->_font_format]

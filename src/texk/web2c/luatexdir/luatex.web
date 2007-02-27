@@ -26594,21 +26594,21 @@ nodes $p_{a-1}$ and~$p_b$ in the description above are placed into variables
 |ha| and |hb|; and the font number is placed into |hf|.
 
 @<Glob...@>=
-@!hc:array[0..65] of 0..65536; {word to be hyphenated}
+@!hc:array[0..65] of integer; {word to be hyphenated}
 @!hn:small_number; {the number of positions occupied in |hc|}
 @!ha,@!hb:pointer; {nodes |ha..hb| should be replaced by the hyphenated result}
 @!hf:internal_font_number; {font number of the letters in |hc|}
-@!hu:array[0..63] of 0..65536; {like |hc|, before conversion to lowercase}
+@!hu:array[0..63] of integer; {like |hc|, before conversion to lowercase}
 @!hyf_char:integer; {hyphen character of the relevant font}
 @!cur_lang,@!init_cur_lang:ASCII_code; {current hyphenation table of interest}
 @!l_hyf,@!r_hyf,@!init_l_hyf,@!init_r_hyf:integer; {limits on fragment sizes}
-@!hyf_bchar:halfword; {boundary character after $c_n$}
+@!hyf_bchar:integer; {boundary character after $c_n$}
 
 @ Hyphenation routines need a few more local variables.
 
 @<Local variables for line...@>=
 @!j:small_number; {an index into |hc| or |hu|}
-@!c:0..65535; {character being considered for hyphenation}
+@!c:integer; {character being considered for hyphenation}
 
 @ When the following code is activated, the |line_break| procedure is in its
 second pass, and |cur_p| points to a glue node.
@@ -26861,13 +26861,13 @@ affect the translation of the beginning of the word.
 @!hyphen_passed:small_number; {first hyphen in a ligature, if any}
 
 @ @<Declare the function called |reconstitute|@>=
-function reconstitute(@!j,@!n:small_number;@!bchar,@!hchar:halfword):
+function reconstitute(@!j,@!n:small_number;@!bchar,@!hchar:integer):
   small_number;
 label continue,done;
 var @!p:pointer; {temporary register for list manipulation}
 @!t:pointer; {a node being appended to}
 @!q:four_quarters; {character information or a lig/kern instruction}
-@!cur_rh:halfword; {hyphen character for ligature testing}
+@!cur_rh:integer; {hyphen character for ligature testing}
 @!test_char:halfword; {hyphen or other character for ligature testing}
 @!w:scaled; {amount of kerning}
 @!k:integer; {position of current lig/kern instruction}
@@ -29357,7 +29357,7 @@ else begin
     main_k := non_boundarychar;
   end;
 if main_k=non_boundarychar then goto main_loop_move+2; {no left boundary processing}
-cur_r:=cur_l; cur_l:=non_boundarychar;
+cur_r:=cur_l; cur_l:=main_k;
 if not new_right_ghost then
   goto main_lig_loop+1; {begin with cursor after left boundary}
 @#

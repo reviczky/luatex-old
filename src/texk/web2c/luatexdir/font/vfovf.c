@@ -473,6 +473,7 @@ do_vf(internal_font_number f) {
   if (!open_vf_file(font_name(f), &vf_buffer, &vf_size))
     return;
   /* @<Process the preamble@>;@/ */
+  set_font_type(f,virtual_font_type);
   vf_byte(k);
   if (k != pre) 
     bad_vf("PRE command expected");
