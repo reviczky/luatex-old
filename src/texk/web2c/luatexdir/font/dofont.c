@@ -134,6 +134,7 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
 int 
 find_font_id (char *nom, char *aire, scaled s) {
   integer f;
+  /*
   for (f=1;f<=max_font_id();f++) {
     if (is_valid_font(f) && (strcmp(font_name(f),nom)==0)) {
       if (s>0) {
@@ -144,7 +145,8 @@ find_font_id (char *nom, char *aire, scaled s) {
 		return f;
       }
     }
-  }
+    }
+  */
   /* not found yet */
   f = new_font();
   if (do_define_font(f, xstrdup(nom),xstrdup(aire),s,-1)) {

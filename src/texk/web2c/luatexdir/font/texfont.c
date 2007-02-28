@@ -124,12 +124,11 @@ get_charinfo (internal_font_number f, integer c) {
     if (!glyph) {
       /* this could be optimized using controlled growth */
       font_bytes += sizeof(charinfo);
-      glyph = Charinfo_count(f) + 1;
+      glyph = ++font_tables[f]->charinfo_count;
       do_realloc(font_tables[f]->charinfo, (glyph+1), charinfo); 
       memset (&(font_tables[f]->charinfo[glyph]),0,sizeof(charinfo));
-      Charinfo_count(f) = glyph;
-      Charinfo_size(f) = glyph;
-      set_sa_item(Characters(f), c, glyph, 1); /* 1= global */
+      font_tables[f]->charinfo_size = glyph;
+      set_sa_item(font_tables[f]->characters, c, glyph, 1); /* 1= global */
     }
     return &(font_tables[f]->charinfo[glyph]);
   } else if (c == left_boundarychar) {
@@ -531,7 +530,7 @@ cmp_font_name (integer id, strnumber t) {
   tid = font_name(id);
   if (tt == NULL && tid == NULL)
     return 1;
-  if (tt == NULL || strcmp(tid,tt)!=0)
+  if (tt == NULL || tid == NULL || strcmp(tid,tt)!=0)
     return 0;
   return 1;
 }

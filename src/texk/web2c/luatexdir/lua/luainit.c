@@ -382,6 +382,12 @@ lua_initialize(int ac, char **av)
 	    exit(1);
 	  }
 	  /* no filename? quit now! */
+	  if (!input_name) {
+	    get_lua_string("texconfig", "jobname", &input_name);
+	  }
+	  if (!dump_name) {
+	    get_lua_string("texconfig", "formatname", &dump_name);
+	  }
 	  if ((lua_only) || ((!input_name) && (!dump_name))) {
 		exit(0);
 	  }

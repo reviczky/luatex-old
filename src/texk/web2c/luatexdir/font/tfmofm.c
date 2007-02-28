@@ -363,7 +363,9 @@ additional parameter information, which is explained later.
 
 */
 
-#define tfm_abort { xfree(tfm_buffer); xfree(kerns); 			\
+#define tfm_abort { font_tables[f]->_font_name = NULL; 			\
+                    font_tables[f]->_font_area = NULL; 			\
+                    xfree(tfm_buffer); xfree(kerns);			\
 		    xfree(widths);  xfree(heights);  xfree(depths);     \
 		    xfree(italics);  xfree(extens);  xfree(lig_kerns);	\
 		    xfree(xligs);  xfree(xkerns);  return 0; }
@@ -561,8 +563,17 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
   unsigned char *tfm_buffer = NULL; /* byte buffer for tfm files */
   integer tfm_size = 0; /* total size of the tfm file */
 
-  lig_kerns = NULL;
+  widths=NULL;
+  heights=NULL;
+  depths = NULL;
+  italics = NULL;
   kerns = NULL;
+  lig_kerns = NULL;
+  extens = NULL;
+  xkerns = NULL;
+  ckerns = NULL;
+  xligs = NULL;
+  cligs = NULL;
 
   font_dir = 0;
 
@@ -570,6 +581,9 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
 
   if(open_tfm_file(cnom,caire,&tfm_buffer,&tfm_size)!=1)
      tfm_abort;
+
+  set_font_name(f,cnom);
+  set_font_area(f,caire);
 
   /* @<Read the {\.{TFM}} size fields@>; */
   nco=0; ncw=0; npc=0;
@@ -833,6 +847,8 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
   /* @<Read character data@>; */
   for (k=bc;k<=ec;k++) {
     store_char_info(k);
+    if (ci._width_index==0)
+      continue;
     if (ci._width_index>=nw||ci._height_index>=nh||
 	ci._depth_index>=nd||ci._italic_index>=ni) tfm_abort;
     d = ci._remainder;
@@ -976,8 +992,6 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
     co = copy_charinfo(char_info(f,bchar));
     set_right_boundary(f,co);
   }
-  set_font_name(f,cnom);
-  set_font_area(f,caire);
 
   tfm_success;
 }

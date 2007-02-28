@@ -169,14 +169,14 @@ boolean cmp_font_area (integer, strnumber);
 #define font_ec(a)                  font_tables[a]->_font_ec
 #define set_font_ec(f,b)            font_ec(f) = b
 
-#define font_used(a)                font_tables[a]->_font_used
-#define set_font_used(a,b)          font_used(a) = b
+#define font_used(a)                (font_tables[a]!=NULL && font_tables[a]->_font_used)
+#define set_font_used(a,b)          font_tables[a]->_font_used = b
 
 #define font_touched(a)             font_tables[a]->_font_touched
 #define set_font_touched(a,b)       font_touched(a) = b
  
 #define font_type(a)                font_tables[a]->_font_type
-#define set_font_type(a,b)          {  fprintf(stdout,"set font type of %s to %i: %s\n",font_name(a),b,__FILE__); \
+#define set_font_type(a,b)          {  /* fprintf(stdout,"set font type of %s to %i: %s\n",font_name(a),b,__FILE__); */ 	\
                                        font_type(a) = b; }
 
 #define font_format(a)              font_tables[a]->_font_format

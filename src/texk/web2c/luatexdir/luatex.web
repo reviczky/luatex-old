@@ -26868,7 +26868,7 @@ var @!p:pointer; {temporary register for list manipulation}
 @!t:pointer; {a node being appended to}
 @!q:four_quarters; {character information or a lig/kern instruction}
 @!cur_rh:integer; {hyphen character for ligature testing}
-@!test_char:halfword; {hyphen or other character for ligature testing}
+@!test_char:integer; {hyphen or other character for ligature testing}
 @!w:scaled; {amount of kerning}
 @!k:integer; {position of current lig/kern instruction}
 @!lig:liginfo; {a ligature structure}
@@ -33133,8 +33133,6 @@ if scan_keyword("naturaldir") then begin
   end
 else natural_dir:=-1;
 name_in_progress:=false;
-@<If this font has already been loaded, set |f| to the internal
-  font number and |goto common_ending|@>;
 if cur_area = "" then
   f:=read_font_info(u,cur_name,"",s,natural_dir)
 else
@@ -33171,25 +33169,6 @@ if (s<=0)or(s>=@'1000000000) then
   end;
 end
 
-@ When the user gives a new identifier to a font that was previously loaded,
-the new name becomes the font identifier of record. Font names `\.{xyz}' and
-`\.{XYZ}' are considered to be different.
-
-@<If this font has already been loaded...@>=
-flushable_string:=str_ptr-1;
-for f:=1 to max_font_id do begin
-  if cmp_font_name(f,cur_name) and
-     cmp_font_area(f,cur_area) then
-    begin if cur_name=flushable_string then
-      begin flush_string; cur_name:=tex_font_name(f);
-      end;
-    if s>0 then
-      begin if s=font_size(f) then goto common_ending;
-      end
-    else if font_size(f)=xn_over_d(font_dsize(f),-s,1000) then
-      goto common_ending;
-    end
-  end
 
 @ @<Cases of |print_cmd_chr|...@>=
 set_font:begin print("select font "); print_font_name(chr_code);

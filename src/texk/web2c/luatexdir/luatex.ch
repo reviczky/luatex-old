@@ -2280,33 +2280,6 @@ if (cur_cs=0)or(cur_cs>eqtb_top)or
 @z
 
 @x
-flushable_string:=str_ptr-1;
-@y
-@z
-
-@x
-    begin if cur_name=flushable_string then
-      begin flush_string; cur_name:=tex_font_name(f);
-      end;
-    if s>0 then
-      begin if s=font_size(f) then goto common_ending;
-      end
-    else if font_size(f)=xn_over_d(font_dsize(f),-s,1000) then
-      goto common_ending;
-    end
-@y
-    begin
-    if pdf_font_step[f] = 0 then begin
-      if s>0 then
-        begin if s=font_size(f) then goto common_ending;
-        end
-      else if font_size(f)=xn_over_d(font_dsize(f),-s,1000) then
-        goto common_ending;
-      end;
-    end
-@z
-
-@x
 interaction:=cur_chr;
 @y
 interaction:=cur_chr;

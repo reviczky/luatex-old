@@ -555,9 +555,9 @@ do_vf(internal_font_number f) {
 		print_string(".vf ignored");
       }
     }
-	k  = count_packet_bytes(vf_buffer,vf_cur,packet_length);
-	vpackets = xmalloc(k+1);
-	co = get_charinfo(f,cc);
+    k  = count_packet_bytes(vf_buffer,vf_cur,packet_length);
+    vpackets = xmalloc(k+1);
+    co = get_charinfo(f,cc);
     k = 0; 
     w = 0; x = 0; y = 0; z = 0;
     while (packet_length > 0) {
