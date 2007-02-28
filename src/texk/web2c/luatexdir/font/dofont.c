@@ -71,22 +71,38 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
   int success;
   boolean res; /* was the callback successful? */
   integer callback_id;
+  char *cnam;
   int r;
   res = 0;
 
   callback_id=callback_defined("define_font");
   if (callback_id>0) {
-    callback_id = run_and_save_callback(callback_id,"SSd->",cnom,caire,s);
-    free(cnom);
-    if(caire!=NULL && strlen(caire))
-       free(caire);
-    if (callback_id>0) {
+    if (caire == NULL || strlen(caire)==0) {
+      cnam = cnom;
+    } else {
+      cnam = xmalloc(strlen(cnom)+strlen(caire)+2);
+      sprintf(cnam,"%s/%s",caire,cnom);
+      free(caire);
+      free(cnom);
+    }
+    callback_id = run_and_save_callback(callback_id,"Sdd->",cnam,s,f);
+    free(cnam);
+    if (callback_id>0) { /* success */
       luaL_checkstack(Luas[0],1,"out of stack space");
       lua_rawgeti(Luas[0],LUA_REGISTRYINDEX, callback_id);
       if (lua_istable(Luas[0],-1)) {
-		res = font_from_lua(Luas[0],f);	
-      } 
-      lua_pop(Luas[0],1);
+	res = font_from_lua(Luas[0],f);	
+	lua_pop(Luas[0],1);
+      } else if (lua_isnumber(Luas[0],-1)) {
+	r = lua_tonumber(Luas[0],-1);	
+	delete_font(f);
+	lua_pop(Luas[0],1);
+	return r;
+      } else {
+	lua_pop(Luas[0],1);
+	delete_font(f);
+	return 0;
+      }
     }
   } else {
     res = read_tfm_info(f,cnom,caire,s);
@@ -109,47 +125,37 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
 int 
 read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
                integer natural_dir) {
-  char *cnom, *caire = NULL;
   integer f;
+  char *cnom, *caire = NULL;
   cnom  = xstrdup(makecstring(nom));
   if (aire != 0) 
     caire = xstrdup(makecstring(aire));
 
   f = new_font();
-  if (do_define_font(f, cnom,caire,s,natural_dir)) {
+  if ((f = do_define_font(f, cnom,caire,s,natural_dir))) {
     return f;
   } else {
-    start_font_error_message(u, nom, aire, s);
     char *help[] = {"I wasn't able to read the size data for this font,",
 		    "so I will ignore the font specification.",
 		    "[Wizards can fix TFM files using TFtoPL/PLtoTF.]",
 		    "You might try inserting a different font spec;",
 		    "e.g., type `I\font<same font id>=<substitute font name>'.",
 		    NULL } ;
+    start_font_error_message(u, nom, aire, s);
     do_error(" not loadable: Metric (TFM/OFM) file not found or bad",help);
     return 0;
   }
 }
 
+/* TODO This function is a placeholder. There can easily appears holes in 
+   the |font_tables| array, and we could attempt to reuse those
+*/
+
 int 
 find_font_id (char *nom, char *aire, scaled s) {
   integer f;
-  /*
-  for (f=1;f<=max_font_id();f++) {
-    if (is_valid_font(f) && (strcmp(font_name(f),nom)==0)) {
-      if (s>0) {
-		if (s==font_size(f)) {
-		  return f;
-		} 
-      } else if (font_size(f)==xn_over_d(font_dsize(f),-s,1000)) {
-		return f;
-      }
-    }
-    }
-  */
-  /* not found yet */
   f = new_font();
-  if (do_define_font(f, xstrdup(nom),xstrdup(aire),s,-1)) {
+  if ((f = do_define_font(f, xstrdup(nom),xstrdup(aire),s,-1))) {
     return f;
   } else {
     return 0;
