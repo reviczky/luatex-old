@@ -176,7 +176,7 @@ get_saved_lua_string (int r, char *name, char **target) {
 int 
 run_saved_callback (int r, char *name, char *values, ...) {
   va_list args;
-  int ret;
+  int ret = 0;
   lua_State *L = Luas[0];
   int stacktop = lua_gettop(L);  
   va_start(args,values);
@@ -184,9 +184,7 @@ run_saved_callback (int r, char *name, char *values, ...) {
   lua_rawgeti(L,LUA_REGISTRYINDEX,r);
   lua_pushstring(L,name);
   lua_rawget(L,-2);
-  if (!lua_isfunction(L,-1)) {
-    ret = 0;
-  } else {
+  if (lua_isfunction(L,-1)) {
     ret = do_run_callback(2,values,args);
   }
   va_end(args);
@@ -197,27 +195,20 @@ run_saved_callback (int r, char *name, char *values, ...) {
 
 int
 run_and_save_callback (int i, char *values, ...) {
-  int ret;
   va_list args;
+  int ret = 0;
   lua_State *L = Luas[0];
   int stacktop = lua_gettop(L);
   va_start(args,values);
   luaL_checkstack(L,2,"out of stack space");
   lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
   lua_rawgeti(L,-1,i);
-  if (!lua_isfunction(L,-1)) {
-    ret = 0;
-  } else {
-	ret = do_run_callback(1,values,args);
+  if (lua_isfunction(L,-1)) {
+    ret = do_run_callback(1,values,args);
   }
   va_end(args);
   if (ret>0) {
-	if(lua_istable(L,-1)) {
-	  ret = luaL_ref(L,LUA_REGISTRYINDEX);
-	} else if (!lua_isnil(L,-1)) {
-	  fprintf(stderr,"Expected a table, not: %s\n", 
-			  lua_typename(L,lua_type(L,-1)));
-	}
+    ret = luaL_ref(L,LUA_REGISTRYINDEX);
   }
   lua_settop(L,stacktop);
   return ret;
@@ -226,18 +217,16 @@ run_and_save_callback (int i, char *values, ...) {
 
 int
 run_callback (int i, char *values, ...) {
-  int ret;
   va_list args;
+  int ret = 0;
   lua_State *L = Luas[0];
   int stacktop = lua_gettop(L);
   va_start(args,values);
   luaL_checkstack(L,2,"out of stack space");
   lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
   lua_rawgeti(L,-1, i);
-  if (!lua_isfunction(L,-1)) {
-    ret = 0;
-  } else {
-	ret = do_run_callback(0,values,args);
+  if (lua_isfunction(L,-1)) {
+    ret = do_run_callback(0,values,args);
   }
   va_end(args);
   lua_settop(L,stacktop);
