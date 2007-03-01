@@ -111,6 +111,11 @@ vf_packet_bytes (charinfo *co) {
 /* typeset the \.{DVI} commands in the
    character packet for character |c| in current font |f| */
 
+char *packet_command_names[] = {  
+  "char", "font","pop",	"push",	"special",
+  "right","down","rule","nop","end", NULL};
+
+
 void 
 do_vf_packet (internal_font_number vf_f, integer c) {
   internal_font_number lf;
@@ -140,6 +145,13 @@ do_vf_packet (internal_font_number vf_f, integer c) {
   fs_f = font_size(vf_f);
   while ((cmd = vf_packets[cur_packet_byte]) != packet_end_code) {
     cur_packet_byte++;
+    /*
+    if (cmd>packet_end_code) {
+      fprintf(stdout, "do_vf_packet(%i,%i) command code = illegal \n", vf_f,c);
+    } else {
+      fprintf(stdout, "do_vf_packet(%i,%i) command code = %s\n",vf_f, c, packet_command_names[cmd]);
+    }
+    */
     switch (cmd) {
     case packet_font_code:
       packet_number(lf);
@@ -157,9 +169,9 @@ do_vf_packet (internal_font_number vf_f, integer c) {
     case packet_char_code: 
       packet_number(k);
       if (!char_exists(lf,k)) {
-		char_warning(lf, k);
+	char_warning(lf, k);
       } else {
-		output_one_char(lf, k);
+	output_one_char(lf, k);
       }
       cur_h = cur_h + char_width(lf,k);
       break;

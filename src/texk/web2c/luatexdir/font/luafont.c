@@ -2,6 +2,8 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
+#define SAVE_REF 0
+
 char *font_type_strings[]      = {"unknown","virtual","real", NULL};
 char *font_format_strings[]    = {"unknown","type1","type3","truetype", "opentype", NULL};
 char *font_embedding_strings[] = {"unknown","no","subset", "full", NULL};
@@ -237,7 +239,8 @@ count_hash_items (lua_State *L, char *name){
 static int
 numeric_field (lua_State *L, char *name, int dflt) {
   int i = dflt;
-  lua_getfield(L,-1,name);
+  lua_pushstring(L,name);
+  lua_rawget(L,-2);
   if (lua_isnumber(L,-1)) {	
     i = lua_tonumber(L,-1);
   }
@@ -250,7 +253,8 @@ enum_field (lua_State *L, char *name, int dflt, char **values) {
   int k;
   char *s;
   int i = dflt;
-  lua_getfield(L,-1,name);
+  lua_pushstring(L,name);
+  lua_rawget(L,-2);
   if (lua_isnumber(L,-1)) {	
     i = lua_tonumber(L,-1);
   } else if (lua_isstring(L,-1)) {
@@ -271,7 +275,8 @@ enum_field (lua_State *L, char *name, int dflt, char **values) {
 static int
 boolean_field (lua_State *L, char *name, int dflt) {
   int i = dflt;
-  lua_getfield(L,-1,name);
+  lua_pushstring(L,name);
+  lua_rawget(L,-2);
   if (lua_isboolean(L,-1)) {	
     i = lua_toboolean(L,-1);
   }
@@ -282,7 +287,8 @@ boolean_field (lua_State *L, char *name, int dflt) {
 static char *
 string_field (lua_State *L, char *name, char *dflt) {
   char *i;
-  lua_getfield(L,-1,name);
+  lua_pushstring(L,name);
+  lua_rawget(L,-2);
   if (lua_isstring(L,-1)) {	
     i = xstrdup(lua_tostring(L,-1));
   } else if (dflt==NULL) {
@@ -820,9 +826,12 @@ font_from_lua (lua_State *L, int f) {
       pdftex_warn("lua-loaded font [%d] has no characters!",f);
     }
 
-    r = luaL_ref(Luas[0],LUA_REGISTRYINDEX); /* pops the table */
+#if SAVE_REF
+    r = luaL_ref(Luas[0],LUA_REGISTRYINDEX);    /* pops the table */
     set_font_cache_id(f,r);
-
+#else
+    lua_pop(Luas[0],1);
+#endif
   } else { /* jikes, no characters */
     pdftex_warn("lua-loaded font [%d] has no character table!",f);
   }

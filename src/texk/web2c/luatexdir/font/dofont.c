@@ -24,6 +24,12 @@ $Id$
 
 #include "luatex-api.h"
 
+#define TIMERS 0
+
+#if TIMERS
+#include <sys/time.h>
+#endif
+
 
 /* a bit more interfacing is needed for proper error reporting */
 
@@ -72,6 +78,11 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
   boolean res; /* was the callback successful? */
   integer callback_id;
   char *cnam;
+#if TIMERS
+    struct timeval tva;
+    struct timeval tvb;
+    double tvdiff;
+#endif
   int r;
   res = 0;
 
@@ -85,16 +96,42 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
       free(caire);
       free(cnom);
     }
+#if TIMERS
+	gettimeofday(&tva,NULL);
+#endif
     callback_id = run_and_save_callback(callback_id,"Sdd->",cnam,s,f);
+#if TIMERS
+	gettimeofday(&tvb,NULL);
+	tvdiff = tvb.tv_sec*1000000.0;
+	tvdiff += (double)tvb.tv_usec;
+	tvdiff -= (tva.tv_sec*1000000.0);
+	tvdiff -= (double)tva.tv_usec;
+	tvdiff /= 1000000;
+	fprintf(stdout,"\ncallback('define_font',%s,%i): %f seconds\n", cnam,f,tvdiff);
+#endif
     free(cnam);
     if (callback_id>0) { /* success */
       luaL_checkstack(Luas[0],1,"out of stack space");
       lua_rawgeti(Luas[0],LUA_REGISTRYINDEX, callback_id);
       if (lua_istable(Luas[0],-1)) {
+#if TIMERS
+	gettimeofday(&tva,NULL);
+#endif
 	res = font_from_lua(Luas[0],f);	
+	destroy_saved_callback (callback_id);
+#if TIMERS
+	gettimeofday(&tvb,NULL);
+	tvdiff = tvb.tv_sec*1000000.0;
+	tvdiff += (double)tvb.tv_usec;
+	tvdiff -= (tva.tv_sec*1000000.0);
+	tvdiff -= (double)tva.tv_usec;
+	tvdiff /= 1000000;
+	fprintf(stdout,"font_from_lua(%s,%i): %f seconds\n", font_name(f),f,tvdiff);
+#endif
 	lua_pop(Luas[0],1);
       } else if (lua_isnumber(Luas[0],-1)) {
 	r = lua_tonumber(Luas[0],-1);	
+	destroy_saved_callback (callback_id);
 	delete_font(f);
 	lua_pop(Luas[0],1);
 	return r;

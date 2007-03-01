@@ -145,22 +145,22 @@ boolean auto_expand_vf(internal_font_number f); /* forward */
 
 /* read |k| bytes as an integer from \.{VF} file */
 
-#define vf_read(k,l) {  integer i = 0, d = k, j = 0;	\
-    while (d > 0) {					\
-      vf_byte(j);					\
-      if ((d==k) && j>127)				\
-	j = j - 256;					\
-      i  = i*256 + j;					\
-      decr(d);						\
-    }							\
-    l = i; }
+#define vf_read(k,l) {  integer itmp = 0, dtmp = k, jtmp = 0;		\
+    while (dtmp > 0) {							\
+      vf_byte(jtmp);							\
+      if ((dtmp==k) && jtmp>127)					\
+	jtmp = jtmp - 256;						\
+      itmp  = itmp*256 + jtmp;						\
+      decr(dtmp);							\
+    }									\
+    l = itmp; }
 
-#define vf_read_u(k,l) {  unsigned int d=k, i = 0, j = 0;	\
-    while (d-- > 0) {						\
-      vf_byte(j);						\
-      i  = i*256 + j;						\
+#define vf_read_u(k,l) {  unsigned int dtmp=k, itmp = 0, jtmp = 0;	\
+    while (dtmp-- > 0) {						\
+      vf_byte(jtmp);						\
+      itmp  = itmp*256 + jtmp;					\
     }								\
-    l = i; }
+    l = itmp; }
 
 void
 pdf_check_vf_cur_val (void) {
@@ -617,8 +617,8 @@ do_vf(internal_font_number f) {
 		case set3: 
 		case set4:
 		  if (k == 0) {
-			k = vf_real_fnts[0];
-			append_fnt_set(k);
+		    k = vf_real_fnts[0];
+		    append_fnt_set(k);
 		  }
 		  vf_read_u((cmd - set1 + 1),i);
 		  append_packet(packet_char_code);

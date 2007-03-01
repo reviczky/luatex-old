@@ -4454,7 +4454,7 @@ begin while p>mem_min do
         else print_font_identifier(font(p));
         print_char(" "); font_in_short_display:=font(p);
         end;
-      print_ASCII(qo(character(p)));
+      print(qo(character(p)));
       end;
     end
   else @<Print a short indication of the contents of node |p|@>;
@@ -4490,7 +4490,7 @@ begin if p>mem_end then print_esc("CLOBBERED.")
 else  begin if not is_valid_font(font(p)) then print_char("*")
 @.*\relax@>
   else print_font_identifier(font(p));
-  print_char(" "); print_ASCII(qo(character(p)));
+  print_char(" "); print(character(p));
   end;
 end;
 @#
@@ -8078,7 +8078,7 @@ routine that enters a \TeX\ primitive into |eqtb|. Therefore much of
 this procedure appears elsewhere in the program,
 together with the corresponding |primitive| calls.
 
-@d chr_cmd(#)==begin print(#); print_ASCII(chr_code);
+@d chr_cmd(#)==begin print(#); print(chr_code);
   end
 
 @<Declare the procedure called |print_cmd_chr|@>=
@@ -8652,7 +8652,7 @@ if buffer[limit]=end_line_char then j:=limit
 else j:=limit+1; {determine the effective end of the line}
 if j>0 then for i:=start to j-1 do
   begin if i=loc then set_trick_count;
-  print(buffer[i]);
+  print_char(buffer[i]);
   end
 
 @ @<Pseudoprint the token list@>=
@@ -13468,7 +13468,8 @@ begin if tracing_lost_chars>0 then
   begin begin_diagnostic;
   print_nl("Missing character: There is no ");
 @.Missing character@>
-  print_ASCII(c); print(" in font ");
+  print(c); print(" (");
+  print_int(c); print(") in font "); 
   print_font_name(f);
   print_char("!"); end_diagnostic(false);
   end;
@@ -16437,7 +16438,7 @@ while p>mem_min do
         else print_font_identifier(font(p));
         print_char(" "); font_in_short_display:=font(p);
         end;
-      print_ASCII(qo(character(p)));
+      print(qo(character(p)));
       end;
     end
   else begin
@@ -22044,7 +22045,7 @@ fraction_noad:@<Display fraction noad |p|@>;
 @<Declare procedures needed for displaying the elements of mlists@>=
 procedure print_fam_and_char(@!p:pointer); {prints family and character}
 begin print_esc("fam"); print_int(fam(p)); print_char(" ");
-print_ASCII(qo(character(p)));
+print(qo(character(p)));
 end;
 @#
 procedure print_delimiter(@!p:pointer); {prints a delimiter as 24-bit hex value}
@@ -22651,7 +22652,7 @@ end;
 @ @<Complain about an undefined family@>=
 begin print_err(""); print_size(cur_size); print_char(" ");
 print_int(fam(a)); print(" is undefined (character ");
-print_ASCII(qo(cur_c)); print_char(")");
+print(qo(cur_c)); print_char(")");
 help4("Somewhere in the math formula just ended, you used the")@/
 ("stated character from an undefined font family. For example,")@/
 ("plain TeX doesn't allow \it or \sl in subscripts. Proceed,")@/
@@ -29340,7 +29341,7 @@ else
   bchar:=non_boundarychar;
 false_bchar:= non_boundarychar;
 if mode>0 then if language<>clang then fix_language;
-fast_get_avail(lig_stack); font(lig_stack):=main_f; cur_l:=qi(cur_chr);
+fast_get_avail(lig_stack); font(lig_stack):=main_f; cur_l:=cur_chr;
 character(lig_stack):=cur_l;@/
 cur_q:=tail;
 tmp_k1 := get_auto_kern(main_f, -1, cur_l);
@@ -40260,9 +40261,11 @@ unavoidable.
 @<Read in the buffer for treatment@>=
 begin
 otp_init_input_end:=0;
+writeln('');
 while (cur_cmd=letter) or (cur_cmd=other_char) or
       (cur_cmd=char_given) or (cur_cmd=spacer) do begin
   incr(otp_init_input_end);
+	write('[', cur_chr:1,'] ');
   if otp_init_input_end >ocp_buf_size then
     overflow_ocp_buf_size;
   { |cur_chr| can cover the full range |0..0x10FFFF| }
@@ -40371,6 +40374,7 @@ for otp_counter:=1 to otp_output_end do begin
              incr(otp_counter);
 	         t := (otp_output_buf[otp_counter]-@"D800) * @"400 + (t-@"DC00) + @"10000;
            end;
+	{write('[', t:1,'] ');}
     if t <= @"7F then
       buffer[last]:= t
     else if t<=@"7FF then begin
