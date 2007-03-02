@@ -702,7 +702,10 @@ static Encoding *enc_from_platspec(int platform,int specific) {
   e = FindOrMakeEncoding(enc);
   if ( e==NULL ) {
 	static int p = -1,s = -1;
-	if ( p!=platform || s!=specific ) {
+	if (( p!=platform || s!=specific ) 
+		&& 
+		!(platform==1 && specific==0)  /* todo */
+		) {
 	  LogError( _("The truetype encoding specified by platform=%d specific=%d (which we map to %s) is not supported by your version of iconv(3).\n"),
 				platform, specific, enc );
 	  p = platform; s = specific;
@@ -3827,7 +3830,7 @@ static void readttfwidths(FILE *ttf,struct ttfinfo *info) {
     for ( i=0; i<info->width_cnt && i<info->glyph_cnt; ++i ) {
       lastwidth = getushort(ttf);
       if ( (sc = info->chars[i])!=NULL ) {	/* can happen in ttc files */
-	if ( check_width_consistency && sc->width!=lastwidth ) {
+		if ( check_width_consistency && sc->width!=lastwidth && abs(sc->width-lastwidth)>1) {
 	  if ( info->fontname!=NULL && sc->name!=NULL )
 	    LogError("In %s, in glyph %s, 'CFF ' advance width (%d) and\n  'hmtx' width (%d) do not match. (Subsequent mismatches will not be reported)\n",
 		     info->fontname, sc->name, sc->width, lastwidth );
