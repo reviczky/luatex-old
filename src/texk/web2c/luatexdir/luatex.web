@@ -18894,6 +18894,7 @@ saving_h:=cur_h; saving_v:=cur_v;
 incr(cur_s);
 base_line:=cur_v;
 left_edge:=cur_h;
+{writeln(''); writeln('hlist_out: left edge: ', cur_h:1 , '');}
 prev_p:=this_box+list_offset;
 @<Create link annotations for the current hbox if needed@>;
 while p<>null do
@@ -19063,7 +19064,16 @@ else @<Output the non-|char_node| |p| for |pdf_hlist_out|
 @ @<Output the non-|char_node| |p| for |pdf_hlist_out|...@>=
 begin case type(p) of
 hlist_node,vlist_node:@<(\pdfTeX) Output a box in an hlist@>;
-rule_node: begin rule_ht:=height(p); rule_dp:=depth(p); rule_wd:=width(p);
+rule_node: begin 
+  if not (dir_orthogonal(dir_primary[rule_dir(p)])(dir_primary[dvi_direction]))
+    then begin
+    rule_ht:=height(p); rule_dp:=depth(p); rule_wd:=width(p);
+    end
+  else begin
+    rule_ht:=width(p) div 2;
+    rule_dp:=width(p) div 2;
+    rule_wd:=height(p)+depth(p);
+    end;
   goto fin_rule;
   end;
 whatsit_node: @<Output the whatsit node |p| in |pdf_hlist_out|@>;
@@ -19116,10 +19126,11 @@ else
 if list_ptr(p)=null then begin pdf_dvicmd_h(effective_horizontal); end
 else begin
   temp_ptr:=p; 
-  edge:=cur_h; cur_h:=cur_h+basepoint_horizontal;
+  edge:=cur_h; pdf_dvicmd_h(basepoint_horizontal);
   edge_v:=cur_v; cur_v:=base_line + basepoint_vertical;
   if type(p)=vlist_node then pdf_vlist_out@+else pdf_hlist_out;
-  cur_h:=edge+effective_horizontal; cur_v:=base_line;
+  cur_h:=edge; pdf_dvicmd_h(effective_horizontal);
+  cur_v:=base_line;
   end
 end
 
@@ -19129,7 +19140,49 @@ if is_running(rule_dp) then rule_dp:=depth(this_box);
 rule_ht:=rule_ht+rule_dp; {this is the rule thickness}
 if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
   begin cur_v:=base_line+rule_dp;
-  pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+  case font_direction(dvi_direction) of
+  dir__LT: begin
+ 	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    end;
+  dir__LB: begin
+    pdf_dvicmd_down(rule_ht);
+	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    pdf_dvicmd_up(rule_ht);
+    end;
+  dir__RT: begin
+    pdf_dvicmd_left(rule_wd);
+  	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_dvicmd_left(rule_wd);
+    end;
+  dir__RB: begin
+    pdf_dvicmd_left(rule_wd);
+    pdf_dvicmd_down(rule_ht);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_dvicmd_left(rule_wd);
+    pdf_dvicmd_up(rule_ht);
+    end;
+  dir__TL: begin
+    pdf_dvicmd_down(rule_wd);
+    pdf_dvicmd_left(rule_ht);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    end;
+  dir__TR: begin
+    pdf_dvicmd_down(rule_wd);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    pdf_dvicmd_left(rule_ht);
+    end;
+  dir__BL: begin
+    pdf_dvicmd_left(rule_ht);
+	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    pdf_dvicmd_up(rule_wd);
+    end;
+  dir__BR: begin
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_dvicmd_left(rule_ht);
+    pdf_dvicmd_up(rule_wd);
+    end;
+  end;
+  cur_h:=cur_h+rule_wd; {dir__RT is corrected elsewhere}
   cur_v:=base_line;
   end
 
@@ -19216,6 +19269,7 @@ begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
 saving_v:=cur_v; saving_h:=cur_h;
+{writeln(''); writeln('vlist_out: left edge: ', cur_h:1 , '');}
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
 incr(cur_s);
@@ -19244,7 +19298,16 @@ end
 @ @<Output the non-|char_node| |p| for |pdf_vlist_out|@>=
 begin case type(p) of
 hlist_node,vlist_node:@<(\pdfTeX) Output a box in a vlist@>;
-rule_node: begin rule_ht:=height(p); rule_dp:=depth(p); rule_wd:=width(p);
+rule_node: begin
+  if not (dir_orthogonal(dir_primary[rule_dir(p)])(dir_primary[dvi_direction]))
+    then begin
+    rule_ht:=height(p); rule_dp:=depth(p); rule_wd:=width(p);
+    end
+  else begin
+    rule_ht:=width(p) div 2;
+    rule_dp:=width(p) div 2;
+    rule_wd:=height(p)+depth(p);
+    end;
   goto fin_rule;
   end;
 whatsit_node: @<Output the whatsit node |p| in |pdf_vlist_out|@>;
@@ -19308,8 +19371,48 @@ rule_ht:=rule_ht+rule_dp; {this is the rule thickness}
 cur_v:=cur_v+rule_ht;
 if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
   begin
-  pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-  cur_h:=left_edge;
+  case font_direction(dvi_direction) of
+  dir__LT: begin
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_dvicmd_left(rule_wd);
+    end;
+  dir__LB: begin
+    pdf_dvicmd_down(rule_ht);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_dvicmd_left(rule_wd);
+    pdf_dvicmd_up(rule_ht);
+    end;
+  dir__RT: begin
+    pdf_dvicmd_left(rule_wd);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    end;
+  dir__RB: begin
+    pdf_dvicmd_down(rule_ht);
+    pdf_dvicmd_left(rule_wd);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    pdf_dvicmd_up(rule_ht);
+    end;
+  dir__TL: begin
+    pdf_dvicmd_down(rule_wd);
+    pdf_dvicmd_left(rule_ht);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    pdf_dvicmd_up(rule_wd);
+    end;
+  dir__TR: begin
+    pdf_dvicmd_down(rule_wd);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    pdf_dvicmd_left(rule_wd);
+    pdf_dvicmd_up(rule_wd);
+    end;
+  dir__BL: begin
+    pdf_dvicmd_left(rule_ht);
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    end;
+  dir__BR: begin
+    pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+    pdf_dvicmd_left(rule_wd);
+    end;
+  end;
   end;
 goto next_p
 
@@ -40261,11 +40364,9 @@ unavoidable.
 @<Read in the buffer for treatment@>=
 begin
 otp_init_input_end:=0;
-writeln('');
 while (cur_cmd=letter) or (cur_cmd=other_char) or
       (cur_cmd=char_given) or (cur_cmd=spacer) do begin
   incr(otp_init_input_end);
-	write('[', cur_chr:1,'] ');
   if otp_init_input_end >ocp_buf_size then
     overflow_ocp_buf_size;
   { |cur_chr| can cover the full range |0..0x10FFFF| }
