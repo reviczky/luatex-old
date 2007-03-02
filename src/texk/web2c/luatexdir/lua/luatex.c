@@ -276,7 +276,7 @@ zopen_w_input (FILE **f, int format, const_string fopen_mode) {
 	res = open_input(f,format,fopen_mode);
   }
   if (res) {
-	gz_fmtfile = gzdopen(fileno(*f),"rb0");
+	gz_fmtfile = gzdopen(fileno(*f),"rb3");
   }
   return res;
 }
@@ -295,7 +295,7 @@ zopen_w_output (FILE **f, const_string fopen_mode) {
     res =  open_output(f,fopen_mode);
   }
   if (res) {
-	gz_fmtfile = gzdopen(fileno(*f),"wb0");
+	gz_fmtfile = gzdopen(fileno(*f),"wb3");
   }
   return res;
 }
