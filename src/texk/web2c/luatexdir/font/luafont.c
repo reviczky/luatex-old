@@ -739,27 +739,36 @@ font_from_lua (lua_State *L, int f) {
     lua_getfield(L,-1,"fonts");
     for (i=1;i<=n;i++) {
       lua_rawgeti(L,-1,i);
+      if (lua_istable(L,-1)) {
+		lua_getfield(L,-1,"id");
+		if (lua_isnumber(L,-1)) {
+		  l_fonts[i] = lua_tonumber(L,-1);
+		  lua_pop(L,2); /* pop id  and entry */
+		  continue; 
+		}
+		lua_pop(L,1); /* pop id */
+	  };
       s = NULL;
       if (lua_istable(L,-1)) {
-	lua_getfield(L,-1,"name");
-	if (lua_isstring(L,-1)) {
-	  s = (char *)lua_tostring(L,-1);
-	}
-	lua_pop(L,1); /* pop name */
+		lua_getfield(L,-1,"name");
+		if (lua_isstring(L,-1)) {
+		  s = (char *)lua_tostring(L,-1);
+		}
+		lua_pop(L,1); /* pop name */
       }
       if (s!= NULL) {
-	lua_getfield(L,-1,"size");
-	t = (lua_isnumber(L,-1) ? lua_tonumber(L,-1) : -1000);
-	lua_pop(L,1);
-	
-	/* TODO: the stack is messed up, otherwise this 
-	 * explicit resizing would not be needed 
-	 */
-	s_top = lua_gettop(L);
-	l_fonts[i] = find_font_id(s,"",t);
-	lua_settop(L,s_top);
+		lua_getfield(L,-1,"size");
+		t = (lua_isnumber(L,-1) ? lua_tonumber(L,-1) : -1000);
+		lua_pop(L,1);
+		
+		/* TODO: the stack is messed up, otherwise this 
+		 * explicit resizing would not be needed 
+		 */
+		s_top = lua_gettop(L);
+		l_fonts[i] = find_font_id(s,"",t);
+		lua_settop(L,s_top);
       } else {
-	pdftex_fail("Invalid local font in font %s!\n", font_name(f));
+		pdftex_fail("Invalid local font in font %s!\n", font_name(f));
       }
       lua_pop(L,1); /* pop list entry */
     }
