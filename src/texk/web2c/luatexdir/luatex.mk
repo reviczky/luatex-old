@@ -8,13 +8,14 @@ luatexdir = luatexdir
 
 LIBOBSDCOMPATDIR=../../libs/obsdcompat
 LIBOBSDCOMPATFSRCDIR=$(srcdir)/$(LIBOBSDCOMPATDIR)
-XCPPFLAGS=-I$(LIBOBSDCOMPATDIR) -I$(LIBOBSDCOMPATDIR)/.. -I$(LIBOBSDCOMPATFSRCDIR) -I$(LIBOBSDCOMPATFSRCDIR)/..
+XCPPFLAGS=-I$(LIBOBSDCOMPATDIR) -I$(LIBOBSDCOMPATDIR)/.. -I$(LIBOBSDCOMPATFSRCDIR) -I$(LIBOBSDCOMPATFSRCDIR)/..  -Dextra_version_info="$(EXTRA_VERSION)"
 
 Makefile: $(srcdir)/$(luatexdir)/luatex.mk
 
 # luatex_bin = luatex ttf2afm pdftosrc
 luatex_bin = luatex
 linux_build_dir = $(HOME)/luatex/build/linux/texk/web2c
+
 
 # Extract luatex version
 $(luatexdir)/luatex.version: $(srcdir)/$(luatexdir)/luatex.web

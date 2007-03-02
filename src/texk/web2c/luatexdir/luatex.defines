@@ -109,10 +109,11 @@ $Id $
 
 @define procedure flush_loggable_info;
 
+@define var extra_version_info;
+
 { bits and pieces from aleph }
 
 @define procedure btestin ;
-
 
 @define function readtfmfile();
 @define function next_vf_byte;
