@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-02-24}
+\TitlePage{Snapshot 2007-03-02}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -79,16 +79,13 @@ need arises, anything can (and will) be changed without prior notice.
 with the addition of OTP processing and Aleph directionality commands.  
 
 \item When \type{\pdfoutput} is zero, \LUATEX\ behaves like \ALEPH\ with the
-addition of the micro-typography features. In this mode, fonts can have
-65536 characters, and the whole Unicode base plane can be hyphenated
-(assuming a proper font encoding). The \PDFTEX\ commands that are not
+addition of the micro-typography features. The \PDFTEX\ commands that are not
 specific to the PDF output format should work.
 \stopitemize
 
-In either mode, I/O translation processes, tcx files, enctex, cannot
-be used. All these encoding-related functions are superseded by a
-\LUA-based solution (\type{reader} callbacks).
-
+In either mode, neither I/O translation processes, nor tcx files, nor
+enctex can be used. All these encoding-related functions are
+superseded by a \LUA-based solution (\type{reader} callbacks).
 
 \chapter{Basic \TEX\ enhancements}
 
@@ -122,8 +119,8 @@ processed by older \TEX-based engines.
 \NC \type{\delcode}     \NC 21=27   \NC \hex10FFFF=\hex7FFFFFF   \NC ($2^{20}+2^{16}$) = ($2^{3}*2^{4}*2^{8}*2^{4}*2^{8}$)\NC\NR 
 \stoptable
 
-As far as the core engine is aware, all input and output to text files
-is UTF-8 encoded. Input files can be preprocessed using the
+As far as the core engine is concerned, all input and output to text
+files is UTF-8 encoded. Input files can be preprocessed using the
 \callback{reader} callback. This will be explained in a later chapter.
 
 Output in byte-sized chunks can be achieved by using characters in the
@@ -1795,6 +1792,12 @@ the executable after loading and executing the startup file.
 
 \NC file_line_error  \NC boolean \NC false \NC Do \type{file:line} style error messages\NC\AR
 \NC halt_on_error    \NC boolean \NC false \NC Abort run on the first encountered error\NC\AR
+\NC formatname       \NC string \NC -- \NC If no format name was given
+                                             on the command--line, this key will be tested first 
+                                             instead of simply quitting\NC\AR
+\NC jobname          \NC string \NC -- \NC If no input file name was given
+                                           on the command--line, this key will be tested first 
+                                           instead of simply giving up\NC\AR
 \stoptabulate
 
 \section{The \lualib{font} library}
@@ -2409,14 +2412,14 @@ The associated function calls are
 \stopfunctioncall
 
 Note the following: Assignments can only be made to fonts that have
-already be defined in \TeX, but have not been accessed at all since
+already be defined in \TeX, but have not been accessed {\it at all\/} since
 that definition. This limits the usability of the write access to
 font.fonts quite a lot, a less stringent ruleset will be implemented
 later.
 
 \subsection{Checking a font's status}
 
-You can test for the status of a font calling this function:
+You can test for the status of a font by calling this function:
 
 \startfunctioncall
      boolean f = font.frozen(number n)
@@ -2463,7 +2466,6 @@ The top-level keys in the table are as follows:
 \NC area               \NC no       \NC yes      \NC yes \NC string \NC (directory)location, typically empty\NC\NR
 \NC used               \NC no       \NC yes      \NC yes \NC boolean\NC used already? (initial: false)\NC \NR
 \NC characters         \NC yes      \NC yes      \NC yes \NC table  \NC the defined glyphs of this font \NC \NR
-\NC left_boundary      \NC no       \NC yes      \NC yes \NC number \NC left boundary glyph (default: none)\NC \NR
 \NC checksum           \NC yes      \NC yes      \NC no  \NC number \NC default: 0 \NC \NR
 \NC designsize         \NC no       \NC yes      \NC yes \NC number \NC expected size (default: 655360 == 10pt) \NC \NR
 \NC direction          \NC no       \NC yes      \NC yes \NC number \NC default: 0 (LTR) \NR
@@ -2525,9 +2527,16 @@ The names and their internal remapping:
 The keys \type{type}, \type{format}, \type{embedding}, \type{fullname} and
 \type{filename} are used to embed OpenType fonts in the result PDF.
 
-The \type{characters} table is a list of character hashes indexed by
-number. The number is the `internal code' TeX knows this character
-by. Holes are allowed, but non-integer values are ignored. 
+The \type{characters} table is a list of character hashes indexed by 
+integer number. The number is the `internal code' TeX knows this 
+character by.
+
+Two very special string indexes can be used also: \type{left_boundary} is a 
+virtual character whose 'ligatures and 'kerns' are used to handle word 
+boundary processing. \type{right_boundary} is similar but not actually
+used for anything (yet!).
+
+Other index keys are ignored. 
 
 Each character hash itself is a hash. For example, here is the
 character `f' (decimal 102) in the font cmr10 at 10 points:
@@ -2607,27 +2616,25 @@ hash, with two fields:
 \stoptabulate
 The \type{char} field in a ligature is required.
 
-The \type{type} field inside a ligature is the numerical value of one
-of the eight possible ligature types supported by \TeX.  When \TEX\
-inserts a new ligature, it puts the new glyph in the middle of the
-left and right glyphs. The original left and right glyphs can
-optionally be retained, and when at least one of them is kept, it
-is also possible to move the new `insertion point' forward one or two
-places. The glyph that ends up to the right of the insertion point
-will become the next `left'.
+The \type{type} field inside a ligature is the numerical or string value of one of the eight
+possible ligature types supported by \TeX.  When \TEX\ inserts a new ligature, it puts the new
+glyph in the middle of the left and right glyphs. The original left and right glyphs can
+optionally be retained, and when at least one of them is kept, it is also possible to move the
+new `insertion point' forward one or two places. The glyph that ends up to the right of the
+insertion point will become the next `left'.
 
 \def\|{\string|}
 \def\>{\string>}
-\starttabulate[|l|l|p|]
-\NC textual (Knuth)      \NC value         \NC result (\| = final `insertion point')\NC\FR
-\NC l + r =:     n       \NC 0             \NC \|n   \NC\NR
-\NC l + r =:\|    n      \NC 1             \NC \|nr  \NC\NR
-\NC l + r  =:\|\>  n     \NC 5             \NC n\|r  \NC\NR
-\NC l + r \|=:    n      \NC 2             \NC \|ln  \NC\NR
-\NC l + r \|=:\>   n     \NC 6             \NC l\|n  \NC\NR
-\NC l + r \|=:\|   n     \NC 3             \NC \|lnr \NC\NR
-\NC l + r \|=:\|\>  n    \NC 7             \NC l\|nr \NC\NR
-\NC l + r \|=:\|\>\> n   \NC 11            \NC ln\|r \NC\NR
+\starttabulate[|l|l|l|p|]
+\NC textual (Knuth)      \NC number  \NC string        \NC result (\| = final `insertion point')\NC\FR
+\NC l + r =:     n       \NC 0       \NC \type{=:}     \NC \|n   \NC\NR
+\NC l + r =:\|    n      \NC 1       \NC \type{=:|}    \NC \|nr  \NC\NR
+\NC l + r \|=:    n      \NC 2       \NC \type{|=:}    \NC \|ln  \NC\NR
+\NC l + r \|=:\|   n     \NC 3       \NC \type{|=:|}   \NC \|lnr \NC\NR
+\NC l + r  =:\|\>  n     \NC 5       \NC \type{=:|>}   \NC n\|r  \NC\NR
+\NC l + r \|=:\>   n     \NC 6       \NC \type{|=:>}   \NC l\|n  \NC\NR
+\NC l + r \|=:\|\>  n    \NC 7       \NC \type{|=:|>}  \NC l\|nr \NC\NR
+\NC l + r \|=:\|\>\> n   \NC 11      \NC \type{|=:|>>} \NC ln\|r \NC\NR
 \stoptabulate
 
 The default value is 0, and can be left out. That signifies a `normal'
@@ -2640,8 +2647,8 @@ The \type{commands} array is explained below.
 Whether or not a \TEX\ font is a `real' font that should be written to
 the PDF document is decided by the \type{type} value in the top-level
 font structure. If the value is \type{real}, then this is a proper
-font, and the inclusion mechanism will attempt to add the proper
-definitions to the PDF.
+font, and the inclusion mechanism will attempt to add the needed
+font object definitions to the PDF.
 
 Values for \type{type}:
 \starttabulate[|l|p|]
@@ -2649,7 +2656,6 @@ Values for \type{type}:
 \NC real          \NC This is a base font\NC\NR
 \NC virtual       \NC This is a virtual font\NC\NR
 \stoptabulate
-
 
 The actions to be taken depend on a number of different variables:
 
@@ -2662,10 +2668,11 @@ The actions to be taken depend on a number of different variables:
 A font that uses anything other than an 8-bit encoding vector has to
 be written to the PDF in a different way. 
 
-The test that decides if this is the case is fairly simple in the
-version of \LUATEX: If a `real' font is using character metrics above
-the value 255, then it is assumed to be a wide font. A more lenient
-approach is often possible, and will perhaps be implemented later.
+The test that decides if this is the case is fairly simple in the 
+current version of \LUATEX: If a `real' font has a `cidinfo' structure, 
+then it is assumed to be a wide font, in all other cases it isn't. 
+A more flexible approach is often possible, and will perhaps be 
+implemented later.
 
 If no special care is needed, \LUATEX\ currently falls back to the
 mapfile||based solution used by \PDFTEX\ and DVIPS. This behaviour
@@ -2677,8 +2684,8 @@ some extra fields have to be present in the font structure. In this
 case, \LUATEX\ does not use a map file at all.
 
 The extra fields are: \type{format}, \type{embedding}, \type{fullname},
-\type{encodingname}, \type{filename}, and the \type{index} key in 
-the separate characters. 
+\type{cidinfo} (as explained above), \type{filename}, and the 
+\type{index} key in the separate characters. 
 
 Values for \type{format}:
 \starttabulate[|l|p|]
@@ -2689,10 +2696,8 @@ Values for \type{format}:
 \NC opentype       \NC This is a PostScript-based OpenType font\NC\NR
 \stoptabulate
 
-Only \type{truetype} and \type{opentype} fonts can be `wide' fonts.
-On top of that, \type{truetype} format requires the
-\type{\pdfminorversion} to be at least~6, otherwise an invalid PDF would 
-be produced.
+Curerntly, only \type{truetype} and \type{opentype} fonts can be `wide' 
+fonts (Type0 PostScript fonts are not supported).  
 
 Values for \type{embedding}:
 \starttabulate[|l|p|]
@@ -2702,19 +2707,24 @@ Values for \type{embedding}:
 \NC full           \NC Include this font in it's entirety\NC\NR
 \stoptabulate
 
-At the moment, \type{full} is the only implemented form.
+At the moment, \type{full} is the only implemented form. 
 
 It is not possible to artificially modify the transformation matrix
 for the font at the moment.
 
 The other fields are used as follows: The \type{fullname} will be the
-PostScript/PDF font name. The \type{encodingname} will be used as the
-character set (the CID \type{/Ordering} key). The
+PostScript/PDF font name. The \type{cidinfo} will be used as the
+character set (the CID \type{/Ordering} and \type{/Registry} keys). The
 \type{filename} points to the actual font file. If you include the 
 full path in the \type{filename} or if the file is in the local
 directory, \LUATEX\ will run a little bit more efficient because it
 will not have to re-run the \type{find_xxx_file} callback in that
 case.
+
+Be careful: when mixing old and new fonts in one document, it is possible to
+create name PostScript name clashes that can result in printing
+errors. When this happens, you have to change the \type{fullname}
+of the font.
 
 Typeset strings are written out in a wide format using 2 bytes per
 glyph, using the \type{index} key in the character information as
@@ -2780,6 +2790,7 @@ allowed commands and their arguments are:
 \NC down              \NC 1         \NC number    \NC move down on the page\NC\NR
 \NC right             \NC 1         \NC number    \NC move right on the page\NC\NR
 \NC special           \NC 1         \NC string    \NC output a \type{\special} command\NC\NR
+\NC comment           \NC any       \NC any       \NC the rest of the command is ignored\NC\NR
 \stoptabulate
 
 Here is a rather elaborate example:
@@ -2807,6 +2818,14 @@ Regardless of the amount of movement you create within the `commands',
 the output pointer will always move by exactly the width as given in
 the `width' key of the character hash, after running the `commands.
 
+Even in a `real' font, there can be virtual characters: When \LUATEX\ encounters a `commands'
+field inside a character when it becomes time to typeset the character, it will interpret the
+commands, just like for a true virtual character. In this case, if you have created no `fonts'
+array, then the default and only `base' font is taken to be the current font itself. In
+practise, this means that you can create virtual duplicates of existing characters.
+
+Note: this feature does {\it not\/} work the other way around. There can not be `real' 
+characters in a virtual font!
 
 Finally, here is a plain \TEX\ input file with a demonstration:
 
@@ -2960,7 +2979,7 @@ loop when trying to \type{\show} a box.
 related to \type{\tracingcommands} output.
 
 \item The number of possible fonts, ocps and ocplists is 
-smaller than their maximum \ALEPH\ value (around 500 fonts and 
+smaller than their maximum \ALEPH\ value (around 5000 fonts and 
 30000 ocps / ocplists).
 
 \item The internal function \type{scan_dir()} has been renamed to
@@ -3031,9 +3050,12 @@ now more expensive in terms of processing than non-global assignments.
 See \type{mathcodes.c} and \type{textcodes.c} if you are interested in
 the gory details.
 
+Also, the glyph ids within a font are now managed by means
+of a sparse array and glyph ids can go up to index $2^21-1$. 
+
 \subsection{Simple single-character csnames}
 
-Single-character commands are no longer treated special in the
+Single-character commands are no longer treated aspecially in the
 internals, they are stored in the hash just like the multiletter
 csnames. 
 
@@ -3072,12 +3094,8 @@ going to be replaced by a new subsystem soon anyway.
 \startitemize
 
 \item Not all of Aleph's direction commands are handled properly in 
-PDF mode yet. This is especially true for the Top-Bottom and
-Bottom-Top writing directions, but it there are also some remaining
-problems with Right-Left.
-
-\item Font expansion is currently non-functional due to massive 
-changes in the virtual font handling.
+PDF mode yet: this affects all the Top-Bottom and Bottom-Top writing 
+directions.
 
 \item Letter spacing (\type{\letterspacefont}) is currently non-functional 
 due to massive changes in the virtual font handling. This
@@ -3088,9 +3106,6 @@ because it is straightforward to set up letterspacing using the Lua
 \item Attempting hyphenation in initex (sometimes) creates segfaults.
 
 \item Hyphenation can only deal with the Base Multilingual Plane (BMP)
-
-\item There are (sometimes?) UTF-8 encoded UTF-8 bytes in the
-pseudo-buffer lines that are shown during error()
 
 \item \type{tex.print()} and \type{tex.sprint()} do not work if 
 \type{\directlua} is used in an OTP file (in the output of an 
