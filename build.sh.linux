@@ -2,7 +2,9 @@
 # $Id$
 # builds new pdftex binaries
 # try to find gnu make; we need it
-MAKE=make;
+EXTRA_VERSION=`date +-%Y%m%d%k`
+export EXTRA_VERSION
+MAKE=make
 if make -v 2>&1| grep -q "GNU Make" 
 then 
   echo "Your make is a GNU-make; I will use that"
