@@ -109,58 +109,6 @@ static void update_bbox (integer llx, integer lly, integer urx, integer ury,
     }
 }
 
-static void t3_write_glyph (internalfontnumber f)
-{
-    static char t3_begin_glyph_str[] = "\\pdfglyph";
-    static char t3_end_glyph_str[] = "\\endglyph";
-    int glyph_index;
-    int width, height, depth, llx, lly, urx, ury;
-    char *p;
-    t3_getline ();
-    if (t3_prefix (t3_begin_glyph_str)) {
-        if (sscanf (t3_line_array + strlen (t3_begin_glyph_str) + 1,
-                    "%i %i %i %i %i %i %i %i =", &glyph_index,
-                    &width, &height, &depth, &llx, &lly, &urx, &ury) != 8) {
-            remove_eol (p, t3_line_array);
-            pdftex_warn ("invalid glyph preamble: `%s'", t3_line_array);
-            return;
-        }
-        if (glyph_index < font_bc(f) || glyph_index > font_ec(f))
-            return;
-    } else
-        return;
-    if (!pdf_char_marked (f, glyph_index)) {
-        while (!t3_prefix (t3_end_glyph_str)) {
-            t3_check_eof ();
-            t3_getline ();
-        }
-        return;
-    }
-    update_bbox (llx, lly, urx, ury, t3_glyph_num == 0);
-    t3_glyph_num++;
-    pdfnewdict (0, 0, 0);
-    t3_char_procs[glyph_index] = obj_ptr;
-    if (width == 0)
-        t3_char_widths[glyph_index] =
-            (getcharwidth (f, glyph_index) / t3_font_scale) / pdf_font_size[f];
-    else
-        t3_char_widths[glyph_index] = width;
-    pdf_begin_stream ();
-    t3_getline ();
-    pdf_printf ("%i 0 %i %i %i %i d1\nq\n",
-                (int) t3_char_widths[glyph_index], (int) llx,
-                (int) lly, (int) urx, (int) ury);
-    while (!t3_prefix (t3_end_glyph_str)) {
-        t3_check_eof ();
-        if (t3_prefix ("BI"))
-            t3_image_used = true;
-        t3_putline ();
-        t3_getline ();
-    }
-    pdf_puts ("Q\n");
-    pdf_end_stream ();
-}
-
 static integer get_pk_font_scale (internalfontnumber f)
 {
     return

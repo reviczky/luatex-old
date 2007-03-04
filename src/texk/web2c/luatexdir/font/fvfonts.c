@@ -224,22 +224,7 @@ static void AnchorClassesAdd(SplineFont *into, SplineFont *from) {
     }
 }
 
-static void FPSTsAdd(SplineFont *into, SplineFont *from) {
-    FPST *fpst, *nfpst, *last;
-
-    last = NULL;
-    if ( into->possub!=NULL )
-	for ( last = into->possub; last->next!=NULL; last=last->next );
-    for ( fpst = from->possub; fpst!=NULL; fpst=fpst->next ) {
-	nfpst = FPSTCopy(fpst);
-	nfpst->script_lang_index = FixupSLI(nfpst->script_lang_index,from,into);
-	if ( last==NULL )
-	    into->possub = nfpst;
-	else
-	    last->next = nfpst;
-	last = nfpst;
-    }
-}
+#define  FPSTsAdd(a,b)
 
 static void ASMsAdd(SplineFont *into, SplineFont *from) {
     ASM *sm, *nsm, *last;
@@ -270,44 +255,7 @@ static void ASMsAdd(SplineFont *into, SplineFont *from) {
     }
 }
 
-static KernClass *_KernClassCopy(KernClass *kc,SplineFont *into,SplineFont *from) {
-    KernClass *nkc;
-
-    nkc = KernClassCopy(kc);
-    nkc->sli = FixupSLI(nkc->sli,from,into);
-return( nkc );
-}
-
-static void KernClassesAdd(SplineFont *into, SplineFont *from) {
-    /* Is this a good idea? We could end up with two kern classes that do */
-    /*  the same thing and strange sets of slis so that they didn't all fit */
-    /*  in one lookup... */
-    KernClass *kc, *last, *cur;
-
-    last = NULL;
-    if ( into->kerns!=NULL )
-	for ( last = into->kerns; last->next!=NULL; last=last->next );
-    for ( kc=from->kerns; kc!=NULL; kc=kc->next ) {
-	cur = _KernClassCopy(kc,into,from);
-	if ( last==NULL )
-	    into->kerns = cur;
-	else
-	    last->next = cur;
-	last = cur;
-    }
-
-    last = NULL;
-    if ( into->vkerns!=NULL )
-	for ( last = into->vkerns; last->next!=NULL; last=last->next )
-    for ( kc=from->vkerns; kc!=NULL; kc=kc->next ) {
-	cur = _KernClassCopy(kc,into,from);
-	if ( last==NULL )
-	    into->vkerns = cur;
-	else
-	    last->next = cur;
-	last = cur;
-    }
-}
+#define KernClassesAdd(a,b)
 
 static struct altuni *AltUniCopy(struct altuni *altuni,SplineFont *noconflicts) {
     struct altuni *head=NULL, *last=NULL, *cur;
@@ -907,6 +855,7 @@ static void _MergeFont(SplineFont *into,SplineFont *other) {
 #endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
     GlyphHashFree(into);
 }
+
 
 static void __MergeFont(SplineFont *into,SplineFont *other) {
 

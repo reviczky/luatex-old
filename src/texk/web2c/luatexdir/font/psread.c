@@ -578,14 +578,14 @@ void MatInverse(real into[6], real orig[6]) {
     }
 }
 
-static void ECCatagorizePoints( EntityChar *ec ) {
+/* static void ECCatagorizePoints( EntityChar *ec ) {
     Entity *ent;
 
     for ( ent=ec->splines; ent!=NULL; ent=ent->next ) if ( ent->type == et_splines ) {
 	SPLCatagorizePoints( ent->u.splines.splines );
     }
-}
-
+ }
+*/
 static int AddEntry(struct pskeydict *dict,struct psstack *stack, int sp) {
     int i;
 
@@ -2769,7 +2769,7 @@ printf( "-%s-\n", toknames[tok]);
 	ent->next = ec->splines;
 	ec->splines = ent;
     }
-    //ECCatagorizePoints(ec);
+    /*ECCatagorizePoints(ec);*/
 #ifdef FONTFORGE_CONFIG_TYPE3
     free(tokbuf);
 #endif
