@@ -48,7 +48,7 @@ typedef struct charinfo {
   kerninfo *kerns;           /* kern items */
   real_eight_bits *packets;  /* virtual commands.  */
   integer *extensible;       /* extensible recipe (if any) */
-  unsigned int index;        /* CID index */
+  unsigned short index;        /* CID index */
   integer remainder;         /* spare value for odd items, could be union-ed with extensible */
   scaled width;              /* width */
   scaled height;             /* height */
@@ -162,6 +162,15 @@ boolean cmp_font_area (integer, strnumber);
 
 #define font_encodingname(a)        font_tables[a]->_font_encodingname
 #define set_font_encodingname(f,b)  font_reassign(font_encodingname(f),b)
+
+boolean font_shareable(internal_font_number,internal_font_number);
+
+#define cmp_font_filename(a,b)      (!(font_filename(a)!=NULL || font_filename(b)!=NULL || \
+                                       strcmp(font_filename(a),font_filename(b))))
+#define cmp_font_fullname(a,b)      (!(font_fullname(a)!=NULL || font_fullname(b)!=NULL || \
+                                       strcmp(font_fullname(a),font_fullname(b))))
+#define cmp_font_encodingname(a,b)  (!(font_encoding(a)!=NULL || font_encodingname(b)!=NULL || \
+                                       strcmp(font_encodingname(a),font_encodingname(b))))
 
 #define font_bc(a)                  font_tables[a]->_font_bc
 #define set_font_bc(f,b)            font_bc(f) = b
