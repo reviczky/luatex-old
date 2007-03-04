@@ -61,9 +61,10 @@ fo_entry *new_fo_entry(void)
     fo->fm = NULL;
     fo->fd = NULL;
     fo->fe = NULL;
-    fo->cw = NULL;
+    fo->cw_objnum = 0;
     fo->first_char = 1;
     fo->last_char = 0;
+    fo->tx_tree = NULL;
     fo->tounicode_objnum = 0;
     return fo;
 }
@@ -93,17 +94,6 @@ fd_entry *new_fd_entry(void)
     fd->tx_tree = NULL;
     fd->gl_tree = NULL;
     return fd;
-}
-
-/* initialize data structure for /Widths array object */
-
-cw_entry *new_cw_entry(void)
-{
-    cw_entry *cw;
-    cw = xtalloc(1, cw_entry);
-    cw->cw_objnum = 0;
-    cw->width = NULL;
-    return cw;
 }
 
 /**********************************************************************/
@@ -311,39 +301,31 @@ void get_char_range(fo_entry * fo, internalfontnumber f)
     }
 }
 
-void create_charwidth_array(fo_entry * fo, internalfontnumber f)
+static void write_charwidth_array(fo_entry * fo, internalfontnumber f)
 {
-    int i;
-    assert(fo != NULL);
-    assert(fo->cw == NULL);
-    fo->cw = new_cw_entry();
-    fo->cw->width = xtalloc(256, integer);
-	assert(fo->first_char>=0);
-	assert(fo->first_char<256);
-	assert(fo->last_char>=0);
-	assert(fo->last_char<256);
-    for (i = 0; i < fo->first_char; i++)
-        fo->cw->width[i] = 0;
-    for (i = fo->first_char; i <= fo->last_char; i++)
-        fo->cw->width[i] = divide_scaled(char_width(f, i), pdf_font_size[f], 4);
-    for (i = fo->last_char + 1; i < 256; i++)
-        fo->cw->width[i] = 0;
-}
-
-static void write_charwidth_array(fo_entry * fo)
-{
-    int i, j;
-    assert(fo->cw != NULL);
-    assert(fo->cw->cw_objnum == 0);
-    fo->cw->cw_objnum = pdf_new_objnum();
-    pdf_begin_obj(fo->cw->cw_objnum, 1);
+    int i, j, *ip, *fip, width;
+    struct avl_traverser t;
+    assert(fo->tx_tree != NULL);
+    assert(fo->cw_objnum == 0);
+    fo->cw_objnum = pdf_new_objnum();
+    pdf_begin_obj(fo->cw_objnum, 1);
+    avl_t_init(&t, fo->tx_tree);
+    fip = (int *) avl_t_first(&t, fo->tx_tree);
+    assert(fip != NULL);
     pdf_puts("[");
-    for (i = fo->first_char; i <= fo->last_char; i++) {
-        pdf_printf("%i", (int) fo->cw->width[i] / 10);  /* see adv_char_width() in pdftex.web */
-        if ((j = fo->cw->width[i] % 10) != 0)
-            pdf_printf(".%i", j);
-        if (i != fo->last_char)
+    for (ip = fip, j = *ip; ip != NULL; ip = (int *) avl_t_next(&t)) {
+        if (ip != fip)
             pdf_puts(" ");
+        i = *ip;
+        while (j < i - 1) {
+            pdf_puts("0 ");
+            j++;
+        }
+        j = i;
+        width = divide_scaled(char_width(f, i), pdf_font_size[f], 4);
+        pdf_printf("%i", (int) width / 10);     /* see adv_char_width() in pdftex.web */
+        if ((width = width % 10) != 0)
+            pdf_printf(".%i", width);
     }
     pdf_puts("]\n");
     pdf_end_obj();
@@ -390,11 +372,12 @@ static void write_fontfile(fd_entry * fd)
 {
     assert(is_included(fd->fm));
     if (is_cidkeyed(fd->fm)) {
-      if (is_opentype(fd->fm)) {
+      if (is_opentype(fd->fm))
 	writeotf(fd);
-      } else {
+      else if (is_truetype(fd->fm))
 	writettf(fd);
-      }
+      else
+        assert(0);
     } else {
       if (is_type1(fd->fm))
         writet1(fd);
@@ -411,7 +394,7 @@ static void write_fontfile(fd_entry * fd)
     fd->ff_objnum = pdf_new_objnum();
     pdf_begin_dict(fd->ff_objnum, 0);     /* font file stream */
     if (is_cidkeyed(fd->fm)) {
-      /* Subtype /OpenType is used for TrueType-based OpenType fonts */
+      /* No subtype is used for TrueType-based OpenType fonts */
       if (is_opentype(fd->fm))
 	pdf_puts("/Subtype /CIDFontType0C\n");
       /* else
@@ -532,10 +515,10 @@ void write_fontdictionary(fo_entry * fo)
     assert(fo->fd != NULL && fo->fd->fd_objnum != 0);
     write_fontname(fo->fd, "BaseFont");
     pdf_printf("/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
-    assert(fo->cw != NULL);
+    assert(fo->cw_objnum != 0);
     pdf_printf("/FirstChar %i\n/LastChar %i\n/Widths %i 0 R\n",
                (int) fo->first_char, (int) fo->last_char,
-               (int) fo->cw->cw_objnum);
+               (int) fo->cw_objnum);
     if ((is_type1(fo->fm) || is_opentype(fo->fm)) && fo->fe != NULL && fo->fe->fe_objnum != 0)
         pdf_printf("/Encoding %i 0 R\n", (int) fo->fe->fe_objnum);
     if (fo->tounicode_objnum != 0)
@@ -592,42 +575,40 @@ void create_fontdictionary(fm_entry * fm, integer font_objnum,
             fo->fe->tx_tree = mark_chars(fo, fo->fe->tx_tree, f);
         }
     }
+    fo->tx_tree = mark_chars(fo, fo->tx_tree, f);       /* for write_charwidth_array() */
+    write_charwidth_array(fo, f);
     if (!is_builtin(fo->fm)) {
-        if (is_type1(fo->fm)) {
-            if ((fo->fd = lookup_fontdescriptor(fo)) == NULL) {
-                create_fontdescriptor(fo, f);
-                register_fd_entry(fo->fd);
-            }
-        } else
-            create_fontdescriptor(fo, f);
-        create_charwidth_array(fo, f);
-        write_charwidth_array(fo);
-        if (fo->fe != NULL) {
-            mark_reenc_glyphs(fo, f);
-            if (!is_type1(fo->fm)) {
-                /* mark reencoded characters as chars on TeX level */
-                assert(fo->fd->tx_tree == NULL);
-                fo->fd->tx_tree = mark_chars(fo, fo->fd->tx_tree, f);
-                if (is_truetype(fo->fm))
-                    fo->fd->write_ttf_glyph_names = true;
-            }
-        } else
-            /* mark non-reencoded characters as chars on TeX level */
-            fo->fd->tx_tree = mark_chars(fo, fo->fd->tx_tree, f);
-        if (!is_type1(fo->fm))
-            write_fontdescriptor(fo->fd);
+      if (is_type1(fo->fm)) {
+	if ((fo->fd = lookup_fontdescriptor(fo)) == NULL) {
+	  create_fontdescriptor(fo, f);
+	  register_fd_entry(fo->fd);
+	}
+      } else
+	create_fontdescriptor(fo, f);
+      if (fo->fe != NULL) {
+	mark_reenc_glyphs(fo, f);
+	if (!is_type1(fo->fm)) {
+	  /* mark reencoded characters as chars on TeX level */
+	  assert(fo->fd->tx_tree == NULL);
+	  fo->fd->tx_tree = mark_chars(fo, fo->fd->tx_tree, f);
+	  if (is_truetype(fo->fm))
+	    fo->fd->write_ttf_glyph_names = true;
+	}
+      } else
+	/* mark non-reencoded characters as chars on TeX level */
+	fo->fd->tx_tree = mark_chars(fo, fo->fd->tx_tree, f);
+      if (!is_type1(fo->fm))
+	write_fontdescriptor(fo->fd);
     } else {
-        /* builtin fonts still need the /Widths array and /FontDescriptor
-         * (to avoid error 'font FOO contains bad /BBox')
-         */
-        create_charwidth_array(fo, f);
-        write_charwidth_array(fo);
-        create_fontdescriptor(fo, f);
-        write_fontdescriptor(fo->fd);
-        if (!is_std_t1font(fo->fm))
-            pdftex_warn("font `%s' is not a standard font; "
-                        "I suppose it is available to your PDF viewer then",
-                        fo->fm->ps_name);
+      /* builtin fonts still need the /Widths array and /FontDescriptor
+       * (to avoid error 'font FOO contains bad /BBox')
+       */
+      create_fontdescriptor(fo, f);
+      write_fontdescriptor(fo->fd);
+      if (!is_std_t1font(fo->fm))
+	pdftex_warn("font `%s' is not a standard font; "
+		    "I suppose it is available to your PDF viewer then",
+		    fo->fm->ps_name);
     }
     if (is_type1(fo->fm))
         register_fo_entry(fo);
@@ -665,6 +646,9 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
       }
 
       set_included(fm);
+      if (font_embedding(f)==subset_embedding) {
+	set_subsetted(fm);
+      }
       set_cidkeyed(fm);
       create_cid_fontdictionary(fm, font_objnum, f);
       
@@ -679,6 +663,69 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
 
 /**********************************************************************/
 
+
+/* 
+   The glyph width is included in |glw_entry|, because that width
+   depends on the value it has in the font where it is actually
+   typeset from, not the font that is the 'owner' of the fd entry.
+
+   TODO: It is possible that the user messes with the metric width,
+   but handling that properly would require access to the 'hmtx' table
+   at this point in the program.
+*/
+
+int comp_glw_entry(const void *pa, const void *pb, void *p)
+{
+  unsigned short i, j;
+  i = (*(glw_entry *)pa).id;
+  j = (*(glw_entry *)pb).id;
+  cmp_return(i,j);
+  return 0;
+}
+
+void create_cid_fontdescriptor(fo_entry * fo, internalfontnumber f)
+{
+    assert(fo != NULL);
+    assert(fo->fm != NULL);
+    assert(fo->fd == NULL);
+    fo->fd = new_fd_entry();
+    preset_fontname(fo);
+    preset_fontmetrics(fo->fd, f);
+    fo->fd->fe = fo->fe;        /* encoding needed by TrueType writing */
+    fo->fd->fm = fo->fm;        /* map entry needed by TrueType writing */
+    fo->fd->gl_tree = avl_create(comp_glw_entry, NULL, &avl_xallocator);
+    assert(fo->fd->gl_tree != NULL);
+}
+
+/*
+   The values |font_bc()| and |font_ec()| are potentially large 
+   character ids, but the strings that are written out use CID
+   indexes, and those are limited to 16-bit values.
+*/
+
+static void mark_cid_subset_glyphs(fo_entry *fo, internal_font_number f) 
+{
+  int i, k, jj;
+  glw_entry *j;
+  void *aa;
+
+  for (k = 1; k <= max_font_id(); k++) {
+    if ( k == f || f == abs(pdf_font_num[k])) { 
+      for (i = font_bc(k); i <= font_ec(k); i++) {
+	if (char_exists(k,i) && char_used(k,i)) {
+	  j = xtalloc(1,glw_entry);
+	  j->id = char_index(k,i);
+	  j->wd = divide_scaled(char_width(k, i), pdf_font_size[k], 4);
+	  if ((glw_entry *)avl_find(fo->fd->gl_tree,j) == NULL) {
+	    aa = avl_probe(fo->fd->gl_tree, j);
+	    assert(aa != NULL);
+	  }
+	}
+      }
+    }
+  }
+}
+
 /* 
    It is possible to compress the widths array even better, by using the
    alternate 'range' syntax and possibly even using /DW to set 
@@ -690,61 +737,38 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
    We have to make sure that we do not output an (incorrect!)
    width for a character that exists in the font, but is not used
    in typesetting. An enormous negative width is used as sentinel value
-
-   fo->first_char and fo->last_char are still potentially large 
-   CMAP keys, but the strings that are written out use CIDs, and 
-   CIDs are conveniently limited to 16-bit values in PDF.
 */
 
-#define MAX_CID 0xFFFF
-#define IMPOSSIBLE_WIDTH 0x8FFFFFFF
-
-void create_cid_charwidth_array(fo_entry * fo, internalfontnumber f)
-{
-  int i,j;
-    assert(fo != NULL);
-    assert(fo->cw == NULL);
-    fo->cw = new_cw_entry();
-    fo->cw->width = xtalloc((MAX_CID+1), integer);
-
-    for (i = 0; i <= MAX_CID; i++)
-        fo->cw->width[i] = IMPOSSIBLE_WIDTH;
-    /* find the existing chars. */
-    for (i = fo->first_char; i <= fo->last_char; i++) {
-      if (char_exists(f,i) && char_used(f,i)) {
-	j = char_index(f,i);
-	assert(j>=0);
-	assert(j<=MAX_CID);
-	fo->cw->width[j] = divide_scaled(char_width(f, i), pdf_font_size[f], 4);
-      }
-    }
-}
 
 static void write_cid_charwidth_array(fo_entry * fo)
 {
-  int i, j, k;
-    assert(fo->cw != NULL);
-    assert(fo->cw->cw_objnum == 0);
-    fo->cw->cw_objnum = pdf_new_objnum();
-    pdf_begin_obj(fo->cw->cw_objnum, 1);
-    for (k=MAX_CID;fo->cw->width[k]==IMPOSSIBLE_WIDTH && k>0    ;k--) ;
-    for (i=0;      fo->cw->width[i]==IMPOSSIBLE_WIDTH && i<k;i++) ;
-    pdf_printf("[ %i [", i);
-    for (; i<=k; i++) {
-      j = fo->cw->width[i];
-      if (j == IMPOSSIBLE_WIDTH) {
-	for (; fo->cw->width[i]==IMPOSSIBLE_WIDTH && i<k;i++) ;
-	pdf_printf("] %i [", i);
-	j = fo->cw->width[i];
-      } 
-      pdf_printf("%i", (j/10));
-      if ((j % 10) != 0)
-	pdf_printf(".%i", (j % 10));
-      if (i<k && fo->cw->width[i+1]!=IMPOSSIBLE_WIDTH)  
-	pdf_puts(" ");
-    }
-    pdf_puts("]]\n");
-    pdf_end_obj();
+  int i, j;
+  glw_entry *glyph;
+  struct avl_traverser t;
+
+  assert(fo->cw_objnum == 0);
+  fo->cw_objnum = pdf_new_objnum();
+  pdf_begin_obj(fo->cw_objnum, 1);
+  avl_t_init(&t, fo->fd->gl_tree);
+  glyph = (glw_entry *) avl_t_first(&t, fo->fd->gl_tree);
+  assert(glyph != NULL);
+  i = glyph->id;
+  pdf_printf("[ %i [", i);
+  for (; glyph != NULL; glyph = (glw_entry *) avl_t_next(&t)) {
+    j = glyph->wd;
+    if (glyph->id>(i+1)) {
+      pdf_printf("] %i [", glyph->id);
+      j = glyph->wd;
+    } 
+    if (glyph->id==(i+1))
+      pdf_puts(" ");
+    pdf_printf("%i", (j/10));
+    if ((j % 10) != 0)
+      pdf_printf(".%i", (j % 10));
+    i = glyph->id;
+  }
+  pdf_puts("]]\n");
+  pdf_end_obj();
 }
 
 
@@ -757,8 +781,16 @@ void create_cid_fontdictionary(fm_entry * fm, integer font_objnum,
     fo->fm = fm;
     fo->fo_objnum = font_objnum;
     fo->tex_font = f;
-    create_fontdescriptor(fo, f);
-    create_cid_charwidth_array(fo, f);
+    create_cid_fontdescriptor (fo, f);
+    mark_cid_subset_glyphs (fo,f);
+    if (is_subsetted(fo->fm)) {
+      /* 
+	 this is a bit sneaky. |make_subset_tag()| actually expects the glyph tree
+	 to contain strings instead of |glw_entry| items. However, all calculations
+	 are done using explicit typecasts, so it works out ok.
+      */
+      make_subset_tag(fo->fd);
+    }
     write_cid_charwidth_array(fo);
     write_fontdescriptor(fo->fd);
     
@@ -793,7 +825,7 @@ void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f)
     }
     write_fontname(fo->fd, "BaseFont");
     pdf_printf("/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
-    pdf_printf("/W %i 0 R\n",(int) fo->cw->cw_objnum);
+    pdf_printf("/W %i 0 R\n",(int) fo->cw_objnum);
     pdf_printf("/CIDSystemInfo <<\n");
     pdf_printf("  /Registry (%s)\n", font_cidregistry(f));
     pdf_printf("  /Ordering (%s)\n",font_cidordering(f));

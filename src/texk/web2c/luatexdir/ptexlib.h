@@ -95,6 +95,12 @@ typedef struct {
     boolean in_use;             /* true if this structure has been referenced already */
 } fm_entry;
 
+typedef struct glw_entry_ { /* subset glyphs for inclusion in CID-based fonts */
+  unsigned short id;        /* glyph CID */
+  unsigned short wd;        /* glyph width in 1/1000 em parts */
+} glw_entry;
+
+
 /**********************************************************************/
 
 typedef struct {
@@ -119,20 +125,16 @@ typedef struct fd_entry_ {
     struct avl_table *gl_tree;  /* tree of all marked glyphs */
 } fd_entry;
 
-typedef struct cw_entry_ {
-    integer cw_objnum;          /* object number of the font program object */
-    integer *width;             /* array [0...255] of character width values */
-} cw_entry;
-
 typedef struct fo_entry_ {
     integer fo_objnum;          /* object number of the font dictionary */
     internalfontnumber tex_font;        /* needed only for \pdffontattr{} */
     fm_entry *fm;               /* pointer to font map structure for this font dictionary */
     fd_entry *fd;               /* pointer to /FontDescriptor object structure */
     fe_entry *fe;               /* pointer to encoding structure */
-    cw_entry *cw;               /* pointer to character /Widths array object structure */
+    integer cw_objnum;          /* object number of the font program object */
     integer first_char;         /* first character used in this font */
     integer last_char;          /* last character used in this font */
+    struct avl_table *tx_tree;  /* tree of non-reencoded TeX characters marked as used */
     integer tounicode_objnum;   /* object number of ToUnicode */
 } fo_entry;
 
