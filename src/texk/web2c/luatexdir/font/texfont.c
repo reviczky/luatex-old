@@ -553,6 +553,41 @@ cmp_font_area (integer id, strnumber t) {
   return 1;
 }
 
+
+static boolean
+same_font_name (integer id, integer t) {
+  if (font_name(t) == NULL || 
+      font_name(id) == NULL || 
+      strcmp(font_name(t),font_name(id))!=0)
+    return 0;
+  return 1;
+}
+
+boolean
+font_shareable (internal_font_number f, internal_font_number k) {
+  int ret = 0;
+  if (font_cidregistry(f) == NULL) {
+    if ( hasfmentry ( k ) 
+	 && ( font_map ( k ) == font_map ( f ) ) 
+	 && ( same_font_name ( k , f ) 
+	      || 
+	      ( pdf_font_auto_expand [f] 
+		&& ( pdf_font_blink [f ] != 0 )  /* 0 = nullfont */
+		&&  same_font_name ( k , pdf_font_blink [f ] ) ) ) ) {
+      ret = 1;
+    }
+  } else {
+    if (strcmp(font_filename(k),font_filename(f)) == 0
+	||
+	( pdf_font_auto_expand [f] 
+	  && ( pdf_font_blink [f ] != 0 )  /* 0 = nullfont */
+	  &&  same_font_name ( k , pdf_font_blink [f ] ) ) ) {
+      ret = 1;
+    }
+  }
+  return ret;
+}
+
 integer 
 test_no_ligatures (internal_font_number f) {
  integer c;

@@ -126,3 +126,47 @@ typedef struct {
     TTF_USHORT idDelta;
     TTF_USHORT idRangeOffset;
 } seg_entry;
+
+typedef struct {
+    TTF_LONG offset;
+    TTF_LONG newoffset;
+    TTF_UFWORD advWidth;
+    TTF_FWORD lsb;
+    char *name;                 /* name of glyph */
+    TTF_SHORT newindex;         /* new index of glyph in output file */
+    TTF_USHORT name_index;      /* index of name as read from font file */
+} glyph_entry;
+
+/* some functions and variables are used by writetype0.c */
+
+extern fd_entry *fd_cur;        /* pointer to the current font descriptor */
+extern unsigned char *ttf_buffer;
+extern integer ttf_size;
+extern integer ttf_curbyte;
+extern glyph_entry *glyph_tab;
+extern dirtab_entry *dir_tab;
+extern dirtab_entry *ttf_name_lookup (const char *s, boolean required);
+extern dirtab_entry *ttf_seek_tab (const char *name, TTF_LONG offset);
+
+extern void ttf_read_tabdir (void);
+extern void ttf_read_head (void);
+extern void ttf_read_hhea (void);
+extern void ttf_read_pclt (void);
+extern void ttf_read_post (void);
+
+extern FILE *ttf_file;
+
+#define ttf_open()      \
+    open_input(&ttf_file, kpse_truetype_format, FOPEN_RBIN_MODE)
+#define otf_open()      \
+    open_input(&ttf_file, kpse_opentype_format, FOPEN_RBIN_MODE)
+#define ttf_read_file()  \
+    readbinfile(ttf_file,&ttf_buffer,&ttf_size)
+#define ttf_close()      xfclose(ttf_file,cur_file_name)
+#define ttf_getchar()    ttf_buffer[ttf_curbyte++]
+#define ttf_eof()        (ttf_curbyte>ttf_size)
+
+extern long ttf_putnum (int s, long n);
+extern long ttf_getnum (int s);
+
+

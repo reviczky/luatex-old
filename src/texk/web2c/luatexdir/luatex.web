@@ -17281,16 +17281,11 @@ begin
     here: 1) |f| and |k| have the same tfm name (so they have been loaded at
     different sizes, eg 'cmr10' and 'cmr10 at 11pt'); 2) |f| has been auto
     expanded from |k|}
-    if hasfmentry(f) then begin
+    if true then begin
         i := head_tab[obj_type_font];
         while i <> 0 do begin
             k := obj_info(i);
-            if hasfmentry(k) and
-               (font_map(k) = font_map(f)) and
-               (cmp_font_name(k,tex_font_name(f)) or
-                (pdf_font_auto_expand[f] and
-                 (pdf_font_blink[f] <> null_font) and
-                 cmp_font_name(k,tex_font_name(pdf_font_blink[f])))) then
+            if font_shareable(f,k) then
             begin
                 pdfassert(pdf_font_num[k] <> 0);
                 if pdf_font_num[k] < 0 then
@@ -20444,7 +20439,7 @@ head_tab[obj_type_pages] := l
 
 @ @<Output fonts definition@>=
 for k := 1 to max_font_id do
-    if font_used(k) and hasfmentry(k) and (pdf_font_num[k] < 0) then begin
+    if font_used(k) and (pdf_font_num[k] < 0) then begin
         i := -pdf_font_num[k];
         pdfassert(pdf_font_num[i] > 0);
         for j := font_bc(k) to font_ec(k) do

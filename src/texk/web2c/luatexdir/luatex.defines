@@ -151,6 +151,7 @@ $Id $
 
 @define function cmp_font_area();
 @define function cmp_font_name();
+@define function font_shareable();
 
 @define function fontglue();
 @define procedure setfontglue();

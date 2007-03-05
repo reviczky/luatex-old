@@ -373,7 +373,7 @@ static void write_fontfile(fd_entry * fd)
     assert(is_included(fd->fm));
     if (is_cidkeyed(fd->fm)) {
       if (is_opentype(fd->fm))
-	writeotf(fd);
+	writetype0(fd);
       else if (is_truetype(fd->fm))
 	writettf(fd);
       else
@@ -827,9 +827,9 @@ void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f)
     pdf_printf("/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
     pdf_printf("/W %i 0 R\n",(int) fo->cw_objnum);
     pdf_printf("/CIDSystemInfo <<\n");
-    pdf_printf("  /Registry (%s)\n", font_cidregistry(f));
-    pdf_printf("  /Ordering (%s)\n",font_cidordering(f));
-    pdf_printf("  /Supplement %i\n",font_cidsupplement(f));
+    pdf_printf("/Registry (%s)\n", font_cidregistry(f));
+    pdf_printf("/Ordering (%s)\n",font_cidordering(f));
+    pdf_printf("/Supplement %i\n",font_cidsupplement(f));
     pdf_printf(">>\n");
     pdf_end_dict();
 

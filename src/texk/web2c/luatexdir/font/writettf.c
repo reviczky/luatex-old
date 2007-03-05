@@ -33,30 +33,9 @@ $Id: //depot/Build/source.development/TeX/texk/web2c/pdftexdir/writettf.c#16 $
 
 // #define INFILE ttf_file
 
-static unsigned char *ttf_buffer = NULL;
-static integer ttf_size = 0;
-static integer ttf_curbyte = 0;
-
-#define ttf_open()      \
-    open_input(&ttf_file, kpse_truetype_format, FOPEN_RBIN_MODE)
-#define otf_open()      \
-    open_input(&ttf_file, kpse_opentype_format, FOPEN_RBIN_MODE)
-#define ttf_read_file()  \
-    readbinfile(ttf_file,&ttf_buffer,&ttf_size)
-#define ttf_close()      xfclose(ttf_file,cur_file_name)
-#define ttf_getchar()    ttf_buffer[ttf_curbyte++]
-#define ttf_eof()        (ttf_curbyte>ttf_size)
-
-
-typedef struct {
-    TTF_LONG offset;
-    TTF_LONG newoffset;
-    TTF_UFWORD advWidth;
-    TTF_FWORD lsb;
-    char *name;                 /* name of glyph */
-    TTF_SHORT newindex;         /* new index of glyph in output file */
-    TTF_USHORT name_index;      /* index of name as read from font file */
-} glyph_entry;
+unsigned char *ttf_buffer = NULL;
+integer ttf_size = 0;
+integer ttf_curbyte = 0;
 
 typedef struct {
     char *name;                 /* name of glyph */
@@ -93,23 +72,24 @@ static TTF_USHORT new_glyphs_count;
 static TTF_USHORT nhmtxs;
 static TTF_USHORT new_ntabs;
 
-static glyph_entry *glyph_tab;
+glyph_entry *glyph_tab;
+dirtab_entry *dir_tab;
+
 static long *glyph_index;
 static cmap_entry *cmap_tab, new_cmap_tab[NEW_CMAP_SIZE];
 static name_record *name_tab;
 static int name_record_num;
 static char *name_buf;
 static int name_buf_size;
-static dirtab_entry *dir_tab;
 static char *glyph_name_buf;
 static TTF_ULONG checksum;
 static TTF_ULONG tab_length;
 static TTF_ULONG tmp_ulong;
 static TTF_ULONG checkSumAdjustment_offset;
-static FILE *ttf_file;
+FILE *ttf_file;
 static ttfenc_entry ttfenc_tab[256];
 
-static fd_entry *fd_cur;        /* pointer to the current font descriptor */
+fd_entry *fd_cur;        /* pointer to the current font descriptor */
 
 static struct avl_table *ttf_cmap_tree = NULL;
 
@@ -192,7 +172,7 @@ static TTF_ULONG ttf_getchksm (void)
     return checksum;
 }
 
-static long ttf_putnum (int s, long n)
+long ttf_putnum (int s, long n)
 {
     long i = n;
     char buf[TTF_LONG_SIZE + 1], *p = buf;
@@ -206,7 +186,7 @@ static long ttf_putnum (int s, long n)
     return n;
 }
 
-static long ttf_getnum (int s)
+long ttf_getnum (int s)
 {
     long i = 0;
     int c;
@@ -234,7 +214,7 @@ static void ttf_ncopy (int n)
         copy_byte ();
 }
 
-static dirtab_entry *ttf_name_lookup (const char *s, boolean required)
+dirtab_entry *ttf_name_lookup (const char *s, boolean required)
 {
     dirtab_entry *tab;
     for (tab = dir_tab; tab - dir_tab < ntabs; tab++)
@@ -249,7 +229,7 @@ static dirtab_entry *ttf_name_lookup (const char *s, boolean required)
     return tab;
 }
 
-static dirtab_entry *ttf_seek_tab (const char *name, TTF_LONG offset)
+dirtab_entry *ttf_seek_tab (const char *name, TTF_LONG offset)
 {
     dirtab_entry *tab = ttf_name_lookup (name, true);
     //xfseek (INFILE, tab->offset + offset, SEEK_SET, cur_file_name);
@@ -418,7 +398,7 @@ static void ttf_read_mapx (void)
     glyph_index[1] = 1;         /* index of ".null" glyph */
 }
 
-static void ttf_read_head (void)
+void ttf_read_head (void)
 {
     ttf_seek_tab ("head",
                   2 * TTF_FIXED_SIZE + 2 * TTF_ULONG_SIZE + TTF_USHORT_SIZE);
@@ -436,7 +416,7 @@ static void ttf_read_head (void)
     loca_format = get_short ();
 }
 
-static void ttf_read_hhea (void)
+void ttf_read_hhea (void)
 {
     ttf_seek_tab ("hhea", TTF_FIXED_SIZE);
     fd_cur->font_dim[ASCENT_CODE].val = ttf_funit(get_fword());
@@ -448,7 +428,7 @@ static void ttf_read_hhea (void)
     nhmtxs = get_ushort ();
 }
 
-static void ttf_read_pclt (void)
+void ttf_read_pclt (void)
 {
     if (ttf_name_lookup ("PCLT", false) == NULL)
         return;
@@ -478,7 +458,7 @@ static void ttf_read_hmtx (void)
     }
 }
 
-static void ttf_read_post (void)
+void ttf_read_post (void)
 {
     int k, nnames;
     long length;
@@ -556,7 +536,7 @@ static void ttf_read_loca (void)
             glyph->offset = get_ushort () << 1;
 }
 
-static void ttf_read_tabdir ()
+void ttf_read_tabdir (void)
 {
     int i;
     dirtab_entry *tab;
@@ -1430,75 +1410,80 @@ void writettf(fd_entry * fd)
     cur_file_name = NULL;
 }
 
-void writeotf(fd_entry * fd)
+void do_writeotf(fd_entry * fd)
 {
-    int callback_id;
-    int file_opened = 0;
-    dirtab_entry *tab;
-	char *ftemp = NULL;
-    long i;
+  long i;
+  dirtab_entry *tab;
+  dir_tab = NULL;
+  glyph_tab = NULL;
+  if (tracefilenames)
+    tex_printf ("<<%s", cur_file_name);
+  ttf_read_tabdir ();
+  /* read font parameters */
+  if (ttf_name_lookup ("head", false) != NULL)
+    ttf_read_head ();
+  if (ttf_name_lookup ("hhea", false) != NULL)
+    ttf_read_hhea ();
+  if (ttf_name_lookup ("PCLT", false) != NULL)
+    ttf_read_pclt ();
+  if (ttf_name_lookup ("post", false) != NULL)
+    ttf_read_post ();
+  /* copy font file */
+  tab = ttf_seek_tab ("CFF ", 0);
+  for (i = tab->length; i > 0; i--)
+    copy_char ();
+  xfree (dir_tab);
+  //    ttf_close ();
+  if (tracefilenames)
+    tex_printf (">>");
+}
 
-    fd_cur = fd;                /* fd_cur is global inside writettf.c */
-    assert(fd_cur->fm != NULL);
-    assert(is_opentype(fd_cur->fm));
-    assert(is_included(fd_cur->fm));
-
-    set_cur_file_name(fd_cur->fm->ff_name);
-	ttf_curbyte=0;
-	ttf_size=0;
-	callback_id=callback_defined("find_opentype_file");
-	if (callback_id>0) {
-	  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
-		if(ftemp!=NULL&&strlen(ftemp)) {
-		  free(nameoffile);
-		  namelength = strlen(ftemp);
-		  nameoffile = xmalloc(namelength+2);
-		  strcpy((char *)(nameoffile+1),ftemp);
-		  free(ftemp);
-		}
-	  }
-	}
-	callback_id=callback_defined("read_opentype_file");
-	if (callback_id>0) {
-	  if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
-					 &file_opened, &ttf_buffer,&ttf_size) &&
-		 file_opened && ttf_size>0) {
-	  } else {
-        pdftex_fail ("cannot open OpenType font file for reading");
-	  }
-	} else {
-	  if (!otf_open ()) {
-        pdftex_fail ("cannot open OpenType font file for reading");
-	  }
-	  ttf_read_file();
-	  ttf_close();
-	}
-
-    cur_file_name = (char *) nameoffile + 1;
-	if (tracefilenames)
-	  tex_printf ("<<%s", cur_file_name);
-    fd_cur->ff_found = true;
-    dir_tab = NULL;
-    glyph_tab = NULL;
-    ttf_read_tabdir ();
-    /* read font parameters */
-    if (ttf_name_lookup ("head", false) != NULL)
-        ttf_read_head ();
-    if (ttf_name_lookup ("hhea", false) != NULL)
-        ttf_read_hhea ();
-    if (ttf_name_lookup ("PCLT", false) != NULL)
-        ttf_read_pclt ();
-    if (ttf_name_lookup ("post", false) != NULL)
-        ttf_read_post ();
-    /* copy font file */
-    tab = ttf_seek_tab ("CFF ", 0);
-    for (i = tab->length; i > 0; i--)
-        copy_char ();
-    xfree (dir_tab);
-	//    ttf_close ();
-	if (tracefilenames)
-	  tex_printf (">>");
-    cur_file_name = NULL;
+void writeotf (fd_entry * fd) {
+  int callback_id;
+  int file_opened = 0;
+  char *ftemp = NULL;
+  long i;
+  
+  fd_cur = fd;                /* fd_cur is global inside writettf.c */
+  assert(fd_cur->fm != NULL);
+  assert(is_opentype(fd_cur->fm));
+  assert(is_included(fd_cur->fm));
+  
+  set_cur_file_name(fd_cur->fm->ff_name);
+  ttf_curbyte=0;
+  ttf_size=0;
+  callback_id=callback_defined("find_opentype_file");
+  if (callback_id>0) {
+    if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
+      if(ftemp!=NULL&&strlen(ftemp)) {
+	free(nameoffile);
+	namelength = strlen(ftemp);
+	nameoffile = xmalloc(namelength+2);
+	strcpy((char *)(nameoffile+1),ftemp);
+	free(ftemp);
+      }
+    }
+  }
+  callback_id=callback_defined("read_opentype_file");
+  if (callback_id>0) {
+    if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
+		    &file_opened, &ttf_buffer,&ttf_size) &&
+       file_opened && ttf_size>0) {
+    } else {
+      pdftex_fail ("cannot open OpenType font file for reading");
+    }
+  } else {
+    if (!otf_open ()) {
+      pdftex_fail ("cannot open OpenType font file for reading");
+    }
+    ttf_read_file();
+    ttf_close();
+  }
+  
+  cur_file_name = (char *) nameoffile + 1;
+  fd_cur->ff_found = true;
+  do_writeotf(fd);
+  cur_file_name = NULL;
 }
 
 /*

@@ -52,6 +52,8 @@ font/writefont.o \
 font/writet1.o \
 font/writet3.o \
 font/writettf.o \
+font/writetype0.o \
+font/writecff.o \
 font/texfont.o \
 font/tfmofm.o \
 font/ttfotf.o \
