@@ -2,7 +2,7 @@
 # $Id$
 # builds new pdftex binaries
 # try to find gnu make; we need it
-EXTRA_VERSION=`date +-%Y%m%d%k`
+EXTRA_VERSION=`date +-%Y%m%d%H`
 export EXTRA_VERSION
 MAKE=make
 if make -v 2>&1| grep -q "GNU Make" 

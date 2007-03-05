@@ -2,7 +2,7 @@
 # $Id$
 # builds new pdftex binaries
 
-EXTRA_VERSION=`date +-%Y%m%d%k`
+EXTRA_VERSION=`date +-%Y%m%d%H`
 export EXTRA_VERSION
 
 # try to find gnu make; we need it

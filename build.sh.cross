@@ -7,7 +7,7 @@ OLDPATH=$PATH
 PATH=/usr/mingw32/mingw32/bin:$PATH
 export PATH
 
-EXTRA_VERSION=`date +-%Y%m%d%k`
+EXTRA_VERSION=`date +-%Y%m%d%H`
 export EXTRA_VERSION
 
 # try to find gnu make; we need it
