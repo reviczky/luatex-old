@@ -665,7 +665,7 @@ get_ligature (internal_font_number f, integer lc, integer rc) {
   t.lig = 0;
   t.type = 0;
   t.adj = 0;
-  if (!has_lig(f,lc))
+  if (lc == non_boundarychar || rc == non_boundarychar || (!has_lig(f,lc)) )
     return t;
   k = 0;
   co = char_info(f,lc);
@@ -692,7 +692,7 @@ get_kern(internal_font_number f, integer lc, integer rc)
   integer k;
   kerninfo u;
   charinfo * co;
-  if (!has_kern(f,lc))
+  if (lc == non_boundarychar || rc == non_boundarychar || (!has_kern(f,lc)) )
     return 0;
   k = 0;
   co = char_info(f,lc);

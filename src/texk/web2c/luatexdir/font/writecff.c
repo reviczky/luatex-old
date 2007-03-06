@@ -2590,6 +2590,180 @@ long cff_pack_encoding (cff_font *cff, card8 *dest, long destlen)
 }
 
 
+long cff_pack_fdselect (cff_font *cff, card8 *dest, long destlen)
+{
+  cff_fdselect *fdsel;
+  long len = 0;
+  card16 i;
+
+  if (cff->fdselect == NULL)
+    return 0;
+
+  if (destlen < 1)
+    ERROR("in cff_pack_fdselect(): Buffur overflow");
+
+  fdsel = cff->fdselect;
+
+  dest[len++] = fdsel->format;
+  switch (fdsel->format) {
+  case 0:
+    if (fdsel->num_entries != cff->num_glyphs)
+      ERROR("in cff_pack_fdselect(): Invalid data");
+    if (destlen < len + fdsel->num_entries)
+      ERROR("in cff_pack_fdselect(): Buffer overflow");
+    for (i=0;i<fdsel->num_entries;i++) {
+      dest[len++] = (fdsel->data).fds[i];
+    }
+    break;
+  case 3:
+    {
+      if (destlen < len + 2)
+	ERROR("in cff_pack_fdselect(): Buffer overflow");
+      len += 2;
+      for (i=0;i<(fdsel->num_entries);i++) {
+	if (destlen < len + 3)
+	  ERROR("in cff_pack_fdselect(): Buffer overflow");
+	dest[len++] = ((fdsel->data).ranges[i].first >> 8) & 0xff;
+	dest[len++] = (fdsel->data).ranges[i].first & 0xff;
+	dest[len++] = (fdsel->data).ranges[i].fd;
+      }
+      if (destlen < len + 2)
+	ERROR("in cff_pack_fdselect(): Buffer overflow");
+      dest[len++]  = (cff->num_glyphs >> 8) & 0xff;
+      dest[len++]  = cff->num_glyphs & 0xff;
+      dest[1] = ((len/3 - 1) >> 8) & 0xff;
+      dest[2] = (len/3 - 1) & 0xff;
+    }
+    break;
+  default:
+    ERROR("Unknown FDSelect format.");
+    break;
+  }
+
+  return len;
+}
+
+
+
+/*
+ * Create an instance of embeddable font.
+ */
+static void
+write_fontfile (cff_font *cffont, char *fullname)
+{
+  cff_index *topdict, *fdarray, *private;
+  unsigned char *dest;
+  long destlen = 0, i, size;
+  long offset, topdict_offset, fdarray_offset;
+
+  /*  DICT sizes (offset set to long int) */
+  topdict = cff_new_index(1);
+  fdarray = cff_new_index(cffont->num_fds);
+  private = cff_new_index(cffont->num_fds);
+
+  cff_dict_remove(cffont->topdict, "UniqueID");
+  cff_dict_remove(cffont->topdict, "XUID");
+  cff_dict_remove(cffont->topdict, "Private");  /* some bad font may have */
+  cff_dict_remove(cffont->topdict, "Encoding"); /* some bad font may have */
+
+  topdict->offset[1] = cff_dict_pack(cffont->topdict,
+				     (card8 *) work_buffer,
+				     WORK_BUFFER_SIZE) + 1;
+  for (i = 0;i < cffont->num_fds; i++) {
+    size = 0;
+    if (cffont->private && cffont->private[i]) {
+      size = cff_dict_pack(cffont->private[i],
+			   (card8 *) work_buffer, WORK_BUFFER_SIZE);
+      if (size < 1) { /* Private had contained only Subr */
+	cff_dict_remove(cffont->fdarray[i], "Private");
+      }
+    }
+    (private->offset)[i+1] = (private->offset)[i] + size;
+    (fdarray->offset)[i+1] = (fdarray->offset)[i] +
+      cff_dict_pack(cffont->fdarray[i],
+		    (card8 *) work_buffer, WORK_BUFFER_SIZE);
+  }
+
+  destlen = 4; /* header size */
+  destlen += cff_set_name(cffont, fullname);
+  destlen += cff_index_size(topdict);
+  destlen += cff_index_size(cffont->string);
+  destlen += cff_index_size(cffont->gsubr);
+  destlen += (cffont->charsets->num_entries) * 2 + 1;  /* charset format 0 */
+  destlen += (cffont->fdselect->num_entries) * 3 + 5; /* fdselect format 3 */
+  destlen += cff_index_size(cffont->cstrings);
+  destlen += cff_index_size(fdarray);
+  destlen += private->offset[private->count] - 1; /* Private is not INDEX */
+
+  dest = xcalloc(destlen, sizeof(card8));
+
+  offset = 0;
+  /* Header */
+  offset += cff_put_header(cffont, dest + offset, destlen - offset);
+  /* Name */
+  offset += cff_pack_index(cffont->name, dest + offset, destlen - offset);
+  /* Top DICT */
+  topdict_offset = offset;
+  offset += cff_index_size(topdict);
+  /* Strings */
+  offset += cff_pack_index(cffont->string, dest + offset, destlen - offset);
+  /* Global Subrs */
+  offset += cff_pack_index(cffont->gsubr, dest + offset, destlen - offset);
+
+  /* charset */
+  cff_dict_set(cffont->topdict, "charset", 0, offset);
+  offset += cff_pack_charsets(cffont, dest + offset, destlen - offset);
+
+  /* FDSelect */
+  cff_dict_set(cffont->topdict, "FDSelect", 0, offset);
+  offset += cff_pack_fdselect(cffont, dest + offset, destlen - offset);
+
+  /* CharStrings */
+  cff_dict_set(cffont->topdict, "CharStrings", 0, offset);
+  offset += cff_pack_index(cffont->cstrings,
+			   dest + offset, cff_index_size(cffont->cstrings));
+  cff_release_index(cffont->cstrings);
+  cffont->cstrings = NULL; /* Charstrings cosumes huge memory */
+
+  /* FDArray and Private */
+  cff_dict_set(cffont->topdict, "FDArray", 0, offset);
+  fdarray_offset = offset;
+  offset += cff_index_size(fdarray);
+
+  fdarray->data = xcalloc(fdarray->offset[fdarray->count] - 1, sizeof(card8));
+  for (i = 0; i < cffont->num_fds; i++) {
+    size = private->offset[i+1] - private->offset[i];
+    if (cffont->private[i] && size > 0) {
+      cff_dict_pack(cffont->private[i], dest + offset, size);
+      cff_dict_set(cffont->fdarray[i], "Private", 0, size);
+      cff_dict_set(cffont->fdarray[i], "Private", 1, offset);
+    }
+    cff_dict_pack(cffont->fdarray[i],
+		  fdarray->data + (fdarray->offset)[i] - 1,
+		  fdarray->offset[fdarray->count] - 1);
+    offset += size;
+  }
+
+  cff_pack_index(fdarray, dest + fdarray_offset, cff_index_size(fdarray));
+  cff_release_index(fdarray);
+  cff_release_index(private);
+
+  /* Finally Top DICT */
+  topdict->data = xcalloc(topdict->offset[topdict->count] - 1, sizeof(card8));
+  cff_dict_pack(cffont->topdict,
+		topdict->data, topdict->offset[topdict->count] - 1);
+  cff_pack_index(topdict, dest + topdict_offset, cff_index_size(topdict));
+  cff_release_index(topdict);
+
+  for (i = 0; i < offset; i++)
+    fb_putchar (dest[i]);
+
+  /*fprintf(stdout," (%i/%i)",offset,cffont->stream_size);*/
+
+  return ;
+}
+
+
  
 
 /* remarkably little needs to be changed in the CFF, because
@@ -2613,13 +2787,13 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   long          size, offset = 0;
   long          stream_data_len = 0;
   card8        *stream_data_ptr, *data;
-  card16        num_glyphs, cs_count, code;
+  card16        num_glyphs, cs_count, code, gid, last_cid;
   cs_ginfo      ginfo;
   double        nominal_width, default_width, notdef_width;
   int           verbose;
   char         *fullname;
-  int i;
-  glw_entry *glyph;
+  long i, cid;
+  glw_entry *glyph, *found;
   struct avl_traverser t;
 
   cff_charsets *charset  = NULL;
@@ -2648,6 +2822,21 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
     nominal_width = CFF_NOMINALWIDTHX_DEFAULT;
   }
 
+  num_glyphs = 0; 
+  last_cid = 0;  
+  glyph = xtalloc(1,glw_entry);
+
+  /* insert notdef */ 
+
+  avl_t_init(&t, fd->gl_tree);
+  for (found = (glw_entry *) avl_t_first(&t, fd->gl_tree); 
+       found != NULL; 
+       found = (glw_entry *) avl_t_next(&t)) {
+    last_cid = found->id;
+    num_glyphs++;
+  }
+  num_glyphs++;
+
   {
     cff_fdselect *fdselect;
 
@@ -2660,10 +2849,28 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
     cffont->fdselect = fdselect;
   }
 
-  /* TODO
-   cff_dict_add(cffont->topdict, "CIDCount", 1);
-   cff_dict_set(cffont->topdict, "CIDCount", 0, last_cid + 1);
-  */
+  {
+    cff_charsets *charset;
+
+    charset  = xcalloc(1, sizeof(cff_charsets));
+    charset->format = 0;
+    charset->num_entries = num_glyphs-1;
+    charset->data.glyphs = xcalloc(num_glyphs, sizeof(s_SID));
+
+
+    avl_t_init(&t, fd->gl_tree);
+    gid = 0;
+    for (found = (glw_entry *) avl_t_first(&t, fd->gl_tree); 
+	 found != NULL; 
+	 found = (glw_entry *) avl_t_next(&t)) {
+      charset->data.glyphs[gid] = found->id;
+      gid++;
+    }
+    cffont->charsets = charset;
+  }
+
+  cff_dict_add(cffont->topdict, "CIDCount", 1);
+  cff_dict_set(cffont->topdict, "CIDCount", 0, last_cid + 1);
 
   cffont->fdarray    = xcalloc(1, sizeof(cff_dict *));
   cffont->fdarray[0] = cff_new_dict();
@@ -2685,8 +2892,6 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   cff_dict_remove(cffont->topdict, "Private");
   cff_dict_remove(cffont->topdict, "Encoding");
 
-
-
   cffont->offset = cff_dict_get(cffont->topdict, "CharStrings", 0);
   cs_idx = cff_get_index_header(cffont);
 
@@ -2702,72 +2907,51 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   charstrings->data = xcalloc(max_len, sizeof(card8));
   charstring_len    = 0;
 
-  code = 0;
+  gid = 0;
   data = xcalloc(CS_STR_LEN_MAX, sizeof(card8));
 
-  /* make a charset */
-
-  charset  = xcalloc(1, sizeof(cff_charsets));
-  charset->format = 0;
-  charset->num_entries = num_glyphs-1;
-  charset->data.glyphs = xcalloc(num_glyphs-1, sizeof(s_SID));
-
-  num_glyphs = 0;
-  glyph = xtalloc(1,glw_entry);
-  int v = charstring_len;
-  for (code = 1; code < cs_count; code++) {
+  avl_t_init(&t, fd->gl_tree);
+  for (code = 0; code < cs_count; code++) {
     glyph->id = code;
-    if (((glw_entry *)avl_find(fd->gl_tree,glyph) != NULL)) {
+    if (code==0 || (avl_find(fd->gl_tree,glyph) != NULL)) {
       size = cs_idx->offset[code+1] - cs_idx->offset[code];
       if (size > CS_STR_LEN_MAX) {
-		pdftex_fail("Charstring too long: gid=%u, %ld bytes", code, size);
+	pdftex_fail("Charstring too long: gid=%u, %ld bytes", code, size);
       }
-
       if (charstring_len + CS_STR_LEN_MAX >= max_len) {
-		max_len = charstring_len + 2 * CS_STR_LEN_MAX;
-		charstrings->data = xrealloc(charstrings->data, max_len*sizeof(card8));
+	max_len = charstring_len + 2 * CS_STR_LEN_MAX;
+	charstrings->data = xrealloc(charstrings->data, max_len*sizeof(card8));
       }
-      cffont->offset= offset + cs_idx->offset[code] - 1;
+      (charstrings->offset)[gid] = charstring_len + 1;
+      cffont->offset= offset + (cs_idx->offset)[code] - 1;
       memcpy(data,&cffont->stream[cffont->offset],size);
       charstring_len += cs_copy_charstring(charstrings->data + charstring_len,
 					   max_len - charstring_len,
 					   data, size,
-					   cffont->gsubr, cffont->subrs[0],
+					   cffont->gsubr, (cffont->subrs)[0],
 					   default_width, nominal_width, NULL);
-      charstrings->offset[num_glyphs] = charstring_len + 1;
-      if (num_glyphs > 0)
-	charset->data.glyphs[num_glyphs-1] = code;
-
-      num_glyphs++;
+      gid++;
     }
   }
+  if (gid != num_glyphs)
+    ERROR("Unexpected error: %i != %i", gid, num_glyphs);
 
   xfree(data);
   cff_release_index(cs_idx);
   
+  (charstrings->offset)[num_glyphs] = charstring_len + 1;
   charstrings->count = num_glyphs;
-  charstring_len     = cff_index_size(charstrings);
   cffont->num_glyphs = num_glyphs;
+  cffont->cstrings      = charstrings;
 
-  /*
-   * Discard old one, set new data.
-   */
-
-  if (cffont->charsets)
-	cff_release_charsets(cffont->charsets);
-   cffont->charsets = NULL;
-
-  /*if (cffont->encoding)
-      cff_release_encoding(cffont->encoding);
-    cffont->encoding = NULL;
-  */
   /*
    * We don't use subroutines at all.
    */
   if (cffont->gsubr)
     cff_release_index(cffont->gsubr);
   cffont->gsubr = cff_new_index(0);
-  if (cffont->subrs[0])
+
+  if (cffont->subrs && cffont->subrs[0])
     cff_release_index(cffont->subrs[0]);
   cffont->subrs[0] = NULL;
 
@@ -2790,108 +2974,7 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
 	       (double) cff_get_sid(cffont, (char *)"Identity"));
   cff_dict_set(cffont->topdict, "ROS", 2, 0.0);
 
-  /*
-   * Calculate sizes of Top DICT and Private DICT.
-   * All offset values in DICT are set to long (32-bit) integer
-   * in cff_dict_pack(), those values are updated later.
-   */
-  topdict = cff_new_index(1);
-
-  topdict->offset[1] = cff_dict_pack(cffont->topdict,
-				     (card8 *) work_buffer,
- 				     WORK_BUFFER_SIZE) + 1;
-  private_size = 0;
-  if (cffont->private[0]) {
-    cff_dict_remove(cffont->private[0], "Subrs"); /* no Subrs */
-    private_size = cff_dict_pack(cffont->private[0],
-				 (card8 *) work_buffer, WORK_BUFFER_SIZE);
-  }
-
-  /*
-   * Estimate total size of fontfile.
-   */
-  stream_data_len = 4; /* header size */
-
-  stream_data_len += cff_set_name(cffont, fullname);
-  xfree(fullname);
-
-  stream_data_len += cff_index_size(topdict);
-  stream_data_len += cff_index_size(cffont->string);
-  stream_data_len += cff_index_size(cffont->gsubr);
-
-  /* We are using format 1 for Encoding and format 0 for charset.
-   * TODO: Should implement cff_xxx_size().
-   */
-  /*stream_data_len += 2 + (encoding->num_entries)*2 + 1 + (encoding->num_supps)*3;*/
-  stream_data_len += 1 + (charset->num_entries)*3;
-  stream_data_len += charstring_len;
-  stream_data_len += private_size;
-
-  /*
-   * Now we create FontFile data.
-   */
-  stream_data_ptr = xcalloc(stream_data_len+4000, sizeof(card8));
-
-  /*
-   * Data Layout order as described in CFF spec., sec 2 "Data Layout".
-   */
-  offset = 0;
-  /* Header */
-  offset += cff_put_header(cffont, stream_data_ptr + offset, stream_data_len - offset);
-  /* Name */
-  offset += cff_pack_index(cffont->name, stream_data_ptr + offset, stream_data_len - offset);
-  /* Top DICT */
-  topdict_offset = offset;
-  offset += cff_index_size(topdict);
-  /* Strings */
-  offset += cff_pack_index(cffont->string,
-			   stream_data_ptr + offset, stream_data_len - offset);
-  /* Global Subrs */
-  offset += cff_pack_index(cffont->gsubr,
-			   stream_data_ptr + offset, stream_data_len - offset);
-  /* Encoding */
-  /*
-   cff_dict_set(cffont->topdict, "Encoding", 0, offset);
-   offset += cff_pack_encoding(cffont,
-	 		      stream_data_ptr + offset, stream_data_len - offset);
-  */
-  /* charset */
-  /*
-   cff_dict_set(cffont->topdict, "charset", 0, offset);
-   offset += cff_pack_charsets(cffont,
- 			      stream_data_ptr + offset, stream_data_len - offset);
-  */
-  /* CharStrings */
-  cff_dict_set(cffont->topdict, "CharStrings", 0, offset);
-  offset += cff_pack_index(charstrings,
-			   stream_data_ptr + offset, charstring_len);
-  cff_release_index(charstrings);
-  /* Private */
-  cff_dict_set(cffont->topdict, "Private", 1, offset);
-  if (cffont->private[0] && private_size > 0)
-    private_size = cff_dict_pack(cffont->private[0],
-				 stream_data_ptr + offset, private_size);
-  cff_dict_set(cffont->topdict, "Private", 0, private_size);
-  offset += private_size;
-
-  /* Finally Top DICT */
-  topdict->data = xcalloc(topdict->offset[1] - 1, sizeof(card8));
-  cff_dict_pack (cffont->topdict, topdict->data, topdict->offset[1] - 1);
-  cff_pack_index(topdict,
-		 stream_data_ptr + topdict_offset, cff_index_size(topdict));
-  cff_release_index(topdict);
-
-  /* Copyright and Trademark Notice ommited. */
-
-  FILE *f = fopen(fd->fontname,"wb");
-  fwrite(stream_data_ptr, offset, 1, f);
-  fclose(f);
-  for (i = 0; i < offset; i++)
-    fb_putchar (stream_data_ptr[i]);
-
-  fprintf(stdout," (%i/%i)",offset,cffont->stream_size);
-
-  /* Close font */
+  write_fontfile(cffont,fullname);
   cff_close (cffont);
 
 }
