@@ -1395,6 +1395,7 @@ void cff_dict_set (cff_dict *dict, const char *key, int idx, double value)
     pdftex_fail("DICT entry \"%s\" not found.", key);
 }
 
+
 /* Strings */
 char *cff_get_string (cff_font *cff, s_SID id)
 {
@@ -1419,6 +1420,32 @@ char *cff_get_string (cff_font *cff, s_SID id)
 
   return result;
 }
+
+long cff_get_sid (cff_font *cff, char *str)
+{
+  card16 i;
+
+  if (!cff || !str)
+    return -1;
+
+  /* I search String INDEX first. */
+  if (cff && cff->string) {
+    cff_index *idx = cff->string;
+    for (i = 0; i < idx->count; i++) {
+      if (strlen(str) == (idx->offset)[i+1] - (idx->offset)[i] &&
+	  !memcmp(str, (idx->data)+(idx->offset)[i]-1, strlen(str)))
+	return (i + CFF_STDSTR_MAX);
+    }
+  }
+
+  for (i = 0; i < CFF_STDSTR_MAX; i++) {
+    if (!strcmp(str, cff_stdstr[i]))
+      return i;
+  }
+
+  return -1;
+}
+
 
 void cff_update_string (cff_font *cff)
 {
@@ -2602,34 +2629,9 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   sprintf(fullname,"%s+%s",fd->subset_tag,fd->fontname);
 
   /* finish parsing the CFF */
-  cff_read_charsets(cffont);
-  /*cff_read_encoding(cffont);*/
   cff_read_private(cffont);
   cff_read_subrs  (cffont);
 
-  /* FIXME */
-  cffont->_string = cff_new_index(0);
-
-  cffont->offset = cff_dict_get(cffont->topdict, "CharStrings", 0);
-  cs_idx = cff_get_index_header(cffont);
-
-  offset   = cffont->offset;
-  cs_count = cs_idx->count;
-  if (cs_count < 2) {
-    ERROR("No valid charstring data found.");
-  }
-
-  /* New Charsets data */
-  charset = xcalloc(1, sizeof(cff_charsets));
-  charset->format      = 1;
-  charset->num_entries = 0;
-  charset->data.range1 = xcalloc(cs_count,sizeof(cff_range1));
-
-  /* build the new charstrings entry */ 
-  charstrings       = cff_new_index(cs_count+1);
-  max_len           = 2 * CS_STR_LEN_MAX;
-  charstrings->data = xcalloc(max_len, sizeof(card8));
-  charstring_len    = 0;
   /*
    * Widths
    */
@@ -2645,29 +2647,72 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   } else {
     nominal_width = CFF_NOMINALWIDTHX_DEFAULT;
   }
-  data = xcalloc(CS_STR_LEN_MAX, sizeof(card8));
 
-  /* First we add .notdef glyph.
-   * All Type 1 font requires .notdef glyph to be present.
-   */
-  size = cs_idx->offset[1] - cs_idx->offset[0];
-  if (size > CS_STR_LEN_MAX) {
-    pdftex_fail("Charstring too long: gid=%u, %ld bytes", 0, size);
+  {
+    cff_fdselect *fdselect;
+
+    fdselect = xcalloc(1, sizeof(cff_fdselect));
+    fdselect->format = 3;
+    fdselect->num_entries = 1;
+    fdselect->data.ranges = xcalloc(1, sizeof(cff_range3));
+    fdselect->data.ranges[0].first = 0;
+    fdselect->data.ranges[0].fd    = 0;
+    cffont->fdselect = fdselect;
   }
 
-  charstrings->offset[0] = charstring_len + 1;
-  cffont->offset = offset + cs_idx->offset[0] - 1;
-  memcpy(data,&cffont->stream[cffont->offset],size);
-  charstring_len += cs_copy_charstring(charstrings->data + charstring_len,
-				       max_len,
-				       data, size,
-				       cffont->gsubr, cffont->subrs[0],
-				       default_width, nominal_width, NULL);
-  charstrings->offset[1] = charstring_len + 1;
-  /*
-   * Subset font
-   */
-  num_glyphs = 1;
+  /* TODO
+   cff_dict_add(cffont->topdict, "CIDCount", 1);
+   cff_dict_set(cffont->topdict, "CIDCount", 0, last_cid + 1);
+  */
+
+  cffont->fdarray    = xcalloc(1, sizeof(cff_dict *));
+  cffont->fdarray[0] = cff_new_dict();
+  cff_dict_add(cffont->fdarray[0], "FontName", 1);
+  cff_dict_set(cffont->fdarray[0], "FontName", 0,
+	       (double) cff_add_string(cffont, fullname)); /* FIXME: Skip XXXXXX+ */
+  cff_dict_add(cffont->fdarray[0], "Private", 2);
+  cff_dict_set(cffont->fdarray[0], "Private", 0, 0.0);
+  cff_dict_set(cffont->fdarray[0], "Private", 0, 0.0);
+  /* FDArray  - index offset, not known yet */
+  cff_dict_add(cffont->topdict, "FDArray", 1);
+  cff_dict_set(cffont->topdict, "FDArray", 0, 0.0);
+  /* FDSelect - offset, not known yet */
+  cff_dict_add(cffont->topdict, "FDSelect", 1);
+  cff_dict_set(cffont->topdict, "FDSelect", 0, 0.0);
+
+  cff_dict_remove(cffont->topdict, "UniqueID");
+  cff_dict_remove(cffont->topdict, "XUID");
+  cff_dict_remove(cffont->topdict, "Private");
+  cff_dict_remove(cffont->topdict, "Encoding");
+
+
+
+  cffont->offset = cff_dict_get(cffont->topdict, "CharStrings", 0);
+  cs_idx = cff_get_index_header(cffont);
+
+  offset   = cffont->offset;
+  cs_count = cs_idx->count;
+  if (cs_count < 2) {
+    ERROR("No valid charstring data found.");
+  }
+
+  /* build the new charstrings entry */ 
+  charstrings       = cff_new_index(cs_count+1);
+  max_len           = 2 * CS_STR_LEN_MAX;
+  charstrings->data = xcalloc(max_len, sizeof(card8));
+  charstring_len    = 0;
+
+  code = 0;
+  data = xcalloc(CS_STR_LEN_MAX, sizeof(card8));
+
+  /* make a charset */
+
+  charset  = xcalloc(1, sizeof(cff_charsets));
+  charset->format = 0;
+  charset->num_entries = num_glyphs-1;
+  charset->data.glyphs = xcalloc(num_glyphs-1, sizeof(s_SID));
+
+  num_glyphs = 0;
   glyph = xtalloc(1,glw_entry);
   int v = charstring_len;
   for (code = 1; code < cs_count; code++) {
@@ -2689,16 +2734,15 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
 					   data, size,
 					   cffont->gsubr, cffont->subrs[0],
 					   default_width, nominal_width, NULL);
-      charstrings->offset[num_glyphs+1] = charstring_len + 1;
-    } else {
-      memset(charstrings->data + charstring_len,cs_return,1);
-	  charstring_len++;
-      charstrings->offset[num_glyphs+1] = charstring_len + 1;
-	}
-    num_glyphs++;
-  }
-  xfree(data);
+      charstrings->offset[num_glyphs] = charstring_len + 1;
+      if (num_glyphs > 0)
+	charset->data.glyphs[num_glyphs-1] = code;
 
+      num_glyphs++;
+    }
+  }
+
+  xfree(data);
   cff_release_index(cs_idx);
   
   charstrings->count = num_glyphs;
@@ -2727,15 +2771,24 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
     cff_release_index(cffont->subrs[0]);
   cffont->subrs[0] = NULL;
 
-  /*
-   * FIXME:
-   *  Update String INDEX to delete unused strings.
-   */
+  if (cffont->private && (cffont->private)[0]) {
+    cff_dict_remove((cffont->private)[0], "Subrs"); /* no Subrs */
+  }
+
+  cff_add_string(cffont, (char *)"Adobe");
+  cff_add_string(cffont, (char *)"Identity");
 
   cff_dict_update(cffont->topdict, cffont);
-  if (cffont->private[0])
-    cff_dict_update(cffont->private[0], cffont);
+  cff_dict_update(cffont->private[0], cffont);
   cff_update_string(cffont);
+
+  /* CFF code need to be rewrote... */
+  cff_dict_add(cffont->topdict, "ROS", 3);
+  cff_dict_set(cffont->topdict, "ROS", 0,
+	       (double) cff_get_sid(cffont, (char *)"Adobe"));
+  cff_dict_set(cffont->topdict, "ROS", 1,
+	       (double) cff_get_sid(cffont, (char *)"Identity"));
+  cff_dict_set(cffont->topdict, "ROS", 2, 0.0);
 
   /*
    * Calculate sizes of Top DICT and Private DICT.
@@ -2743,11 +2796,6 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
    * in cff_dict_pack(), those values are updated later.
    */
   topdict = cff_new_index(1);
-
-  cff_dict_remove(cffont->topdict, "UniqueID");
-  cff_dict_remove(cffont->topdict, "XUID");
-  cff_dict_remove(cffont->topdict, "Encoding");
-  cff_dict_remove(cffont->topdict, "charset");
 
   topdict->offset[1] = cff_dict_pack(cffont->topdict,
 				     (card8 *) work_buffer,
