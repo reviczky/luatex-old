@@ -18932,6 +18932,7 @@ end
 reswitch: if is_char_node(p) then 
   begin
   repeat f:=font(p); c:=character(p);
+  {writeln('hlist_out: a char node ', c:1 , '');}
   if is_valid_char(c) then begin
   if is_rotated(dvi_direction) then begin
     c_ht:=char_width(f,c) div 2;
@@ -19056,6 +19057,7 @@ reswitch: if is_char_node(p) then
 else @<Output the non-|char_node| |p| for |pdf_hlist_out|
     and move to the next node@>
 
+
 @ @<Output the non-|char_node| |p| for |pdf_hlist_out|...@>=
 begin case type(p) of
 hlist_node,vlist_node:@<(\pdfTeX) Output a box in an hlist@>;
@@ -19147,7 +19149,7 @@ if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
   dir__RT: begin
     pdf_dvicmd_left(rule_wd);
   	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-	pdf_dvicmd_left(rule_wd);
+	pdf_dvicmd_right(rule_wd);
     end;
   dir__RB: begin
     pdf_dvicmd_left(rule_wd);
@@ -19177,7 +19179,7 @@ if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
     pdf_dvicmd_up(rule_wd);
     end;
   end;
-  cur_h:=cur_h+rule_wd; {dir__RT is corrected elsewhere}
+  {cur_h:=cur_h+rule_wd; }{dir__RT is corrected elsewhere}
   cur_v:=base_line;
   end
 
@@ -19211,7 +19213,10 @@ if type(leader_box)=rule_node then
   begin rule_ht:=height(leader_box); rule_dp:=depth(leader_box);
   goto fin_rule;
   end;
-leader_wd:=width(leader_box);
+if not (dir_orthogonal(dir_primary[box_dir(leader_box)])(dir_primary[dvi_direction]))
+  then leader_wd:=width(leader_box)
+else
+  leader_wd:=height(leader_box)+depth(leader_box);
 if (leader_wd>0)and(rule_wd>0) then
   begin rule_wd:=rule_wd+10; {compensate for floating-point rounding}
   edge:=cur_h+rule_wd; lx:=0;
@@ -19226,13 +19231,44 @@ if (leader_wd>0)and(rule_wd>0) then
 end
 
 @ @<(\pdfTeX) Output a leader box at |cur_h|, ...@>=
-begin cur_v:=base_line+shift_amount(leader_box);@/
-save_h:=cur_h; temp_ptr:=leader_box;
+begin
+if not (dir_orthogonal(dir_primary[box_dir(leader_box)])(dir_primary[dvi_direction]))
+  then begin
+  basepoint_vertical:=0;
+ if dir_opposite(dir_secondary[box_dir(leader_box)])(dir_secondary[dvi_direction]) then
+    basepoint_horizontal:=width(leader_box)
+  else
+    basepoint_horizontal:=0;
+  end
+else begin
+  if not (is_mirrored(box_dir(leader_box))) then
+    if dir_eq(dir_primary[box_dir(leader_box)])(dir_secondary[dvi_direction]) then
+      basepoint_horizontal:=height(leader_box)
+    else
+      basepoint_horizontal:=depth(leader_box)
+  else
+    if dir_eq(dir_primary[box_dir(leader_box)])(dir_secondary[dvi_direction]) then
+      basepoint_horizontal:=depth(leader_box)
+    else
+      basepoint_horizontal:=height(leader_box);
+  if dir_eq(dir_secondary[box_dir(leader_box)])(dir_primary[dvi_direction]) then
+    basepoint_vertical:= -(width(leader_box) div 2)
+  else
+    basepoint_vertical:= (width(leader_box) div 2);
+  end;
+if not (is_mirrored(dvi_direction)) then
+  basepoint_vertical := basepoint_vertical + shift_amount(leader_box)
+    {shift the box `down'}
+else
+  basepoint_vertical := basepoint_vertical - shift_amount(leader_box);
+    {shift the box `up'}
+temp_ptr:=leader_box;
+edge_h:=cur_h; cur_h:=cur_h + basepoint_horizontal;
+edge_v:=cur_v; cur_v:=base_line + basepoint_vertical;
 outer_doing_leaders:=doing_leaders; doing_leaders:=true;
 if type(leader_box)=vlist_node then pdf_vlist_out@+else pdf_hlist_out;
 doing_leaders:=outer_doing_leaders;
-cur_v:=base_line;
-cur_h:=save_h+leader_wd+lx;
+cur_h:=edge_h+leader_wd+lx; cur_v:=base_line;
 end
 
 @ The |pdf_vlist_out| routine is similar to |pdf_hlist_out|, but a bit simpler.
@@ -40359,12 +40395,14 @@ unavoidable.
 @<Read in the buffer for treatment@>=
 begin
 otp_init_input_end:=0;
+writeln('');
 while (cur_cmd=letter) or (cur_cmd=other_char) or
       (cur_cmd=char_given) or (cur_cmd=spacer) do begin
   incr(otp_init_input_end);
   if otp_init_input_end >ocp_buf_size then
     overflow_ocp_buf_size;
   { |cur_chr| can cover the full range |0..0x10FFFF| }
+  write('[',cur_chr:1,']');
   if cur_chr<@"10000 then
     otp_init_input_buf[otp_init_input_end]:=cur_chr
   else
