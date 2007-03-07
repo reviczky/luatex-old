@@ -17281,7 +17281,7 @@ begin
     here: 1) |f| and |k| have the same tfm name (so they have been loaded at
     different sizes, eg 'cmr10' and 'cmr10 at 11pt'); 2) |f| has been auto
     expanded from |k|}
-    if true then begin
+    if hasfmentry(f) or true then begin
         i := head_tab[obj_type_font];
         while i <> 0 do begin
             k := obj_info(i);

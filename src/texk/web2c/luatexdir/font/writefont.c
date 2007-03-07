@@ -361,9 +361,9 @@ void register_fo_entry(fo_entry * fo)
     assert(fo != NULL);
     assert(fo->fm != NULL);
     assert(fo->fm->tfm_name != NULL);
-    assert(lookup_fo_entry(fo->fm->tfm_name) == NULL);
-    aa = avl_probe(fo_tree, fo);
-    assert(aa != NULL);
+	assert (lookup_fo_entry(fo->fm->tfm_name) == NULL) ;
+	aa = avl_probe(fo_tree, fo);
+	assert(aa != NULL);
 }
 
 /**********************************************************************/
@@ -655,9 +655,9 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
     } else {
       fm = hasfmentry(f) ? (fm_entry *) font_map(f) : NULL;
       if (fm == NULL || (fm->ps_name == NULL && fm->ff_name == NULL))
-	writet3(font_objnum, f);
+		writet3(font_objnum, f);
       else
-	create_fontdictionary(fm, font_objnum, f);
+		create_fontdictionary(fm, font_objnum, f);
     }
 }
 
