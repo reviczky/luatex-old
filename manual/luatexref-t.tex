@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-03-02}
+\TitlePage{Snapshot 2007-03-07}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -2759,19 +2759,23 @@ that a font is not a virtual font, assigning the value `base' or
 file, thereby saving you a disk search.
 
 
-The \type{fonts} is another Lua array. The values are two-value hashes
-themselves, each entry indicating one of the base fonts in a virtual
-font. An example makes this  easy to understand
+The \type{fonts} is another Lua array. The values are one- or two-key
+hashes themselves, each entry indicating one of the base fonts in a
+virtual font. An example makes this easy to understand
 
 \starttyping
     "fonts" = { { name = "ptmr8a", size = 655360}, 
-                { name = "psyr", size = 600000} }
+                { name = "psyr", size = 600000},
+                { id = 38 } }
 \stoptyping
 
 says that the first referenced font (index 1) in this virtual font is
 \type{ptrmr8a} loaded at 10pt, and the second is \type{psyr}  loaded 
-at a little over 9pt. The array index numbers are used by the
-character command definitions that are part of each character.
+at a little over 9pt. The third one is previously defined font that 
+is known to luatex as fontid `38'.
+
+The array index numbers are used by the character command definitions
+that are part of each character.
 
 
 The \type{commands} array is a hash here each item is another small array, with first 
