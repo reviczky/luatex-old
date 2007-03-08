@@ -5274,6 +5274,20 @@ else  case (-m) div (max_command+1) of
   end;
 print(" mode");
 end;
+function get_mode_id(@!m:integer):integer; {returns the mode represented by |m|}
+begin if m>0 then
+  case m div (max_command+1) of
+  0:get_mode_id := "v";
+  1:get_mode_id := "h";
+  2:get_mode_id := "m";
+  end
+else if m=0 then get_mode_id := "n"
+else  case (-m) div (max_command+1) of
+  0:get_mode_id := "V";
+  1:get_mode_id := "H";
+  2:get_mode_id := "M";
+  end;
+end;
 
 @ The state of affairs at any semantic level can be represented by
 five values:
@@ -6952,6 +6966,10 @@ end;
 function is_undefined_cs(cs:integer):boolean;
 begin
   is_undefined_cs := (cs=undefined_cs);
+end;
+function get_cs_text(cs:integer):str_number;
+begin
+  get_cs_text := text(cs);
 end;
 function get_equiv(prim:integer):halfword;
 begin
@@ -9561,6 +9579,7 @@ procedure@?pass_text; forward;@t\2@>
 procedure@?start_input; forward;@t\2@>
 procedure@?conditional; forward;@t\2@>
 procedure@?get_x_token; forward;@t\2@>
+procedure@?get_filtered_x_token; forward;@t\2@>
 procedure@?conv_toks; forward;@t\2@>
 procedure@?ins_the_toks; forward;@t\2@>
 procedure expand;
@@ -9821,6 +9840,17 @@ begin while cur_cmd>max_command do
 if cur_cs=0 then cur_tok:=(cur_cmd*string_offset)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
+
+@ The |get_filtered_x_token| procedure is a variant of |get_x_token| 
+that is used by |main_control|. This function allows Lua code to 
+mutate the output of |get_x_token| before the executive commands look
+at it. The implementation is in the C file |luatoken.c|.
+
+@p procedure get_filtered_x_token;
+begin
+	get_x_token_lua(mode);
+end;
+
 
 @ A control sequence that has been \.{\\def}'ed by the user is expanded by
 \TeX's |macro_call| procedure.
@@ -29337,25 +29367,37 @@ consideration of the other cases until later.
 @d main_loop_move_lig=95 {same, when advancing past a generated ligature}
 @d main_loop_lookahead=100 {go here to bring in another character, if any}
 @d main_lig_loop=110 {go here to check for ligatures or kerning}
-@d append_normal_space=120 {go here to append a normal space between words}
 
 @p @t\4@>@<Declare action procedures for use by |main_control|@>@;
 @t\4@>@<Declare the procedure called |handle_right_brace|@>@;
 procedure main_control; {governs \TeX's activities}
-label big_switch,reswitch,main_loop,main_loop_wrapup,
+label big_switch,reswitch,main_loop_wrapup,
   main_loop_move,main_loop_move+1,main_loop_move+2,main_loop_move_lig,
   main_loop_lookahead,main_loop_lookahead+1,
   main_lig_loop,main_lig_loop+1,main_lig_loop+2,
-  append_normal_space,exit;
+  exit;
 var@!t:integer; {general-purpose temporary variable}
 tmp_k1, tmp_k2: pointer; {for testing whether an auto kern should be inserted}
 lig:liginfo; { a ligature }
 begin if every_job<>null then begin_token_list(every_job,every_job_text);
-big_switch: get_x_token;@/
+big_switch: get_filtered_x_token;@/
 reswitch: @<Give diagnostic information, if requested@>;
 case abs(mode)+cur_cmd of
-hmode+letter,hmode+other_char,hmode+char_given: goto main_loop;
-hmode+char_num: begin scan_char_num; cur_chr:=cur_val; goto main_loop;@+end;
+hmode+letter,hmode+other_char,hmode+char_given,hmode+char_num: begin 
+  if abs(mode)+cur_cmd=hmode+char_num then begin 
+    scan_char_num; cur_chr:=cur_val; 
+    end;
+  if is_last_ocp(current_ocp_lstack,current_ocp_no) then begin
+    @<Append character |cur_chr| and the following characters (if~any)
+      to the current hlist in the current font; |goto reswitch| when
+      a non-character has been fetched@>;
+    end
+  else begin
+    @<Create a buffer with character |cur_chr| and the following
+      characters (if~any) and then apply the current active OCP filter
+      to this buffer@>;
+    end;
+  end;
 hmode+no_boundary: begin get_x_token;
   if (cur_cmd=letter)or(cur_cmd=other_char)or(cur_cmd=char_given)or
    (cur_cmd=char_num) then cancel_boundary:=true;
@@ -29369,27 +29411,16 @@ hmode+char_ghost: begin t:=cur_chr; get_x_token;
     end;
   goto reswitch;
   end;
-hmode+spacer:
-  if (space_factor = 1000) or (pdf_adjust_interword_glue > 0) then
-    goto append_normal_space
-  else app_space;
-hmode+ex_space,mmode+ex_space: goto append_normal_space;
+hmode+spacer,hmode+ex_space,mmode+ex_space: 
+if (abs(mode)+cur_cmd=hmode+spacer) and 
+   (not ((space_factor = 1000) or (pdf_adjust_interword_glue > 0))) then
+  app_space
+else begin
+  @<Append a normal inter-word space to the current list@>; 
+  end;
 @t\4@>@<Cases of |main_control| that are not part of the inner loop@>@;
 end; {of the big |case| statement}
 goto big_switch;
-main_loop:
-if is_last_ocp(current_ocp_lstack,current_ocp_no) then begin
-  @<Append character |cur_chr| and the following characters (if~any)
-    to the current hlist in the current font; |goto reswitch| when
-    a non-character has been fetched@>;
-  end
-else begin
-  @<Create a buffer with character |cur_chr| and the following
-    characters (if~any) and then apply the current active OCP filter
-    to this buffer@>;
-  end;
-append_normal_space:@<Append a normal inter-word space to the current list,
-  then |goto big_switch|@>;
 exit:end;
 
 @ When a new token has just been fetched at |big_switch|, we have an
@@ -29590,11 +29621,7 @@ goto main_lig_loop
 look ahead for it.
 
 @<Look ahead for another character...@>=
-get_next; {set only |cur_cmd| and |cur_chr|, for speed}
-if cur_cmd=letter then goto main_loop_lookahead+1;
-if cur_cmd=other_char then goto main_loop_lookahead+1;
-if cur_cmd=char_given then goto main_loop_lookahead+1;
-x_token; {now expand and set |cur_cmd|, |cur_chr|, |cur_tok|}
+get_filtered_x_token; {set only |cur_cmd| and |cur_chr|, for speed}
 if cur_cmd=letter then goto main_loop_lookahead+1;
 if cur_cmd=other_char then goto main_loop_lookahead+1;
 if cur_cmd=char_given then goto main_loop_lookahead+1;
@@ -29727,8 +29754,8 @@ if space_skip=zero_glue then
 else temp_ptr:=new_param_glue(space_skip_code);
 if pdf_adjust_interword_glue > 0 then
     adjust_interword_glue(tail, temp_ptr);
-link(tail):=temp_ptr; tail:=temp_ptr;
-goto big_switch
+link(tail):=temp_ptr; tail:=temp_ptr
+
 
 @ From Knuth: ``Having |font_glue| allocated for each text font saves
 both time and memory.''  That may be true, but it also punches through
@@ -40395,14 +40422,12 @@ unavoidable.
 @<Read in the buffer for treatment@>=
 begin
 otp_init_input_end:=0;
-writeln('');
 while (cur_cmd=letter) or (cur_cmd=other_char) or
       (cur_cmd=char_given) or (cur_cmd=spacer) do begin
   incr(otp_init_input_end);
   if otp_init_input_end >ocp_buf_size then
     overflow_ocp_buf_size;
   { |cur_chr| can cover the full range |0..0x10FFFF| }
-  write('[',cur_chr:1,']');
   if cur_chr<@"10000 then
     otp_init_input_buf[otp_init_input_end]:=cur_chr
   else

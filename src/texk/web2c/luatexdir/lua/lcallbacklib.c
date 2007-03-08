@@ -27,6 +27,7 @@ static const char *const callbacknames[] = {
   "start_page_number",  "stop_page_number",
   "start_run",          "stop_run",
   "define_font",
+  "token_filter",
   NULL };
 
 typedef struct {
@@ -35,7 +36,7 @@ typedef struct {
   int is_set;
 } callback_info;
 
-static int callback_callbacks_id = 0;
+int callback_callbacks_id = 0;
 
 struct avl_table *callback_list = NULL;
 
@@ -333,8 +334,9 @@ do_run_callback (int special, char *values, va_list vl) {
 		bufloc = va_arg(vl, int *);
 		ret = *bufloc;
 		check_buf (ret + len,buf_size);
-		while (len--)
+		while (len--) {
 		  buffer[(*bufloc)++] = *s++;
+		}
 		while ((*bufloc)-1>ret && buffer[(*bufloc)-1] == ' ')
 		  (*bufloc)--;
       } else {

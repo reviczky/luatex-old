@@ -22,6 +22,7 @@ $Id $
 
 { luatex.defines: additions for luaTeX }
 
+
 { macros from luatex.h }
 @define function pdf_char_marked();
 @define function get_lp_code();
@@ -65,6 +66,8 @@ $Id $
 @define procedure get_lua_boolean();
 @define procedure get_lua_number();
 @define procedure get_lua_string();
+
+@define procedure get_x_token_lua();
 
 { bits for extended char code access }
 
