@@ -22,7 +22,7 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-03-07}
+\TitlePage{Snapshot 2007-03-09}
 
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
@@ -1384,7 +1384,6 @@ or \type{kpse_find_file}.
 
 \subsection{Data processing callbacks}
 
-
 \subsubsection{\callback{process_input_buffer}}
 
 
@@ -1400,6 +1399,65 @@ buffer just before \LUATEX\ actually starts looking at it.
 If you return \type{nil}, \LUATEX\ will pretend like your callback
 never happened. You can gain a small amount of processing time from
 that.
+
+
+\subsubsection{\callback{token_filter}}
+
+This callback allows you to change the modify any lexical token that
+enters the \type{main_control} function before \LUATEX\ executes the
+associated command. 
+
+{\bf Note:} not all tokens can be intercepted, only those that are `seen' 
+by \LUATEX's main control function.  Supplemental tokens like the bodies
+of macro definitions and the right-hand side of register assignments
+are not seen. For now, this is intentional.
+
+\startfunctioncall
+     function (table <token>)
+        return table <token>
+     end
+\stopfunctioncall
+
+Calling convention for this callback is bit more complicated then for
+most other callbacks.  Initially, lua function will be called with the
+next token from \type{get_next()} as argument, represented as a small
+lua table.  The function should either return a lua table representing
+a valid to-be-processed token, or something else like nil or an empty
+table.
+
+If your lua function does not return a table representing a valid
+token, it will be immediately called again with yet another token from
+\type{get_next()} as argument, until it eventually does return a 
+useful token.
+
+But if the function does return a usable token, then that token will
+be processed by \LUATEX. Afterwards, the function will be called
+again, but now without an argument. This is repeated until it stops
+returning tokens.  Then processing reverts back to the other branch.
+
+The point behind that roundabout calling convention is that it allows the lua function
+to buffer tokens for various uses. That in turn makes it possible to do some really
+advanced things like replacing OTPs.
+
+Now about that table. The table that the function will receive
+contains four fields:
+
+\starttabulate[|l|i|p|]
+\NC Key     \NC  type    \NC                Explanation \NC\FR
+\NC cmd     \NC  string \NC A representation of  \LUATEX's internal command code\NC\NR 
+\NC chr     \NC  number \NC The command code modifier\NC\NR 
+\NC cs      \NC  string \NC If the token came from a csname, this is that csname\NC\NR 
+\NC mod     \NC character \NC A single character string representing the current
+                              processing mode. One of {\bf v}ertical, {\bf h}orizontal,
+                              display {\bf m}ath, {\bf n}o, internal {\bf V}ertical,
+                              restricted {\bf H}orizontal, or inline {\bf M}ath
+                              mode.\NC\LR
+\stoptabulate
+
+If you modify the table before returning it, then it is wise to return either a
+(\type{cmd}, \type{chr}) pair, or a \type{cs} string.  That is because if both options
+are present, the pair has precedence and the string is ignored. On the return table,
+{\bf mod} is ignored always.
 
 \subsection{Information reporting callbacks}
 
