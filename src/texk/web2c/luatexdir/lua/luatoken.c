@@ -88,7 +88,7 @@ static command_item command_names[] =
     { "omath_given", 0 , NULL },
     { "last_item", 0 , NULL },
     { "toks_register", 0 , NULL },
-    { "assign_toks", NULL },
+    { "assign_toks", 0, NULL },
     { "assign_int", 0, NULL },
     { "assign_dimen", 0 , NULL },
     { "assign_glue", 0 ,NULL },
@@ -223,6 +223,8 @@ get_cur_cs (lua_State *L) {
 #define no_token_returned() { lua_pop(L,1);  x_token_needed = 1;  continue; }
 #define token_returned()    { lua_pop(L,1);  x_token_needed = 0;  break; }
 
+static int x_token_needed = 1;
+
 void
 get_x_token_lua (int pmode) {
   integer callback_id;
@@ -232,7 +234,6 @@ get_x_token_lua (int pmode) {
   int temp_loc;
   lua_State *L;
   int n;
-  int x_token_needed = 1;
   callback_id=callback_defined("token_filter");
   if (callback_id>0) {
     L = Luas[0];
