@@ -102,6 +102,7 @@ void make_subset_tag(fd_entry * fd)
     int i, j = 0, a[SUBSET_TAG_LENGTH];
     md5_state_t pms;
     char *glyph;
+	glw_entry *glw_glyph;
     struct avl_traverser t;
     md5_byte_t digest[16];
     void **aa;
@@ -116,11 +117,21 @@ void make_subset_tag(fd_entry * fd)
     do {
         md5_init(&pms);
         avl_t_init(&t, fd->gl_tree);
-        for (glyph = (char *) avl_t_first(&t, fd->gl_tree); glyph != NULL;
-             glyph = (char *) avl_t_next(&t)) {
+		if (is_cidkeyed(fd->fm)) { /* glw_entry items */
+		  for (glw_glyph = (glw_entry *) avl_t_first(&t, fd->gl_tree); glw_glyph != NULL;
+			   glw_glyph = (glw_entry *) avl_t_next(&t)) {
+			glyph = malloc(12);
+			sprintf(glyph,"%05u%05u ",glw_glyph->id,glw_glyph->wd);
+            md5_append(&pms, (md5_byte_t *) glyph, strlen(glyph));
+			free(glyph);
+		  }
+		} else {
+		  for (glyph = (char *) avl_t_first(&t, fd->gl_tree); glyph != NULL;
+			   glyph = (char *) avl_t_next(&t)) {
             md5_append(&pms, (md5_byte_t *) glyph, strlen(glyph));
             md5_append(&pms, (md5_byte_t *) " ", 1);
-        }
+		  }
+		}
         md5_append(&pms, (md5_byte_t *) fd->fontname, strlen(fd->fontname));
         md5_append(&pms, (md5_byte_t *) & j, sizeof(int));      /* to resolve collision */
         md5_finish(&pms, digest);
