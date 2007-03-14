@@ -82,3 +82,13 @@ extern int  hide_lua_table  (lua_State *lua, char *name);
 extern void unhide_lua_value(lua_State *lua, char *name, char *item, int r);
 extern int  hide_lua_value  (lua_State *lua, char *name, char *item);
 
+typedef struct command_item_ {
+  char *name;
+  int command_offset;
+  char **commands;
+} command_item;
+ 
+extern command_item command_names[];
+extern int callback_callbacks_id;
+
+

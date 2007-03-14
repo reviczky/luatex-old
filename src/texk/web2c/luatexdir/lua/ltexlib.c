@@ -185,7 +185,103 @@ luacstring_close (int n) {
   spindle_index--;
 }
 
+static int 
+run_expand (lua_State *L) {
+  expand();
+  return 0;
+}
 
+extern int get_command_id (char *);
+
+static int 
+test_expandable (lua_State *L) {
+  integer cmd;
+  int m = get_max_command();
+  if (lua_isnumber(L,-1)) {
+    cmd = lua_tointeger(L,-1);
+  } else if (lua_isstring(L,-1)) {
+    cmd = get_command_id((char *)lua_tostring(L,-1));
+  } else {
+    cmd = -1;
+  }
+  if (cmd>m) {
+    lua_pushboolean(L,1);
+  } else {
+    lua_pushboolean(L,0);
+  }
+  return 1;
+}
+
+static int
+run_get_command_name (lua_State *L) {
+  int cs;
+  if (lua_isnumber(L,-1)) {
+    cs = lua_tointeger(L,-1);
+    lua_pushstring(L,command_names[cs].name);
+  } else {
+    lua_pushstring(L,"");
+  }
+  return 1;
+}
+
+static int
+run_get_command_id (lua_State *L) {
+  int cs = -1;
+  if (lua_isstring(L,-1)) {
+    cs = get_command_id((char *)lua_tostring(L,-1));
+  }
+  lua_pushnumber(L,cs);
+  return 1;
+}
+
+static int
+run_get_csname_name (lua_State *L) {
+  int cs,n;
+
+  if (lua_isnumber(L,-1)) {
+    cs = lua_tointeger(L,-1);
+    if (cs != 0 && (n = zget_cs_text(cs)) && n>=0) {
+      lua_pushstring(L,makecstring(n));
+    } else {
+      lua_pushstring(L,"");
+    }
+  }
+  return 1;
+}
+
+
+static int
+run_get_csname_id (lua_State *L) {
+  int texstr;
+  int cs = 0;
+  if (lua_isstring(L,-1)) {
+    texstr = maketexstring(lua_tostring(L,-1));
+    cs = string_lookup(texstr);
+    flush_str(texstr);
+  }
+  lua_pushnumber(L,cs);
+  return 1;
+}
+
+
+static int 
+run_get_next (lua_State *L) {
+  integer n;
+  int saved_align_state;
+  int saved_state;
+  char mode[2] = {0};
+  lua_newtable(L);
+  saved_align_state = align_state;
+  get_next();
+  lua_pushnumber(L,cur_cmd);
+  lua_rawseti(L,-2,1);
+  lua_pushnumber(L,cur_chr);
+  lua_rawseti(L,-2,2);
+  lua_pushnumber(L,cur_cs);
+  lua_rawseti(L,-2,3);
+  /*align_state = saved_align_state;*/
+  return 1;
+}
 
 /* local (static) versions */
 
@@ -571,6 +667,13 @@ static const struct luaL_reg texlib [] = {
   {"write",    luacwrite},
   {"print",    luacprint},
   {"sprint",   luacsprint},
+  {"get_next", run_get_next},
+  {"expand",   run_expand},
+  {"expandable",test_expandable},
+  {"csname_id",  run_get_csname_id},
+  {"csname_name",  run_get_csname_name},
+  {"command_name", run_get_command_name},
+  {"command_id",   run_get_command_id},
   {"setdimen", setdimen},
   {"getdimen", getdimen},
   {"setcount", setcount},

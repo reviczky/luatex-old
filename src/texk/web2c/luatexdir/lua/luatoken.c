@@ -3,16 +3,10 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-extern int callback_callbacks_id;
+#define cs_token_flag 0x1FFFFFFF
+#define string_offset 2097152
 
-typedef struct command_item_ {
-  char *name;
-  int command_offset;
-  char **commands;
-} command_item;
- 
-
-static command_item command_names[] = 
+command_item command_names[] = 
   { { "relax", 0, NULL },
     { "left_brace", 0 , NULL },
     { "right_brace", 0 , NULL },
@@ -153,40 +147,37 @@ static command_item command_names[] =
     {  NULL, 0, NULL } };
 
 
+int get_command_id (char *s) {
+  int i;
+  int cmd  = -1;
+  for (i=0;command_names[i].name != NULL;i++) {
+    if (strcmp(s,command_names[i].name) == 0) 
+      break;
+  }
+  if (command_names[i].name!=NULL) {
+    cmd = i;
+  }
+  return cmd;
+}
 
 static int
 get_cur_cmd (lua_State *L) {
   int i;
   int r = 0;
-  char *s;
-  lua_getfield(L,-1,"cmd");
-  if (lua_isnumber(L,-1)) {
+  if (lua_objlen(L,-1)==3) {
+    r = 1;
+    lua_rawgeti(L,-1,1);
     cur_cmd = lua_tointeger(L,-1);
-    r = 1;
-  } else if (lua_isstring(L,-1)) {
-    s = (char *)lua_tostring(L,-1);
-    for (i=0;command_names[i].name != NULL;i++) {
-      if (strcmp(s,command_names[i].name) == 0) 
-	break;
-    }
-    if (command_names[i].name!=NULL) {
-      cur_cmd = i;
-      r = 1;
-    }
-  }
-  lua_pop(L,1);
-  return r;
-}
-
-static int
-get_cur_chr (lua_State *L) {
-  int r = 0;
-  lua_getfield(L,-1,"chr");
-  if (lua_isnumber(L,-1)) {
+    lua_rawgeti(L,-2,2);
     cur_chr = lua_tointeger(L,-1);
-    r = 1;
+    lua_rawgeti(L,-3,3);
+    cur_cs = lua_tointeger(L,-1);
+    lua_pop(L,3);
+    if (cur_cs==0) 
+      cur_tok=(cur_cmd*string_offset)+cur_chr; 
+    else
+      cur_tok=cs_token_flag+cur_cs; 
   }
-  lua_pop(L,1);
   return r;
 }
 
@@ -194,11 +185,12 @@ static int
 get_cur_cs (lua_State *L) {
   char *s;
   unsigned j,l;
+  integer cs;
   int save_nncs;
   int ret;
   ret = 0;
   cur_cs = 0;
-  lua_getfield(L,-1,"cs");
+  lua_getfield(L,-1,"name");
   if (lua_isstring(L,-1)) {
     s = (char *)lua_tolstring(L,-1,&l);
     if (l>0) {
@@ -209,9 +201,10 @@ get_cur_cs (lua_State *L) {
       }
       save_nncs = no_new_control_sequence;
       no_new_control_sequence = true;
-      cur_cs = id_lookup((last+1),l);
-      cur_cmd = zget_eq_type(cur_cs);
-      cur_chr = zget_equiv(cur_cs);
+      cs = id_lookup((last+1),l);
+      cur_tok = cs_token_flag+cs;
+      cur_cmd = zget_eq_type(cs);
+      cur_chr = zget_equiv(cs);
       no_new_control_sequence = save_nncs;
       ret = 1;
     }
@@ -220,68 +213,90 @@ get_cur_cs (lua_State *L) {
   return ret;
 }
 
-#define no_token_returned() { lua_pop(L,1);  x_token_needed = 1;  continue; }
-#define token_returned()    { lua_pop(L,1);  x_token_needed = 0;  break; }
+#define store_new_token(a) { q=get_avail(); link(p)=q; info(q)=(a); p=q; }
+#define free_avail(a)      { link((a))=avail; avail=(a); decr(dyn_used); }
 
-static int x_token_needed = 1;
+#undef link /* defined by cpascal.h */
+#define link(a) zmem[(a)].hh.v.RH 
+#define info(a) zmem[(a)].hh.v.LH 
+#define inserted 4
+
 
 void
-get_x_token_lua (int pmode) {
-  integer callback_id;
+get_token_lua (void) {
+  integer callback_id ; 
+  integer tok;
+  integer p,q,r;
   char *s;
-  char mode[2];
   unsigned j,l,clen;
-  int temp_loc;
   lua_State *L;
   int n;
-  callback_id=callback_defined("token_filter");
-  if (callback_id>0) {
-    L = Luas[0];
-    lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
-    while (1) {
-      lua_rawgeti(L,-1, callback_id);
-      if (lua_isfunction(L,-1)) {
-	lua_newtable(L);
-	if (x_token_needed) {
-	  temp_loc = cur_input.loc_field;
-	  get_next();
-	  mode[1] = 0;  
-	  mode[0] = zget_mode_id(pmode);
-	  lua_pushstring(L,mode);     lua_setfield(L,-2,"mod");
-	  lua_pushstring(L,command_names[cur_cmd].name);  lua_setfield(L,-2,"cmd");
-	  lua_pushnumber(L,cur_chr);  lua_setfield(L,-2,"chr");
-	  if (cur_cs != 0 && (n = zget_cs_text(cur_cs)) && n>=0) {
-	    lua_pushstring(L,makecstring(n));
-	  } else {
-	    lua_pushstring(L,"");
+  L = Luas[0];
+  if (cur_input.nofilter_field==true) {
+    get_next();
+    return;
+  }
+  callback_id = callback_defined("token_filter");
+  if (callback_id==0) {
+    get_next();
+    return;
+  }
+  lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
+  while (1) {
+    lua_rawgeti(L,-1, callback_id);
+    if (!lua_isfunction(L,-1)) {
+      lua_pop(L,2); /* the not-a-function callback and the container */
+      get_next();
+      return;
+    }
+    if (lua_pcall(L,0,1,0) != 0) { /* no arg, 1 result */
+      fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
+      lua_pop(L,2);
+      error();
+      return;
+    }
+    if (lua_istable(L,-1)) {
+      if (get_cur_cmd(L) || get_cur_cs(L)) {
+	/*cur_input.nofilter_field=true;*/
+	lua_pop(L,1);
+	break;	
+      } else {
+	lua_rawgeti(L,-1,1);
+	if (lua_istable(L,-1)) {
+	  lua_pop(L,1);
+	  /* build a token list */
+	  lua_pushnil(L);  /* first key */
+	  r = get_avail();
+	  p = r;
+	  while (lua_next(L, -2) != 0) {
+	    if (get_cur_cmd(L) || get_cur_cs(L)) {
+	      store_new_token(cur_tok);
+	    }
+	    lua_pop(L,1);
 	  }
-	  lua_setfield(L,-2,"cs");
-	}
-	if (lua_pcall(L,1,1,0) != 0) { /* 1 arg, 1 result */
-	  fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
-	  lua_pop(L,2);
-	  error();
-	  return;
-	}
-	if (lua_istable(L,-1) && 
-	    ((get_cur_cmd(L) && get_cur_chr(L)) || get_cur_cs(L))) {
-	  if (cur_cmd>get_max_command()) {
-	    expand();
-	    no_token_returned();
+	  if (p!=r) {
+	    p = link(r);
+	    free_avail(r);
+	    begin_token_list(p, inserted);
+	    cur_input.nofilter_field=true;
+	    get_next();
+	    lua_pop(L,1);
+	    break;	
 	  } else {
-	    token_returned();
+	    fprintf(stdout,"error: illegal or empty token list returned\n");
+	    lua_pop(L,2);
+	    error();
+	    return;
 	  }
 	} else {
-	  no_token_returned();
+	  lua_pop(L,2);
+	  continue; 
 	}
-      } else {
-	lua_pop(L,2); /* the not-a-function callback and the container */
-	get_x_token();
-	return;
       }
+    } else {
+      lua_pop(L,1);  
+      continue;	
     }
-    lua_pop(L,1); /* callback container */
-  } else {
-    get_x_token();
   }
+  lua_pop(L,1); /* callback container */
 }

@@ -408,10 +408,20 @@ static int callback_register (lua_State *L) {
 	lua_pushstring(L,"No such callback exists.");
 	return 2;
   }
-  if (lua_isfunction(L,2) && !cb->is_set) {
+  if (lua_isfunction(L,2)) {
+	/*
+     if (cb->is_set) {
+	   fprintf(stdout,"replacing callback with new version\n");
+	 }
+	*/
     cb->is_set=1;
 	avl_replace(callback_list, cb);
-  } else if (lua_isnil(L,2) && cb->is_set) {
+  } else { /*if (lua_isnil(L,2)) {*/
+	/* 
+     if (cb->is_set) {
+	   fprintf(stdout,"deleting callback\n");
+	 }
+	*/
     cb->is_set=0;
 	avl_replace(callback_list, cb);
   }

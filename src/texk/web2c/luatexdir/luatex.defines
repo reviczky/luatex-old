@@ -67,7 +67,7 @@ $Id $
 @define procedure get_lua_number();
 @define procedure get_lua_string();
 
-@define procedure get_x_token_lua();
+@define procedure get_token_lua;
 
 { bits for extended char code access }
 

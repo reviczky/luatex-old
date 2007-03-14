@@ -5274,8 +5274,11 @@ else  case (-m) div (max_command+1) of
   end;
 print(" mode");
 end;
-function get_mode_id(@!m:integer):integer; {returns the mode represented by |m|}
-begin if m>0 then
+function get_mode_id:integer; {returns the mode represented by |m|}
+var m:integer ;
+begin 
+  m := mode;
+  if m>0 then
   case m div (max_command+1) of
   0:get_mode_id := "v";
   1:get_mode_id := "h";
@@ -8179,7 +8182,8 @@ convention~(1), so it is declared in the following way:
   @!state_field, @!index_field: quarterword;
   @!start_field,@!loc_field, @!limit_field, @!name_field,
   @!ocp_lstack_field: halfword; {used for omega translation processes}
-  @!ocp_no_field: halfword; {used for omega translation processes}
+  @!ocp_no_field: halfword; {used for omega translation processes} 
+  @!nofilter_field: boolean; {used by token filtering}
   end;
 
 @ @<Glob...@>=
@@ -8197,6 +8201,7 @@ in our discussion of basic input-output routines. The other components of
 @d index==cur_input.index_field {reference for buffer information}
 @d start==cur_input.start_field {starting position in |buffer|}
 @d limit==cur_input.limit_field {end of current line in |buffer|}
+@d nofilter==cur_input.nofilter_field {is token filtering explicitly disallowed?}
 @d name==cur_input.name_field {name of the current file}
 @d current_ocp_lstack==cur_input.ocp_lstack_field {name of the current ocp}
 @d current_ocp_no==cur_input.ocp_no_field {name of the current ocp}
@@ -8700,6 +8705,7 @@ new level (having, initially, the same properties as the old).
 @:TeX capacity exceeded input stack size}{\quad input stack size@>
     end;
   input_stack[input_ptr]:=cur_input; {stack the record}
+  nofilter:=false;
   incr(input_ptr);
   end
 
@@ -8857,7 +8863,7 @@ param_ptr:=0; max_param_stack:=0;
 first:=buf_size; repeat buffer[first]:=0; decr(first); until first=0;
 scanner_status:=normal; warning_index:=null; first:=1;
 state:=new_line; start:=1; index:=0; line:=0; name:=0;
-current_ocp_lstack:=0; current_ocp_no:=0;
+current_ocp_lstack:=0; current_ocp_no:=0; nofilter:=false;
 force_eof:=false; luacstrings :=0;
 align_state:=1000000;@/
 if not init_terminal then goto final_end;
@@ -9047,16 +9053,6 @@ begin switch: if loc<=limit then {current line not yet finished}
 	  if cur_chr=" " then cur_cmd:=10 else cur_cmd:=12
     else 
       do_get_cat_code(cur_cmd);
-    if false then begin
-      begin_diagnostic;
-      print("(tab="); print_int(cat_code_table);
-      if not local_catcode_table then print_char('*');
-	  print(",loc="); print_int(line_catcode_table);
-      if local_catcode_table then print_char('*');
-	  print(",cmd="); print_int(cur_cmd);
-      print(",chr="); print_int(cur_chr);
-	  print(") "); end_diagnostic(false);
-      end;
   @<Change state if necessary, and |goto switch| if the
     current character should be ignored,
     or |goto reswitch| if the current character
@@ -9551,7 +9547,7 @@ and except when the arguments to \.{\\ifx} are being scanned.
 |no_new_control_sequence| is always |true| at other times.
 
 @p procedure get_token; {sets |cur_cmd|, |cur_chr|, |cur_tok|}
-begin no_new_control_sequence:=false; get_next; no_new_control_sequence:=true;
+begin no_new_control_sequence:=false; get_filtered_next; no_new_control_sequence:=true;
 @^inner loop@>
 if cur_cs=0 then cur_tok:=(cur_cmd*string_offset)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
@@ -9583,7 +9579,6 @@ procedure@?pass_text; forward;@t\2@>
 procedure@?start_input; forward;@t\2@>
 procedure@?conditional; forward;@t\2@>
 procedure@?get_x_token; forward;@t\2@>
-procedure@?get_filtered_x_token; forward;@t\2@>
 procedure@?conv_toks; forward;@t\2@>
 procedure@?ins_the_toks; forward;@t\2@>
 procedure expand;
@@ -9819,7 +9814,7 @@ common cases.
 @p procedure get_x_token; {sets |cur_cmd|, |cur_chr|, |cur_tok|,
   and expands macros}
 label restart,done;
-begin restart: get_next;
+begin restart: get_filtered_next;
 @^inner loop@>
 if cur_cmd<=max_command then goto done;
 if cur_cmd>=call then
@@ -9839,23 +9834,18 @@ procedure calls: |get_next; x_token|.
 @p procedure x_token; {|get_x_token| without the initial |get_next|}
 begin while cur_cmd>max_command do
   begin expand;
-  get_next;
+  get_filtered_next;
   end;
 if cur_cs=0 then cur_tok:=(cur_cmd*string_offset)+cur_chr
 else cur_tok:=cs_token_flag+cur_cs;
 end;
 
-@ The |get_filtered_x_token| procedure is a variant of |get_x_token| 
-that is used by |main_control|. This function allows Lua code to 
-mutate the output of |get_x_token| before the executive commands look
-at it. The implementation is in the C file |luatoken.c|.
+@ The |get_filtered_next| procedure allows Lua code to mutate the 
+output of |get_next| before \TeX\ looks at it. The implementation
+is in the C file |luatoken.c|.
 
-@p procedure get_filtered_x_token;
-begin 
-  get_x_token_lua(mode);
-  if cur_cs=0 then cur_tok:=(cur_cmd*string_offset)+cur_chr
-  else cur_tok:=cs_token_flag+cur_cs;
-end;
+@d get_filtered_next==get_token_lua
+
 
 
 @ A control sequence that has been \.{\\def}'ed by the user is expanded by
@@ -12302,7 +12292,7 @@ loop@+  begin if xpand then @<Expand the next part of the input@>
 expanding it further.
 
 @<Expand the next part of the input@>=
-begin loop begin get_next;
+begin loop begin get_filtered_next;
   if cur_cmd>=call then
     if info(link(cur_chr))=protected_token then
       begin cur_cmd:=relax; cur_chr:=no_expand_flag;
@@ -12585,7 +12575,7 @@ var l:integer; {level of $\.{\\if}\ldots\.{\\fi}$ nesting}
 @!save_scanner_status:small_number; {|scanner_status| upon entry}
 begin save_scanner_status:=scanner_status; scanner_status:=skipping; l:=0;
 skip_line:=line;
-loop@+  begin get_next;
+loop@+  begin get_filtered_next;
   if cur_cmd=fi_or_else then
     begin if l=0 then goto done;
     if cur_chr=fi_code then decr(l);
@@ -12702,7 +12692,7 @@ if_case_code: @<Select the appropriate case
 if_primitive_code: begin
   save_scanner_status:=scanner_status;
   scanner_status:=normal;
-  get_next;
+  get_filtered_next;
   scanner_status:=save_scanner_status;
   m := prim_lookup(text(cur_cs));
   b :=((cur_cmd<>undefined_cs) and
@@ -12788,8 +12778,8 @@ are allowed, but we might be scanning a macro definition or preamble.
 
 @<Test if two tokens match@>=
 begin save_scanner_status:=scanner_status; scanner_status:=normal;
-get_next; n:=cur_cs; p:=cur_cmd; q:=cur_chr;
-get_next; if cur_cmd<>p then b:=false
+get_filtered_next; n:=cur_cs; p:=cur_cmd; q:=cur_chr;
+get_filtered_next; if cur_cmd<>p then b:=false
 else if cur_cmd<call then b:=(cur_chr=q)
 else @<Test if two macro texts match@>;
 scanner_status:=save_scanner_status;
@@ -29386,7 +29376,7 @@ var@!t:integer; {general-purpose temporary variable}
 tmp_k1, tmp_k2: pointer; {for testing whether an auto kern should be inserted}
 lig:liginfo; { a ligature }
 begin if every_job<>null then begin_token_list(every_job,every_job_text);
-big_switch: get_filtered_x_token;@/
+big_switch: get_x_token;@/
 reswitch: @<Give diagnostic information, if requested@>;
 case abs(mode)+cur_cmd of
 hmode+letter,hmode+other_char,hmode+char_given,hmode+char_num: begin 
@@ -29627,7 +29617,7 @@ goto main_lig_loop
 look ahead for it.
 
 @<Look ahead for another character...@>=
-get_filtered_x_token; {set only |cur_cmd| and |cur_chr|, for speed}
+get_x_token; {set only |cur_cmd| and |cur_chr|, for speed}
 if cur_cmd=letter then goto main_loop_lookahead+1;
 if cur_cmd=other_char then goto main_loop_lookahead+1;
 if cur_cmd=char_given then goto main_loop_lookahead+1;
@@ -29809,7 +29799,7 @@ any_mode(ignore_spaces): begin
   else begin
     t:=scanner_status;
     scanner_status:=normal;
-    get_next;
+    get_filtered_next;
     scanner_status:=t;
     cur_cs  := prim_lookup(text(cur_cs));
     if cur_cs<>undefined_primitive then begin
@@ -39200,7 +39190,7 @@ are allowed, but we might be scanning a macro definition or preamble.
 @<Cases for |conditional|@>=
 if_def_code:begin save_scanner_status:=scanner_status;
   scanner_status:=normal;
-  get_next; b:=(cur_cmd<>undefined_cs);
+  get_filtered_next; b:=(cur_cmd<>undefined_cs);
   scanner_status:=save_scanner_status;
   end;
 
