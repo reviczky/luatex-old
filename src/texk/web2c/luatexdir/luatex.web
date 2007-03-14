@@ -6971,8 +6971,10 @@ begin
   is_undefined_cs := (cs=undefined_cs);
 end;
 function get_cs_text(cs:integer):str_number;
-begin
-  get_cs_text := text(cs);
+begin if cs<hash_base then
+     if cs<null_cs then get_cs_text := cs-active_base
+     else  get_cs_text := "\csname\endcsname"
+  else get_cs_text := text(cs);
 end;
 function get_equiv(prim:integer):halfword;
 begin
