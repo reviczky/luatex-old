@@ -181,7 +181,7 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
   dump_intfield(L,"macfeature",        pst->macfeature); 
   dump_intfield(L,"flags",             pst->flags); 
   dump_tag(L,"tag",                    pst->tag); 
-  dump_intfield(L,"script_lang_index", pst->script_lang_index); 
+  dump_intfield(L,"script_lang_index", (pst->script_lang_index+1)); 
 
   if (pst->type == pst_position) {
     lua_newtable(L);
@@ -638,7 +638,7 @@ do_handle_anchorclass (lua_State *L, struct anchorclass *anchor) {
 
   dump_stringfield(L,"name",           anchor->name);
   dump_tag(L,"feature_tag",            anchor->feature_tag);
-  dump_intfield(L,"script_lang_index", anchor->script_lang_index);
+  dump_intfield(L,"script_lang_index", (anchor->script_lang_index+1));
   dump_intfield(L,"flags",             anchor->flags);
   dump_intfield(L,"merge_with",        anchor->merge_with);
   dump_intfield(L,"type",              anchor->type);
@@ -863,7 +863,7 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
 
   dump_intfield (L,"type", fpst->type);
   dump_enumfield(L,"format", fpst->format, fpossub_format_enum);
-  dump_intfield (L,"script_lang_index", fpst->script_lang_index);
+  dump_intfield (L,"script_lang_index", (fpst->script_lang_index+1));
   dump_intfield (L,"flags", fpst->flags);
   dump_tag(L,"tag",fpst->tag);
 
