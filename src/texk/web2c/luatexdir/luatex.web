@@ -16902,7 +16902,7 @@ procedure pdf_print_char(f: internal_font_number; cc: integer);
 var c: integer;
 begin
     pdf_mark_char(f, cc);
-	if font_cidregistry(f)<>0 then begin
+	if font_encodingbytes(f)=2 then begin
       c := char_index(f, cc);
       c := c div 256;
 	  if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin

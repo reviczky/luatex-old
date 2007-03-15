@@ -77,6 +77,7 @@ typedef struct texfont {
   char    _font_used ;       /* internal information */
   char    _font_touched ;    /* internal information */
   integer _font_cache_id ;   /* internal information */
+  char    _font_encodingbytes ; /* 1 or 2 bytes */
   fm_entry_ptr _font_map;
   integer _font_type;
   integer _font_format;
@@ -212,6 +213,9 @@ boolean font_shareable(internal_font_number,internal_font_number);
 
 #define font_cache_id(a)            font_tables[a]->_font_cache_id
 #define set_font_cache_id(a,b)      font_cache_id(a) = b
+
+#define font_encodingbytes(a)       font_tables[a]->_font_encodingbytes
+#define set_font_encodingbytes(a,b) font_encodingbytes(a) = b
 
 #define hyphen_char(a)              font_tables[a]->_hyphen_char
 #define set_hyphen_char(a,b)        hyphen_char(a) = b

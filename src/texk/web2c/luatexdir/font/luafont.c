@@ -174,6 +174,8 @@ font_to_lua (lua_State *L, int f) {
   lua_setfield(L,-2,"checksum");
   lua_pushnumber(L,font_natural_dir(f));
   lua_setfield(L,-2,"direction");
+  lua_pushnumber(L,font_encodingbytes(f));
+  lua_setfield(L,-2,"encodingbytes");
 
   /* params */
   write_lua_parameters(L,f);
@@ -723,6 +725,7 @@ font_from_lua (lua_State *L, int f) {
   i = numeric_field(L,"size",font_dsize(f));     set_font_size(f,i);
   i = numeric_field(L,"checksum",0);             set_font_checksum(f,i);
   i = numeric_field(L,"direction",0);            set_font_natural_dir(f,i);
+  i = numeric_field(L,"encodingbytes",0);        set_font_encodingbytes(f,i);
   i = numeric_field(L,"hyphenchar",get_default_hyphen_char()); set_hyphen_char(f,i);
   i = numeric_field(L,"skewchar",get_default_skew_char());     set_skew_char(f,i);
   i = boolean_field(L,"used",0);                 set_font_used(f,i);
@@ -730,6 +733,10 @@ font_from_lua (lua_State *L, int f) {
   i = enum_field(L,"type",     unknown_font_type,font_type_strings);      set_font_type(f,i);
   i = enum_field(L,"format",   unknown_format,   font_format_strings);    set_font_format(f,i);
   i = enum_field(L,"embedding",unknown_embedding,font_embedding_strings); set_font_embedding(f,i);
+  if (font_encodingbytes(f)==0 && 
+      (font_format(f)==opentype_format || font_format(f)==truetype_format)) {
+    set_font_encodingbytes(f,2);
+  }
   
   /* now fetch the base fonts, if needed */
   n = count_hash_items(L,"fonts");

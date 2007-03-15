@@ -193,40 +193,12 @@ $Id $
 @define function space_shrink();
 
 @define function font_kerns();
-@define function fontkern();
 @define function font_kern_sc();
-@define procedure setfontkerns();
-@define procedure setfontkern();
 @define procedure adjust_font_kern();
 
 @define function font_italics();
 @define function font_italic();
-@define procedure setfontitalics();
 @define procedure set_font_italic();
-
-@define function fontextens();
-@define function fontexten();
-@define procedure setfontextens();
-@define procedure setfontexten();
-
-
-@define function font_widths();
-@define function font_width();
-@define procedure setfontwidths();
-@define procedure set_font_width();
-
-@define function fontheights();
-@define function fontheight();
-@define procedure setfontheights();
-@define procedure setfontheight();
-
-@define function fontdepths();
-@define function fontdepth();
-@define procedure setfontdepths();
-@define procedure setfontdepth();
-
-@define function fontligkerns();
-@define function fontligkern();
 
 @define function has_lig();
 @define function has_kern();
@@ -252,6 +224,7 @@ $Id $
 @define function font_format();
 @define function char_index();
 @define function font_cidregistry();
+@define function font_encodingbytes();
 
 @define function font_map();
 @define procedure set_font_map();

@@ -623,7 +623,7 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
 {
     fm_entry *fm;
     /* this test is not 100% correct, but close */
-    if (font_cidregistry(f)) {
+    if (font_encodingbytes(f)==2) {
       /* Create an fm entry, as this is needed by the rest of the font mechanism.
 	 I am not sure wether it makes sense to store it in the avl_tree.
        */
@@ -646,7 +646,8 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
       }
 
       set_included(fm);
-      if (font_embedding(f)==subset_embedding) {
+      if (font_format(f)==opentype_format &&
+	  font_embedding(f)==subset_embedding) {
 	set_subsetted(fm);
       }
       set_cidkeyed(fm);
