@@ -171,12 +171,16 @@ pdf_check_vf_cur_val (void) {
 }
 
 static void
-vf_local_font_warning(internal_font_number f, internal_font_number k, char *s) {
+vf_local_font_warning(internal_font_number f, internal_font_number k, char *s, integer a, integer b) {
   print_nlp();
   print_string(s);
   print_string(" in local font ");
   print_string(font_name(k));
-  print_string(" in virtual font ");
+  print_string(" (");
+  print_int(b);
+  print_string(" != ");
+  print_int(a);
+  print_string(") in virtual font ");
   print_string(font_name(f));
   print_string(".vf ignored.");
 }
@@ -192,10 +196,12 @@ vf_def_font(internal_font_number f,unsigned char *vf_buffer, integer *vf_cr) {
     four_quarters cs;
     memory_word tmp_w; /* accumulator */
     integer junk;
-    cs.b0 = vf_buffer[(*vf_cr)] ; (*vf_cr)++;
-    cs.b1 = vf_buffer[(*vf_cr)] ; (*vf_cr)++;
-    cs.b2 = vf_buffer[(*vf_cr)] ; (*vf_cr)++;
-    cs.b3 = vf_buffer[(*vf_cr)] ; (*vf_cr)++;
+    unsigned long checksum;
+    cs.b0 = vf_buffer[(*vf_cr)]; 
+    cs.b1 = vf_buffer[(*vf_cr)+1]; 
+    cs.b2 = vf_buffer[(*vf_cr)+2]; 
+    cs.b3 = vf_buffer[(*vf_cr)+3]; (*vf_cr)+=4;
+    checksum = cs.b0*256*256*256 +  cs.b1*256*256 + cs.b2*256 +  cs.b3;
     k =  vf_buffer[(*vf_cr)] ; (*vf_cr)++;
     if (k>127) k-=256;
     k = k*256+ vf_buffer[(*vf_cr)] ; (*vf_cr)++;
@@ -230,14 +236,10 @@ vf_def_font(internal_font_number f,unsigned char *vf_buffer, integer *vf_cr) {
     if (k == null_font) 
       k = read_font_info(get_nullcs(), s, get_nullstr(), fs, -1);
     if (k != null_font) {
-      if (((cs.b0 != 0) || (cs.b1 != 0) || (cs.b2 != 0) || (cs.b3 != 0)) &&
-           ((font_check_0(k) != 0) || (font_check_1(k) != 0) ||
-            (font_check_2(k) != 0) || (font_check_3(k) != 0)) &&
-           ((cs.b0 != font_check_0(k)) || (cs.b1 != font_check_1(k)) ||
-            (cs.b2 != font_check_2(k)) || (cs.b3 != font_check_3(k))))
-	vf_local_font_warning(f, k, "checksum mismatch");
+      if (checksum!=0 && font_checksum(k)!=0 && checksum!= font_checksum(k))
+	vf_local_font_warning(f, k, "checksum mismatch",checksum,font_checksum(k));
       if (ds != font_dsize(k))
-	vf_local_font_warning(f, k, "design size mismatch");
+	vf_local_font_warning(f, k, "design size mismatch",ds,font_dsize(k));
     }
     if (pdf_font_expand_ratio[f] != 0)
       set_expand_params(k, pdf_font_auto_expand[f],
