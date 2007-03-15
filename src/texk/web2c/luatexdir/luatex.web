@@ -37496,6 +37496,35 @@ else begin
   end
 end
 
+@ @<(PDF) Output a reflection instruction if the direction has changed@>=
+begin
+if dir_dir(p)>=0 then
+  begin
+  push_dir_node(p);
+  if dir_opposite(dir_secondary[dir_dir(dir_ptr)])(dir_secondary[dvi_direction])
+  then begin
+    dir_dvi_ptr(dir_ptr):=dvi_ptr;
+    dir_dvi_h(dir_ptr):=cur_h;
+    {pdf_dvicmd_right(0);}
+    {cur_h:=0;}
+    end
+  else begin
+    dir_dvi_ptr(dir_ptr):=dvi_ptr;
+    dir_dvi_h(dir_ptr):=cur_h;
+    end;
+  dvi_direction:=dir_dir(dir_ptr);
+  end
+else begin
+  dvi_dir_h:=dir_dvi_h(dir_ptr);
+  dvi_dir_ptr:=dir_dvi_ptr(dir_ptr);
+  pop_dir_node;
+  dvi_direction:=dir_dir(dir_ptr);
+  {pdf_dvicmd_right(cur_h-dvi_dir_h);}
+   cur_h:=dvi_dir_h+cur_h;
+  end
+end
+
+
 @ Shipping out PDF marks.
 
 @<Types...@>=
@@ -38302,7 +38331,8 @@ pdf_snap_ref_point_node:
     @<Save current position to |pdf_snapx_refpos|, |pdf_snapy_refpos|@>;
 pdf_snapy_comp_node,
 pdf_snapy_node: do_nothing; {snapy nodes do nothing in hlist}
-othercases out_what(p);
+othercases if subtype(p)<>dir_node then out_what(p)
+else @<(PDF) Output a reflection instruction if the direction has changed@>;
 endcases
 
 @ @<Output a Image node in a hlist@>=
