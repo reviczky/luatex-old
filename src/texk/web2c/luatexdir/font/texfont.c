@@ -216,6 +216,7 @@ copy_charinfo (charinfo *ci) {
     rep = get_charinfo_extensible(ci,EXT_REP);
     set_charinfo_extensible(co,top,bot,mid,rep);
   }
+  return co;
 }
 
 charinfo *
