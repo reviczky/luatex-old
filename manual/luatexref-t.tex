@@ -416,12 +416,12 @@ description of the \type{texconfig} table later on in this document).
 
 Commandline processing happens very early on. So early, in fact, that
 none of \TEX's initializations have taken place yet. For that reason,
-the \type{tex} and \type{pdf} tables are off-limits during the
-execution of the startup file (they are nilled). Special care is taken
-that \type{texio.write} and \type{texio.write_nl} function properly,
-so that you can at least report your actions to the log file when (and
-if) it eventually becomes opened (note that \TEX\ does not even know
-it's \type{\jobname} yet at this point).
+the \type{tex}, \type{token} and \type{pdf} tables are off-limits
+during the execution of the startup file (they are nilled). Special
+care is taken that \type{texio.write} and \type{texio.write_nl}
+function properly, so that you can at least report your actions to the
+log file when (and if) it eventually becomes opened (note that \TEX\
+does not even know it's \type{\jobname} yet at this point).
 
 The file is loaded into Lua state 0, and everything you do will remain
 visible during the rest of the run, with the exception of the
@@ -994,6 +994,130 @@ information:
 \item there is no \type{\endlinechar} appended.
 \stopitemize
 
+\section{The \lualib{token} library}
+
+The \lualib{token} table contains interface functions to \TeX's
+handling of tokens. These functions are most useful when combined with
+the 'token_filter' callback, but they could be used standalone as
+well.
+
+A token is represented in Lua as a small table. For the moment, this
+table consists of three numeric entries:
+
+\starttabulate[|l|p|]
+\NC nr \NC description \NC \FR
+\NC 1  \NC command code, this is a value between 0 and 130 (approximately)\NC \NR
+\NC 2  \NC command modifier, this is a value between 0 and $2^21$ \NC \NR
+\NC 3  \NC control sequence id.
+           For commands that are not te result of control sequences, like letters 
+           and characters, it is zero. Otherwise, it is  number pointing into the 
+           `equivalence table'.\NC \LR
+\stoptabulate
+
+\subsection{\function{token.get_next}}
+
+\startfunctioncall
+  token t = token.get_next()
+\stopfunctioncall
+
+This fetches the next input token from the current input source,
+without expansion.
+
+\subsection{\function{token.is_expandable}}
+
+\startfunctioncall
+  boolean b = token.is_expandable(token t)
+\stopfunctioncall
+
+This tests if the token \type{t} could be expanded.
+
+\subsection{\function{token.expand}}
+
+\startfunctioncall
+  token.expand()
+\stopfunctioncall
+
+If a token is expandable, this will expand one level of it, so that
+the first token of the expansion will now be the next token to be read
+by \type{tex.get_next()}.
+
+\subsection{\function{token.is_activechar}}
+
+\startfunctioncall
+  boolean b = token.is_activechar(token t)
+\stopfunctioncall
+
+This is a special test that is sometimes handy. Discovering whether
+some token is the result of an active character turned out to be very 
+hard otherwise.
+
+
+\subsection{\function{token.create}}
+
+\startfunctioncall
+  token t = token.create(string csname)
+  token t = token.create(number charcode)
+  token t = token.create(number charcode, number catcode)
+\stopfunctioncall
+
+This is the token factory. If you feed it a string, then it is a
+control sequence csname, and it will be looked up in the equivalence
+table. 
+
+If you feed it number, then this is assumed to be an input character,
+and an optional second number gives its category code.  This means it
+is possible to overrule a character's category code, with a few
+exceptions: the category codes 0 (escape), 9 (ignored), 13 (active),
+14 (comment), and 15 (invalid) cannot occur inside a token. 0, 9, 14 
+and 15 are therefore illegal as input to \type{token.create()}, and
+active characters will be resolved immediately.
+
+Note: Unknown string sequences and never defined active characters
+will result in a token representing an `Undefined control sequence'
+with a near||random name. It is {\it not\/} possible to define brand
+new control sequences using \type{token.create}!
+
+\subsection{\function{token.command_name}}
+
+\startfunctioncall
+  string commandname = token.command_name(token t)
+\stopfunctioncall
+
+This returns the name associated with the `command' value of the token
+in \LUATEX. There is no direct connection between these names and
+primitives. For instance, all \type{\ifxxx} tests are grouped under
+'if_fest', and the `command modifier' defines which test is to be run.
+
+\subsection{\function{token.command_id}}
+
+\startfunctioncall
+  number i = token.command_name(string commandname)
+\stopfunctioncall
+
+This returns a number that is the inverse operation of the previous
+command, to be used as the first item in a token table.
+
+
+\subsection{\function{token.csname_name}}
+
+\startfunctioncall
+  string csname = token.csname_name(token t)
+\stopfunctioncall
+
+This returns the name associated with the `equivalence table' value of
+the token in \LUATEX. It returns the string value of the command used
+to create the current token, or an empty string if there is no
+associated control sequence.
+
+\subsection{\function{token.csname_id}}
+
+\startfunctioncall
+  number i = token.csname_id(string csname)
+\stopfunctioncall
+
+This returns a number that is the inverse operation of the previous
+command, to be used as the third item in a token table.
+
 
 \section{The \lualib{texio} library}
 
@@ -1403,64 +1527,35 @@ that.
 
 \subsubsection{\callback{token_filter}}
 
-This callback allows you to change the modify any lexical token that
-enters the \type{main_control} function before \LUATEX\ executes the
-associated command. 
-
-{\bf Note:} not all tokens can be intercepted, only those that are `seen' 
-by \LUATEX's main control function.  Supplemental tokens like the bodies
-of macro definitions and the right-hand side of register assignments
-are not seen. For now, this is intentional.
+This callback allows you to change the fetch and preprocess any
+lexical token that enters \LUATEX, before \LUATEX\ executes or expands
+the associated command.
 
 \startfunctioncall
-     function (table <token>)
+     function ()
         return table <token>
      end
 \stopfunctioncall
 
-Calling convention for this callback is bit more complicated then for
-most other callbacks.  Initially, lua function will be called with the
-next token from \type{get_next()} as argument, represented as a small
-lua table.  The function should either return a lua table representing
-a valid to-be-processed token, or something else like nil or an empty
-table.
+The calling convention for this callback is bit more complicated then
+for most other callbacks.  The function should either return a lua
+table representing a valid to-be-processed token or tokenlist, or
+something else like nil or an empty table.
 
 If your lua function does not return a table representing a valid
-token, it will be immediately called again with yet another token from
-\type{get_next()} as argument, until it eventually does return a 
-useful token.
+token, it will be immediately called again, until it eventually does
+return a useful token or tokenlist (or until you reset the callback
+value to nil). See the description of \callbacklib{token} for some
+handy functions to be used in conjunction with this callback.
 
-But if the function does return a usable token, then that token will
-be processed by \LUATEX. Afterwards, the function will be called
-again, but now without an argument. This is repeated until it stops
-returning tokens.  Then processing reverts back to the other branch.
-
-The point behind that roundabout calling convention is that it allows the lua function
-to buffer tokens for various uses. That in turn makes it possible to do some really
-advanced things like replacing OTPs.
-
-Now about that table. The table that the function will receive
-contains four fields:
-
-\starttabulate[|l|i|p|]
-\NC Key     \NC  type    \NC                Explanation \NC\FR
-\NC cmd     \NC  string \NC A representation of  \LUATEX's internal command code\NC\NR 
-\NC chr     \NC  number \NC The command code modifier\NC\NR 
-\NC cs      \NC  string \NC If the token came from a csname, this is that csname\NC\NR 
-\NC mod     \NC character \NC A single character string representing the current
-                              processing mode. One of {\bf v}ertical, {\bf h}orizontal,
-                              display {\bf m}ath, {\bf n}o, internal {\bf V}ertical,
-                              restricted {\bf H}orizontal, or inline {\bf M}ath
-                              mode.\NC\LR
-\stoptabulate
-
-If you modify the table before returning it, then it is wise to return either a
-(\type{cmd}, \type{chr}) pair, or a \type{cs} string.  That is because if both options
-are present, the pair has precedence and the string is ignored. On the return table,
-{\bf mod} is ignored always.
+If your function returns a single usable token, then that token will
+be processed by \LUATEX\ immediately. If the function returns a token
+list (a table consisting of a list of consecutive token tables), then
+that list will be pushed to the input stack as completely new token
+list level, with it's token type set to `inserted'. In either case,
+the returned token(s) will not be fed back into the callback function.
 
 \subsection{Information reporting callbacks}
-
 
 \subsubsection{\callback{start_run}}
 

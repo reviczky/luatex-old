@@ -83,6 +83,7 @@ lua/lpdflib.o \
 lua/lstatslib.o \
 lua/ltexiolib.o \
 lua/ltexlib.o \
+lua/ltokenlib.o \
 lua/lfontlib.o \
 lua/luainit.o \
 lua/luastuff.o \

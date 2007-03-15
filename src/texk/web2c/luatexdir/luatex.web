@@ -6946,7 +6946,15 @@ A global boolean variable called |no_new_control_sequence| is set to
 @ The extra set of functions make sure we can query the
 primitive meanings of thing s from C code
 
-@p function get_prim_eq_level(prim:integer):quarterword;
+@p 
+function get_char_cat_code(c:integer):quarterword;
+begin
+  if local_catcode_table then 
+     get_char_cat_code:=get_cat_code(line_catcode_table,c) 
+  else 
+     get_char_cat_code:=get_cat_code(cat_code_table,c)
+end;
+function get_prim_eq_level(prim:integer):quarterword;
 begin
   get_prim_eq_level := prim_eq_level(prim);
 end;
@@ -6974,6 +6982,8 @@ function get_cs_text(cs:integer):str_number;
 begin if cs<hash_base then
      if cs<null_cs then get_cs_text := cs-active_base
      else  get_cs_text := "\csname\endcsname"
+  else if cs>=undefined_control_sequence then get_cs_text := ""
+  else if (text(cs)<0)or(text(cs)>=str_ptr) then get_cs_text := ""
   else get_cs_text := text(cs);
 end;
 function get_equiv(prim:integer):halfword;
@@ -16439,6 +16449,17 @@ function get_hash_size: integer;
 begin
   get_hash_size:= hash_size;
 end;
+
+function get_hash_base: integer;
+begin
+  get_hash_base:= hash_base;
+end;
+
+function get_active_base: integer;
+begin
+  get_active_base:= active_base;
+end;
+
 
 function get_current_name: str_number;
 begin

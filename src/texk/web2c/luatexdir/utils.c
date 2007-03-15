@@ -315,52 +315,56 @@ char *makeclstring (integer s, int *len)
       *len = l;
       check_buf (l + 1, MAX_CSTRING_LEN);
       if (cstrbuf == NULL) {
-		allocsize = l + 1;
-		cstrbuf = xmallocarray (char, allocsize);
+	allocsize = l + 1;
+	cstrbuf = xmallocarray (char, allocsize);
       } else if (l + 1 > allocsize) {
-		allocgrow = allocsize * 0.2;
+	allocgrow = allocsize * 0.2;
         if (l + 1 - allocgrow > allocsize)
-		  allocsize = l + 1;
+	  allocsize = l + 1;
         else if (allocsize < MAX_CSTRING_LEN - allocgrow)
-		  allocsize += allocgrow;
+	  allocsize += allocgrow;
         else
-		  allocsize = MAX_CSTRING_LEN;
+	  allocsize = MAX_CSTRING_LEN;
         cstrbuf = xreallocarray (cstrbuf, char, allocsize);
       }
-	  p = cstrbuf;
-	  for (i = 0; i < l; i++)
-		*p++ = strpool[i + strstart[s]];
-	  *p = 0;
+      p = cstrbuf;
+      for (i = 0; i < l; i++)
+	*p++ = strpool[i + strstart[s]];
+      *p = 0;
     } else {
       if (cstrbuf == NULL) {
-		allocsize = 5;
-		cstrbuf = xmallocarray (char, allocsize);
+	allocsize = 5;
+	cstrbuf = xmallocarray (char, allocsize);
       }
 	  if (s <= 0x7F) {
 		cstrbuf[0] = s;
 		cstrbuf[1] = 0;
+		*len = 1;
 	  } else if (s <= 0x7FF ) {
 		cstrbuf[0] = 0xC0 + (s / 0x40);
 		cstrbuf[1] = 0x80 + (s % 0x40);
 		cstrbuf[2] = 0;
+		*len = 2;
 	  } else if (s <= 0xFFFF ) {
 		cstrbuf[0] = 0xE0 + (s / 0x1000);
 		cstrbuf[1] = 0x80 + ((s % 0x1000) / 0x40);
 		cstrbuf[2] = 0x80 + ((s % 0x1000) % 0x40);
 		cstrbuf[3] = 0;
+		*len = 3;
 	  } else {
-        if (s >= 0x10FF00) {
+	    if (s >= 0x10FF00) {
 		  cstrbuf[0] = s-0x10FF00;
 		  cstrbuf[1] = 0;
+		  *len = 1;
 		} else {
 		  cstrbuf[0] = 0xF0 + (s / 0x40000);
 		  cstrbuf[1] = 0x80 + ((s % 0x40000) / 0x1000);
 		  cstrbuf[2] = 0x80 + (((s % 0x40000) % 0x1000) / 0x40);
 		  cstrbuf[3] = 0x80 + (((s % 0x40000) % 0x1000) % 0x40);
 		  cstrbuf[4] = 0;
+		  *len = 4;
 		}
 	  }
-	  fprintf (stdout,"return [%i: %s]\n",s,cstrbuf);
     }
     return cstrbuf;
 }

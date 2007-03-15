@@ -344,6 +344,7 @@ lua_initialize(int ac, char **av)
     int kpse_init;
     int tex_table_id;
     int pdf_table_id;
+    int token_table_id;
     /* Save to pass along to topenin.  */
     argc = ac;
     argv = av;
@@ -373,6 +374,7 @@ lua_initialize(int ac, char **av)
     if (startup_filename != NULL) {
 	  /* hide the 'tex' and 'pdf' table */
 	  tex_table_id = hide_lua_table(Luas[0], "tex");
+	  token_table_id = hide_lua_table(Luas[0], "token");
 	  pdf_table_id = hide_lua_table(Luas[0], "pdf");
 
 	  if (luaL_loadfile(Luas[0], startup_filename)
@@ -394,6 +396,7 @@ lua_initialize(int ac, char **av)
 	  /* unhide the 'tex' and 'pdf' table */
 	  unhide_lua_table(Luas[0], "tex", tex_table_id);
 	  unhide_lua_table(Luas[0], "pdf", pdf_table_id);
+	  unhide_lua_table(Luas[0], "token", token_table_id);
 	  
 	  /* kpse_init */
 	  kpse_init = -1;
