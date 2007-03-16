@@ -11,31 +11,9 @@ static int hash_base = 0;
 static int active_base = 0;
 static int null_cs = 0;
 
-static int 
-is_valid_token (lua_State *L, int i) {
-  if (lua_istable(L,i)) {
-    return 1;
-  } else {
-    lua_pushnil(L);
-    return 0;
-  }
-}
-
-static void 
-get_token_cmd(lua_State *L, int i) {
-  lua_rawgeti(L,i,1);
-}
-
-static void 
-get_token_chr(lua_State *L, int i) {
-  lua_rawgeti(L,i,2);
-}
-
-static void 
-get_token_cs(lua_State *L, int i) {
-  lua_rawgeti(L,i,3);
-}
-
+#define  is_valid_token(L,i)  (lua_istable(L,i) && lua_objlen(L,i)==3)
+#define  get_token_cmd(L,i)  lua_rawgeti(L,i,1) 
+#define  get_token_cs(L,i)   lua_rawgeti(L,i,3) 
 
 static int 
 test_expandable (lua_State *L) {
@@ -52,6 +30,8 @@ test_expandable (lua_State *L) {
     } else {
       lua_pushboolean(L,0);
     }
+  } else {
+    lua_pushnil(L);
   }
   return 1;
 }
@@ -69,6 +49,8 @@ test_activechar (lua_State *L) {
     } else {
       lua_pushboolean(L,0);
     }
+  } else {
+    lua_pushnil(L);
   }
   return 1;
 }
@@ -85,6 +67,8 @@ run_get_command_name (lua_State *L) {
     } else {
       lua_pushstring(L,"");
     }
+  } else {
+    lua_pushnil(L);
   }
   return 1;
 }
@@ -102,6 +86,8 @@ run_get_csname_name (lua_State *L) {
 	lua_pushstring(L,"");
       }
     }
+  } else {
+    lua_pushnil(L);
   }
   return 1;
 }
@@ -133,7 +119,7 @@ run_get_csname_id (lua_State *L) {
 
 static void 
 make_token_table (lua_State *L, int cmd, int chr, int cs) {
-  lua_newtable(L);
+  lua_createtable(L,3,0);
   lua_pushnumber(L,cmd);
   lua_rawseti(L,-2,1);
   lua_pushnumber(L,chr);
@@ -194,7 +180,7 @@ run_build (lua_State *L) {
     chr = lua_tointeger(L,1);
     cmd = luaL_optinteger(L,2,zget_char_cat_code(chr));
     if (cmd==0 || cmd == 9 || cmd == 14 || cmd == 15) {
-      fprintf(stdout, "\n\nluatex error: not a good token.\nCatcode %i can not be returned, so I replaced it by 12 (other)",cmd);
+      fprintf(stdout, "\n\nluatex error: not a good token.\nCatcode %i can not be returned, so I replaced it by 12 (other)",(int)cmd);
       error();
       cmd=12;
     }

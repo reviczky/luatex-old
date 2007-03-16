@@ -226,6 +226,7 @@ int setdimen (lua_State *L) {
   int cur_cs;
   int texstr;
   i = lua_gettop(L);
+  j = 0;
   // find the value
   if (!lua_isnumber(L,i))
     if (lua_isstring(L,i)) {
@@ -322,7 +323,7 @@ int getcount (lua_State *L) {
 }
 
 int settoks (lua_State *L) {
-  int i,j,k,l,len;
+  int i,j,k,len;
   int cur_cs;
   int texstr;
   i = lua_gettop(L);
@@ -379,7 +380,7 @@ int gettoks (lua_State *L) {
 }
 
 static int getboxdim (lua_State *L, int whichdim) {
-  int i, j, q;
+  int i, j;
   i = lua_gettop(L);
   j = (int)lua_tonumber(L,(i));
   lua_settop(L,(i-2)); /* table at -1 */
@@ -460,6 +461,7 @@ int settex (lua_State *L) {
   char *st;
   int i,j,texstr;
   int cur_cs, cur_cmd;
+  j = 0;
   i = lua_gettop(L);
   if (lua_isstring(L,(i-1))) {
     st = (char *)lua_tostring(L,(i-1));
@@ -534,7 +536,6 @@ gettex (lua_State *L) {
   int i,texstr;
   char *str;
   int cur_cs, cur_cmd, cur_code;
-  int save_cur_val,save_cur_val_level;
   i = lua_gettop(L);
   if (lua_isstring(L,i)) {
     st = (char *)lua_tostring(L,i);

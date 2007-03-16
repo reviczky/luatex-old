@@ -485,14 +485,16 @@ void delete_font (integer f) {
     
     for(i=font_bc(f); i<=font_ec(f); i++) {
       if (char_exists(f,i)) {
-	co = char_info(f,i);
-	set_charinfo_name(co,NULL);
-	set_charinfo_packets(co,NULL);
-	set_charinfo_ligatures(co,NULL);
-	set_charinfo_kerns(co,NULL);
-	set_charinfo_extensible(co,0,0,0,0);
+		co = char_info(f,i);
+		set_charinfo_name(co,NULL);
+		set_charinfo_packets(co,NULL);
+		set_charinfo_ligatures(co,NULL);
+		set_charinfo_kerns(co,NULL);
+		set_charinfo_extensible(co,0,0,0,0);
       }
     }
+	/* free .notdef */
+	set_charinfo_name(font_tables[f]->charinfo+0,NULL);
     free(font_tables[f]->charinfo);
     destroy_sa_tree(font_tables[f]->characters);
 

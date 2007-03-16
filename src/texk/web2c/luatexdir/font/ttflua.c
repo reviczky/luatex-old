@@ -85,19 +85,19 @@ dump_tag (lua_State *L, char *name, unsigned int field) {
   lua_rawset(L,-3);
 }
 
-#define NESTED_TABLE(a,b) {			\
-    int k = 1;					\
+#define NESTED_TABLE(a,b,c) {			\
+    int k = 1;							\
     lua_pushnumber(L,k); k++;			\
-    lua_newtable(L);				\
-    a(L,b);					\
-    lua_rawset(L,-3);				\
-    next = b->next;				\
-    while (next != NULL) {			\
+    lua_createtable(L,0,c);				\
+    a(L,b);								\
+    lua_rawset(L,-3);					\
+    next = b->next;						\
+    while (next != NULL) {				\
       lua_pushnumber(L,k); k++;			\
-      lua_newtable(L);				\
-      a(L, next);				\
-      lua_rawset(L,-3);				\
-      next = next->next;			\
+      lua_createtable(L,0,c);			\
+      a(L, next);						\
+      lua_rawset(L,-3);					\
+      next = next->next;				\
     } }
 
 
@@ -128,7 +128,7 @@ do_handle_kernpair (lua_State *L, struct kernpair *kp) {
 void
 handle_kernpair (lua_State *L, struct kernpair *kp) {
   struct kernpair *next;
-  NESTED_TABLE(do_handle_kernpair,kp);
+  NESTED_TABLE(do_handle_kernpair,kp,4);
 }
 
 void
@@ -184,37 +184,44 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
   dump_intfield(L,"script_lang_index", (pst->script_lang_index+1)); 
 
   if (pst->type == pst_position) {
-    lua_newtable(L);
+	lua_pushstring(L,"pos");
+    lua_createtable(L,0,4);
     handle_vr (L, &pst->u.pos);
-    lua_setfield(L,-2,"pos");
+    lua_rawset(L,-3);
 
   } else if (pst->type == pst_pair) {
 
-    lua_newtable(L);
+	lua_pushstring(L,"pair");
+    lua_createtable(L,0,2);
     dump_stringfield(L,"paired",pst->u.pair.paired);
     if (pst->u.pair.vr != NULL) {
-      lua_newtable(L);
+	  lua_pushstring(L,"vr");
+      lua_createtable(L,0,4);
       handle_vr (L, pst->u.pair.vr);
-      lua_setfield(L,-2,"vr");
+      lua_rawset(L,-3);
     }
-    lua_setfield(L,-2,"pair");
+    lua_rawset(L,-3);
 
   } else if (pst->type == pst_substitution) {
+
+	lua_pushstring(L,"subs");
     lua_newtable(L);
     dump_stringfield(L,"variant",pst->u.subs.variant);
-    lua_setfield(L,-2,"subs");
+    lua_rawset(L,-3);
 
   } else if (pst->type == pst_alternate) {
 
+	lua_pushstring(L,"alt");
     lua_newtable(L);
     dump_stringfield(L,"components",pst->u.mult.components);
-    lua_setfield(L,-2,"alt");
+    lua_rawset(L,-3);
 
   } else if (pst->type == pst_multiple) {
 
+	lua_pushstring(L,"mult");
     lua_newtable(L);
     dump_stringfield(L,"components",pst->u.alt.components);
-    lua_setfield(L,-2,"mult");
+    lua_rawset(L,-3);
 
   } else if (pst->type == pst_ligature) {
     
@@ -241,13 +248,13 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
 void
 handle_generic_pst (lua_State *L, struct generic_pst *pst) {
   struct generic_pst *next;
-  NESTED_TABLE(do_handle_generic_pst,pst);
+  NESTED_TABLE(do_handle_generic_pst,pst,6);
 }
 
 void
 do_handle_liglist (lua_State *L, struct liglist *ligofme) {
   if(ligofme->lig != NULL) {
-    lua_newtable(L);
+    lua_createtable(L,0,6);
     handle_generic_pst (L,ligofme->lig);
     lua_setfield(L,-2,"lig");    
   }
@@ -263,7 +270,7 @@ do_handle_liglist (lua_State *L, struct liglist *ligofme) {
 void
 handle_liglist (lua_State *L, struct liglist *ligofme) {
   struct liglist *next;
-  NESTED_TABLE(do_handle_liglist,ligofme);
+  NESTED_TABLE(do_handle_liglist,ligofme,3);
 }
 
 void 
@@ -272,7 +279,7 @@ handle_splinechar (lua_State *L,struct splinechar *glyph) {
   dump_stringfield(L,"name",        glyph->name);
   dump_intfield(L,"unicodeenc",     glyph->unicodeenc);
 
-  lua_newtable(L);
+  lua_createtable(L,4,0);
   lua_pushnumber(L,1);  lua_pushnumber(L,glyph->xmin); lua_rawset(L,-3);
   lua_pushnumber(L,2);  lua_pushnumber(L,glyph->ymin); lua_rawset(L,-3);
   lua_pushnumber(L,3);  lua_pushnumber(L,glyph->xmax); lua_rawset(L,-3);
@@ -412,7 +419,6 @@ char *panose_values_9[] = { "Any","No Fit", "Constant/Small",  "Constant/Standar
 
 void 
 handle_pfminfo (lua_State *L, struct pfminfo pfm) {
-  int i;
 
   dump_intfield (L, "pfmset",            pfm.pfmset);
   dump_intfield (L, "winascent_add",     pfm.winascent_add);
@@ -428,12 +434,11 @@ handle_pfminfo (lua_State *L, struct pfminfo pfm) {
   dump_intfield (L, "pfmfamily",         pfm.pfmfamily);
   dump_intfield (L, "weight",            pfm.weight);
   dump_intfield (L, "width",             pfm.width);
-
   dump_intfield (L, "avgwidth",          pfm.avgwidth);
   dump_intfield (L, "firstchar",         pfm.firstchar);
   dump_intfield (L, "lastchar",          pfm.lastchar);
 
-  lua_newtable(L);
+  lua_createtable(L,0,10);
   dump_enumfield(L,"familytype",      pfm.panose[0], panose_values_0);
   dump_enumfield(L,"serifstyle",      pfm.panose[1], panose_values_1);
   dump_enumfield(L,"weight",          pfm.panose[2], panose_values_2);
@@ -451,9 +456,7 @@ handle_pfminfo (lua_State *L, struct pfminfo pfm) {
   dump_intfield (L, "vlinegap",          pfm.vlinegap);
   dump_intfield (L, "hhead_ascent",      pfm.hhead_ascent);
   dump_intfield (L, "hhead_descent",     pfm.hhead_descent);
-
   dump_intfield (L, "hhead_descent",     pfm.hhead_descent);
-
   dump_intfield (L, "os2_typoascent",     pfm.os2_typoascent  );
   dump_intfield (L, "os2_typodescent",    pfm.os2_typodescent );
   dump_intfield (L, "os2_typolinegap",    pfm.os2_typolinegap );
@@ -469,10 +472,8 @@ handle_pfminfo (lua_State *L, struct pfminfo pfm) {
   dump_intfield (L, "os2_supyoff",        pfm.os2_supyoff	  );
   dump_intfield (L, "os2_strikeysize",    pfm.os2_strikeysize );
   dump_intfield (L, "os2_strikeypos",     pfm.os2_strikeypos  );
-	                                   
   dump_stringfield (L, "os2_vendor",      pfm.os2_vendor);
   dump_intfield (L, "os2_family_class",   pfm.os2_family_class);
-
   dump_intfield (L, "os2_xheight",        pfm.os2_xheight);
   dump_intfield (L, "os2_capheight",      pfm.os2_capheight);
   dump_intfield (L, "os2_defaultchar",    pfm.os2_defaultchar);
@@ -489,7 +490,7 @@ do_handle_enc (lua_State *L, struct enc *enc) {
   dump_intfield  (L,"char_cnt", enc->char_cnt);
 
   if (enc->char_cnt && enc->unicode != NULL) {
-	lua_newtable(L);
+	lua_createtable(L,enc->char_cnt,1);
 	for (i=0;i<enc->char_cnt;i++) {
 	  lua_pushnumber(L,i);
 	  lua_pushnumber(L,enc->unicode[i]);
@@ -499,7 +500,7 @@ do_handle_enc (lua_State *L, struct enc *enc) {
   }
 
   if (enc->char_cnt && enc->psnames != NULL) {
-	lua_newtable(L);
+	lua_createtable(L,enc->char_cnt,1);
 	for (i=0;i<enc->char_cnt;i++) {
 	  lua_pushnumber(L,i);
 	  lua_pushstring(L,enc->psnames[i]);
@@ -544,7 +545,7 @@ do_handle_enc (lua_State *L, struct enc *enc) {
 void 
 handle_enc (lua_State *L, struct enc *enc) {
   struct enc *next;
-  NESTED_TABLE(do_handle_enc,enc);
+  NESTED_TABLE(do_handle_enc,enc,24);
 }
 
 void 
@@ -562,12 +563,12 @@ handle_encmap (lua_State *L, struct encmap *map) {
     lua_setfield(L,-2,"remap");
   }
   if (map->encmax > 0 && map->map != NULL) {
-    lua_newtable(L);
+    lua_createtable(L,map->encmax,1);
     for (i=0;i<map->encmax;i++) {
       if (map->map[i]!=-1) {
-	lua_pushnumber(L,i);
-	lua_pushnumber(L,map->map[i]);
-	lua_rawset(L,-3);
+		lua_pushnumber(L,i);
+		lua_pushnumber(L,map->map[i]);
+		lua_rawset(L,-3);
       }
     }
     lua_setfield(L,-2,"map");
@@ -577,9 +578,9 @@ handle_encmap (lua_State *L, struct encmap *map) {
     lua_newtable(L);
     for (i=0;i<map->backmax;i++) {
       if (map->backmap[i]!=-1) {
-	lua_pushnumber(L,i);
-	lua_pushnumber(L,map->backmap[i]);
-	lua_rawset(L,-3);
+		lua_pushnumber(L,i);
+		lua_pushnumber(L,map->backmap[i]);
+		lua_rawset(L,-3);
       }
     }
     lua_setfield(L,-2,"backmap");
@@ -616,7 +617,7 @@ void
 do_handle_ttflangname (lua_State *L, struct ttflangname *names) {
   int k;
   dump_intfield(L,"lang", names->lang) ;
-  lua_newtable(L);
+  lua_createtable(L,0,ttf_namemax);
   for (k=0;k<ttf_namemax;k++) {
 	lua_pushstring(L,ttfnames_enum[k]);
 	lua_pushstring(L,names->names[k]);
@@ -629,7 +630,7 @@ do_handle_ttflangname (lua_State *L, struct ttflangname *names) {
 void 
 handle_ttflangname (lua_State *L, struct ttflangname *names) {
   struct ttflangname *next;
-  NESTED_TABLE(do_handle_ttflangname,names);
+  NESTED_TABLE(do_handle_ttflangname,names,2);
 }
 
 
@@ -652,7 +653,7 @@ do_handle_anchorclass (lua_State *L, struct anchorclass *anchor) {
 void
 handle_anchorclass (lua_State *L, struct anchorclass *anchor) {
   struct anchorclass *next;
-  NESTED_TABLE(do_handle_anchorclass,anchor);
+  NESTED_TABLE(do_handle_anchorclass,anchor,10);
 }
 
 void
@@ -672,7 +673,7 @@ do_handle_table_ordering (lua_State *L, struct table_ordering *orders) {
 void
 handle_table_ordering (lua_State *L, struct table_ordering *orders) {
   struct table_ordering *next;
-  NESTED_TABLE(do_handle_table_ordering,orders);
+  NESTED_TABLE(do_handle_table_ordering,orders,2);
 }
 
 void
@@ -688,7 +689,7 @@ do_handle_ttf_table  (lua_State *L, struct ttf_table *ttf_tab) {
 void
 handle_ttf_table  (lua_State *L, struct ttf_table *ttf_tab) {
   struct ttf_table *next;
-  NESTED_TABLE(do_handle_ttf_table,ttf_tab);
+  NESTED_TABLE(do_handle_ttf_table,ttf_tab,4);
 }
 
 void
@@ -732,14 +733,14 @@ do_handle_kernclass (lua_State *L, struct kernclass *kerns) {
   dump_intfield(L,"first_cnt",       kerns->first_cnt);
   dump_intfield(L,"second_cnt",      kerns->second_cnt);
 
-  lua_newtable(L);
+  lua_createtable(L,kerns->first_cnt,1);
   for (k=0;k<kerns->first_cnt;k++) {
     lua_pushnumber(L,(k+1));
     lua_pushstring(L,kerns->firsts[k]);
   }
   lua_setfield(L,-2,"firsts");
 
-  lua_newtable(L);
+  lua_createtable(L,kerns->second_cnt,1);
   for (k=0;k<kerns->second_cnt;k++) {
     lua_pushnumber(L,(k+1));
     lua_pushstring(L,kerns->seconds[k]);
@@ -750,7 +751,7 @@ do_handle_kernclass (lua_State *L, struct kernclass *kerns) {
   dump_intfield(L,"flags",           kerns->flags);
   dump_intfield(L,"kcid",            kerns->kcid); /* probably not needed */
 
-  lua_newtable(L);
+  lua_createtable(L,kerns->second_cnt*kerns->first_cnt,1);
   for (k=0;k<(kerns->second_cnt*kerns->first_cnt);k++) {
     lua_pushnumber(L,(k+1));
     lua_pushnumber(L,kerns->offsets[k]);
@@ -774,7 +775,7 @@ do_handle_kernclass (lua_State *L, struct kernclass *kerns) {
 void
 handle_kernclass (lua_State *L, struct kernclass *kerns) {
   struct kernclass *next;
-  NESTED_TABLE(do_handle_kernclass,kerns);
+  NESTED_TABLE(do_handle_kernclass,kerns,8);
 }
 
 
@@ -877,7 +878,7 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   DUMP_STRING_ARRAY("fclass",fpst->nccnt,fpst->fclass);
 
   if (fpst->rule_cnt>0) {
-    lua_newtable(L);
+    lua_createtable(L,fpst->rule_cnt,1);
     for (k=0;k<fpst->rule_cnt;k++) {
       lua_pushnumber(L,(k+1));
       lua_newtable(L);
@@ -892,7 +893,7 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
 void 
 handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   struct generic_fpst *next;
-  NESTED_TABLE(do_handle_generic_fpst,fpst);
+  NESTED_TABLE(do_handle_generic_fpst,fpst,14);
 }
 
 
@@ -905,7 +906,7 @@ do_handle_otfname (lua_State *L, struct otfname *oname) {
 void
 handle_otfname (lua_State *L, struct otfname *oname) {
   struct otfname *next;
-  NESTED_TABLE(do_handle_otfname,oname);
+  NESTED_TABLE(do_handle_otfname,oname,2);
 }
 
 void 
@@ -918,7 +919,7 @@ do_handle_macname (lua_State *L, struct macname *featname) {
 void 
 handle_macname (lua_State *L, struct macname *featname) {
   struct macname *next;
-  NESTED_TABLE(do_handle_macname,featname);
+  NESTED_TABLE(do_handle_macname,featname,3);
 }
 
 void 
@@ -936,7 +937,7 @@ do_handle_macsetting (lua_State *L, struct macsetting *settings) {
 void 
 handle_macsetting (lua_State *L, struct macsetting *settings) {
   struct macsetting *next;
-  NESTED_TABLE(do_handle_macsetting,settings);
+  NESTED_TABLE(do_handle_macsetting,settings,4);
 }
 
 
@@ -964,7 +965,7 @@ do_handle_macfeat (lua_State *L, struct macfeat *features) {
 void 
 handle_macfeat (lua_State *L, struct macfeat *features) {
   struct macfeat *next;
-  NESTED_TABLE(do_handle_macfeat,features);
+  NESTED_TABLE(do_handle_macfeat,features,6);
 }
 
 void free_splinefont(struct splinefont *sf) ; /* forward */
@@ -1007,46 +1008,16 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   dump_intfield(L,"glyphcnt",           sf->glyphcnt);
   dump_intfield(L,"glyphmax",           sf->glyphmax);
 
-  lua_newtable(L);
+  lua_createtable(L,sf->glyphcnt,0);
   for (k=0;k<sf->glyphcnt;k++) {
     lua_pushnumber(L,k);
-    lua_newtable(L);
+    lua_createtable(L,0,12);
     handle_splinechar(L,sf->glyphs[k]);
     lua_rawset(L,-3);
   }
   lua_setfield(L,-2,"glyphs");
 
   dump_intfield(L,"changed",                   sf->changed);
-  /*
-    dump_intfield(L,"changed_since_autosave",    sf->changed_since_autosave);
-    dump_intfield(L,"changed_since_xuidchanged", sf->changed_since_xuidchanged);
-    dump_intfield(L,"display_antialias",         sf->display_antialias);
-    dump_intfield(L,"display_bbsized",           sf->display_bbsized);
-    dump_intfield(L,"dotlesswarn",               sf->dotlesswarn);
-    dump_intfield(L,"multilayer",                sf->multilayer);
-    dump_intfield(L,"serifcheck",                sf->serifcheck);
-    dump_intfield(L,"onlybitmaps",               sf->onlybitmaps);
-    dump_intfield(L,"dupnamewarn",               sf->dupnamewarn);
-    dump_intfield(L,"backedup",                  sf->backedup);
-    dump_intfield(L,"encodingchanged",           sf->encodingchanged);
-    dump_intfield(L,"compacted",                 sf->compacted);
-    dump_intfield(L,"save_to_dir",               sf->save_to_dir);
-    dump_intfield(L,"issans",                    sf->issans);
-    dump_intfield(L,"isserif",                   sf->isserif);
-    dump_intfield(L,"loading_cid_map",           sf->loading_cid_map);
-    dump_intfield(L,"new",                       sf->new);
-    dump_intfield(L,"use_typo_metrics",          sf->use_typo_metrics);
-    dump_intfield(L,"desired_row_cnt",    sf->desired_row_cnt);
-    dump_intfield(L,"desired_col_cnt",    sf->desired_col_cnt);
-    dump_intfield(L,"tempuniqueid",         sf->tempuniqueid);
-    dump_intfield(L,"top_enc",              sf->top_enc);
-    dump_stringfield(L,"origname",        sf->origname);
-    dump_stringfield(L,"autosavename",    sf->autosavename);
-    dump_intfield(L,"display_size",       sf->display_size);
-  
-
-  */
-
   dump_intfield(L,"hasvmetrics",               sf->hasvmetrics);
   dump_intfield(L,"order2",                    sf->order2);
   dump_intfield(L,"strokedfont",               sf->strokedfont);
@@ -1075,7 +1046,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   
   dump_stringfield(L,"xuid",    sf->xuid);
   
-  lua_newtable(L);
+  lua_createtable(L,0,40);
   handle_pfminfo(L,sf->pfminfo);
   lua_setfield(L,-2,"pfminfo");
   
@@ -1085,7 +1056,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     lua_setfield(L,-2,"names");
   }
   
-  lua_newtable(L);
+  lua_createtable(L,0,4);
   dump_stringfield(L,"registry",    sf->cidregistry);
   dump_stringfield(L,"ordering",    sf->ordering);
   dump_intfield   (L,"version",     sf->cidversion);
@@ -1093,7 +1064,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   lua_setfield(L,-2,"cidinfo");
   
   if (sf->subfontcnt>0) {
-    lua_newtable(L);
+    lua_createtable(L,sf->subfontcnt,0);
     for (k=0;k<sf->subfontcnt;k++) {
       lua_pushnumber(L,(k+1));
       handle_splinefont(L,sf->subfonts[k]);
@@ -1185,7 +1156,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   dump_intfield(L,"tt_cur", sf->gentags.tt_cur);
   dump_intfield(L,"tt_max", sf->gentags.tt_max);
   if (sf->gentags.tagtype != NULL) {
-    lua_newtable(L);
+    lua_createtable(L,sf->gentags.tt_max,0);
     for (k=0;k<sf->gentags.tt_max;k++) {
       lua_pushnumber(L,(k+1));
       lua_newtable(L);
@@ -1271,7 +1242,7 @@ int
 make_ttf_table (lua_State *L, char *filename, scaled atsize, char *tt_type, int info_only) {
   FILE *ttf;
   SplineFont *sf;
-  int k;
+
   ttf = fopen(filename,"rb");
   if ( ttf == NULL ) {
 	lua_pushboolean(L,0);
@@ -1279,13 +1250,14 @@ make_ttf_table (lua_State *L, char *filename, scaled atsize, char *tt_type, int 
     sf = _SFReadTTF(ttf,0,0,filename,0,tt_type);
     fclose(ttf);
     if (sf!=NULL) {
-      lua_newtable(L);
       if(info_only) {
-	handle_splinefont_info(L,sf);
-	free_splinefont(sf);
+		lua_createtable(L,0,4);
+		handle_splinefont_info(L,sf);
+		free_splinefont(sf);
       } else {
-	handle_splinefont(L,sf);
-	free_splinefont(sf);
+		lua_createtable(L,0,60);
+		handle_splinefont(L,sf);
+		free_splinefont(sf);
       }
 
     } else {
@@ -1531,31 +1503,33 @@ void ASMFree(ASM *sm) {
 
 static void FPSTRuleContentsFree(struct fpst_rule *r, enum fpossub_format format) {
     int j;
-
+	
     switch ( format ) {
-      case pst_glyphs:
-	free(r->u.glyph.names);
-	free(r->u.glyph.back);
-	free(r->u.glyph.fore);
+	case pst_glyphs:
+	  free(r->u.glyph.names);
+	  free(r->u.glyph.back);
+	  free(r->u.glyph.fore);
+	  break;
+	case pst_class:
+	  free(r->u.class.nclasses);
+	  free(r->u.class.bclasses);
+	  free(r->u.class.fclasses);
       break;
-      case pst_class:
-	free(r->u.class.nclasses);
-	free(r->u.class.bclasses);
-	free(r->u.class.fclasses);
-      break;
-      case pst_reversecoverage:
-	free(r->u.rcoverage.replacements);
-      case pst_coverage:
-	for ( j=0 ; j<r->u.coverage.ncnt ; ++j )
-	    free(r->u.coverage.ncovers[j]);
-	free(r->u.coverage.ncovers);
-	for ( j=0 ; j<r->u.coverage.bcnt ; ++j )
-	    free(r->u.coverage.bcovers[j]);
-	free(r->u.coverage.bcovers);
-	for ( j=0 ; j<r->u.coverage.fcnt ; ++j )
-	    free(r->u.coverage.fcovers[j]);
-	free(r->u.coverage.fcovers);
-      break;
+	case pst_reversecoverage:
+	  free(r->u.rcoverage.replacements);
+	case pst_coverage:
+	  for ( j=0 ; j<r->u.coverage.ncnt ; ++j )
+		free(r->u.coverage.ncovers[j]);
+	  free(r->u.coverage.ncovers);
+	  for ( j=0 ; j<r->u.coverage.bcnt ; ++j )
+		free(r->u.coverage.bcovers[j]);
+	  free(r->u.coverage.bcovers);
+	  for ( j=0 ; j<r->u.coverage.fcnt ; ++j )
+		free(r->u.coverage.fcovers[j]);
+	  free(r->u.coverage.fcovers);
+	  break;
+	case pst_formatmax:
+	  break;
     }
     free(r->lookups);
 }
@@ -1693,7 +1667,7 @@ return;
 
 void
 free_splinefont(struct splinefont *sf) {
-  int k, i;
+  int k;
 
   /* struct mmset *mm;*/ /* TH: TODO (Adobe MM) */
   

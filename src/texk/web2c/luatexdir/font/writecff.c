@@ -2759,7 +2759,7 @@ write_fontfile (cff_font *cffont, char *fullname)
     fb_putchar (dest[i]);
 
   /*fprintf(stdout," (%i/%i)",offset,cffont->stream_size);*/
-
+  xfree(dest);
   return ;
 }
 
@@ -2975,6 +2975,7 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   cff_dict_set(cffont->topdict, "ROS", 2, 0.0);
 
   write_fontfile(cffont,fullname);
+  xfree(fullname);
   cff_close (cffont);
 
 }

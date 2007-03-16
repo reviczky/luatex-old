@@ -162,7 +162,6 @@ int get_command_id (char *s) {
 
 static int
 get_cur_cmd (lua_State *L) {
-  int i;
   int r = 0;
   if (lua_objlen(L,-1)==3) {
     r = 1;
@@ -225,12 +224,8 @@ get_cur_cs (lua_State *L) {
 void
 get_token_lua (void) {
   integer callback_id ; 
-  integer tok;
   integer p,q,r;
-  char *s;
-  unsigned j,l,clen;
   lua_State *L;
-  int n;
   L = Luas[0];
   if (cur_input.nofilter_field==true) {
     get_next();

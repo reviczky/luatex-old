@@ -3,6 +3,7 @@
 #include "luatex-api.h"
 #include <ptexlib.h>
 
+extern int do_run_callback (int special, char *values, va_list vl);
 
 static const char *const callbacknames[] = {
   "", /* empty on purpose */
@@ -238,13 +239,10 @@ int
 do_run_callback (int special, char *values, va_list vl) {
   int ret, len;
   int narg,nres;
-  size_t abslen;
-  FILE **readfile;
   char *s;
   char cs;
-  char *ss = NULL;
   int *bufloc;
-  int i,r;
+  char *ss = NULL;
   int retval = 0;
   lua_State *L = Luas[0];
   if (special==2) { /* copy the enclosing table */
