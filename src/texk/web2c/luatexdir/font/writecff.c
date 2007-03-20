@@ -2832,8 +2832,10 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   for (found = (glw_entry *) avl_t_first(&t, fd->gl_tree); 
        found != NULL; 
        found = (glw_entry *) avl_t_next(&t)) {
-    last_cid = found->id;
-    num_glyphs++;
+    if (found->id > last_cid)
+	  last_cid = found->id;
+	if (found->id!=0)
+	  num_glyphs++;
   }
   num_glyphs++;
 
@@ -2861,8 +2863,8 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
     avl_t_init(&t, fd->gl_tree);
     gid = 0;
     for (found = (glw_entry *) avl_t_first(&t, fd->gl_tree); 
-	 found != NULL; 
-	 found = (glw_entry *) avl_t_next(&t)) {
+		 found != NULL; 
+		 found = (glw_entry *) avl_t_next(&t)) {
       charset->data.glyphs[gid] = found->id;
       gid++;
     }
