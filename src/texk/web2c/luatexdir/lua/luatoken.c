@@ -50,7 +50,7 @@ command_item command_names[] =
     { "after_assignment", 0 , NULL },
     { "after_group", 0 , NULL },
     { "break_penalty", 0 , NULL  },
-    { "start_part", 0 , NULL },
+    { "start_par", 0 , NULL },
     { "ital_corr", 0 , NULL },
     { "accent", 0 , NULL },
     { "math_accent", 0 , NULL },
