@@ -6978,17 +6978,17 @@ function is_undefined_cs(cs:integer):boolean;
 begin
   is_undefined_cs := (cs=undefined_cs);
 end;
-function get_cs_text(cs:integer):str_number;
-begin if cs<hash_base then
-     if cs<null_cs then get_cs_text := cs-active_base
-     else  get_cs_text := "\csname\endcsname"
-  else if cs>=undefined_control_sequence then get_cs_text := ""
-  else if (text(cs)<0)or(text(cs)>=str_ptr) then get_cs_text := ""
-  else get_cs_text := text(cs);
-end;
 function get_equiv(prim:integer):halfword;
 begin
   get_equiv := equiv(prim);
+end;
+function get_cs_text(cs:integer):str_number;
+begin if cs<hash_base then
+    if cs<null_cs then get_cs_text := cs-active_base
+      else  get_cs_text := "\csname\endcsname"
+  else if cs>=undefined_control_sequence then get_cs_text := ""
+  else if (text(cs)<0)or(text(cs)>=str_ptr) then get_cs_text := ""
+  else get_cs_text := text(cs);
 end;
 function get_max_command:integer;
 begin

@@ -11,8 +11,11 @@ static int hash_base = 0;
 static int active_base = 0;
 static int null_cs = 0;
 
+#define  protected_token 0x1C00001
+
 #define  is_valid_token(L,i)  (lua_istable(L,i) && lua_objlen(L,i)==3)
 #define  get_token_cmd(L,i)  lua_rawgeti(L,i,1) 
+#define  get_token_chr(L,i)  lua_rawgeti(L,i,2) 
 #define  get_token_cs(L,i)   lua_rawgeti(L,i,3) 
 
 static int 
@@ -36,15 +39,37 @@ test_expandable (lua_State *L) {
   return 1;
 }
 
+
+static int 
+test_protected (lua_State *L) {
+  integer chr = -1;
+  if (is_valid_token(L,-1)) {
+    get_token_chr(L,-1);
+    if (lua_isnumber(L,-1)) {
+      chr = lua_tointeger(L,-1);
+    } else if (lua_isstring(L,-1)) {
+      chr = get_command_id((char *)lua_tostring(L,-1));
+    }
+    if (zmem[zmem[chr].hh.v.RH].hh.v.LH==protected_token) {
+      lua_pushboolean(L,1);
+    } else {
+      lua_pushboolean(L,0);
+    }
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
 static int 
 test_activechar (lua_State *L) {
   integer cmd = -1;
   if (is_valid_token(L,-1)) {
-    get_token_cs(L,-1);
+    get_token_chr(L,-1);
     if (lua_isnumber(L,-1)) {
       cmd = lua_tointeger(L,-1);
     }
-    if (cmd>0 && cmd<hash_base && cmd<null_cs) {
+    if (cmd>0 && cmd==protected_token) {
       lua_pushboolean(L,1);
     } else {
       lua_pushboolean(L,0);
@@ -76,6 +101,7 @@ run_get_command_name (lua_State *L) {
 static int
 run_get_csname_name (lua_State *L) {
   int cs,n;
+  integer chr = -1;
   if (is_valid_token(L,-1)) {
     get_token_cs(L,-1);
     if (lua_isnumber(L,-1)) {
@@ -204,6 +230,7 @@ static const struct luaL_reg tokenlib [] = {
   {"create",       run_build},
   {"is_expandable",test_expandable},
   {"is_activechar",test_activechar},
+  {"is_protected", test_protected},
   {"csname_id",    run_get_csname_id},
   {"csname_name",  run_get_csname_name},
   {"command_name", run_get_command_name},
