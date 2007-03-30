@@ -695,17 +695,19 @@ handle_ttf_table  (lua_State *L, struct ttf_table *ttf_tab) {
 void
 handle_script_record (lua_State *L, struct script_record *sl) {
   int k;
-  dump_tag(L,"script",          sl->script);
-  if (sl->langs != NULL) {
-    k = 0;
-    lua_newtable(L);
-    while (sl->langs[k] != 0) {
-      lua_pushnumber(L,(k+1));
-      lua_pushstring(L,make_tag_string(sl->langs[k]));
-      lua_rawset(L,-3);
-      k++;
-    }
-    lua_setfield(L,-2,"langs");
+  if (sl->script != 0) {
+	dump_tag(L,"script",          sl->script);
+	if (sl->langs != NULL) {
+	  k = 0;
+	  lua_newtable(L);
+	  while (sl->langs[k] != 0) {
+		lua_pushnumber(L,(k+1));
+		lua_pushstring(L,make_tag_string(sl->langs[k]));
+		lua_rawset(L,-3);
+		k++;
+	  }
+	  lua_setfield(L,-2,"langs");
+	}
   }
 }
 
@@ -736,14 +738,16 @@ do_handle_kernclass (lua_State *L, struct kernclass *kerns) {
   lua_createtable(L,kerns->first_cnt,1);
   for (k=0;k<kerns->first_cnt;k++) {
     lua_pushnumber(L,(k+1));
-    lua_pushstring(L,kerns->firsts[k]);
+	lua_pushstring(L,kerns->firsts[k]);
+	lua_rawset(L,-3);
   }
   lua_setfield(L,-2,"firsts");
 
   lua_createtable(L,kerns->second_cnt,1);
   for (k=0;k<kerns->second_cnt;k++) {
     lua_pushnumber(L,(k+1));
-    lua_pushstring(L,kerns->seconds[k]);
+	lua_pushstring(L,kerns->seconds[k]);
+	lua_rawset(L,-3);
   }
   lua_setfield(L,-2,"seconds");
 
