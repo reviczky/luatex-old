@@ -199,7 +199,7 @@ static int os_setenv (lua_State *L) {
 		return luaL_error(L, "unable to change environment");
 	  }
 	} else {
-#ifdef WIN32
+#if defined(WIN32) || defined(__sun__)
 	  value = xmalloc(strlen(key)+2);
 	  sprintf(value,"%s=",key);
 	  if (putenv(value)) {

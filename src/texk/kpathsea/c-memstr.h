@@ -57,6 +57,7 @@
 #define memcpy(to, from, len) bcopy ((from), (to), (len))
 #endif
 
+#if !defined(__sun__)
 /* Note that these functions should not be used. */
 #if !defined(HAVE_BCMP) && !defined(bcmp)
 #define bcmp(s1, s2, len) memcmp ((s1), (s2), (len))
@@ -76,6 +77,7 @@
 
 #if !defined(HAVE_RINDEX) && !defined(rindex)
 #define rindex(s, c) strrchr ((s), (c))
+#endif
 #endif
 
 #if !defined(HAVE_STRING_H)
