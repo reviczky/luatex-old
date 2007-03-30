@@ -178,7 +178,7 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
 
   dump_enumfield(L,"type",             pst->type, possub_type_enum); 
 
-  dump_intfield(L,"macfeature",        pst->macfeature); 
+  /*dump_intfield(L,"macfeature",        pst->macfeature); */
   dump_intfield(L,"flags",             pst->flags); 
   dump_tag(L,"tag",                    pst->tag); 
   dump_intfield(L,"script_lang_index", (pst->script_lang_index+1)); 
@@ -1180,12 +1180,13 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
 
   /* ASM *sm;	*/ /* TH: TODO (AAT-related)*/
  
+  /*
   if (sf->features != NULL) {
     lua_newtable(L);
     handle_macfeat(L,sf->features);
     lua_setfield(L,-2,"features");
   }
-  
+  */
   dump_stringfield(L,"chosenname",    sf->chosenname);
   
   /* struct mmset *mm;*/ /* TH: TODO (Adobe MM) */
