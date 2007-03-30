@@ -6986,7 +6986,6 @@ function get_cs_text(cs:integer):str_number;
 begin if cs<hash_base then
     if cs<null_cs then get_cs_text := cs-active_base
       else  get_cs_text := "\csname\endcsname"
-  else if cs>=undefined_control_sequence then get_cs_text := ""
   else if (text(cs)<0)or(text(cs)>=str_ptr) then get_cs_text := ""
   else get_cs_text := text(cs);
 end;
@@ -9024,7 +9023,7 @@ label restart, {go here to get the next input token}
 var k,l:0..buf_size; {an index into |buffer|}
 @!t:halfword; {a token}
 @!cat:0..15; {|cat_code(cur_chr)|, usually}
-@!c,@!cc,@!ccc,@!cccc:ASCII_code; {constituents of a possible expanded code}
+@!c,@!cc,@!ccc,@!cccc,@!ccccc,@!cccccc:ASCII_code; {constituents of a possible expanded code}
 @!d:2..7; {number of excess characters in an expanded code}
 @!inhibit_eol:boolean; {a way to end a pseudo file without trailing space}
 @!tab:integer; {a category table}
@@ -9172,29 +9171,53 @@ end
 @ Notice that a code like \.{\^\^8} becomes \.x if not followed by a hex digit.
 
 @d is_hex(#)==(((#>="0")and(#<="9"))or((#>="a")and(#<="f")))
-@d hex_to_cur_chr==
+@d hex_to_cur_chr==begin
   if c<="9" then cur_chr:=c-"0" @+else cur_chr:=c-"a"+10;
   if cc<="9" then cur_chr:=16*cur_chr+cc-"0"
-  else cur_chr:=16*cur_chr+cc-"a"+10
-@d long_hex_to_cur_chr==
-  if c<="9" then cur_chr:=c-"0" @+else cur_chr:=c-"a"+10;
-  if cc<="9" then cur_chr:=16*cur_chr+cc-"0"
-  else cur_chr:=16*cur_chr+cc-"a"+10;
-  if ccc<="9" then cur_chr:=16*cur_chr+ccc-"0"
+  else cur_chr:=16*cur_chr+cc-"a"+10; end
+@d four_hex_to_cur_chr==begin hex_to_cur_chr;
+  if ccc<="9" then cur_chr:=16*cur_chr+ccc-"0" 
   else cur_chr:=16*cur_chr+ccc-"a"+10;
   if cccc<="9" then cur_chr:=16*cur_chr+cccc-"0"
-  else cur_chr:=16*cur_chr+cccc-"a"+10
- 
+  else cur_chr:=16*cur_chr+cccc-"a"+10; end
+@d five_hex_to_cur_chr==begin four_hex_to_cur_chr;
+  if ccccc<="9" then cur_chr:=16*cur_chr+ccccc-"0"
+  else cur_chr:=16*cur_chr+ccccc-"a"+10; end
+@d six_hex_to_cur_chr==begin five_hex_to_cur_chr;
+  if cccccc<="9" then cur_chr:=16*cur_chr+cccccc-"0"
+  else cur_chr:=16*cur_chr+cccccc-"a"+10; end
 
 @<If this |sup_mark| starts an expanded character...@>=
 begin 
   if cur_chr=buffer[loc] then 
   if loc<limit then begin 
+    if (cur_chr=buffer[loc+1]) and (cur_chr=buffer[loc+2]) 
+        and (cur_chr=buffer[loc+3]) and (cur_chr=buffer[loc+4]) 
+        and ((loc+10)<=limit) then begin 
+      c:=buffer[loc+5];      cc:=buffer[loc+6]; 
+      ccc:=buffer[loc+7];    cccc:=buffer[loc+8]; 
+      ccccc:=buffer[loc+9];  cccccc:=buffer[loc+10];
+      if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) 
+         and is_hex(ccccc) and is_hex(cccccc) then begin
+        loc:=loc+11; six_hex_to_cur_chr;
+        goto reswitch;
+        end;
+      end;
+    if (cur_chr=buffer[loc+1]) and (cur_chr=buffer[loc+2]) 
+        and (cur_chr=buffer[loc+3]) and ((loc+8)<=limit) then begin 
+      c:=buffer[loc+4]; cc:=buffer[loc+5]; 
+      ccc:=buffer[loc+6]; cccc:=buffer[loc+7]; 
+      ccccc:=buffer[loc+8];
+      if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) and is_hex(ccccc) then begin
+        loc:=loc+9; five_hex_to_cur_chr;
+        goto reswitch;
+        end;
+      end;
     if (cur_chr=buffer[loc+1]) and (cur_chr=buffer[loc+2]) and ((loc+6)<=limit) then begin 
-      c:=buffer[loc+3]; cc:=buffer[loc+4]; 
+      c:=buffer[loc+3];   cc:=buffer[loc+4]; 
       ccc:=buffer[loc+5]; cccc:=buffer[loc+6];
       if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) then begin
-        loc:=loc+7; long_hex_to_cur_chr;
+        loc:=loc+7; four_hex_to_cur_chr;
         goto reswitch;
         end;
       end;
@@ -9249,7 +9272,7 @@ else  begin start_cs: k:=loc; cur_chr:=buffer_to_unichar(k);
     sequence is found, adjust |cur_cs| and |loc|, and
     |goto found|@>
   else @<If an expanded code is present, reduce it and |goto start_cs|@>;
-  cur_cs:=id_lookup(loc,1); incr(loc);
+  cur_cs:=id_lookup(loc,k-loc); loc:=k;
   end;
 found: cur_cmd:=eq_type(cur_cs); cur_chr:=equiv(cur_cs);
 if cur_cmd>=outer_call then check_outer_validity;
@@ -9263,64 +9286,88 @@ will store the corresponding code in |buffer[k-1]| and shift the rest of
 the buffer left two or three places.
 
 @<If an expanded...@>=
-begin if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then
-  begin if (cur_chr=buffer[k+1]) and (cur_chr=buffer[k+2]) and 
-           ((k+6)<=limit) then 
-     begin c:=buffer[k+3]; cc:=buffer[k+4]; 
-       ccc:=buffer[k+5]; cccc:=buffer[k+6];
-       if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) then 
-       begin d:=7; long_hex_to_cur_chr;
-       if cur_chr <= @"7F then
-         buffer[k-1]:= cur_chr
-       else if cur_chr<=@"7FF then begin
-         buffer[k-1]:=@"C0 + cur_chr div @"40;
-         incr(k); decr(d);
-         buffer[k-1]:=@"80 + cur_chr mod @"40;
-         end
-       else if cur_chr<=@"FFFF then begin
-         buffer[k-1]:=@"E0 + cur_chr div @"1000;
-         incr(k);  decr(d);
-         buffer[k-1]:=@"80 + (cur_chr mod @"1000) div @"40;
-         incr(k);  decr(d);
-         buffer[k-1]:=@"80 + (cur_chr mod @"1000) mod @"40;
-         end
-       else begin
-         buffer[k-1]:=@"F0 + cur_chr div @"40000;
-         incr(k);  decr(d);
-         buffer[k-1]:=@"80 + (cur_chr mod @"40000) div @"1000;
-         incr(k);  decr(d);
-         buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) div @"40;
-         incr(k);  decr(d);
-         buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) mod @"40;
+begin 
+  if buffer[k]=cur_chr then @+if cat=sup_mark then @+if k<limit then begin 
+     if (cur_chr=buffer[k+1]) and (cur_chr=buffer[k+2]) and ((k+6)<=limit) then begin 
+        d := 4;
+        if (cur_chr=buffer[k+3]) and ((k+8)<=limit) then begin
+           d := 5;
+           if (cur_chr=buffer[k+4]) and ((k+10)<=limit) then
+             d := 6;
+        end;
+        c   := buffer[k+d-1];
+        cc  := buffer[k+d];
+        ccc := buffer[k+d+1];
+        cccc:= buffer[k+d+2];
+        if d=6 then begin 
+          ccccc :=buffer[k+d+3]; 
+          cccccc:=buffer[k+d+4]; 
+          if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) 
+                       and is_hex(ccccc) and is_hex(cccccc) then
+            six_hex_to_cur_chr;
+          end 
+        else if d=5 then begin 
+          ccccc:=buffer[k+d+3]; 
+          if is_hex(c) and is_hex(cc) and is_hex(ccc) and 
+             is_hex(cccc) and is_hex(ccccc) then 
+               five_hex_to_cur_chr;
+          end 
+        else
+          if is_hex(c) and is_hex(cc) and is_hex(ccc) and is_hex(cccc) then
+            four_hex_to_cur_chr;
+        end
+     else begin
+       c:=buffer[k+1]; 
+       if c<@'200 then begin 
+         d:=1;
+         if is_hex(c) and (k+2)<=limit then begin 
+           cc:=buffer[k+2]; 
+           if is_hex(c) and is_hex(cc) then begin
+             d:=2;
+   	         hex_to_cur_chr;
+           end;
+         end 
+         else if c<@'100 then 
+           cur_chr:=c+@'100
+         else 
+           cur_chr:=c-@'100;
          end;
-	   l := k;
-       while l<=limit do
-         begin buffer[l]:=buffer[l+d]; incr(l);
-         end;
-       goto start_cs;
-       end
-     end
-     else begin 
-       c:=buffer[k+1]; @+if c<@'200 then {yes, one is indeed present}
-       begin 
-          d:=2;
-          if is_hex(c) then @+if k+2<=limit then
-            begin cc:=buffer[k+2]; @+if is_hex(cc) then incr(d);
-            end;
-          if d>2 then
-            begin hex_to_cur_chr; buffer[k-1]:=cur_chr;
-            end
-          else if c<@'100 then buffer[k-1]:=c+@'100
-          else buffer[k-1]:=c-@'100;
-          limit:=limit-d; first:=first-d;
-          while k<=limit do
-            begin buffer[k]:=buffer[k+d]; incr(k);
-            end;
-          goto start_cs;
-       end
-     end
+     end;
+     if d>2 then d:=2*d-1 else incr(d);
+     if cur_chr <= @"7F then
+        buffer[k-1]:= cur_chr
+     else if cur_chr<=@"7FF then begin
+        buffer[k-1]:=@"C0 + cur_chr div @"40;
+        incr(k); decr(d);
+        buffer[k-1]:=@"80 + cur_chr mod @"40;
+        end
+     else if cur_chr<=@"FFFF then begin
+        buffer[k-1]:=@"E0 + cur_chr div @"1000;
+        incr(k);  decr(d);
+        buffer[k-1]:=@"80 + (cur_chr mod @"1000) div @"40;
+        incr(k);  decr(d);
+        buffer[k-1]:=@"80 + (cur_chr mod @"1000) mod @"40;
+        end
+     else begin
+        buffer[k-1]:=@"F0 + cur_chr div @"40000;
+        incr(k);  decr(d);
+        buffer[k-1]:=@"80 + (cur_chr mod @"40000) div @"1000;
+        incr(k);  decr(d);
+        buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) div @"40;
+        incr(k);  decr(d);
+        buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) mod @"40;
+        end;
+     l := k;
+     {first := first - d;}
+     limit := limit - d;
+     while l<=limit do begin 
+        buffer[l]:=buffer[l+d]; 
+        incr(l);
+     end;
+     goto start_cs;
   end
 end
+
 
 @ @<Scan ahead in the buffer...@>=
 begin repeat cur_chr:=buffer_to_unichar(k); do_get_cat_code(cat); unicode_loc(k);
@@ -9335,7 +9382,7 @@ if cat<>letter then begin
 	if (cur_chr>@"7F) then
       decr(k);
   end;  {now |k| points to first nonletter}
-if k>loc+1 then {multiletter control sequence has been scanned}
+if k>loc then {multiletter control sequence has been scanned}
   begin cur_cs:=id_lookup(loc,k-loc); loc:=k; goto found;
   end;
 end
