@@ -362,7 +362,10 @@ lua_initialize(int ac, char **av)
 	putenv("LC_CTYPE=C");
 	putenv("LC_COLLATE=C");
 	putenv("LC_NUMERIC=C");
-	  
+
+	/* this is sometimes needed */
+	putenv("engine=luatex");
+
 	luainterpreter(0);
 	  
 	prepare_cmdline(Luas[0], argv, argc, lua_offset);	/* collect arguments */
