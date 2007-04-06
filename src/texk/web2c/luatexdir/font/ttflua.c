@@ -783,25 +783,25 @@ handle_kernclass (lua_State *L, struct kernclass *kerns) {
 }
 
 
-#define DUMP_NUMBER_ARRAY(s,cnt,item) {				\
-    if (cnt>0) {						\
-      int kk;							\
-      lua_newtable(L);						\
-      for (kk=0;kk<cnt;kk++) {					\
-	lua_pushnumber(L,(kk+1));				\
-	lua_pushnumber(L,item[kk]);				\
-	lua_rawset(L,-3); }					\
+#define DUMP_NUMBER_ARRAY(s,cnt,item) {					\
+    if (cnt>0 && item != NULL) {						\
+      int kk;											\
+      lua_newtable(L);									\
+      for (kk=0;kk<cnt;kk++) {							\
+		lua_pushnumber(L,(kk+1));						\
+		lua_pushnumber(L,item[kk]);						\
+		lua_rawset(L,-3); }								\
       lua_setfield(L,-2,s); } }
 
 
 #define DUMP_STRING_ARRAY(s,cnt,item) {				\
-    if (cnt>0) {						\
-      int kk;							\
-      lua_newtable(L);						\
-      for (kk=0;kk<cnt;kk++) {					\
-	lua_pushnumber(L,(kk+1));				\
-	lua_pushstring(L,item[kk]);				\
-	lua_rawset(L,-3); }					\
+    if (cnt>0 && item!=NULL) {						\
+      int kk;										\
+      lua_newtable(L);								\
+      for (kk=0;kk<cnt;kk++) {						\
+		lua_pushnumber(L,(kk+1));					\
+		lua_pushstring(L,item[kk]);					\
+		lua_rawset(L,-3); }							\
       lua_setfield(L,-2,s); } }
 
 
@@ -1005,6 +1005,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   dump_floatfield(L,"upos",             sf->upos);
   dump_floatfield(L,"uwidth",           sf->uwidth);
   
+  dump_intfield(L,"units_per_em",       sf->units_per_em);
   dump_intfield(L,"ascent",             sf->ascent);
   dump_intfield(L,"descent",            sf->descent);
   dump_intfield(L,"vertical_origin",    sf->vertical_origin);
