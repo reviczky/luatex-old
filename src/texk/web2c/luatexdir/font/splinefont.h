@@ -979,7 +979,7 @@ typedef struct splinefont {
     char *defbasefilename;
     char *version;
     real italicangle, upos, uwidth;		/* In font info */
-    int ascent, descent;
+    int ascent, descent, units_per_em;
     int vertical_origin;			/* height of vertical origin in character coordinate system */
     int uniqueid;				/* Not copied when reading in!!!! */
     int glyphcnt, glyphmax;			/* allocated size of glyphs array */

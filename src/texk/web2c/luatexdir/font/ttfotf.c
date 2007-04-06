@@ -5405,6 +5405,7 @@ static SplineFont *SFFillFromTTF(struct ttfinfo *info) {
 
     
     sf = SplineFontEmpty();
+	sf->units_per_em = info->emsize;
     sf->display_size = -default_fv_font_size;
     sf->display_antialias = default_fv_antialias;
     sf->fontname = info->fontname;
