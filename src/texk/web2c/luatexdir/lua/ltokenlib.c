@@ -143,7 +143,7 @@ run_get_csname_id (lua_State *L) {
 }
 
 
-static void 
+void 
 make_token_table (lua_State *L, int cmd, int chr, int cs) {
   lua_createtable(L,3,0);
   lua_pushnumber(L,cmd);

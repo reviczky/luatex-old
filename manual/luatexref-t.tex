@@ -1634,15 +1634,12 @@ routines, but that needs lots of adjustments in the web source because
 \subsubsection{\callback{define_font}}
 
 \startfunctioncall
-     function (string <name>, string <area>, number <size>)
+     function (string <name>, number <size>, number <id>)
        return table <font>
      end 
 \stopfunctioncall
 
 The string \type{<name>} is the filename part of the font
-specification, as given by the user.
-
-The string \type{<area>} is the areaname part of the font
 specification, as given by the user.
 
 The number \type{<size>} is a bit special: 

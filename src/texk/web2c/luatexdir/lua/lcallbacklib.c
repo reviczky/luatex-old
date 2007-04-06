@@ -29,6 +29,7 @@ static const char *const callbacknames[] = {
   "start_run",          "stop_run",
   "define_font",
   "token_filter",
+  "linebreak_filter",
   NULL };
 
 typedef struct {

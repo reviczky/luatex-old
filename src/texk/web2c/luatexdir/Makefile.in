@@ -89,6 +89,8 @@ lua/luainit.o \
 lua/luastuff.o \
 lua/luatex.o \
 lua/luatoken.o \
+lua/luanode.o \
+lua/luawhatsits.o \
 managed-sa.o \
 mathcodes.o \
 textcodes.o \
@@ -102,6 +104,10 @@ pdftosrc.o: $(srcdir)/pdftosrc.cc
 font/texfont.o: font/texfont.h
 
 font/tfmofm.o: font/texfont.h
+
+lua/luanode.o: lua/nodes.h
+
+lua/luawhatsits.o: lua/nodes.h
 
 libpdf.a: $(OBJS)
 	rm -f $@

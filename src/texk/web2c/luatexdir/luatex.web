@@ -4964,7 +4964,7 @@ margin_kern_node: begin
     fast_get_avail(margin_char(r));
     font(margin_char(r)) := font(margin_char(p));
     character(margin_char(r)) := character(margin_char(p));
-    words := small_node_size;
+    words := margin_kern_node_size;
   end;
 ligature_node: begin r:=get_node(small_node_size);
   mem[lig_char(r)]:=mem[lig_char(p)]; {copy |font| and |character|}
@@ -6106,8 +6106,9 @@ that will be defined later.
 @d no_local_dirs_code=58
 @d level_local_dir_code=59
 @d luastartup_id_code=60
-@d cat_code_table_code=61
-@d tex_int_pars=62 {total number of \.{\\TeX} + Aleph integer parameters}
+@d disable_ligkern_code=61
+@d cat_code_table_code=62
+@d tex_int_pars=63 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d dir_base=int_base+tex_int_pars
 @d page_direction_code=0
@@ -6233,6 +6234,7 @@ that will be defined later.
 @d holding_inserts==int_par(holding_inserts_code)
 @d error_context_lines==int_par(error_context_lines_code)
 @d luastartup_id==int_par(luastartup_id_code)
+@d disable_ligkern==int_par(disable_ligkern_code)
 @d cat_code_table==int_par(cat_code_table_code)
 @#
 @d pdf_adjust_spacing   == int_par(pdf_adjust_spacing_code)
@@ -6337,6 +6339,7 @@ right_hyphen_min_code:print_esc("righthyphenmin");
 holding_inserts_code:print_esc("holdinginserts");
 error_context_lines_code:print_esc("errorcontextlines");
 luastartup_id_code:print_esc("luastartup");
+disable_ligkern_code:print_esc("noligkerns");
 cat_code_table_code:print_esc("catcodetable");
 @#
 local_inter_line_penalty_code: print_esc("localinterlinepenalty");
@@ -6496,6 +6499,8 @@ primitive("errorcontextlines",assign_int,int_base+error_context_lines_code);@/
 @!@:error_context_lines_}{\.{\\errorcontextlines} primitive@>
 primitive("luastartup",assign_int,int_base+luastartup_id_code);@/
 @!@:luastartup_id_}{\.{\\luastartup} primitive@>
+primitive("noligkerns",assign_int,int_base+disable_ligkern_code);@/
+@!@:disable_ligkern_}{\.{\\noligkerns} primitive@>
 primitive("catcodetable",assign_int,int_base+cat_code_table_code);@/
 @!@:cat_code_table_}{\.{\\catcodetable} primitive@>
 primitive("pdfoutput",assign_int,int_base+pdf_output_code);@/
@@ -11534,7 +11539,7 @@ if mag<>1000 then
 end
 
 @ The necessary conversion factors can all be specified exactly as
-fractions whose numerator and denominator are 65535 or less.
+fractions whose numerator and denominator add to 32768 or less.
 According to the definitions here, $\rm2660\,dd\approx1000.33297\,mm$;
 this agrees well with the value $\rm1000.333\,mm$ cited by Bosshard
 @^Bosshard, Hans Rudolf@>
@@ -11542,7 +11547,12 @@ in {\sl Technische Grundlagen zur Satzherstellung\/} (Bern, 1980).
 The Didot point has been newly standardized in 1978;
 it's now exactly $\rm 1\,nd=0.375\,mm$.
 Conversion uses the equation $0.375=21681/20320/72.27\cdot25.4$.
-The new Cicero follows the new Didot point; $\rm 1\,nc=12\,nd$.
+The new Cicero follows the new Didot point; $\rm 1\,nc=12\,nd$.  These
+would lead to the ratios $21681/20320$ and $65043/5080$, respectively.
+The closest approximations supported by the algorithm would be
+$11183/10481$ and $1370/107$.  In order to maintain the
+relation $\rm 1\,nc=12\nd$, we pick the ratio $685/642$ for $\rm nc$,
+however.
 
 @d set_conversion_end(#)== denom:=#; end
 @d set_conversion(#)==@+begin num:=#; set_conversion_end
@@ -11562,9 +11572,9 @@ else if scan_keyword("dd") then set_conversion(1238)(1157)
 @.dd@>
 else if scan_keyword("cc") then set_conversion(14856)(1157)
 @.cc@>
-else if scan_keyword("nd") then set_conversion(21681)(20320)
+else if scan_keyword("nd") then set_conversion(685)(642)
 @.nd@>
-else if scan_keyword("nc") then set_conversion(65043)(5080)
+else if scan_keyword("nc") then set_conversion(1370)(107)
 @.nc@>
 else if scan_keyword("sp") then goto done
 @.sp@>
@@ -23404,6 +23414,7 @@ if math_type(subscr(q))=empty then if math_type(supscr(q))=empty then
     if fam(nucleus(p))=fam(nucleus(q)) then
       begin math_type(nucleus(q)):=math_text_char;
       fetch(nucleus(q)); a:=cur_c;
+      if disable_ligkern=0 then
       if (has_kern(cur_f,a))or(has_lig(cur_f,a)) then
         begin cur_c:=character(nucleus(p));
           @<If character |a| has a kern with |cur_c|, attach
@@ -24724,6 +24735,7 @@ procedure line_break(@!d:boolean);
 label done,done1,done2,done3,done4,done5,continue;
 var @<Local variables for line breaking@>@;
 begin pack_begin_line:=mode_line; {this is for over/underfull box messages}
+@<Check for a pre-break filter callback@>;
 @<Get ready to start line breaking@>;
 @<Find optimal breakpoints@>;
 @<Break the paragraph at the chosen breakpoints, justify the resulting lines
@@ -24758,10 +24770,25 @@ last_line_fill:=link(tail);
 init_cur_lang:=prev_graf mod @'200000;
 init_l_hyf:=prev_graf div @'20000000;
 init_r_hyf:=(prev_graf div @'200000) mod @'100;
-paragraph_dir:=local_par_dir(link(head));
+if (not is_char_node(head)) and type(head)=whatsit_node 
+   { and subtype(head)=local_par_node } then 
+  paragraph_dir:=local_par_dir(link(head)) 
+else
+  paragraph_dir:=0;
 line_break_dir:=paragraph_dir;
 @<DIR: Initialize |dir_ptr| for |line_break|@>;
 pop_nest;
+
+@ It is possible that the user wants to interfere at this point.  
+
+If you want to modify the nodes in a paragraph, this is probably the
+cleanest place to do so, just before any really interesting things
+have happened with it. 
+
+The details of |pre_linebreak_filter| are still undecided.
+
+@<Check for a pre-break filter callback@>=
+link(head):=pre_linebreak_filter(link(head))
 
 @ When looking for optimal line breaks, \TeX\ creates a ``break node'' for
 each break that is {\sl feasible}, in the sense that there is a way to end
@@ -27170,6 +27197,7 @@ else
   k:=cur_l;
 begin
   if cur_rh<>non_boundarychar then test_char:=cur_rh@+else test_char:=cur_r;
+  if disable_ligkern=0 then
   if has_lig(hf,k) then begin
 	lig:=get_ligature(hf,k,test_char);
     if is_ligature(lig) then begin
@@ -29722,15 +29750,16 @@ lig/kern commands were investigated for every such character.
 tmp_k1 := get_auto_kern(main_f, cur_l, cur_r);
 @<If |tmp_k1| is not null then append that kern@>;
 if new_right_ghost or left_ghost then goto main_loop_wrapup;
-if (not has_lig(main_f,cur_l))and 
-   (not has_kern(main_f,cur_l))then goto main_loop_wrapup;
+if disable_ligkern<>0 or 
+   ((not has_lig(main_f,cur_l))and 
+    (not has_kern(main_f,cur_l))) then goto main_loop_wrapup;
 main_lig_loop+1:
-if has_lig(main_f,cur_l) then begin
+if disable_ligkern=0 and has_lig(main_f,cur_l) then begin
   lig:=get_ligature(main_f,cur_l,cur_r);
   if is_ligature(lig) then 
     @<Do ligature command and goto somewhere@>;
   end;
-if has_kern(main_f,cur_l) then begin
+if disable_ligkern=0 and has_kern(main_f,cur_l) then begin
   main_k:=get_kern(main_f,cur_l,cur_r);
   if main_k<>0 then begin 
     wrapup(rt_hit);
