@@ -4,7 +4,11 @@
 #include <ptexlib.h>
 #include "nodes.h"
 
-#define append_node(t,a)   { if (a) { link(a) = null; link(t) = a;  t = a;  } }
+extern void tokenlist_to_lua(lua_State *L, halfword p) ;
+extern halfword tokenlist_from_lua(lua_State *L) ;
+
+
+#define append_node(t,a)   { if (a!=null) { link(a) = null; link(t) = a;  t = a;  } }
 #define small_node_size 2
 
 
@@ -84,7 +88,7 @@ ligature_node_to_lua (lua_State *L, halfword p) {
 
 halfword 
 glyph_node_from_lua (lua_State *L) {
-  int f,c,t;
+  int f,c,t,l;
   halfword p;
   int i = 2;
   lua_rawgeti(L,-1,i++);
@@ -98,7 +102,6 @@ glyph_node_from_lua (lua_State *L) {
   lua_pop(L,1);
   if (t==0) { /* char node */
     p = get_avail();
-    link(p) = null;
     character(p) = c;
     font(p) = f;
   } else {
@@ -108,6 +111,7 @@ glyph_node_from_lua (lua_State *L) {
     p = new_ligature(f,c,l);
     subtype(p) = (t-1);
   }
+  link(p) = null;
   return p;
 }
 
@@ -197,10 +201,12 @@ list_node_to_lua(lua_State *L, int list_type_, halfword p) {
   lua_rawseti(L,-2,i); i++;
   lua_pushnumber(L,shift_amount(p));
   lua_rawseti(L,-2,i); i++;
-  
-  nodelist_to_lua(L,list_ptr(p));
+  if (list_ptr(p)!=null) {
+    nodelist_to_lua(L,list_ptr(p));
+  } else {
+    lua_pushnil(L);
+  }
   lua_rawseti(L,-2,i); i++;
-  
   lua_pushnumber(L,glue_order(p));
   lua_rawseti(L,-2,i); i++;
   lua_pushnumber(L,glue_sign(p));
@@ -247,6 +253,7 @@ list_node_from_lua(lua_State *L, int list_type_) {
   lua_rawgeti(L,-1,i++);
   box_dir(p) = lua_tonumber(L,-1);
   lua_pop(L,1);
+
   return p;
 }
 
@@ -306,37 +313,31 @@ glue_node_from_lua (lua_State *L) {
   q = new_spec(0); /* 0 == the null glue at zmem[0] */
   n = new_glue(q);
   lua_rawgeti(L,-1,2);
-  c = lua_tonumber(L,-1);
+  subtype(n) = lua_tonumber(L,-1);
   lua_pop(L,1);
-  subtype(n) = c;
 
   lua_rawgeti(L,-1,3);
-  c = lua_tonumber(L,-1);
+  width(q) = lua_tonumber(L,-1);
   lua_pop(L,1);
-  width(q) = c;
 
   lua_rawgeti(L,-1,4);
-  c = lua_tonumber(L,-1);
+  stretch(q) = lua_tonumber(L,-1);
   lua_pop(L,1);
-  stretch(q) = c;
 
   lua_rawgeti(L,-1,5);
-  c = lua_tonumber(L,-1);
+  stretch_order(q) = lua_tonumber(L,-1);
   lua_pop(L,1);
-  stretch_order(q) = c;
 
   lua_rawgeti(L,-1,6);
-  c = lua_tonumber(L,-1);
+  shrink(q) = lua_tonumber(L,-1);
   lua_pop(L,1);
-  shrink(q) = c;
 
   lua_rawgeti(L,-1,7);
-  c = lua_tonumber(L,-1);
+  shrink_order(q) = lua_tonumber(L,-1);
   lua_pop(L,1);
-  shrink_order(q) = c;
 
   glue_ptr(n) = q;
-
+  leader_ptr(n) = null;
   /* nodelist_to_lua(L,leader_ptr(p));*/
   lua_rawgeti(L,-1,8);
   if (lua_istable(L,-1)) {
@@ -390,8 +391,6 @@ margin_kern_node_to_lua (lua_State *L, halfword p) {
 }
 
 
-extern void tokenlist_to_lua(lua_State *L, halfword p) ;
-
 void 
 mark_node_to_lua (lua_State *L, halfword p) {
   int i = 1;
@@ -402,7 +401,7 @@ mark_node_to_lua (lua_State *L, halfword p) {
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,mark_class(p));
   lua_rawseti(L,-2,i++);
-  tokenlist_to_lua(L,mark_ptr(p));
+  tokenlist_to_lua(L,link(mark_ptr(p)));
   lua_rawseti(L,-2,i++);
 }
 
@@ -410,6 +409,7 @@ halfword
 mark_node_from_lua (lua_State *L) {
   halfword p;
   p = get_node(small_node_size);
+  type(p) = mark_node;
   lua_rawgeti(L,-1,2);
   subtype(p) = lua_tonumber(L,-1);
   lua_pop(L,1);
@@ -463,6 +463,7 @@ halfword
 adjust_node_from_lua  (lua_State *L) {
   halfword p;
   p = get_node(small_node_size);
+  type(p)= adjust_node;
   lua_rawgeti(L,-1,2);
   subtype(p) = lua_tonumber(L,-1);
   lua_pop(L,1);
@@ -476,7 +477,6 @@ adjust_node_from_lua  (lua_State *L) {
 void 
 nodelist_to_lua (lua_State *L, halfword t) {
   int i = 0;
-  int f = 0;
   lua_newtable(L);
   if (t == null || t == 0)
     return;
@@ -489,7 +489,7 @@ nodelist_to_lua (lua_State *L, halfword t) {
       switch (type(t)) {
       case hlist_node:
       case vlist_node:
-	list_node_to_lua(L,hlist_node,t); 
+	list_node_to_lua(L,type(t),t); 
 	lua_rawseti(L,-2,++i); 
 	break;
       case rule_node: 
@@ -555,16 +555,15 @@ halfword
 nodelist_from_lua (lua_State *L) {
   char *s; 
   int i; /* general counter */
-  int f; /* current font */
   int t, u, head;
   if (!lua_istable(L,-1)) {
-    return 0;
+    return null;
   }
   t = get_avail();
   link(t) = null;
   head = t;
   lua_pushnil(L);
-  while (lua_next(L,-2) != 0) {
+  while (lua_next(L,-2) != 0) {    
     if (lua_istable(L,-1)) {
       lua_rawgeti(L,-1,1);
       if (lua_isstring(L,-1)) { /* it is a node */
@@ -670,8 +669,7 @@ pre_linebreak_filter (halfword head_node) {
     lua_pop(L,1); /* result */
     lua_pop(L,1); /* callback container table */
     /* destroy the old one */
-    /* return head_node;*/
-    show_node_list(ret);
+    flush_node_list(head_node);
     return ret;
   } 
   lua_pop(L,1); /* result */
