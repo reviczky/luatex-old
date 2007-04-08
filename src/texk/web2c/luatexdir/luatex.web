@@ -9719,28 +9719,36 @@ end
 
 @ The \.{\\primitive} handling. If the primitive meaning of the next 
 token is an expandable command, it suffices to replace the current
-token with the primitive one and restart |expand|/
+token with the primitive one and restart |expand|. 
 
 Otherwise, the token we just read has to be pushed back, as well
 as a token matching the internal form of \.{\\primitive}, that is
 sneaked in as an alternate form of |ignore_spaces|.
 @!@:primitive_}{\.{\\primitive} primitive (internalized)@>
 
-Simply pushing back a token that matches the correct internal command
-does not work, because approach would not survive roundtripping to a
-temporary file.
+An implementation problem surfaces: There really is no |cur_cs|
+attached to the inserted primitive command, so it is safer to set
+|cur_cs| to zero.  |cur_tok| has a similar problem. And for the
+non-expanded branch, simply pushing back a token that matches the
+correct internal command does not work, because that approach would
+not survive roundtripping to a temporary file or even a token list.
+
+In a next version, it would be smart to create |frozen_| versions of
+all the primitives.  Then, this problem would not happen, at the
+expense of a few hundred extra control sequences.
 
 @<Implement \.{\\primitive}@>=
 begin save_scanner_status := scanner_status; scanner_status:=normal;
 get_token; scanner_status:=save_scanner_status;
 cur_cs := prim_lookup(text(cur_cs));
 if cur_cs<>undefined_primitive then begin
-  if cur_cmd>max_command then begin
-    cur_cmd := get_prim_eq_type(cur_cs);
+  t:=get_prim_eq_type(cur_cs);
+  if t>max_command then begin
+    cur_cmd := t;
     cur_chr := get_prim_equiv(cur_cs);
-    cur_tok := (cur_cmd*@'400)+cur_chr;
+    cur_tok := (cur_cmd*string_offset)+cur_chr;
     cur_cs  := 0;
-	goto reswitch;
+    goto reswitch;
     end 
   else begin
     back_input; { now |loc| and |start| point to a one-item list }
@@ -24788,7 +24796,9 @@ have happened with it.
 The details of |pre_linebreak_filter| are still undecided.
 
 @<Check for a pre-break filter callback@>=
-link(head):=pre_linebreak_filter(link(head))
+link(head):=pre_linebreak_filter(link(head));
+tail := link(head);
+while link(tail)<>null do begin tail:=link(tail); end
 
 @ When looking for optimal line breaks, \TeX\ creates a ``break node'' for
 each break that is {\sl feasible}, in the sense that there is a way to end
@@ -29904,6 +29914,7 @@ any_mode(ignore_spaces): begin
     if cur_cs<>undefined_primitive then begin
       cur_cmd := get_prim_eq_type(cur_cs);
       cur_chr := get_prim_equiv(cur_cs);
+      cur_tok := (cur_cmd*string_offset)+cur_chr;
       goto reswitch;
       end;
     end;
