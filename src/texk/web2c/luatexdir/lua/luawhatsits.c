@@ -9,6 +9,13 @@
 #define pdf_depth(a)         zmem[(a) + 3].cint
 #define pdf_ximage_objnum(a) info((a)+4)
 
+extern void tokenlist_to_lua(lua_State *L, halfword p) ;
+extern halfword tokenlist_from_lua(lua_State *L) ;
+
+#define local_par_size 8 
+#define write_node_size 2 
+#define pdf_refximage_node_size 5
+
 char *whatsit_node_names[] = {
   "open",
   "write",
@@ -92,7 +99,6 @@ whatsit_local_par_to_lua (lua_State *L, halfword p) {
   lua_rawseti(L,-2,i++);
 }
 
-#define local_par_size 8 
 
 halfword 
 whatsit_local_par_from_lua (lua_State *L) {
@@ -122,8 +128,6 @@ whatsit_local_par_from_lua (lua_State *L) {
   return p;
 }
 
-
-
 void
 whatsit_pdf_literal_to_lua (lua_State *L, halfword p) {
   int i = 1;
@@ -134,9 +138,27 @@ whatsit_pdf_literal_to_lua (lua_State *L, halfword p) {
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,pdf_literal_mode(p));
   lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,pdf_literal_data(p));
+  tokenlist_to_lua(L,link(pdf_literal_data(p)));
   lua_rawseti(L,-2,i++);
 }
+
+halfword 
+whatsit_pdf_literal_from_lua (lua_State *L) {
+  int p;
+  int i = 3;
+  p          = get_node(write_node_size);
+  type(p)    = whatsit_node;
+  subtype(p) = pdf_literal_node; 
+  link(p)    = null;
+  lua_rawgeti(L,-1,i++);
+  pdf_literal_mode(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,i++);
+  pdf_literal_data(p) = tokenlist_from_lua(L);
+  lua_pop(L,1);
+  return p;
+}
+
 
 void
 whatsit_special_to_lua (lua_State *L, halfword p) {
@@ -146,10 +168,25 @@ whatsit_special_to_lua (lua_State *L, halfword p) {
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,subtype(p));
   lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,write_tokens(p));
+  tokenlist_to_lua(L,link(write_tokens(p)));
   lua_rawseti(L,-2,i++);
 }
 
+
+halfword 
+whatsit_special_from_lua (lua_State *L) {
+  int p;
+  int i = 3;
+  p          = get_node(write_node_size);
+  type(p)    = whatsit_node;
+  subtype(p) = special_node; 
+  link(p)    = null;
+  write_stream(p) = null;
+  lua_rawgeti(L,-1,i++);
+  write_tokens(p) = tokenlist_from_lua(L);
+  lua_pop(L,1);
+  return p;
+}
 
 void
 whatsit_write_to_lua (lua_State *L, halfword p) {
@@ -161,9 +198,27 @@ whatsit_write_to_lua (lua_State *L, halfword p) {
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,write_stream(p));
   lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,write_tokens(p));
+  tokenlist_to_lua(L,link(write_tokens(p)));
   lua_rawseti(L,-2,i++);
 }
+
+halfword 
+whatsit_write_from_lua (lua_State *L) {
+  int p;
+  int i = 3;
+  p = get_node(write_node_size);
+  type(p)=whatsit_node;
+  subtype(p)=write_node; 
+  link(p)=null;
+  lua_rawgeti(L,-1,i++);
+  write_stream(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,i++);
+  write_tokens(p) = tokenlist_from_lua(L);
+  lua_pop(L,1);
+  return p;
+}
+
 
 void
 whatsit_pdf_refximage_to_lua (lua_State *L, halfword p) {
@@ -184,6 +239,30 @@ whatsit_pdf_refximage_to_lua (lua_State *L, halfword p) {
 }
 
 halfword 
+whatsit_pdf_refximage_from_lua (lua_State *L) {
+  int p;
+  int i = 3;
+  p          = get_node(pdf_refximage_node_size);
+  type(p)    = whatsit_node;
+  subtype(p) = pdf_refximage_node; 
+  link(p)    = null;
+  lua_rawgeti(L,-1,i++);
+  pdf_width(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,i++);
+  pdf_height(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,i++);
+  pdf_depth(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,i++);
+  pdf_ximage_objnum(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  return p;
+}
+
+
+halfword 
 whatsit_node_from_lua (lua_State *L) {
   int t;
   halfword p = null;
@@ -194,8 +273,20 @@ whatsit_node_from_lua (lua_State *L) {
   case local_par_node:   
     p = whatsit_local_par_from_lua(L); 
     break;
+  case pdf_literal_node:   
+    p = whatsit_pdf_literal_from_lua(L); 
+    break;
+  case write_node:   
+    p = whatsit_write_from_lua(L); 
+    break;
+  case special_node:   
+    p = whatsit_write_from_lua(L); 
+    break;
+  case pdf_refximage_node:   
+    p = whatsit_pdf_refximage_from_lua(L); 
+    break;
   default:
-    fprintf(stdout,"<whatsits not fully supported yet (%s)>\n",whatsit_node_names[t]);
+    fprintf(stdout,"<reading whatsits not fully supported yet (%d)>\n",t);
   }
   return p;
 }
@@ -203,8 +294,9 @@ whatsit_node_from_lua (lua_State *L) {
 
 void 
 whatsit_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
+
   luaL_checkstack(L,2,"out of stack space");
+
   switch(subtype(p)) {
   case local_par_node:   
 	whatsit_local_par_to_lua(L,p); 
@@ -222,7 +314,7 @@ whatsit_node_to_lua (lua_State *L, halfword p) {
 	whatsit_pdf_refximage_to_lua(L,p);
 	break;
   default:
-    fprintf(stdout,"<whatsits not fully supported yet (%s)>\n",whatsit_node_names[subtype(p)]);
+    fprintf(stdout,"<writing whatsits not fully supported yet (%d)>\n",subtype(p));
   }
 }
 
