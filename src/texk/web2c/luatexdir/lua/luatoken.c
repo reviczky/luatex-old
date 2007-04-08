@@ -11,7 +11,13 @@
 #define info(a)    zmem[(a)].hh.v.LH 
 #define link(a)    zmem[(a)].hh.v.RH 
 
+#define inserted 4
+
 extern void make_token_table (lua_State *L, int cmd, int chr, int cs);
+
+#define store_new_token(a) { q=get_avail(); link(p)=q; info(q)=(a); p=q; }
+#define free_avail(a)      { link((a))=avail; avail=(a); decr(dyn_used); }
+
 
 command_item command_names[] = 
   { { "relax", 0, NULL },
@@ -199,10 +205,11 @@ token_from_lua (lua_State *L) {
     lua_rawgeti(L,-3,3);
     cs = lua_tointeger(L,-1);
     lua_pop(L,3);
-    if (cs==0) 
+    if (cs==0) {
       return (cmd*string_offset)+chr; 
-    else
+    } else {
       return cs_token_flag+cs; 
+    }
   }
   return 0;
 }
@@ -249,44 +256,39 @@ tokenlist_to_lua(lua_State *L, halfword p) {
       cs=info(p)-cs_token_flag;
       cmd = zget_eq_type(cs);
       chr = zget_equiv(cs);
+      make_token_table(L,cmd,chr,cs);
     } else {
       cmd=info(p) / string_offset; 
       chr=info(p) % string_offset;
+      make_token_table(L,cmd,chr,0);
     }
-    make_token_table(L,cmd,chr,cs);
     lua_rawseti(L,-2,i++);
     p = link(p);
   }
 }
 
 
-#define store_new_token(a) { q=get_avail(); link(p)=q; info(q)=(a); p=q; }
-#define free_avail(a)      { link((a))=avail; avail=(a); decr(dyn_used); }
-
 halfword
 tokenlist_from_lua(lua_State *L) {
   int tok;
   halfword p,q,r;
   r = get_avail();
+  info(r)=null; /* ref count */
+  link(r)=null;
   p = r;
-  lua_pushnil(L);
-  while (lua_next(L,-2)!=0 ) {
-    tok = token_from_lua(L);
-    store_new_token(tok);
-    lua_pop(L,1);
-  };
-  if (p!=r) {
-    p = link(r);
+  if (lua_istable(L,-1)) {
+    lua_pushnil(L);
+    while (lua_next(L,-2)!=0 ) {
+      tok = token_from_lua(L);
+      store_new_token(tok);
+      lua_pop(L,1);
+    };
+    return r;
+  } else {
     free_avail(r);
+    return null;
   }
-  return p;
 }
-
-
-#undef link /* defined by cpascal.h */
-#define link(a) zmem[(a)].hh.v.RH 
-#define info(a) zmem[(a)].hh.v.LH 
-#define inserted 4
 
 void
 get_token_lua (void) {
