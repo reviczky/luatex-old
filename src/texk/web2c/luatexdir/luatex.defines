@@ -68,7 +68,7 @@ $Id $
 @define procedure get_lua_string();
 
 @define procedure get_token_lua;
-@define function pre_linebreak_filter();
+@define function lua_node_filter();
 
 { bits for extended char code access }
 
