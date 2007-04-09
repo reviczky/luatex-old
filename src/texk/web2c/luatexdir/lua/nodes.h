@@ -73,10 +73,8 @@ typedef enum {
   kern_node,
   penalty_node,
   unset_node,
-  right_node = 31,
-  char_node = 37,
-  font_node,
-  glyph_node,
+  right_noad = 31,
+  glyph_node = 39,
   margin_kern_node = 40 } node_types ;
 
 extern void  nodelist_to_lua (lua_State *L, halfword t);
@@ -95,20 +93,21 @@ typedef enum {
   write_node,
   close_node,
   special_node,
-  language_node, /* id 5 is MIA */
-  local_par_node = 6,
+  language_node,
+  set_language_code,
+  local_par_node,
   dir_node,
   pdf_literal_node,
-  pdf_obj_node,
+  pdf_obj_code,
   pdf_refobj_node,
-  pdf_xform_node,
+  pdf_xform_code,
   pdf_refxform_node,
-  pdf_ximage_node,
+  pdf_ximage_code,
   pdf_refximage_node,
   pdf_annot_node,
   pdf_start_link_node,
   pdf_end_link_node,
-  pdf_outline_node,
+  pdf_outline_code,
   pdf_dest_node,
   pdf_thread_node,
   pdf_start_thread_node,
@@ -128,15 +127,14 @@ typedef enum {
   pdf_snapy_node,
   pdf_snapy_comp_node,
   pdf_glyph_to_unicode_code,
-  late_lua_code,
-  close_lua_code,
+  late_lua_node,
+  close_lua_node,
   save_cat_code_table_code,
   init_cat_code_table_code,
   pdf_colorstack_node,
   pdf_setmatrix_node,
   pdf_save_node,
-  pdf_restore_node,
-  pdftex_last_extension_code } whatsit_node_types ;
+  pdf_restore_node } whatsit_types ;
 
 
 extern void      whatsit_node_to_lua (lua_State *L, halfword p);
