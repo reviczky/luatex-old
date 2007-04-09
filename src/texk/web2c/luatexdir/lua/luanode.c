@@ -10,6 +10,7 @@ extern halfword tokenlist_from_lua(lua_State *L) ;
 
 #define append_node(t,a)   { if (a!=null) { link(a) = null; link(t) = a;  t = a;  } }
 #define small_node_size 2
+#define margin_kern_node_size 3
 
 
 static char * node_names[] = {
@@ -58,7 +59,7 @@ static char * node_names[] = {
 void 
 glyph_node_to_lua (lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,4,0);
   lua_pushstring(L,"glyph");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,0);
@@ -72,7 +73,7 @@ glyph_node_to_lua (lua_State *L, halfword p) {
 void 
 ligature_node_to_lua (lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,5,0);
   lua_pushstring(L,"glyph");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,(subtype(p)+1));
@@ -119,7 +120,7 @@ glyph_node_from_lua (lua_State *L) {
 void
 rule_node_to_lua(lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,6,0);
   lua_pushstring(L,"rule");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,0);
@@ -157,7 +158,7 @@ rule_node_from_lua(lua_State *L) {
 void
 disc_node_to_lua(lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,4,0);
   lua_pushstring(L,"disc");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,subtype(p));
@@ -188,7 +189,7 @@ void
 list_node_to_lua(lua_State *L, int list_type_, halfword p) {
   int i = 1;
   luaL_checkstack(L,2,"out of stack space");
-  lua_newtable(L);
+  lua_createtable(L,11,0);
   lua_pushstring(L,node_names[list_type_]);
   lua_rawseti(L,-2,i); i++;
   lua_pushnumber(L,subtype(p));
@@ -260,7 +261,7 @@ list_node_from_lua(lua_State *L, int list_type_) {
 
 void
 penalty_node_to_lua(lua_State *L, halfword p) {
-  lua_newtable(L);
+  lua_createtable(L,3,0);
   lua_pushstring(L,"penalty");
   lua_rawseti(L,-2,1);
   lua_pushnumber(L,0);
@@ -284,7 +285,7 @@ void
 glue_node_to_lua (lua_State *L, halfword p) {
   halfword q;
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,7,0);
   lua_pushstring(L,"glue");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,subtype(p));
@@ -338,10 +339,10 @@ glue_node_from_lua (lua_State *L) {
 
   glue_ptr(n) = q;
   leader_ptr(n) = null;
-  /* nodelist_to_lua(L,leader_ptr(p));*/
+
   lua_rawgeti(L,-1,8);
   if (lua_istable(L,-1)) {
-    fprintf(stdout,"<node type leader not readable yet>\n");
+    leader_ptr(n) = nodelist_from_lua(L);
   }
   lua_pop(L,1);
   return n;
@@ -351,7 +352,7 @@ glue_node_from_lua (lua_State *L) {
 void 
 kern_node_to_lua (lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,3,0);
   lua_pushstring(L,"kern");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,subtype(p));
@@ -377,7 +378,7 @@ kern_node_from_lua (lua_State *L) {
 void 
 margin_kern_node_to_lua (lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,5,0);
   lua_pushstring(L,"margin_kern");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,subtype(p));
@@ -389,6 +390,27 @@ margin_kern_node_to_lua (lua_State *L, halfword p) {
   lua_pushnumber(L,character(margin_char(p)));
   lua_rawseti(L,-2,i++);
 }
+
+
+halfword 
+margin_kern_node_from_lua (lua_State *L) {
+  halfword p;
+  p = get_node(margin_kern_node_size);
+  lua_rawgeti(L,-1,2);
+  subtype(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,3);
+  width(p) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,4);
+  font(margin_char(p)) = lua_tonumber(L,-1);
+  lua_pop(L,1);
+  lua_rawgeti(L,-1,5);
+  character(margin_char(p)) = lua_tonumber(L,-1);
+  lua_pop(L,1);  
+  return p;
+}
+
 
 
 void 
@@ -425,7 +447,7 @@ mark_node_from_lua (lua_State *L) {
 void 
 math_node_to_lua (lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,3,0);
   lua_pushstring(L,"math");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,subtype(p));
@@ -450,7 +472,7 @@ math_node_from_lua  (lua_State *L) {
 void 
 adjust_node_to_lua (lua_State *L, halfword p) {
   int i = 1;
-  lua_newtable(L);
+  lua_createtable(L,3,0);
   lua_pushstring(L,"adjust");
   lua_rawseti(L,-2,i++);
   lua_pushnumber(L,subtype(p));
@@ -476,9 +498,18 @@ adjust_node_from_lua  (lua_State *L) {
 
 void 
 nodelist_to_lua (lua_State *L, halfword t) {
-  int i = 0;
-  lua_newtable(L);
-  if (t == null || t == 0)
+  halfword v;
+  int i = 1;
+  v = t;
+  if (t!=null) {
+    while (link(v)!=null) {
+      i++;
+      v = link(v);
+    }
+  }
+  lua_createtable(L,i,0);
+  i = 0;
+  if (t == null)
     return;
   luaL_checkstack(L,2,"out of stack space");
   do {
@@ -537,8 +568,8 @@ nodelist_to_lua (lua_State *L, halfword t) {
 	lua_rawseti(L,-2,++i);
 	break;
       default: 
-	if (type(t)<=right_node) {
-	  fprintf(stdout,"<node type %s not supported yet>\n",node_names[type(t)]);
+	if (type(t)<=right_noad) {
+	  fprintf(stdout,"<noad type %s not supported>\n",node_names[type(t)]);
 	} else {
 	  fprintf(stdout,"<unknown node type %d>\n", type(t));
 	}
@@ -620,10 +651,10 @@ nodelist_from_lua (lua_State *L) {
 	    u = glyph_node_from_lua(L);
 	    append_node(t,u);
 	    break;
-            /*
 	  case margin_kern_node: 
+	    u = margin_kern_node_from_lua(L);
+	    append_node(t,u);
 	    break;
-	    */
 	  default: 
 	    fprintf(stdout,"<node type %s not supported yet>\n",node_names[i]);
 	    break;
@@ -644,11 +675,11 @@ nodelist_from_lua (lua_State *L) {
 
 
 halfword
-pre_linebreak_filter (halfword head_node) {
+lua_node_filter (char *filtername, halfword head_node) {
   halfword ret;  
   integer callback_id ; 
   lua_State *L = Luas[0];
-  callback_id = callback_defined("linebreak_filter");
+  callback_id = callback_defined(filtername);
   if (callback_id==0) {
     return head_node;
   }
@@ -665,14 +696,16 @@ pre_linebreak_filter (halfword head_node) {
     error();
     return head_node;
   }
+  /* destroy the old one */
+  flush_node_list(head_node);
   if ((ret = nodelist_from_lua(L)) != 0) {
     lua_pop(L,1); /* result */
     lua_pop(L,1); /* callback container table */
-    /* destroy the old one */
-    flush_node_list(head_node);
     return ret;
   } 
   lua_pop(L,1); /* result */
   lua_pop(L,1); /* callback container table */
-  return head_node;
+  fprintf(stdout,"error: node list has gone to the moon\n");
+  error();
+  return null;
 }
