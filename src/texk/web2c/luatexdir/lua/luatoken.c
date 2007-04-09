@@ -249,8 +249,12 @@ get_cur_cs (lua_State *L) {
 void
 tokenlist_to_lua(lua_State *L, halfword p) {
   int cmd,chr,cs;
+  int v;
   int i = 1;
-  lua_newtable(L);
+  v = p;
+  while (v!=null) {   i++;    v = link(v);  }
+  i = 1;
+  lua_createtable(L,i,0);
   while (p!=null) {
     if (info(p)>=cs_token_flag) {
       cs=info(p)-cs_token_flag;
