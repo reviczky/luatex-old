@@ -24658,7 +24658,7 @@ aux_save:=aux; p:=link(head); q:=tail; pop_nest;
 if mode=mmode then @<Finish an alignment in a display@>
 else  begin aux:=aux_save; link(tail):=p;
   if p<>null then tail:=q;
-  if mode=vmode then build_page;
+  if mode=vmode then begin check_filter('linebreak_filter'); build_page; end;
   end
 
 @* \[38] Breaking paragraphs into lines.
@@ -24743,7 +24743,6 @@ procedure line_break(@!d:boolean);
 label done,done1,done2,done3,done4,done5,continue;
 var @<Local variables for line breaking@>@;
 begin pack_begin_line:=mode_line; {this is for over/underfull box messages}
-@<Check for a pre-break filter callback@>;
 @<Get ready to start line breaking@>;
 @<Find optimal breakpoints@>;
 @<Break the paragraph at the chosen breakpoints, justify the resulting lines
@@ -24787,18 +24786,11 @@ line_break_dir:=paragraph_dir;
 @<DIR: Initialize |dir_ptr| for |line_break|@>;
 pop_nest;
 
-@ It is possible that the user wants to interfere at this point.  
+@ It is possible that the user wants to interfere at some point.  
 
-If you want to modify the nodes in a paragraph, this is probably the
-cleanest place to do so, just before any really interesting things
-have happened with it. 
-
-The details of |pre_linebreak_filter| are still undecided.
-
-@<Check for a pre-break filter callback@>=
-link(head):=pre_linebreak_filter(link(head));
-tail := link(head);
-while link(tail)<>null do begin tail:=link(tail); end
+@d check_filter(#)==if not output_active and link(head)<>null then 
+begin link(head):=lua_node_filter(#,link(head));
+tail := link(head); while link(tail)<>null do tail:=link(tail); end
 
 @ When looking for optimal line breaks, \TeX\ creates a ``break node'' for
 each break that is {\sl feasible}, in the sense that there is a way to end
@@ -30030,6 +30022,7 @@ begin if privileged then
   width(tail):=hsize;
   tail_append(new_glue(fill_glue));
   tail_append(new_penalty(-@'10000000000));@/
+  check_filter('linebreak_filter'); 
   build_page; {append \.{\\hbox to \\hsize\{\}\\vfill\\penalty-'10000000000}}
   end;
 its_all_over:=false;
@@ -30492,7 +30485,7 @@ begin if cur_box<>null then
                 append_list(adjust_head)(adjust_tail);
             adjust_tail := null;
         end;
-    if mode>0 then build_page;
+    if mode>0 then begin check_filter('linebreak_filter'); build_page; end;
     end
   else  begin if abs(mode)=hmode then space_factor:=1000
     else  begin p:=new_noad;
@@ -30753,7 +30746,10 @@ q:=head;
 while link(q)<>null do q:=link(q);
 tail:=q;
 if every_par<>null then begin_token_list(every_par,every_par_text);
-if nest_ptr=1 then build_page; {put |par_skip| glue on current page}
+if nest_ptr=1 then begin 
+  check_filter('linebreak_filter'); 
+  build_page; {put |par_skip| glue on current page}
+  end;
 end;
 
 @ @<Cases of |main_control| that build...@>=
@@ -30778,10 +30774,11 @@ like \.{\\vbox}, \.{\\insert}, or \.{\\output}.
 
 @<Cases of |main_control| that build...@>=
 vmode+par_end: begin normal_paragraph;
-  if mode>0 then build_page;
+  if mode>0 then begin check_filter('linebreak_filter'); build_page; end;
   end;
 hmode+par_end: begin if align_state<0 then off_save; {this tries to
     recover from an alignment that didn't end properly}
+  if mode>0 then check_filter('linebreak_filter'); 
   end_graf; {this takes us to the enclosing mode, if |mode>0|}
   if mode=vmode then build_page;
   end;
@@ -30848,7 +30845,8 @@ push_nest; mode:=-vmode; prev_depth:=ignore_depth;
 end;
 
 @ @<Cases of |handle...@>=
-insert_group: begin end_graf; q:=split_top_skip; add_glue_ref(q);
+insert_group: begin check_filter('linebreak_filter'); 
+  end_graf; q:=split_top_skip; add_glue_ref(q);
   d:=split_max_depth; f:=floating_penalty; unsave; save_ptr := save_ptr - 2;
   {now |saved(0)| is the insertion number, or 255 for |vadjust|}
   p:=vpack(link(head),natural); pop_nest;
@@ -30903,7 +30901,7 @@ any_mode(break_penalty): append_penalty;
 @ @<Declare action...@>=
 procedure append_penalty;
 begin scan_int; tail_append(new_penalty(cur_val));
-if mode=vmode then build_page;
+if mode=vmode then begin check_filter('linebreak_filter'); build_page; end;
 end;
 
 @ The |remove_item| command removes a penalty, kern, or glue node if it
@@ -31463,7 +31461,8 @@ display. Then we can set the proper values of |display_width| and
 begin if head=tail then {`\.{\\noindent\$\$}' or `\.{\$\${ }\$\$}'}
   begin pop_nest; w:=-max_dimen;
   end
-else  begin line_break(true);@/
+else  begin if nest_ptr=1 then check_filter('linebreak_filter'); 
+  line_break(true);@/
   @<Calculate the natural width, |w|, by which the characters of the
     final line extend to the right of the reference point,
     plus two ems; or set |w:=max_dimen| if the non-blank information
@@ -32296,7 +32295,7 @@ prev_graf:=(norm_min(left_hyphen_min)*@'100+norm_min(right_hyphen_min))
              *@'200000+cur_lang;
 @<LOCAL: Add local paragraph node@>;
 @<Scan an optional space@>;
-if nest_ptr=1 then build_page;
+if nest_ptr=1 then begin check_filter('linebreak_filter'); build_page; end;
 end;
 
 @ The user can force the equation number to go on a separate line
@@ -34857,8 +34856,8 @@ stays the same.
 @d pdf_snapy_node              == pdftex_first_extension_code + 27
 @d pdf_snapy_comp_node         == pdftex_first_extension_code + 28
 @d pdf_glyph_to_unicode_code   == pdftex_first_extension_code + 29
-@d late_lua_code               == pdftex_first_extension_code + 30
-@d close_lua_code              == pdftex_first_extension_code + 31
+@d late_lua_node               == pdftex_first_extension_code + 30
+@d close_lua_node              == pdftex_first_extension_code + 31
 @d save_cat_code_table_code    == pdftex_first_extension_code + 32
 @d init_cat_code_table_code    == pdftex_first_extension_code + 33
 @d pdf_colorstack_node         == pdftex_first_extension_code + 34
@@ -34957,10 +34956,10 @@ primitive("initcatcodetable",extension,init_cat_code_table_code);@/
 @!@:init_cat_code_table_}{\.{\\initcatcodetable} primitive@>
 primitive("pdfsetrandomseed",extension,set_random_seed_code);@/
 @!@:set_random_seed_code}{\.{\\pdfsetrandomseed} primitive@>
-primitive("latelua",extension,late_lua_code);@/
-@!@:late_lua_code_}{\.{\\latelua} primitive@>
-primitive("closelua",extension,close_lua_code);@/
-@!@:close_lua_code_}{\.{\\closelua} primitive@>
+primitive("latelua",extension,late_lua_node);@/
+@!@:late_lua_node_}{\.{\\latelua} primitive@>
+primitive("closelua",extension,close_lua_node);@/
+@!@:close_lua_node_}{\.{\\closelua} primitive@>
 primitive("pdffontexpand",extension,pdf_font_expand_code);@/
 @!@:pdf_font_expand_}{\.{\\pdffontexpand} primitive@>
 primitive("pdfglyphtounicode",extension,pdf_glyph_to_unicode_code);@/
@@ -35016,8 +35015,8 @@ extension: case chr_code of
   init_cat_code_table_code: print_esc("initcatcodetable");
   set_random_seed_code: print_esc("pdfsetrandomseed");
   pdf_glyph_to_unicode_code: print_esc("pdfglyphtounicode");
-  late_lua_code: print_esc("latelua");
-  close_lua_code: print_esc("closelua");
+  late_lua_node: print_esc("latelua");
+  close_lua_node: print_esc("closelua");
   othercases print("[unknown extension!]")
   endcases;
 
@@ -35075,8 +35074,8 @@ begin case cur_chr of
   init_cat_code_table_code: @<Implement \.{\\initcatcodetable}@>;
   set_random_seed_code: @<Implement \.{\\pdfsetrandomseed}@>;
   pdf_glyph_to_unicode_code: @<Implement \.{\\pdfglyphtounicode}@>;
-  late_lua_code: @<Implement \.{\\latelua}@>;
-  close_lua_code: @<Implement \.{\\closelua}@>;
+  late_lua_node: @<Implement \.{\\latelua}@>;
+  close_lua_node: @<Implement \.{\\closelua}@>;
 othercases confusion("ext1")
 @:this can't happen ext1}{\quad ext1@>
 endcases;
@@ -35282,7 +35281,7 @@ end
 @ @<Implement \.{\\latelua}@>=
 begin
     check_pdfoutput("\latelua", true);
-    new_whatsit(late_lua_code, write_node_size);
+    new_whatsit(late_lua_node, write_node_size);
     scan_register_num;
     late_lua_reg(tail) := cur_val;
     scan_pdf_ext_toks;
@@ -35292,7 +35291,7 @@ end
 @ @<Implement \.{\\closelua}@>=
 begin
     check_pdfoutput("\closelua", true);
-    new_whatsit(close_lua_code, write_node_size);
+    new_whatsit(close_lua_node, write_node_size);
 	scan_register_num;
 	late_lua_reg(tail) := cur_val;
 end
@@ -36535,12 +36534,12 @@ end;
 pdf_restore_node: begin
     print_esc("pdfrestore");
 end;
-late_lua_code: begin
+late_lua_node: begin
     print_esc("latelua");
     print_int(late_lua_reg(p));
     print_mark(late_lua_data(p));
 end;
-close_lua_code: begin
+close_lua_node: begin
     print_esc("closelua");
 	print_int(late_lua_reg(p));
 end;
@@ -36741,12 +36740,12 @@ pdf_restore_node: begin
     r := get_node(pdf_restore_node_size);
     words := pdf_restore_node_size;
 end;
-late_lua_code: begin
+late_lua_node: begin
     r := get_node(write_node_size);
     add_token_ref(late_lua_data(p));
     words := write_node_size;
 end;
-close_lua_code: begin
+close_lua_node: begin
     r := get_node(write_node_size);
     words := write_node_size;
 end;
@@ -36846,11 +36845,11 @@ end;
 pdf_restore_node: begin
     free_node(p, pdf_restore_node_size);
 end;
-late_lua_code: begin
+late_lua_node: begin
     delete_token_ref(late_lua_data(p));
     free_node(p, write_node_size);
 end;
-close_lua_code: begin
+close_lua_node: begin
     free_node(p, write_node_size);
 end;
 pdf_refobj_node:
@@ -37125,7 +37124,7 @@ if cur_cmd=extension then begin
       flush_node_list(tail); tail:=p; link(p):=null;
       end
     else case cur_chr of
-      close_lua_code: begin
+      close_lua_node: begin
         scan_register_num;
 	    closelua(cur_val);
       end;
@@ -38306,9 +38305,9 @@ pdf_save_node:
     pdf_out_save(p);
 pdf_restore_node:
     pdf_out_restore(p);
-late_lua_code:
+late_lua_node:
     do_late_lua(p);
-close_lua_code:
+close_lua_node:
     closelua(late_lua_reg(p));
 pdf_refobj_node:
     pdf_append_list(pdf_obj_objnum(p))(pdf_obj_list);
@@ -38386,9 +38385,9 @@ pdf_save_node:
     pdf_out_save(p);
 pdf_restore_node:
     pdf_out_restore(p);
-late_lua_code:
+late_lua_node:
     do_late_lua(p);
-close_lua_code:
+close_lua_node:
 	closelua(late_lua_reg(p));
 pdf_refobj_node:
     pdf_append_list(pdf_obj_objnum(p))(pdf_obj_list);
