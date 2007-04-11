@@ -17711,8 +17711,6 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 
 @# {data structure for \.{\\pdfcolorstack}}
 @d pdf_colorstack_node_size == 3
-@d pdf_colorstack_setter_node_size == 3
-@d pdf_colorstack_getter_node_size == 2
 @d pdf_colorstack_stack(#)  == link(#+1) {stack number}
 @d pdf_colorstack_cmd(#)    == info(#+1) {command: set, push, pop, current}
 @d pdf_colorstack_data(#)   == link(#+2) {data}
@@ -18928,7 +18926,7 @@ var old_setting:0..max_selector; {holds print |selector|}
     s: str_number;
 begin
     old_setting:=selector; selector:=new_string;
-    show_token_list(link(write_tokens(p)),null,pool_size-pool_ptr);
+    show_token_list(link(late_lua_data(p)),null,pool_size-pool_ptr);
     selector:=old_setting;
     s := make_string;
     latelua(late_lua_reg(p), s);
@@ -24658,7 +24656,7 @@ aux_save:=aux; p:=link(head); q:=tail; pop_nest;
 if mode=mmode then @<Finish an alignment in a display@>
 else  begin aux:=aux_save; link(tail):=p;
   if p<>null then tail:=q;
-  if mode=vmode then begin check_filter('linebreak_filter'); build_page; end;
+  if mode=vmode then begin check_filter('add_list'); build_page; end;
   end
 
 @* \[38] Breaking paragraphs into lines.
@@ -24788,9 +24786,12 @@ pop_nest;
 
 @ It is possible that the user wants to interfere at some point.  
 
-@d check_filter(#)==if not output_active and link(head)<>null then 
+@d check_filter_head(#)==if not output_active and link(head)<>null then 
 begin link(head):=lua_node_filter(#,link(head));
 tail := link(head); while link(tail)<>null do tail:=link(tail); end
+
+@d check_filter(#)==check_filter_head(#)
+
 
 @ When looking for optimal line breaks, \TeX\ creates a ``break node'' for
 each break that is {\sl feasible}, in the sense that there is a way to end
@@ -30022,7 +30023,7 @@ begin if privileged then
   width(tail):=hsize;
   tail_append(new_glue(fill_glue));
   tail_append(new_penalty(-@'10000000000));@/
-  check_filter('linebreak_filter'); 
+  {check_filter('itsallover'); }
   build_page; {append \.{\\hbox to \\hsize\{\}\\vfill\\penalty-'10000000000}}
   end;
 its_all_over:=false;
@@ -30485,7 +30486,7 @@ begin if cur_box<>null then
                 append_list(adjust_head)(adjust_tail);
             adjust_tail := null;
         end;
-    if mode>0 then begin check_filter('linebreak_filter'); build_page; end;
+    if mode>0 then begin check_filter('cur_box'); build_page; end;
     end
   else  begin if abs(mode)=hmode then space_factor:=1000
     else  begin p:=new_noad;
@@ -30720,8 +30721,10 @@ end;
 procedure new_graf(@!indented:boolean);
 var p,q,dir_graf_tmp:pointer;
 begin prev_graf:=0;
-if (mode=vmode)or(head<>tail) then
+if (mode=vmode)or(head<>tail) then begin
   tail_append(new_param_glue(par_skip_code));
+  check_filter('new_graf'); 
+  end;
 push_nest; mode:=hmode; space_factor:=1000; set_cur_lang; clang:=cur_lang;
 prev_graf:=(norm_min(left_hyphen_min)*@'100+norm_min(right_hyphen_min))
              *@'200000+cur_lang;
@@ -30747,7 +30750,6 @@ while link(q)<>null do q:=link(q);
 tail:=q;
 if every_par<>null then begin_token_list(every_par,every_par_text);
 if nest_ptr=1 then begin 
-  check_filter('linebreak_filter'); 
   build_page; {put |par_skip| glue on current page}
   end;
 end;
@@ -30774,11 +30776,11 @@ like \.{\\vbox}, \.{\\insert}, or \.{\\output}.
 
 @<Cases of |main_control| that build...@>=
 vmode+par_end: begin normal_paragraph;
-  if mode>0 then begin check_filter('linebreak_filter'); build_page; end;
+  if mode>0 then begin check_filter('vmode_par'); build_page; end;
   end;
 hmode+par_end: begin if align_state<0 then off_save; {this tries to
     recover from an alignment that didn't end properly}
-  if mode>0 then check_filter('linebreak_filter'); 
+  if mode>0 then check_filter_head('hmode_par'); 
   end_graf; {this takes us to the enclosing mode, if |mode>0|}
   if mode=vmode then build_page;
   end;
@@ -30845,7 +30847,7 @@ push_nest; mode:=-vmode; prev_depth:=ignore_depth;
 end;
 
 @ @<Cases of |handle...@>=
-insert_group: begin check_filter('linebreak_filter'); 
+insert_group: begin check_filter_head('insert_group'); 
   end_graf; q:=split_top_skip; add_glue_ref(q);
   d:=split_max_depth; f:=floating_penalty; unsave; save_ptr := save_ptr - 2;
   {now |saved(0)| is the insertion number, or 255 for |vadjust|}
@@ -30901,7 +30903,7 @@ any_mode(break_penalty): append_penalty;
 @ @<Declare action...@>=
 procedure append_penalty;
 begin scan_int; tail_append(new_penalty(cur_val));
-if mode=vmode then begin check_filter('linebreak_filter'); build_page; end;
+if mode=vmode then begin check_filter('append_pen'); build_page; end;
 end;
 
 @ The |remove_item| command removes a penalty, kern, or glue node if it
@@ -31461,7 +31463,7 @@ display. Then we can set the proper values of |display_width| and
 begin if head=tail then {`\.{\\noindent\$\$}' or `\.{\$\${ }\$\$}'}
   begin pop_nest; w:=-max_dimen;
   end
-else  begin if nest_ptr=1 then check_filter('linebreak_filter'); 
+else  begin if nest_ptr=1 then check_filter_head('to_display_math'); 
   line_break(true);@/
   @<Calculate the natural width, |w|, by which the characters of the
     final line extend to the right of the reference point,
@@ -32295,7 +32297,7 @@ prev_graf:=(norm_min(left_hyphen_min)*@'100+norm_min(right_hyphen_min))
              *@'200000+cur_lang;
 @<LOCAL: Add local paragraph node@>;
 @<Scan an optional space@>;
-if nest_ptr=1 then begin check_filter('linebreak_filter'); build_page; end;
+if nest_ptr=1 then begin check_filter('after_display'); build_page; end;
 end;
 
 @ The user can force the equation number to go on a separate line
@@ -35218,30 +35220,26 @@ begin
         error;
         cur_val := 0;
     end;
-    {Scan the command and store in i, j holds the node size}
     if scan_keyword("set") then begin
         i := colorstack_set;
-        j := pdf_colorstack_setter_node_size;
     end
     else if scan_keyword("push") then begin
         i := colorstack_push;
-        j := pdf_colorstack_setter_node_size;
     end
     else if scan_keyword("pop") then begin
         i := colorstack_pop;
-        j := pdf_colorstack_getter_node_size;
     end
     else if scan_keyword("current") then begin
         i := colorstack_current;
-        j := pdf_colorstack_getter_node_size;
     end
     else begin
         i := -1; {error}
     end;
     if i >= 0 then begin
-        new_whatsit(pdf_colorstack_node, j);
+        new_whatsit(pdf_colorstack_node, pdf_colorstack_node_size);
         pdf_colorstack_stack(tail) := cur_val;
         pdf_colorstack_cmd(tail)   := i;
+	    pdf_colorstack_data(tail)  := null;
         if i <= colorstack_data then begin
             scan_pdf_ext_toks;
             pdf_colorstack_data(tail) := def_ref;
@@ -35819,14 +35817,6 @@ begin
     pdf_width(tail) := width(alt_rule);
     pdf_height(tail) := height(alt_rule);
     pdf_depth(tail) := depth(alt_rule);
-    if (w = pdf_start_link_node) then begin
-        if scan_keyword("attr") then begin
-            scan_pdf_ext_toks;
-            pdf_link_attr(tail) := def_ref;
-        end
-        else
-            pdf_link_attr(tail) := null;
-    end;
     if (w = pdf_thread_node) or (w = pdf_start_thread_node) then begin
         if scan_keyword("attr") then begin
             scan_pdf_ext_toks;
@@ -35874,6 +35864,11 @@ begin
         pdf_error("ext1", "\pdfstartlink cannot be used in vertical mode");
     k := pdf_new_objnum;
     new_annot_whatsit(pdf_start_link_node, pdf_annot_node_size);
+	    pdf_link_attr(tail) := null;
+        if scan_keyword("attr") then begin
+            scan_pdf_ext_toks;
+            pdf_link_attr(tail) := def_ref;
+        end;
     pdf_link_action(tail) := scan_action;
     pdf_link_objnum(tail) := k;
     pdf_last_link := k;
@@ -36718,13 +36713,13 @@ pdf_literal_node: begin
 end;
 pdf_colorstack_node: begin
     if pdf_colorstack_cmd(p) <= colorstack_data then begin
-        r := get_node(pdf_colorstack_setter_node_size);
+        r := get_node(pdf_colorstack_node_size);
         add_token_ref(pdf_colorstack_data(p));
-        words := pdf_colorstack_setter_node_size;
+        words := pdf_colorstack_node_size;
     end
     else begin
-        r := get_node(pdf_colorstack_getter_node_size);
-        words := pdf_colorstack_getter_node_size;
+        r := get_node(pdf_colorstack_node_size);
+        words := pdf_colorstack_node_size;
     end;
 end;
 pdf_setmatrix_node: begin
@@ -36830,10 +36825,10 @@ end;
 pdf_colorstack_node: begin
     if pdf_colorstack_cmd(p) <= colorstack_data then begin
         delete_token_ref(pdf_colorstack_data(p));
-        free_node(p, pdf_colorstack_setter_node_size);
+        free_node(p, pdf_colorstack_node_size);
     end
     else
-        free_node(p, pdf_colorstack_getter_node_size);
+        free_node(p, pdf_colorstack_node_size);
 end;
 pdf_setmatrix_node: begin
     delete_token_ref(pdf_setmatrix_data(p));

@@ -4,13 +4,7 @@
 #include <ptexlib.h>
 #include "nodes.h"
 
-extern void tokenlist_to_lua(lua_State *L, halfword p) ;
-extern halfword tokenlist_from_lua(lua_State *L) ;
-
-
 #define append_node(t,a)   { if (a!=null) { link(a) = null; link(t) = a;  t = a;  } }
-#define small_node_size 2
-#define margin_kern_node_size 3
 
 
 static char * node_names[] = {
@@ -56,59 +50,88 @@ static char * node_names[] = {
    NULL };
 
 
+void
+generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
+  va_list args;
+  int val;
+  double fval;
+  int i = 1;
+  lua_createtable(L,(strlen(fmt)+1),0);
+  lua_pushstring(L,name);
+  lua_rawseti(L,-2,i++);
+  va_start(args,fmt);
+  while (*fmt) {
+    switch(*fmt++) {
+    case 'a':           /* int */
+      val = va_arg(args, int);
+      action_node_to_lua(L,val);
+      lua_rawseti(L,-2,i++);
+      break;
+    case 'd':           /* int */
+      val = va_arg(args, int);
+      lua_pushnumber(L,val);
+      lua_rawseti(L,-2,i++);
+      break;
+    case 'f':           /* float */
+      fval = va_arg(args, double);
+      lua_pushnumber(L,fval);
+      lua_rawseti(L,-2,i++);
+      break;
+    case 'n':           /* nodelist */
+      val = va_arg(args, int);
+      if (val!=null) {
+	nodelist_to_lua(L,val);
+	lua_rawseti(L,-2,i++);
+      } else {
+	i++;
+      }
+      break;
+    case 's':           /* strnumber */
+      val = va_arg(args, int);
+      lua_pushstring(L,makecstring(val));
+      lua_rawseti(L,-2,i++);
+      break;
+    case 't':           /* tokenlist */
+      val = va_arg(args, int);
+      if (val == null) {
+	lua_pushnil(L);
+      } else {
+	tokenlist_to_lua(L,link(val));
+      }
+      lua_rawseti(L,-2,i++);
+      break;
+    }
+  }
+  va_end(args);
+}
+
+
+
 void 
 glyph_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,4,0);
-  lua_pushstring(L,"glyph");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,0);
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,character(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,font(p));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"glyph","ddd",0,character(p),font(p));
 }
 
 void 
 ligature_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,5,0);
-  lua_pushstring(L,"glyph");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,(subtype(p)+1));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,character(lignode_char(p)));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,font(lignode_char(p)));
-  lua_rawseti(L,-2,i++);
-  nodelist_to_lua(L,lig_ptr(p));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"glyph","dddn",(subtype(p)+1),
+		      character(lignode_char(p)),font(lignode_char(p)),lig_ptr(p));
 }
-
 
 halfword 
 glyph_node_from_lua (lua_State *L) {
   int f,c,t,l;
   halfword p;
   int i = 2;
-  lua_rawgeti(L,-1,i++);
-  t = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  c = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  f = lua_tonumber(L,-1);
-  lua_pop(L,1);
+  numeric_field(t,i++);
+  numeric_field(c,i++);
+  numeric_field(f,i++);
   if (t==0) { /* char node */
     p = get_avail();
     character(p) = c;
     font(p) = f;
   } else {
-    lua_rawgeti(L,-1,i++);
-    l = nodelist_from_lua(L);
-    lua_pop(L,1);
+    nodelist_field(l,i++); 
     p = new_ligature(f,c,l);
     subtype(p) = (t-1);
   }
@@ -116,106 +139,43 @@ glyph_node_from_lua (lua_State *L) {
   return p;
 }
 
-
 void
 rule_node_to_lua(lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,6,0);
-  lua_pushstring(L,"rule");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,0);
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,width(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,depth(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,height(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,rule_dir(p));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"rule","ddddd",0,width(p),depth(p),height(p),rule_dir(p));
 }
 
 halfword
 rule_node_from_lua(lua_State *L) {
-  halfword p;
-  p = new_rule();
-  lua_rawgeti(L,-1,3);
-  width(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,4);
-  depth(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,5);
-  height(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,6);
-  rule_dir(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
+  int i = 3;
+  halfword p = new_rule();
+  link(p)=null; 
+  numeric_field(width(p),i++);
+  numeric_field(depth(p),i++);
+  numeric_field(height(p),i++);
+  numeric_field(rule_dir(p),i++);
   return p;
 }
 
-
 void
 disc_node_to_lua(lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,4,0);
-  lua_pushstring(L,"disc");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i++);
-  nodelist_to_lua(L,pre_break(p));
-  lua_rawseti(L,-2,i++);
-  nodelist_to_lua(L,post_break(p));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"disc","dnn",subtype(p),pre_break(p),post_break(p));
 }
 
 halfword
 disc_node_from_lua(lua_State *L) {
-  halfword p;
-  p = new_disc();
-  lua_rawgeti(L,-1,2);
-  subtype(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,3);
-  pre_break(p) = nodelist_from_lua(L);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,4);
-  post_break(p) = nodelist_from_lua(L);
-  lua_pop(L,1);
+  int i = 2;
+  halfword p = new_disc();
+  link(p)=null; 
+  numeric_field(subtype(p),i++);
+  nodelist_field(pre_break(p),i++);
+  nodelist_field(post_break(p),i++);
   return p;
 }
 
 void
 list_node_to_lua(lua_State *L, int list_type_, halfword p) {
-  int i = 1;
-  luaL_checkstack(L,2,"out of stack space");
-  lua_createtable(L,11,0);
-  lua_pushstring(L,node_names[list_type_]);
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,width(p));
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,depth(p));
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,height(p));
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,shift_amount(p));
-  lua_rawseti(L,-2,i); i++;
-  if (list_ptr(p)!=null) {
-    nodelist_to_lua(L,list_ptr(p));
-  } else {
-    lua_pushnil(L);
-  }
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,glue_order(p));
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,glue_sign(p));
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,glue_set(p));
-  lua_rawseti(L,-2,i); i++;
-  lua_pushnumber(L,box_dir(p));
-  lua_rawseti(L,-2,i); i++;
+  generic_node_to_lua(L,node_names[list_type_],"dddddnddfd",subtype(p),width(p),depth(p),height(p),
+		      shift_amount(p),list_ptr(p),glue_order(p),glue_sign(p),glue_set(p),box_dir(p));
 }
 
 
@@ -223,295 +183,152 @@ halfword
 list_node_from_lua(lua_State *L, int list_type_) {
   int i = 2;
   int p = new_null_box();
+  link(p)=null; 
   type(p)    = list_type_;
-  lua_rawgeti(L,-1,i++);
-  subtype(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  width(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  depth(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  height(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  shift_amount(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  list_ptr(p) = nodelist_from_lua(L);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  glue_order(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  glue_sign(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  glue_set(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,i++);
-  box_dir(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-
+  numeric_field(subtype(p),i++);
+  numeric_field(width(p),i++);
+  numeric_field(depth(p),i++);
+  numeric_field(height(p),i++);
+  numeric_field(shift_amount(p),i++);
+  nodelist_field(list_ptr(p),i++);
+  numeric_field(glue_order(p),i++);
+  numeric_field(glue_sign(p),i++);
+  float_field(glue_set(p),i++);
+  numeric_field(box_dir(p),i++);
   return p;
 }
 
-
 void
 penalty_node_to_lua(lua_State *L, halfword p) {
-  lua_createtable(L,3,0);
-  lua_pushstring(L,"penalty");
-  lua_rawseti(L,-2,1);
-  lua_pushnumber(L,0);
-  lua_rawseti(L,-2,2);
-  lua_pushnumber(L,penalty(p));
-  lua_rawseti(L,-2,3);
+  generic_node_to_lua(L,"penalty","dd",0,penalty(p));
 }
 
 halfword
 penalty_node_from_lua(lua_State *L) {
-  halfword p;
-  p = new_penalty(0);
-  lua_rawgeti(L,-1,3);
-  penalty(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
+  halfword p = new_penalty(0);
+  link(p)=null; 
+  numeric_field(penalty(p),3);
   return p;
 }
 
-
 void 
 glue_node_to_lua (lua_State *L, halfword p) {
-  halfword q;
-  int i = 1;
-  lua_createtable(L,7,0);
-  lua_pushstring(L,"glue");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i++);
-
-  q = glue_ptr(p);
-  lua_pushnumber(L,width(q));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,stretch(q));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,stretch_order(q));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,shrink(q));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,shrink_order(q));
-  lua_rawseti(L,-2,i++);
-  if (leader_ptr(p)!=null) {
-    nodelist_to_lua(L,leader_ptr(p));
-    lua_rawseti(L,-2,i++);
-  }
+  halfword q = glue_ptr(p);
+  generic_node_to_lua(L,"glue","ddddddn",subtype(p),
+		      width(q),stretch(q),stretch_order(q),
+		      shrink(q),shrink_order(q),leader_ptr(p));
 }
 
 halfword 
 glue_node_from_lua (lua_State *L) {
-  halfword n,q;
-  q = new_spec(0); /* 0 == the null glue at zmem[0] */
-  n = new_glue(q);
-  lua_rawgeti(L,-1,2);
-  subtype(n) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-
-  lua_rawgeti(L,-1,3);
-  width(q) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-
-  lua_rawgeti(L,-1,4);
-  stretch(q) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-
-  lua_rawgeti(L,-1,5);
-  stretch_order(q) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-
-  lua_rawgeti(L,-1,6);
-  shrink(q) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-
-  lua_rawgeti(L,-1,7);
-  shrink_order(q) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-
-  glue_ptr(n) = q;
-  leader_ptr(n) = null;
-
-  lua_rawgeti(L,-1,8);
-  if (lua_istable(L,-1)) {
-    leader_ptr(n) = nodelist_from_lua(L);
-  }
-  lua_pop(L,1);
-  return n;
+  int i = 2;
+  halfword q = new_spec(0); /* 0 == the null glue at zmem[0] */
+  halfword p = new_glue(q);
+  link(p)=null; 
+  numeric_field (subtype(p),i++);
+  numeric_field (width(q),i++);
+  numeric_field (stretch(q),i++);
+  numeric_field (stretch_order(q),i++);
+  numeric_field (shrink(q),i++);
+  numeric_field (shrink_order(q),i++);
+  nodelist_field(leader_ptr(p),i++);
+  return p;
 }
-
 
 void 
 kern_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,3,0);
-  lua_pushstring(L,"kern");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,width(p));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"kern","dd",subtype(p),width(p));
 }
 
 halfword 
 kern_node_from_lua (lua_State *L) {
   halfword p;
   p = new_kern(0);
-  lua_rawgeti(L,-1,2);
-  subtype(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,3);
-  width(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
+  link(p)=null; 
+  numeric_field(subtype(p),2);
+  numeric_field(width(p),3);
   return p;
 }
 
-
 void 
 margin_kern_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,5,0);
-  lua_pushstring(L,"margin_kern");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,width(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,font(margin_char(p)));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,character(margin_char(p)));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"margin_kern","dddd",subtype(p),width(p),
+		      font(margin_char(p)),character(margin_char(p)));
 }
 
 
 halfword 
 margin_kern_node_from_lua (lua_State *L) {
-  halfword p;
-  p = get_node(margin_kern_node_size);
-  lua_rawgeti(L,-1,2);
-  subtype(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,3);
-  width(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,4);
-  font(margin_char(p)) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,5);
-  character(margin_char(p)) = lua_tonumber(L,-1);
-  lua_pop(L,1);  
+  int i = 2;
+  halfword p = get_node(margin_kern_node_size);
+  link(p)=null; 
+  type(p) = margin_kern_node;
+  numeric_field(subtype(p),i++);
+  numeric_field(width(p),i++);
+  numeric_field(font(margin_char(p)),i++);
+  numeric_field(character(margin_char(p)),i++);
   return p;
 }
 
-
-
 void 
 mark_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
-  lua_newtable(L);
-  lua_pushstring(L,"mark");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,mark_class(p));
-  lua_rawseti(L,-2,i++);
-  tokenlist_to_lua(L,link(mark_ptr(p)));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"mark","ddt",subtype(p),mark_class(p),mark_ptr(p));
 }
 
 halfword 
 mark_node_from_lua (lua_State *L) {
-  halfword p;
-  p = get_node(small_node_size);
+  int i = 2;
+  halfword p = get_node(small_node_size);
+  link(p)=null; 
   type(p) = mark_node;
-  lua_rawgeti(L,-1,2);
-  subtype(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,3);
-  mark_class(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,4);
-  mark_ptr(p) = tokenlist_from_lua(L);
-  lua_pop(L,1);
+  numeric_field  (subtype(p),i++);
+  numeric_field  (mark_class(p),i++);
+  tokenlist_field(mark_ptr(p),i++);
   return p;
 }
 
 void 
 math_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,3,0);
-  lua_pushstring(L,"math");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,width(p));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"math","dd",subtype(p),width(p));
 }
 
 halfword
 math_node_from_lua  (lua_State *L) {
-  halfword p;
-  p = new_math(0,0);
-  lua_rawgeti(L,-1,2);
-  subtype(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,3);
-  width(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
+  halfword p = new_math(0,0);
+  link(p)=null; 
+  numeric_field(subtype(p),2);
+  numeric_field(width(p),3);
   return p;
 }
 
 void 
 adjust_node_to_lua (lua_State *L, halfword p) {
-  int i = 1;
-  lua_createtable(L,3,0);
-  lua_pushstring(L,"adjust");
-  lua_rawseti(L,-2,i++);
-  lua_pushnumber(L,subtype(p));
-  lua_rawseti(L,-2,i++);
-  list_node_to_lua(L,vlist_node,adjust_ptr(p));
-  lua_rawseti(L,-2,i++);
+  generic_node_to_lua(L,"adjust","dn",subtype(p),adjust_ptr(p));
 }
 
 halfword
 adjust_node_from_lua  (lua_State *L) {
-  halfword p;
-  p = get_node(small_node_size);
+  halfword p = get_node(small_node_size);
+  link(p)=null; 
   type(p)= adjust_node;
-  lua_rawgeti(L,-1,2);
-  subtype(p) = lua_tonumber(L,-1);
-  lua_pop(L,1);
-  lua_rawgeti(L,-1,3);
-  adjust_ptr(p) = nodelist_from_lua(L);
-  lua_pop(L,1);
+  numeric_field(subtype(p),2);
+  nodelist_field(adjust_ptr(p),3);
   return p;
 }
 
 
 void 
 nodelist_to_lua (lua_State *L, halfword t) {
-  halfword v;
+  halfword v = t;
   int i = 1;
-  v = t;
-  if (t!=null) {
-    while (link(v)!=null) {
-      i++;
-      v = link(v);
-    }
+  luaL_checkstack(L,2,"out of stack space");
+  if (t==null) {
+    lua_createtable(L,0,0);
+    return;
   }
+  while (link(v)!=null) { i++;  v = link(v);  }
   lua_createtable(L,i,0);
   i = 0;
-  if (t == null)
-    return;
-  luaL_checkstack(L,2,"out of stack space");
   do {
     if (is_char_node(t)) {
       glyph_node_to_lua(L, t);
@@ -581,7 +398,6 @@ nodelist_to_lua (lua_State *L, halfword t) {
   } while (t>mem_min);
 }
 
-
 halfword
 nodelist_from_lua (lua_State *L) {
   char *s; 
@@ -593,6 +409,7 @@ nodelist_from_lua (lua_State *L) {
   t = get_avail();
   link(t) = null;
   head = t;
+  luaL_checkstack(L,3,"out of lua memory");
   lua_pushnil(L);
   while (lua_next(L,-2) != 0) {    
     if (lua_istable(L,-1)) {
@@ -679,7 +496,7 @@ lua_node_filter (char *filtername, halfword head_node) {
   halfword ret;  
   integer callback_id ; 
   lua_State *L = Luas[0];
-  callback_id = callback_defined(filtername);
+  callback_id = callback_defined("linebreak_filter");
   if (callback_id==0) {
     return head_node;
   }
@@ -689,6 +506,14 @@ lua_node_filter (char *filtername, halfword head_node) {
     lua_pop(L,2);
     return head_node;
   }
+  /*
+  depth_threshold = 100000;
+  breadth_max = 100000;
+  print_ln();
+  fprintf(stdout,"\n=>%s",filtername);
+  fprintf(log_file,"\n=>%s",filtername);
+  show_node_list(head_node);
+  */
   nodelist_to_lua(L,head_node);
   if (lua_pcall(L,1,1,0) != 0) { /* no arg, 1 result */
     fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
@@ -699,12 +524,10 @@ lua_node_filter (char *filtername, halfword head_node) {
   /* destroy the old one */
   flush_node_list(head_node);
   if ((ret = nodelist_from_lua(L)) != 0) {
-    lua_pop(L,1); /* result */
-    lua_pop(L,1); /* callback container table */
+    lua_pop(L,2); /* result and callback container table */
     return ret;
   } 
-  lua_pop(L,1); /* result */
-  lua_pop(L,1); /* callback container table */
+  lua_pop(L,2); /* result and callback container table */
   fprintf(stdout,"error: node list has gone to the moon\n");
   error();
   return null;

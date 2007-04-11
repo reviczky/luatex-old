@@ -1,4 +1,6 @@
 
+#include <stdarg.h>
+
 #define null -0x3FFFFFFF
 
 #undef link /* defined by cpascal.h */
@@ -60,7 +62,7 @@
 
 typedef enum {
   hlist_node = 0,
-  vlist_node,
+  vlist_node = 1,
   rule_node,
   ins_node,
   mark_node,
@@ -76,6 +78,9 @@ typedef enum {
   right_noad = 31,
   glyph_node = 39,
   margin_kern_node = 40 } node_types ;
+
+#define small_node_size 2
+#define margin_kern_node_size 3
 
 extern void  nodelist_to_lua (lua_State *L, halfword t);
 extern halfword nodelist_from_lua (lua_State *L) ;
@@ -139,3 +144,108 @@ typedef enum {
 
 extern void      whatsit_node_to_lua (lua_State *L, halfword p);
 extern halfword  whatsit_node_from_lua (lua_State *L);
+
+
+#define open_name(a) link((a)+1)
+#define open_area(a) info((a)+2)
+#define open_ext(a)  link((a)+2)
+
+#define what_lang(a) link((a)+1)
+#define what_lhm(a)  type((a)+1)
+#define what_rhm(a)  subtype((a)+1)
+
+#define pdf_width(a)         zmem[(a) + 1].cint
+#define pdf_height(a)        zmem[(a) + 2].cint
+#define pdf_depth(a)         zmem[(a) + 3].cint
+#define pdf_ximage_objnum(a) info((a) + 4)
+#define pdf_obj_objnum(a)    info((a) + 1)
+#define pdf_xform_objnum(a)  info((a) + 4)
+
+#define pdf_annot_data(a)       info((a) + 5)
+#define pdf_link_attr(a)        info((a) + 5)
+#define pdf_link_action(a)      link((a) + 5)
+#define pdf_annot_objnum(a)     zmem[(a) + 6].cint
+#define pdf_link_objnum(a)      zmem[(a) + 6].cint
+
+#define pdf_dest_type(a)          type((a) + 5)
+#define pdf_dest_named_id(a)      subtype((a) + 5)
+#define pdf_dest_id(a)            link((a) + 5)
+#define pdf_dest_xyz_zoom(a)      info((a) + 6)
+#define pdf_dest_objnum(a)        link((a) + 6)
+
+#define pdf_thread_named_id(a)    subtype((a) + 5)
+#define pdf_thread_id(a)          link((a) + 5)
+#define pdf_thread_attr(a)        info((a) + 6)
+
+#define dir_dir(a)     info((a)+1)
+#define dir_level(a)   link((a)+1)
+#define dir_dvi_ptr(a) info((a)+2)
+#define dir_dvi_h(a)   info((a)+3)
+
+#define late_lua_data(a)        link((a)+1)
+#define late_lua_reg(a)         subtype((a)+1)
+
+#define snap_glue_ptr(a)    info((a) + 1)
+#define final_skip(a)       zmem[(a) + 2].cint
+#define snapy_comp_ratio(a) zmem[(a) + 1].cint
+
+#define pdf_colorstack_stack(a)  link((a)+1)
+#define pdf_colorstack_cmd(a)    info((a)+1)
+#define pdf_colorstack_data(a)   link((a)+2)
+#define pdf_setmatrix_data(a)    link((a)+1)
+
+typedef enum {
+  colorstack_set=0,
+  colorstack_push,
+  colorstack_pop,
+  colorstack_current } colorstack_commands;
+
+extern void tokenlist_to_lua(lua_State *L, halfword p) ;
+extern halfword tokenlist_from_lua(lua_State *L) ;
+
+typedef enum {
+  pdf_action_page = 0,
+  pdf_action_goto,
+  pdf_action_thread,
+  pdf_action_user } pdf_action_types;
+
+
+#define write_node_size 2 
+#define small_node_size 2 
+#define dir_node_size 4
+#define open_node_size 2 
+#define local_par_node_size 8 
+#define pdf_refximage_node_size 5
+#define pdf_refxform_node_size  5
+#define pdf_refobj_node_size 2
+#define pdf_annot_node_size 7
+#define pdf_dest_node_size 7
+#define pdf_thread_node_size 7
+#define snap_node_size 3
+#define pdf_colorstack_node_size 3
+#define pdf_setmatrix_node_size 2
+#define pdf_save_node_size     2
+#define pdf_restore_node_size  2
+
+#define make_whatsit(p,b)    { p = get_node(b);  type(p)=whatsit_node;  link(p)=null; }
+
+#define numeric_field(a,b)   { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
+#define float_field(a,b)     { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
+#define nodelist_field(a,b)  { lua_rawgeti(L,-1,b); a = nodelist_from_lua(L); lua_pop(L,1); }
+#define tokenlist_field(a,b) { lua_rawgeti(L,-1,b); a = tokenlist_from_lua(L); lua_pop(L,1); }
+#define action_field(a,b)    { lua_rawgeti(L,-1,b); a = action_node_from_lua(L); lua_pop(L,1); }
+#define string_field(a,b)    { lua_rawgeti(L,-1,b); a = maketexstring(lua_tostring(L,-1)); lua_pop(L,1); }
+
+#define pdf_action_size 3
+#define pdf_action_type           type
+#define pdf_action_named_id       subtype
+#define pdf_action_id             link
+#define pdf_action_file(a)        info((a) + 1)
+#define pdf_action_new_window(a)  link((a) + 1)
+#define pdf_action_page_tokens(a) info((a) + 2)
+#define pdf_action_user_tokens(a) info((a) + 2)
+#define pdf_action_refcount(a)    link((a) + 2)
+
+extern void generic_node_to_lua (lua_State *L, char *name, char *fmt, ...);
+
+extern void action_node_to_lua (lua_State *L, halfword p);
