@@ -398,17 +398,48 @@ luacall(int n, int s) {
     luainterpreter(n);
   }
   luatex_load_init(s,&ls);
-  snprintf((char *)lua_id,12,"luas[%d]",n);
-  i = lua_load(Luas[n], getS, &ls, lua_id);
-  if (i != 0) {
-    Luas[n] = luatex_error(Luas[n],(i == LUA_ERRSYNTAX ? 0 : 1));
-  } else {
-    i = lua_pcall(Luas[n], 0, 0, 0);
-    if (i != 0) {
-      Luas[n] = luatex_error(Luas[n],(i == LUA_ERRRUN ? 0 : 1));
-    }	 
+  if (ls.size>0) {
+	snprintf((char *)lua_id,12,"luas[%d]",n);
+	i = lua_load(Luas[n], getS, &ls, lua_id);
+	if (i != 0) {
+	  Luas[n] = luatex_error(Luas[n],(i == LUA_ERRSYNTAX ? 0 : 1));
+	} else {
+	  i = lua_pcall(Luas[n], 0, 0, 0);
+	  if (i != 0) {
+		Luas[n] = luatex_error(Luas[n],(i == LUA_ERRRUN ? 0 : 1));
+	  }	 
+	}
   }
 }
+
+void 
+luatokencall(int n, int p) {
+  LoadS ls;
+  int i, j, k, l;
+  char *s=NULL;
+  char lua_id[12];
+  if (Luas[n] == NULL) {
+    luainterpreter(n);
+  }
+  l = 0;
+  s = tokenlist_to_cstring(p,1,&l);
+  ls.s = s;
+  ls.size = l;
+  if (ls.size>0) {
+	snprintf((char *)lua_id,12,"luas[%d]",n);
+	i = lua_load(Luas[n], getS, &ls, lua_id);
+	xfree(s);
+	if (i != 0) {
+	  Luas[n] = luatex_error(Luas[n],(i == LUA_ERRSYNTAX ? 0 : 1));
+	} else {
+	  i = lua_pcall(Luas[n], 0, 0, 0);
+	  if (i != 0) {
+		Luas[n] = luatex_error(Luas[n],(i == LUA_ERRRUN ? 0 : 1));
+	  }	 
+	}
+  }
+}
+
 
 
 void 
