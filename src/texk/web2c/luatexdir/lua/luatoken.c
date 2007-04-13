@@ -120,7 +120,7 @@ command_item command_names[] =
     { "multiply", 0 , NULL },
     { "divide", 0 , NULL },
     { "prefix", 0 , NULL },
-    { "let", 0 , NULL },
+    { "let", 0 , NULL }, /* 100 */
     { "shorthand_def", 0 , NULL },
     { "read_to_cs", 0 , NULL },
     { "def", 0 , NULL },
@@ -130,7 +130,7 @@ command_item command_names[] =
     { "letterspace_font", 0 , NULL },
     { "set_ocp", 0 , NULL },
     { "def_ocp", 0 , NULL },
-    { "set_ocp_list", 0 , NULL },
+    { "set_ocp_list", 0 , NULL }, /* 110 */
     { "def_ocp_list", 0 , NULL },
     { "clear_ocp_lists", 0 , NULL },
     { "push_ocp_list", 0 , NULL },
@@ -140,7 +140,7 @@ command_item command_names[] =
     { "undefined_cs", 0 , NULL },
     { "expand_after", 0 , NULL },
     { "no_expand", 0 , NULL },
-    { "input", 0 , NULL },
+    { "input", 0 , NULL }, /* 120 */
     { "if_test", 0 , NULL },
     { "fi_or_else", 0 , NULL },
     { "cs_name", 0 , NULL },
@@ -150,7 +150,7 @@ command_item command_names[] =
     { "call", 0 , NULL },
     { "long_call", 0 , NULL },
     { "outer_call", 0 , NULL },
-    { "long_outer_call", 0 , NULL },
+    { "long_outer_call", 0 , NULL }, /* 130 */
     { "end_template", 0 , NULL },
     { "dont_expand", 0, NULL },
     { "glue_ref", 0 , NULL },
@@ -233,7 +233,7 @@ get_cur_cs (lua_State *L) {
 	buffer[last+1+j]=*s++;
       }
       save_nncs = no_new_control_sequence;
-      no_new_control_sequence = true;
+      no_new_control_sequence = false;
       cs = id_lookup((last+1),l);
       cur_tok = cs_token_flag+cs;
       cur_cmd = zget_eq_type(cs);
@@ -245,6 +245,155 @@ get_cur_cs (lua_State *L) {
   lua_pop(L,1);
   return ret;
 }
+
+
+#define append_i_byte(a) {				\
+    if ((i+2)>alloci) {					\
+      ret = xrealloc(ret,alloci+64);			\
+      alloci = alloci + 64; }				\
+    ret[i++] = a; }
+
+#define Print_char(a) append_i_byte(a)
+
+#define Print_uchar(s) {					\
+  if (s<=0x7F) {						\
+    Print_char(s);						\
+  } else if (s<=0x7FF) {					\
+    Print_char(0xC0 + (s / 0x40));				\
+    Print_char(0x80 + (s % 0x40));				\
+  } else if (s<=0xFFFF) {					\
+    Print_char(0xE0 + (s / 0x1000));				\
+    Print_char(0x80 + ((s % 0x1000) / 0x40));			\
+    Print_char(0x80 + ((s % 0x1000) % 0x40));			\
+  } else if (s>=0x10FF00) {					\
+    Print_char(s-0x10FF00);					\
+  } else {							\
+    Print_char(0xF0 + (s / 0x40000));				\
+    Print_char(0x80 + ((s % 0x40000) / 0x1000));		\
+    Print_char(0x80 + (((s % 0x40000) % 0x1000) / 0x40));	\
+    Print_char(0x80 + (((s % 0x40000) % 0x1000) % 0x40));	\
+  } }
+
+
+#define Print_esc(b) { if (e>0 && e<string_offset) Print_uchar (e);	\
+    { char *v = b; while (*v) { Print_char(*v); v++; } } }
+
+#define length(a) (str_start_macro((a)+1)-str_start_macro(a))
+
+#define single_letter(a) (length(a)==1)||			\
+  ((length(a)==4)&&(str_pool[str_start_macro(a)]>=0xF0))||	\
+  ((length(a)==3)&&(str_pool[str_start_macro(a)]>=0xE0))||	\
+  ((length(a)==2)&&(str_pool[str_start_macro(a)]>=0xC0))
+
+#define is_cat_letter(a)						\
+  (get_char_cat_code(pool_to_unichar(str_start_macro(a))) == 11)
+
+#define str_start_macro(a) str_start[(a) - string_offset]
+
+char * 
+tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
+  integer m, c  ;
+  integer q;
+  char *s;
+  char *ret=NULL;
+  int match_chr = '#';
+  int n = '0';
+  int active_base = get_active_base();
+  int hash_base = get_hash_base();
+  int null_cs = get_nullcs();
+  int e = get_escape_char();
+  int undefined_control_sequence = get_undefined_control_sequence();
+  int alloci = 0;
+  int i = 0;
+  while ( p != null ) {      
+    if (p < hi_mem_min || p > mem_end )  {
+      Print_esc ("CLOBBERED.") ;
+      break;
+    } 
+    if (info(p)>=cs_token_flag) {
+      if ( ! (inhibit_par && info(p)==par_token) ) {
+	q = info(p) - cs_token_flag;
+	if (q<hash_base) {
+	  if (q==null_cs) {
+	    Print_esc("csname"); Print_esc("endcsname");
+	  } else {
+	    if (q<active_base) {
+	      Print_esc("IMPOSSIBLE.");
+	    } else {
+	      Print_uchar(q-active_base);
+	    }
+	  }
+	} else if (q>=undefined_control_sequence) {
+	  Print_esc("IMPOSSIBLE.");
+	} else if ((zget_cs_text(q)<0)||(zget_cs_text(q)>=str_ptr)) {
+	  Print_esc("NONEXISTENT.");
+	} else {
+	  Print_esc("");
+	
+	  s = makecstring(zget_cs_text(q));
+	  while (*s) { Print_char(*s); s++; }
+	  if ((! single_letter(zget_cs_text(q))) || is_cat_letter(zget_cs_text(q))) { 
+	    Print_char(' ');
+	  }
+	}
+      }
+    } else {
+      m=info(p) / string_offset; 
+      c=info(p) % string_offset;
+      if ( info(p) < 0 ) {
+	Print_esc ( "BAD.") ;
+      } else { 
+	switch ( m ) {
+	case 6 : /* falls through */
+	  Print_uchar ( c ) ;
+	case 1 : 
+	case 2 : 
+	case 3 : 
+	case 4 : 
+	case 7 : 
+	case 8 : 
+	case 10 : 
+	case 11 : 
+	case 12 : 
+	  Print_uchar ( c ) ;
+	  break ;
+	case 5 : 
+	  Print_uchar ( match_chr ) ;
+	  if ( c <= 9 ) {
+	    Print_char ( c + '0') ;
+	  } else {
+	    Print_char ( '!' ) ;
+	    return ;
+	  } 
+	  break ;
+	case 13 : 
+	  match_chr = c ;
+	  Print_uchar ( c ) ;
+	  incr ( n ) ;
+	  Print_char ( n ) ;
+	  if ( n > '9' ) 
+	    return ;
+	  break ;
+	case 14 : 
+	  if ( c == 0 ) {
+	    Print_char ('-');
+	    Print_char ('>') ;
+	  }
+	  break ;
+	default: 
+	  Print_esc ( "BAD.") ;
+	  break ;
+	} 
+      } 
+    } 
+    p = link(p);
+  } 
+  ret[i]=0;
+  if (siz!=NULL)
+    *siz = i;
+  return ret;
+}
+
 
 void
 tokenlist_to_lua(lua_State *L, halfword p) {
@@ -304,7 +453,7 @@ get_token_lua (void) {
     get_next();
     return;
   }
-  callback_id = callback_defined("token_filter");
+  callback_id = callback_defined(token_filter_callback);
   if (callback_id==0) {
     get_next();
     return;
