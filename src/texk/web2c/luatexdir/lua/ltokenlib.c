@@ -100,18 +100,28 @@ run_get_command_name (lua_State *L) {
 
 static int
 run_get_csname_name (lua_State *L) {
-  int cs,n;
+  int cs,cmd,n;
+  char *s;
   integer chr = -1;
   if (is_valid_token(L,-1)) {
+    get_token_cmd(L,-1);
+	if (lua_isnumber(L,-1)) {
+	  cmd = lua_tointeger(L,-1);
+	}
+	lua_pop(L,1);
+
     get_token_cs(L,-1);
-    if (lua_isnumber(L,-1)) {
-      cs = lua_tointeger(L,-1);
-      if (cs != 0 && (n = zget_cs_text(cs)) && n>=0) {
-	lua_pushstring(L,makecstring(n));
-      } else {
-	lua_pushstring(L,"");
-      }
-    }
+	if (lua_isnumber(L,-1)) {
+	  cs = lua_tointeger(L,-1);
+	}
+	lua_pop(L,1);
+
+	if (cs != 0 && (n = zget_cs_text(cs)) && n>=0) {
+	  s = makecstring(n);
+	  lua_pushstring(L,s);
+	} else {
+	  lua_pushstring(L,"");
+	}
   } else {
     lua_pushnil(L);
   }
@@ -156,11 +166,12 @@ make_token_table (lua_State *L, int cmd, int chr, int cs) {
 
 static int 
 run_get_next (lua_State *L) {
-  /*int saved_align_state;*/
-  /*saved_align_state = align_state;*/
+  int save_nncs;
+  save_nncs = no_new_control_sequence;
+  no_new_control_sequence = 0;
   get_next();
+  no_new_control_sequence = save_nncs;
   make_token_table(L,cur_cmd,cur_chr,cur_cs);
-  /*align_state = saved_align_state;*/
   return 1;
 }
 
