@@ -279,7 +279,7 @@ char **load_enc_file(char *enc_name)
     char **glyph_names;
 	char *tempname ;
     set_cur_file_name (enc_name);
-	callback_id=callback_defined("find_enc_file");
+	callback_id=callback_defined(find_enc_file_callback);
 	if (callback_id>0) {
 	  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
 		if(ftemp!=NULL&&strlen(ftemp)) {
@@ -293,7 +293,7 @@ char **load_enc_file(char *enc_name)
 		}
 	  }
 	}
-	callback_id=callback_defined("read_enc_file");
+	callback_id=callback_defined(read_enc_file_callback);
 	enc_curbyte=0;
 	enc_size=0;
 	if (callback_id>0) {
@@ -998,7 +998,7 @@ static boolean t1_open_fontfile (const char *open_name_prefix)
 	t1_curbyte = 0;
 	t1_size = 0;
     if (ff->ff_path != NULL) {
-	  callback_id=callback_defined("find_type1_file");
+	  callback_id=callback_defined(find_type1_file_callback);	  
 	  if (callback_id>0) {
 		if(run_callback(callback_id,"S->S",ff->ff_path,&ftemp)) {
 		  if(ftemp!=NULL&&strlen(ftemp)) {
@@ -1006,7 +1006,7 @@ static boolean t1_open_fontfile (const char *open_name_prefix)
 		  }
 		}
 	  }
-	  callback_id=callback_defined("read_type1_file");
+	  callback_id=callback_defined(read_type1_file_callback);
 	  if (callback_id>0) {
 		if(run_callback(callback_id,"S->bSd",ff->ff_path,
 					   &file_opened, &t1_buffer,&t1_size) 

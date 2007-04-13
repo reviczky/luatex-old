@@ -137,7 +137,7 @@ static sfd_entry *read_sfd (char *sfd_name)
     sfd_curbyte=0;
     sfd_size=0;
 
-	callback_id=callback_defined("find_sfd_file");
+	callback_id=callback_defined(find_sfd_file_callback);
 	if (callback_id>0) {
 	  if(run_callback(callback_id,"S->S",cur_file_name,&ftemp)) {
 		if(ftemp!=NULL&&strlen(ftemp)) {
@@ -148,7 +148,7 @@ static sfd_entry *read_sfd (char *sfd_name)
 		}
 	  }
 	}
-    callback_id=callback_defined("read_sfd_file");
+    callback_id=callback_defined(read_sfd_file_callback);
     if (callback_id>0) {
       if(! (run_callback(callback_id,"S->bSd",cur_file_name,
 		       &file_opened, &sfd_buffer,&sfd_size) &&

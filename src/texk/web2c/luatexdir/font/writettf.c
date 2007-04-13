@@ -1339,7 +1339,7 @@ void writettf(fd_entry * fd)
     }
 	ttf_curbyte=0;
 	ttf_size=0;
-	callback_id=callback_defined("find_truetype_file");
+	callback_id=callback_defined(find_truetype_file_callback);
 	if (callback_id>0) {
 	  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
 		if(ftemp!=NULL&&strlen(ftemp)) {
@@ -1352,7 +1352,7 @@ void writettf(fd_entry * fd)
 	  }
 	}
 
-	callback_id=callback_defined("read_truetype_file");
+	callback_id=callback_defined(read_truetype_file_callback);
 	if (callback_id>0) {
 	  if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
 					 &file_opened, &ttf_buffer,&ttf_size) &&
@@ -1452,7 +1452,7 @@ void writeotf (fd_entry * fd) {
   set_cur_file_name(fd_cur->fm->ff_name);
   ttf_curbyte=0;
   ttf_size=0;
-  callback_id=callback_defined("find_opentype_file");
+  callback_id=callback_defined(find_opentype_file_callback);
   if (callback_id>0) {
     if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
       if(ftemp!=NULL&&strlen(ftemp)) {
@@ -1464,7 +1464,7 @@ void writeotf (fd_entry * fd) {
       }
     }
   }
-  callback_id=callback_defined("read_opentype_file");
+  callback_id=callback_defined(read_opentype_file_callback);
   if (callback_id>0) {
     if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
 		    &file_opened, &ttf_buffer,&ttf_size) &&

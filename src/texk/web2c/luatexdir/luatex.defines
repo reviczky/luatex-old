@@ -40,6 +40,7 @@ $Id $
 @define procedure pdfassert();
 
 @define procedure luacall();
+@define procedure luatokencall();
 @define procedure closelua();
 
 @define function  luacstring_input;
@@ -59,6 +60,45 @@ $Id $
 @define procedure destroy_saved_callback();
 @define function  callback_defined();
 @define function  callbackluaid();
+@define var find_write_file_callback;
+@define var find_output_file_callback;
+@define var find_image_file_callback;
+@define var find_format_file_callback;
+@define var find_read_file_callback;      
+@define var open_read_file_callback;
+@define var find_ocp_file_callback;
+@define var read_ocp_file_callback;
+@define var find_vf_file_callback;
+@define var read_vf_file_callback;
+@define var find_data_file_callback;
+@define var read_data_file_callback;
+@define var find_font_file_callback;
+@define var read_font_file_callback;
+@define var find_map_file_callback;
+@define var read_map_file_callback;
+@define var find_enc_file_callback;
+@define var read_enc_file_callback;
+@define var find_type1_file_callback;
+@define var read_type1_file_callback;
+@define var find_truetype_file_callback;
+@define var read_truetype_file_callback;
+@define var find_opentype_file_callback;
+@define var read_opentype_file_callback;
+@define var find_sfd_file_callback;
+@define var read_sfd_file_callback;
+@define var find_pk_file_callback;
+@define var read_pk_file_callback;
+@define var show_error_hook_callback;
+@define var process_input_buffer_callback;
+@define var start_page_number_callback;
+@define var stop_page_number_callback;
+@define var start_run_callback;
+@define var stop_run_callback;
+@define var define_font_callback;
+@define var token_filter_callback;
+@define var linebreak_filter_callback;
+
+
 
 @define procedure get_saved_lua_boolean();
 @define procedure get_saved_lua_number();

@@ -35,21 +35,6 @@ extern int luaopen_lfs (lua_State *L);
 extern int luaopen_lpeg (lua_State *L);
 extern int luaopen_md5 (lua_State *L);
 
-extern int callback_defined (char *name);
-
-extern int  run_callback          (int i, char *values, ...);
-extern int  run_saved_callback     (int i, char *name, char *values, ...);
-extern int  run_and_save_callback   (int i, char *values, ...);
-extern void destroy_saved_callback (int i);
-
-extern void get_saved_lua_boolean   (int i, char *name, int *target);
-extern void get_saved_lua_number    (int i, char *name, int *target);
-extern void get_saved_lua_string    (int i, char *name, char **target);
-
-extern void get_lua_boolean        (char *table, char *name, int *target);
-extern void get_lua_number         (char *table, char *name, int *target);
-extern void get_lua_string         (char *table, char *name, char **target);
-
 extern void initfilecallbackids    (int max);
 extern void setinputfilecallbackid (int n, int i) ;
 extern void setreadfilecallbackid  (int n, int i) ;

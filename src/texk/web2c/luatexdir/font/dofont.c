@@ -86,7 +86,7 @@ do_define_font (integer f, char *cnom, char *caire, scaled s, integer natural_di
   int r;
   res = 0;
 
-  callback_id=callback_defined("define_font");
+  callback_id=callback_defined(define_font_callback);
   if (callback_id>0) {
     if (caire == NULL || strlen(caire)==0) {
       cnam = cnom;

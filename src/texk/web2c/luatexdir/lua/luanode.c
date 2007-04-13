@@ -496,7 +496,7 @@ lua_node_filter (char *filtername, halfword head_node) {
   halfword ret;  
   integer callback_id ; 
   lua_State *L = Luas[0];
-  callback_id = callback_defined("linebreak_filter");
+  callback_id = callback_defined(linebreak_filter_callback);
   if (callback_id==0) {
     return head_node;
   }

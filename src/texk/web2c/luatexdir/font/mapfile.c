@@ -579,7 +579,7 @@ void fm_read_info ()
 		}
 		fm_curbyte=0;
 		fm_size=0;
-		callback_id=callback_defined("find_map_file");
+		callback_id=callback_defined(find_map_file_callback);
 		if (callback_id>0) {
 		  if(run_callback(callback_id,"S->S",(char *)(nameoffile+1),&ftemp)) {
 			if(ftemp!=NULL&&strlen(ftemp)) {
@@ -591,7 +591,7 @@ void fm_read_info ()
 			}			
 		  }
 		}
-		callback_id=callback_defined("read_map_file");
+		callback_id=callback_defined(read_map_file_callback);
 		if (callback_id>0) {
 		  if(run_callback(callback_id,"S->bSd",(char *)(nameoffile+1),
 						 &file_opened, &fm_buffer,&fm_size)) {
@@ -890,7 +890,7 @@ ff_entry *check_ff_exist(char *ff_name, boolean is_tt)
         ff = new_ff_entry();
         ff->ff_name = xstrdup(ff_name);
         if (is_tt) {
-           callback_id=callback_defined("find_truetype_file");
+           callback_id=callback_defined(find_truetype_file_callback);
            if (callback_id>0) {
              run_callback(callback_id,"S->S",ff_name,&filepath);
                  if (filepath && strlen(filepath)==0)
@@ -901,7 +901,7 @@ ff_entry *check_ff_exist(char *ff_name, boolean is_tt)
            }
 		}
 		else {
-		  callback_id=callback_defined("find_type1_file");
+		  callback_id=callback_defined(find_type1_file_callback);
 		  if (callback_id>0) {
 			run_callback(callback_id,"S->S",ff_name,&filepath);
 			if (filepath && strlen(filepath)==0)

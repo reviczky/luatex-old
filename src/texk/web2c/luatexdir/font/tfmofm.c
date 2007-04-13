@@ -388,7 +388,7 @@ open_tfm_file(char *nom, char *aire, unsigned char **tfm_buf, integer *tfm_siz) 
   nameoffile = malloc(strlen(nom)+2);
   strcpy(stringcast(nameoffile+1),nom);
   namelength = strlen(nom);
-  callback_id=callback_defined("read_font_file");
+  callback_id=callback_defined(read_font_file_callback);
   if (callback_id>0) {
         res = run_callback(callback_id,"S->bSd",stringcast(nameoffile+1),
                                           &opened, tfm_buf, tfm_siz);

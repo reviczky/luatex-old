@@ -5,6 +5,10 @@
 
 extern int do_run_callback (int special, char *values, va_list vl);
 
+int callback_set[total_callbacks] = {0};
+
+static int next_callback = 0;
+
 static const char *const callbacknames[] = {
   "", /* empty on purpose */
   "find_write_file",
@@ -32,42 +36,10 @@ static const char *const callbacknames[] = {
   "linebreak_filter",
   NULL };
 
-typedef struct {
-  char *name;
-  int number;
-  int is_set;
-} callback_info;
-
 int callback_callbacks_id = 0;
 
-struct avl_table *callback_list = NULL;
-
-static int 
-comp_callback (const void *pa, const void *pb, void *p)
-{
-    return strcmp (((const callback_info *) pa)->name,
-                   ((const callback_info *) pb)->name);
-}
-
-
-int
-callback_defined (char *name) {  
-  callback_info cb_tmp;
-  callback_info * cb;
-  if (callback_list==NULL)
-	return 0;
-  cb_tmp.name = name;
-  cb = (callback_info *)avl_find(callback_list, &cb_tmp);
-  if (cb != NULL) {
-	if (cb->is_set) {
-	  return cb->number;
-	}
-  }
-  return 0;
-}
-
 void 
-get_lua_boolean  (char *table, char *name, int *target) {
+get_lua_boolean  (char *table, char *name, boolean *target) {
   int stacktop;
   stacktop = lua_gettop(Luas[0]);  
   luaL_checkstack(Luas[0],2,"out of stack space");
@@ -75,7 +47,7 @@ get_lua_boolean  (char *table, char *name, int *target) {
   if (lua_istable(Luas[0],-1)) {
     lua_getfield(Luas[0],-1,name);
     if (lua_isboolean(Luas[0],-1)) {
-      *target = lua_toboolean(Luas[0],-1);
+      *target = (lua_toboolean(Luas[0],-1));
     } else if (lua_isnumber(Luas[0],-1)) {
       *target = (lua_tonumber(Luas[0],-1)==0 ? 0 : 1);
     }
@@ -85,7 +57,7 @@ get_lua_boolean  (char *table, char *name, int *target) {
 }
 
 void 
-get_saved_lua_boolean (int r, char *name, int *target) {
+get_saved_lua_boolean (int r, char *name, boolean *target) {
   int stacktop;
   stacktop = lua_gettop(Luas[0]);  
   luaL_checkstack(Luas[0],2,"out of stack space");
@@ -102,9 +74,8 @@ get_saved_lua_boolean (int r, char *name, int *target) {
   return;
 }
 
-
 void 
-get_lua_number (char *table, char *name, int *target) {
+get_lua_number (char *table, char *name, integer *target) {
   int stacktop;
   stacktop = lua_gettop(Luas[0]);  
   luaL_checkstack(Luas[0],2,"out of stack space");
@@ -120,7 +91,7 @@ get_lua_number (char *table, char *name, int *target) {
 }
 
 void 
-get_saved_lua_number (int r, char *name, int *target) {
+get_saved_lua_number (int r, char *name, integer *target) {
   int stacktop;
   stacktop = lua_gettop(Luas[0]);  
   luaL_checkstack(Luas[0],2,"out of stack space");
@@ -392,88 +363,78 @@ destroy_saved_callback (int i) {
 }
 
 static int callback_register (lua_State *L) {
-  callback_info cb_tmp;
-  callback_info * cb;
+  int cb;
+  char *s;
   if (!lua_isstring(L,1) || 
-	  ((!lua_isfunction(L,2)) && !lua_isnil(L,2))) {
-	lua_pushnil(L);
-	lua_pushstring(L,"Invalid arguments to callback.register.");
-	return 2;
+      ((!lua_isfunction(L,2)) && !lua_isnil(L,2))) {
+    lua_pushnil(L);
+    lua_pushstring(L,"Invalid arguments to callback.register.");
+    return 2;
   }
-  cb_tmp.name = (char *)lua_tostring(L,1);
-  cb = (callback_info *)avl_find(callback_list,&cb_tmp);
-  if (cb==NULL) {
-	lua_pushnil(L);
-	lua_pushstring(L,"No such callback exists.");
-	return 2;
+  s = (char *)lua_tostring(L,1);
+  for(cb=0;cb<total_callbacks;cb++) {
+    if (strcmp(callbacknames[cb],s)==0) 
+      break;
+  }
+  if (cb==total_callbacks) {
+    lua_pushnil(L);
+    lua_pushstring(L,"No such callback exists.");
+    return 2;
   }
   if (lua_isfunction(L,2)) {
-	/*
-     if (cb->is_set) {
-	   fprintf(stdout,"replacing callback with new version\n");
-	 }
-	*/
-    cb->is_set=1;
-	avl_replace(callback_list, cb);
-  } else { /*if (lua_isnil(L,2)) {*/
-	/* 
-     if (cb->is_set) {
-	   fprintf(stdout,"deleting callback\n");
-	 }
-	*/
-    cb->is_set=0;
-	avl_replace(callback_list, cb);
+    callback_set[cb]=cb;
+  } else {
+    callback_set[cb]=0;
   }
   luaL_checkstack(L,2,"out of stack space");
   lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id); /* push the table */
   lua_pushvalue(L,2);    /* the function or nil */
-  lua_rawseti(L,-2,cb->number);
+  lua_rawseti(L,-2,cb);
   lua_rawseti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
-  /* return something (not very useful) */
-  lua_pushnumber(L,cb->number);
+  lua_pushnumber(L,cb);
   return 1;
 }
 
-
 static int callback_find (lua_State *L) {
-  callback_info cb_tmp;
-  callback_info * cb;
+  int cb;
+  char * s;
   if (!lua_isstring(L,1)) {
-	lua_pushnil(L);
-	lua_pushstring(L,"Invalid arguments to callback.find.");
-	return 2;
+    lua_pushnil(L);
+    lua_pushstring(L,"Invalid arguments to callback.find.");
+    return 2;
   }
-  cb_tmp.name = (char *)lua_tostring(L,1);
-  cb = (callback_info *)avl_find(callback_list, &cb_tmp);
-  if (cb==NULL) {
-	lua_pushnil(L);
-	lua_pushstring(L,"No such callback exists.");
-	return 2;
+  s = (char *)lua_tostring(L,1);
+  for(cb=0;cb<total_callbacks;cb++) {
+    if (strcmp(callbacknames[cb],s)==0) 
+      break;
+  }
+  if (cb==total_callbacks) {
+    lua_pushnil(L);
+    lua_pushstring(L,"No such callback exists.");
+    return 2;
   }
   luaL_checkstack(L,2,"out of stack space");
   lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id); /* push the table */
-  lua_rawgeti(L,-1,cb->number);
+  lua_rawgeti(L,-1,cb);
   return 1;
 }
 
 
 static int callback_listf (lua_State *L) {
   int i;
-  luaL_checkstack(L,1,"out of stack space");
+  luaL_checkstack(L,3,"out of stack space");
   lua_newtable(L);
   for (i=1; callbacknames[i]; i++) {
-	luaL_checkstack(L,2,"out of stack space");
-	lua_pushstring(L,callbacknames[i]);
-	if (callback_defined((char *)callbacknames[i])) {
-	  lua_pushboolean(L,1);
-	} else {
-	  lua_pushboolean(L,0);
-	}
-	lua_rawset(L,-3);
+    lua_pushstring(L,callbacknames[i]);
+    if (callback_defined(i)) {
+      lua_pushboolean(L,1);
+    } else {
+      lua_pushboolean(L,0);
+    }
+    lua_rawset(L,-3);
   }
   return 1;
 }
-
 
 static const struct luaL_reg callbacklib [] = {
   {"find",    callback_find},
@@ -484,19 +445,6 @@ static const struct luaL_reg callbacklib [] = {
 
 int luaopen_callback (lua_State *L) 
 {
-  int i;
-  callback_info *cb;
-  callback_list = avl_create (comp_callback, NULL, &avl_xallocator);
-  if (callback_list == NULL) 
-    return 0;
-  for (i=1;callbacknames[i]!=NULL;i++) {
-	cb = xmalloc(sizeof(callback_info));
-	cb->name = (char *)callbacknames[i];
-	cb->number = i;
-	cb->is_set = 0;
-	if(avl_probe(callback_list, cb)==NULL)
-	  return 0;
-  }
   luaL_register(L, "callback", callbacklib);
   luaL_checkstack(L,1,"out of stack space");
   lua_newtable(L);

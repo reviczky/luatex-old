@@ -257,7 +257,7 @@ zopen_w_input (FILE **f, int format, const_string fopen_mode) {
   int callbackid;
   int res;
   char *fnam;
-  callbackid = callback_defined("find_format_file");
+  callbackid = callback_defined(find_format_file_callback);
   if (callbackid>0) {
 	res = run_callback(callbackid,"S->S",(nameoffile+1),&fnam);
 	if (res && fnam && strlen(fnam)>0) {

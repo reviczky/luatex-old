@@ -151,7 +151,7 @@ static boolean writepk (internalfontnumber f)
     t3_curbyte=0;
     t3_size=0;
 
-	callback_id=callback_defined("find_pk_file");
+	callback_id=callback_defined(find_pk_file_callback);
 
 	if (callback_id>0) {
       dpi = round (fixed_pk_resolution *
@@ -184,7 +184,7 @@ static boolean writepk (internalfontnumber f)
         return false;
       }
 	}
-    callback_id=callback_defined("read_pk_file");
+    callback_id=callback_defined(read_pk_file_callback);
     if (callback_id>0) {
       if(! ( run_callback(callback_id,"S->bSd",name, &file_opened, &t3_buffer,&t3_size) &&
 	     file_opened && 

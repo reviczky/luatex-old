@@ -265,7 +265,7 @@ open_vf_file (char *fn, unsigned char **vbuffer, integer *vsize) {
   nameoffile = xmalloc(namelength+2);
   strcpy((char *)(nameoffile+1),fn);
 
-  callback_id=callback_defined("find_vf_file");
+  callback_id=callback_defined(find_vf_file_callback);
   if (callback_id>0) {
     res = run_callback(callback_id,"S->S",fn, &fnam);
     if (res && (fnam!=0) && (strlen(fnam)>0)) {
@@ -278,7 +278,7 @@ open_vf_file (char *fn, unsigned char **vbuffer, integer *vsize) {
       return 0;
     }
   }
-  callback_id=callback_defined("read_vf_file");
+  callback_id=callback_defined(read_vf_file_callback);
   if (callback_id>0) {
     file_read = false;
     res = run_callback(callback_id,"S->bSd",stringcast(nameoffile+1),
