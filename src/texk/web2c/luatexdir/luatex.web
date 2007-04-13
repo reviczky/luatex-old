@@ -972,13 +972,13 @@ begin
     texinputtype:=0; 
     read_file_callback_id[n] := 0;
     end;
-  callback_id:=callback_defined('find_read_file');
+  callback_id:=callback_defined(find_read_file_callback);
   if callback_id>0 then begin
     fnam:=0;
     test:=run_callback(callback_id,'dS->s',n,stringcast(nameoffile+1),addressof(fnam));
     if (test)and(fnam<>0)and(length(fnam)>0) then begin
       @<Fixup |nameoffile| after callback@>;
-      callback_id:=callback_defined('open_read_file');
+      callback_id:=callback_defined(open_read_file_callback);
       if callback_id >0 then begin
         stored_callback_id := run_and_save_callback(callback_id,'S->',stringcast(nameoffile+1));
         if stored_callback_id>0 then begin
@@ -1027,7 +1027,7 @@ var test:boolean;
   callback_id:integer;
 begin
   name_file_pointer := 0;
-  callback_id:=callback_defined('find_write_file');
+  callback_id:=callback_defined(find_write_file_callback);
   if callback_id>0 then begin
     fnam:=0;
     test:=run_callback(callback_id,'dS->s',n,stringcast(nameoffile+1),addressof(fnam));
@@ -1055,7 +1055,7 @@ var test:boolean;
   callback_id:integer;
 begin
   name_file_pointer := 0;
-  callback_id:=callback_defined('find_output_file');
+  callback_id:=callback_defined(find_output_file_callback);
   if callback_id>0 then begin
     fnam:=0;
     test:=run_callback(callback_id,'S->s',stringcast(nameoffile+1),addressof(fnam));
@@ -1257,7 +1257,7 @@ end;
 @ 
 @<Fix up the input buffer using callbacks@>=
 if last>=first then begin
-  callback_id := callback_defined('process_input_buffer');
+  callback_id := callback_defined(process_input_buffer_callback);
   if callback_id>0 then begin
     last_ptr := first;
     lua_result := run_callback(callback_id, 'l->l', (last-first), addressof(last_ptr)); 
@@ -1913,6 +1913,39 @@ result := a;
 not_found: pool_to_unichar := result;
 end ;
 
+function unichar_to_buffer(k,c:integer):integer;
+var d:integer;
+begin
+	d:=1;   
+	 if c <= @"7F then
+        buffer[k]:= c
+     else if c<=@"7FF then begin
+        buffer[k]:=@"C0 + c div @"40;
+        incr(k); incr(d);
+        buffer[k]:=@"80 + c mod @"40;
+        end
+     else if c<=@"FFFF then begin
+        buffer[k]:=@"E0 + c div @"1000;
+        incr(k);  incr(d);
+        buffer[k]:=@"80 + (c mod @"1000) div @"40;
+        incr(k);  incr(d);
+        buffer[k]:=@"80 + (c mod @"1000) mod @"40;
+        end
+     else if c>=@"10FF00 then 
+	    buffer[k] := c-@"10FF00
+     else begin
+        buffer[k]:=@"F0 + c div @"40000;
+        incr(k);  incr(d);
+        buffer[k]:=@"80 + (c mod @"40000) div @"1000;
+        incr(k);  incr(d);
+        buffer[k]:=@"80 + ((c mod @"40000) mod @"1000) div @"40;
+        incr(k);  incr(d);
+        buffer[k]:=@"80 + ((c mod @"40000) mod @"1000) mod @"40;
+        end;
+  unichar_to_buffer:=d;
+end;
+
+
 procedure print(@!s:integer); {prints string |s|}
 label exit;
 var j:pool_pointer; {current character code position}
@@ -2323,7 +2356,7 @@ callback_id:integer;
 @!t:boolean;
 begin if history<error_message_issued then history:=error_message_issued;
 print_char("."); 
-callback_id := callback_defined('show_error_hook') ;
+callback_id := callback_defined(show_error_hook_callback) ;
 if callback_id>0 then t := run_callback(callback_id,'->');
 show_context;
 if interaction=error_stop_mode then @<Get user's advice and |return|@>;
@@ -7079,7 +7112,7 @@ while pool_ptr>str_start_macro(str_ptr) do
   begin decr(pool_ptr); str_pool[pool_ptr+l]:=str_pool[pool_ptr];
   end; {move current string up to make room for another}
 for k:=j to j+l-1 do append_char(buffer[k]);
-text(p):=make_string; pool_ptr:=pool_ptr+d;
+text(p):=make_string; pool_ptr:=pool_ptr+d; 
 @!stat incr(cs_count);@+tats@;@/
 end
 
@@ -8934,7 +8967,9 @@ by |cur_cs|, which is zero at the end of a file.
 @p procedure check_outer_validity;
 var p:pointer; {points to inserted token list}
 @!q:pointer; {auxiliary pointer}
-begin if scanner_status<>normal then
+begin 
+if false then
+if scanner_status<>normal then
   begin deletions_allowed:=false;
   @<Back up an outer control sequence so that it can be reread@>;
   if scanner_status>skipping then
@@ -9363,7 +9398,6 @@ begin
         buffer[k-1]:=@"80 + ((cur_chr mod @"40000) mod @"1000) mod @"40;
         end;
      l := k;
-     {first := first - d;}
      limit := limit - d;
      while l<=limit do begin 
         buffer[l]:=buffer[l+d]; 
@@ -9442,7 +9476,7 @@ end
 @ All of the easy branches of |get_next| have now been taken care of.
 There is one more branch.
 
-@d end_line_char_inactive == (end_line_char<0)or(end_line_char>biggest_char)
+@d end_line_char_inactive == (end_line_char<0)or(end_line_char>127)
 
 @<Move to next line of file, or |goto restart|...@>=
 detokenized_line:=false;  
@@ -12114,19 +12148,25 @@ lua_code:
     save_def_ref := def_ref;
     save_warning_index := warning_index;
 	scan_register_num;
-	i := cur_val;{|tokens_to_string| may trash |cur_val }
+	i := cur_val;
     scan_pdf_ext_toks;
-	inhibit_par_tokens:=true;
-    s := tokens_to_string(def_ref);
-	inhibit_par_tokens:=false;
-    delete_token_ref(def_ref);
-    def_ref := save_def_ref;
+    s := def_ref;
     warning_index := save_warning_index;
+    def_ref := save_def_ref;
     scanner_status := save_scanner_status;
     luacstrings:=0;
-    luacall(i,(s-string_offset));
-	flush_string;
-	if u<>0 then begin decr(str_ptr); u:=0; end; 
+    luatokencall(i,link(s));
+    delete_token_ref(s);
+	if u<>0 then begin
+      if str_ptr=u+1 then 
+        decr(str_ptr)
+      else begin {copy old string to the top location}
+         i:=0;
+	     str_room(length(u));
+         while i<length(u) do
+           str_pool[pool_ptr+i]:=str_pool[str_start_macro(u)+i];
+        end;
+    end; 
 	if luacstrings>0 then
 	  lua_string_start;
     return;
@@ -13339,13 +13379,13 @@ while not lua_a_open_out(addressof(log_file),0) do @<Try to get a different log 
 log_file := name_file_pointer;
 log_name:=a_make_name_string(log_file);
 selector:=log_only; log_opened:=true;
-if not callback_defined('start_run') then begin
+if not callback_defined(start_run_callback) then begin
   @<Print the banner line, including the date and time@>;
   input_stack[input_ptr]:=cur_input; {make sure bottom level is in memory}
   print_nl("**");
 @.**@>
   l:=input_stack[0].limit_field; {last position of first line}
-  if buffer[l]=end_line_char then decr(l);
+  if buffer[l]=end_line_char then decr(l); { TODO: multichar endlinechar}
   for k:=1 to l do print(buffer[k]);
   print_ln; {now the transcript file contains the first line of input}
   end
@@ -13919,14 +13959,14 @@ file_opened:=false;
 pack_file_name(nom,aire,".ocp");
 if ocp_buffer<>0 then libcfree(ocp_buffer);
 ocp_cur:=0; ocp_buffer:=0; ocp_size:=0;
-callback_id:=callback_defined('find_ocp_file');
+callback_id:=callback_defined(find_ocp_file_callback);
 if callback_id>0 then begin
   res := run_callback(callback_id,'S->s',stringcast(nameoffile+1), addressof(fnam));
   if (res)and(fnam<>0)and(length(fnam)>0) then begin
     @<Fixup |nameoffile| after callback@>;
     end;
   end;
-callback_id:=callback_defined('read_ocp_file');
+callback_id:=callback_defined(read_ocp_file_callback);
 if callback_id>0 then begin
   res := run_callback(callback_id,'S->bSd',stringcast(nameoffile+1),
           addressof(file_opened), addressof(ocp_buffer),addressof(ocp_size));
@@ -16204,8 +16244,8 @@ pre_callback_id:integer;
 post_callback_id:integer;
 ret:boolean;
 begin 
-pre_callback_id:=callback_defined('start_page_number');	
-post_callback_id:=callback_defined('stop_page_number');	
+pre_callback_id:=callback_defined(start_page_number_callback);	
+post_callback_id:=callback_defined(stop_page_number_callback);	
 if (tracing_output>0)and(pre_callback_id=0) then
   begin print_nl(""); print_ln;
   print("Completed box being shipped out");
@@ -16439,6 +16479,16 @@ end;
 function get_nullfont: internal_font_number;
 begin
     get_nullfont := null_font;
+end;
+
+function get_escape_char: integer;
+begin
+    get_escape_char := escape_char;
+end;
+
+function get_undefined_control_sequence: integer;
+begin
+    get_undefined_control_sequence := undefined_control_sequence;
 end;
 
 function get_fontbase: internal_font_number;
@@ -19664,8 +19714,8 @@ pre_callback_id:integer;
 post_callback_id:integer;
 ret:boolean;
 begin 
-pre_callback_id:=callback_defined('start_page_number');	
-post_callback_id:=callback_defined('stop_page_number');	
+pre_callback_id:=callback_defined(start_page_number_callback);	
+post_callback_id:=callback_defined(stop_page_number_callback);	
 if (tracing_output>0)and(pre_callback_id=0) then
   begin print_nl(""); print_ln;
   print("Completed box being shipped out");
@@ -20025,14 +20075,14 @@ begin
     if obj_obj_is_file(n) > 0 then begin
         data_size:=0; data_cur:=0; data_buffer:=0;
         pack_file_name(s,"","");
-	    callback_id:=callback_defined('find_data_file');
+	    callback_id:=callback_defined(find_data_file_callback);
 	    if callback_id>0 then begin
     	  res := run_callback(callback_id,'S->s',stringcast(nameoffile+1),addressof(fnam));
 	      if (res)and(fnam<>0)and(length(fnam)>0) then begin
 	        @<Fixup |nameoffile| after callback@>;
 		 	end;
           end;
-		callback_id:=callback_defined('read_data_file');
+		callback_id:=callback_defined(read_data_file_callback);
         if callback_id>0 then begin
           file_opened := false;
           res := run_callback(callback_id,'S->bSd',stringcast(nameoffile+1),
@@ -20397,7 +20447,7 @@ if pdf_pk_resolution = 0 then {if not set from format file or by user}
 fixed_pk_resolution := fix_int(pdf_pk_resolution, 72, 8000);
 pk_scale_factor :=
     divide_scaled(72, fixed_pk_resolution, 5 + fixed_decimal_digits);
-if not callback_defined('read_pk_file') then begin
+if not callback_defined(read_pk_file_callback) then begin
   if pdf_pk_mode <> null then begin
     kpseinitprog('PDFTEX', fixed_pk_resolution,
                    makecstring(tokens_to_string(pdf_pk_mode)), nil);
@@ -32828,7 +32878,18 @@ assign_int: begin p:=cur_chr; scan_optional_equals; scan_int;
 	     error;
          end;
 	end
-	else
+	else if (p=new_line_char)and(cur_val>127) then begin
+	  print_err("Invalid \newlinechar");
+      help1("The value for \newlinechar has to be between 0 and 127.");
+	  error;
+      end
+	else if p=end_line_char then begin
+	  if (cur_val<0)or(cur_val>biggest_char) then
+      	 word_define(p,-1)
+      else
+      	 word_define(p,13);
+      end
+    else
 	  word_define(p,cur_val);
 {If we are defining subparagraph penalty levels while we are
 in hmode, then we put out a whatsit immediately, otherwise
@@ -34396,7 +34457,7 @@ procedure print_banner;
 var res:boolean;
    callback_id:integer;
 begin
-callback_id:=callback_defined('start_run');
+callback_id:=callback_defined(start_run_callback);
 if callback_id=0 then begin
   wterm(banner);
   if format_ident=0 then wterm_ln(' (no format preloaded)')
@@ -34434,7 +34495,7 @@ var a, b, c, i, j, k, l: integer; {all-purpose index}
 	callback_id:integer;
 	res:boolean;
 begin 
-callback_id:=callback_defined('stop_run');
+callback_id:=callback_defined(stop_run_callback);
 @<Finish the extensions@>;
 @!stat if tracing_stats>0 then
   if callback_id=0 then @<Output statistics about this job@>;@;@+tats@/
@@ -34553,7 +34614,7 @@ while cond_ptr<>null do
   cur_if:=subtype(cond_ptr); temp_ptr:=cond_ptr;
   cond_ptr:=link(cond_ptr); free_node(temp_ptr,if_node_size);
   end;
-if not callback_defined('stop_run') then 
+if not callback_defined(stop_run_callback) then 
   if history<>spotless then
     if ((history=warning_issued)or(interaction<error_stop_mode)) then
       if selector=term_and_log then
