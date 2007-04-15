@@ -280,7 +280,7 @@ handle_liglist (lua_State *L, struct liglist *ligofme) {
 }
 
 void 
-handle_splinechar (lua_State *L,struct splinechar *glyph) {
+handle_splinechar (lua_State *L,struct splinechar *glyph, int hasvmetrics) {
   
   dump_stringfield(L,"name",        glyph->name);
   dump_intfield(L,"unicodeenc",     glyph->unicodeenc);
@@ -293,8 +293,11 @@ handle_splinechar (lua_State *L,struct splinechar *glyph) {
   lua_setfield(L,-2,"boundingbox");
 
   dump_intfield(L,"orig_pos",       glyph->orig_pos);
-  dump_intfield(L,"width",          glyph->width);
-  dump_intfield(L,"vwidth",         glyph->vwidth);
+  if (hasvmetrics) {
+    dump_intfield(L,"vwidth",         glyph->vwidth);
+  } else {
+    dump_intfield(L,"width",          glyph->width);
+  }
   dump_intfield(L,"lsidebearing",   glyph->lsidebearing); 
 
   /* Layer layers[2];	*/	/* TH Not used */
@@ -309,11 +312,11 @@ handle_splinechar (lua_State *L,struct splinechar *glyph) {
 
   /*  struct splinefont *parent; */  /* TH Not used */
 
-  dump_intfield(L,"ticked",                   glyph->ticked); 
-  dump_intfield(L,"widthset",                 glyph->widthset); 
   dump_intfield(L,"glyph_class",              glyph->glyph_class);  
 
   /* TH: internal fontforge stuff
+     dump_intfield(L,"ticked",                   glyph->ticked);
+     dump_intfield(L,"widthset",                 glyph->widthset); 
      dump_intfield(L,"ttf_glyph",                glyph->ttf_glyph); 
      dump_intfield(L,"changed",                  glyph->changed); 
      dump_intfield(L,"changedsincelasthinted",   glyph->changedsincelasthinted); 
@@ -763,9 +766,11 @@ do_handle_kernclass (lua_State *L, struct kernclass *kerns) {
 
   lua_createtable(L,kerns->second_cnt*kerns->first_cnt,1);
   for (k=0;k<(kerns->second_cnt*kerns->first_cnt);k++) {
-    lua_pushnumber(L,(k+1));
-    lua_pushnumber(L,kerns->offsets[k]);
-    lua_rawset(L,-3);
+    if (kerns->offsets[k]!=0) {
+      lua_pushnumber(L,(k+1));
+      lua_pushnumber(L,kerns->offsets[k]);
+      lua_rawset(L,-3);
+    }
   }
   lua_setfield(L,-2,"offsets");
 
@@ -1027,7 +1032,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   for (k=0;k<sf->glyphcnt;k++) {
     lua_pushnumber(L,k);
     lua_createtable(L,0,12);
-    handle_splinechar(L,sf->glyphs[k]);
+    handle_splinechar(L,sf->glyphs[k], sf->hasvmetrics);
     lua_rawset(L,-3);
   }
   lua_setfield(L,-2,"glyphs");
