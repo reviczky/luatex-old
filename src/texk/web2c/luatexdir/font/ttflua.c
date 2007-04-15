@@ -872,7 +872,11 @@ static char *fpossub_format_enum [] = { "glyphs", "class","coverage","reversecov
 void 
 do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
 
-  dump_intfield (L,"type", fpst->type);
+  if (fpst->type>LAST_POSSUB_TYPE_ENUM) {
+    dump_intfield(L,"type", fpst->type);
+  } else {
+    dump_enumfield(L,"type", fpst->type, possub_type_enum);
+  }
   dump_enumfield(L,"format", fpst->format, fpossub_format_enum);
   dump_intfield (L,"script_lang_index", (fpst->script_lang_index+1));
   dump_intfield (L,"flags", fpst->flags);
