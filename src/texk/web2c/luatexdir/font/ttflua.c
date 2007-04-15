@@ -167,16 +167,18 @@ void handle_vr (lua_State *L, struct vr *pos) {
 }
 
 char *possub_type_enum[] = { 
-  "null", "position", "pair",  "substitution", "alternate",
-  "multiple", "ligature", "lcaret",  "kerning", "vkerning", "anchors",
-  "contextpos", "contextsub", "chainpos", "chainsub",
-  "reversesub", "max", "kernback", "vkernback"};
+  "null", "position", "pair",  "substitution", 
+  "alternate", "multiple", "ligature", "lcaret",  
+  "kerning", "vkerning", "anchors", "contextpos", 
+  "contextsub", "chainpos", "chainsub","reversesub", 
+   "max", "kernback", "vkernback"};
 
+#define LAST_POSSUB_TYPE_ENUM 18
 
 void
 do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
 
-  if (pst->type>256) {
+  if (pst->type>LAST_POSSUB_TYPE_ENUM) {
     dump_tag(L,"type",  pst->type); 
   } else {
     dump_enumfield(L,"type",             pst->type, possub_type_enum); 
@@ -1163,14 +1165,13 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
 
   lua_newtable(L);
   dump_intfield(L,"tt_cur", sf->gentags.tt_cur);
-  dump_intfield(L,"tt_max", sf->gentags.tt_max);
   if (sf->gentags.tagtype != NULL) {
-    lua_createtable(L,sf->gentags.tt_max,0);
-    for (k=0;k<sf->gentags.tt_max;k++) {
+    lua_createtable(L,sf->gentags.tt_cur,0);
+    for (k=0;k<sf->gentags.tt_cur;k++) {
       lua_pushnumber(L,(k+1));
       lua_newtable(L);
 
-      if (sf->gentags.tagtype[k].type>256) {
+      if (sf->gentags.tagtype[k].type>LAST_POSSUB_TYPE_ENUM) {
 	dump_tag(L,"type",  sf->gentags.tagtype[k].type); 
       } else {
 	dump_enumfield(L,"type", sf->gentags.tagtype[k].type, possub_type_enum);
