@@ -2766,6 +2766,57 @@ static void gsubLookupSwitch(FILE *ttf, int st,
 	LogError( _("Subtable extends beyond end of GSUB table\n" ));
 }
 
+enum possub_type SFGTagUsed(struct gentagtype *gentags,uint32 tag) {
+    int i;
+
+    for ( i=0; i<gentags->tt_cur; ++i )
+	if ( gentags->tagtype[i].tag==tag )
+return( gentags->tagtype[i].type );
+
+return( pst_null );
+}
+
+
+uint32 SFGenerateNewFeatureTag(struct gentagtype *gentags,enum possub_type type,
+	uint32 suggested_tag) {
+    char buf[8],tbuf[8];
+    int i,j,k,l;
+
+    if ( gentags->tt_cur >= gentags->tt_max ) {
+	if ( gentags->tt_cur==0 ) {
+	    gentags->tagtype = galloc((gentags->tt_max=32)*sizeof(struct tagtype));
+	} else {
+	    gentags->tt_max += 32;
+	    gentags->tagtype = grealloc(gentags->tagtype,gentags->tt_max*sizeof(struct tagtype));
+	}
+    }
+    for ( i=0; i<gentags->tt_cur && gentags->tagtype[i].type!=pst_null; ++i );
+    if ( suggested_tag==0 ) {
+	sprintf(buf, i<1000 ? "G%03d" : "%04d", i );
+	gentags->tagtype[i].type = type;
+	gentags->tagtype[i].tag = CHR(buf[0],buf[1],buf[2],buf[3]);
+    } else {
+	j = 0;
+	tbuf[0] = suggested_tag>>24;
+	tbuf[1] = (suggested_tag>>16)&0xff;
+	tbuf[2] = (suggested_tag>>8)&0xff;
+	tbuf[3] = suggested_tag&0xff;
+	while ( SFGTagUsed(gentags,suggested_tag)!=pst_null ) {
+	    sprintf(buf,"%d",j++);
+	    k = strlen(buf);
+	    for ( l=0; l<k; ++l )
+		tbuf[3-l] = buf[k-l-1];
+	    suggested_tag = CHR(tbuf[0],tbuf[1],tbuf[2],tbuf[3]);
+	}
+	gentags->tagtype[i].type = type;
+	gentags->tagtype[i].tag = suggested_tag;
+    }
+    if ( i==gentags->tt_cur ) ++gentags->tt_cur;
+return( gentags->tagtype[i].tag );
+}
+
+
+
 static uint32 InfoGenerateNewFeatureTag(struct gentagtype *gentags,int lu_type,
 	int gpos, int lookup_index) {
     int type = pst_null;

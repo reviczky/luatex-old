@@ -81,7 +81,7 @@ static char *make_tag_string (unsigned int field) {
 static void 
 dump_tag (lua_State *L, char *name, unsigned int field) {
   lua_pushstring(L,name);
-  lua_pushstring(L,make_tag_string(field));
+  lua_pushlstring(L,make_tag_string(field),4);
   lua_rawset(L,-3);
 }
 
@@ -170,13 +170,17 @@ char *possub_type_enum[] = {
   "null", "position", "pair",  "substitution", "alternate",
   "multiple", "ligature", "lcaret",  "kerning", "vkerning", "anchors",
   "contextpos", "contextsub", "chainpos", "chainsub",
-  "reversesub", "max", "kernback", "vkernback" };
+  "reversesub", "max", "kernback", "vkernback"};
 
 
 void
 do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
 
-  dump_enumfield(L,"type",             pst->type, possub_type_enum); 
+  if (pst->type>256) {
+    dump_tag(L,"type",  pst->type); 
+  } else {
+    dump_enumfield(L,"type",             pst->type, possub_type_enum); 
+  }
 
   /*dump_intfield(L,"macfeature",        pst->macfeature); */
   dump_intfield(L,"flags",             pst->flags); 
@@ -1165,7 +1169,12 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     for (k=0;k<sf->gentags.tt_max;k++) {
       lua_pushnumber(L,(k+1));
       lua_newtable(L);
-      dump_enumfield(L,"type", sf->gentags.tagtype[k].type, possub_type_enum);
+
+      if (sf->gentags.tagtype[k].type>256) {
+	dump_tag(L,"type",  sf->gentags.tagtype[k].type); 
+      } else {
+	dump_enumfield(L,"type", sf->gentags.tagtype[k].type, possub_type_enum);
+      }
       dump_tag(L,"tag", sf->gentags.tagtype[k].tag);
       lua_rawset(L,-3);
     }

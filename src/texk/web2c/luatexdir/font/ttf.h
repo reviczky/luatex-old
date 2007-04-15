@@ -862,7 +862,6 @@ extern void SFDummyUpCIDs(struct glyphinfo *gi,SplineFont *sf);
 #define SCReinstanciateRefChar(a,b)
 #define SCScriptFromUnicode(a) 0
 #define SFDefaultAscent(a)
-#define SFGenerateNewFeatureTag(a,b,c) 0
 #define SFInstanciateRefs(a)
 #define SPInterpolate(a) 1
 #define SplineMake(a,b,c)
