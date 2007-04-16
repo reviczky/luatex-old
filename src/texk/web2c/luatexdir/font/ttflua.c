@@ -292,14 +292,15 @@ handle_splinechar (lua_State *L,struct splinechar *glyph, int hasvmetrics) {
   lua_pushnumber(L,4);  lua_pushnumber(L,glyph->ymax); lua_rawset(L,-3);
   lua_setfield(L,-2,"boundingbox");
 
-  dump_intfield(L,"orig_pos",       glyph->orig_pos);
+  /*dump_intfield(L,"orig_pos",       glyph->orig_pos);*/
   if (hasvmetrics) {
     dump_intfield(L,"vwidth",         glyph->vwidth);
   } else {
     dump_intfield(L,"width",          glyph->width);
   }
-  dump_intfield(L,"lsidebearing",   glyph->lsidebearing); 
-
+  if (glyph->lsidebearing>0) {
+    dump_intfield(L,"lsidebearing",   glyph->lsidebearing); 
+  }
   /* Layer layers[2];	*/	/* TH Not used */
   /*  int layer_cnt;    */	/* TH Not used */
   /*  StemInfo *hstem;  */	/* TH Not used */
@@ -312,8 +313,9 @@ handle_splinechar (lua_State *L,struct splinechar *glyph, int hasvmetrics) {
 
   /*  struct splinefont *parent; */  /* TH Not used */
 
-  dump_intfield(L,"glyph_class",              glyph->glyph_class);  
-
+  if (glyph->glyph_class>0) {
+    dump_intfield(L,"glyph_class",              glyph->glyph_class);  
+  }
   /* TH: internal fontforge stuff
      dump_intfield(L,"ticked",                   glyph->ticked);
      dump_intfield(L,"widthset",                 glyph->widthset); 
@@ -563,7 +565,7 @@ handle_encmap (lua_State *L, struct encmap *map) {
   dump_intfield(L,"enccount", map->enccount) ;
   dump_intfield(L,"encmax",   map->encmax) ;
   dump_intfield(L,"backmax",  map->backmax) ;
-  dump_intfield(L,"ticked",   map->ticked) ;
+  /*dump_intfield(L,"ticked",   map->ticked) ;*/
   if (map->remap != NULL) {
     lua_newtable(L);
     dump_intfield(L,"firstenc", map->remap->firstenc) ;
@@ -856,6 +858,8 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
     DUMP_STRING_ARRAY("fcovers", rule->u.rcoverage.fcnt,rule->u.rcoverage.fcovers);
     dump_stringfield(L,"replacements", rule->u.rcoverage.replacements);
     lua_setfield(L,-2,"rcoverage");
+  } else {
+    fprintf(stderr,"handle_fpst_rule(): Unknown rule format: %d\n",format);
   }
   
   if (rule->lookup_cnt>0) {
@@ -906,7 +910,7 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
     }
     lua_setfield(L,-2,"rules");
   }
-  dump_intfield (L,"ticked", fpst->ticked);
+  /*dump_intfield (L,"ticked", fpst->ticked);*/
 }
 
 void 
