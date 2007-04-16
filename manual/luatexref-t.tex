@@ -1007,7 +1007,7 @@ table consists of three numeric entries:
 \starttabulate[|l|p|]
 \NC nr \NC description \NC \FR
 \NC 1  \NC command code, this is a value between 0 and 130 (approximately)\NC \NR
-\NC 2  \NC command modifier, this is a value between 0 and $2^21$ \NC \NR
+\NC 2  \NC command modifier, this is a value between 0 and $2^{21}$ \NC \NR
 \NC 3  \NC control sequence id.
            For commands that are not te result of control sequences, like letters 
            and characters, it is zero. Otherwise, it is  number pointing into the 
@@ -3205,7 +3205,7 @@ See \type{mathcodes.c} and \type{textcodes.c} if you are interested in
 the gory details.
 
 Also, the glyph ids within a font are now managed by means
-of a sparse array and glyph ids can go up to index $2^21-1$. 
+of a sparse array and glyph ids can go up to index $2^{21}-1$. 
 
 \subsection{Simple single-character csnames}
 
