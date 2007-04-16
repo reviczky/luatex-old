@@ -623,11 +623,10 @@ char *ttfnames_enum[ttf_namemax] = { "copyright", "family", "subfamily", "unique
     "preffamilyname", "prefmodifiers", "compatfull", "sampletext",
     "cidfindfontname"};
 
-
 void 
 do_handle_ttflangname (lua_State *L, struct ttflangname *names) {
   int k;
-  dump_intfield(L,"lang", names->lang) ;
+  dump_stringfield(L,"lang", (char *)MSLangString(names->lang)) ;
   lua_createtable(L,0,ttf_namemax);
   for (k=0;k<ttf_namemax;k++) {
 	lua_pushstring(L,ttfnames_enum[k]);
@@ -818,6 +817,7 @@ handle_kernclass (lua_State *L, struct kernclass *kerns) {
       lua_setfield(L,-2,s); } }
 
 
+static char *fpossub_format_enum [] = { "glyphs", "class","coverage","reversecoverage"};
 
 void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
   int k;
@@ -829,7 +829,7 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
     dump_stringfield(L,"names",rule->u.glyph.names);
     dump_stringfield(L,"back",rule->u.glyph.back);
     dump_stringfield(L,"fore",rule->u.glyph.fore);
-    lua_setfield(L,-2,"glyph");
+    lua_setfield(L,-2,fpossub_format_enum[format]);
 
   } else if (format == pst_class) {
   
@@ -840,7 +840,7 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
 #if 0
     DUMP_NUMBER_ARRAY("allclasses", 0,rule->u.class.allclasses);
 #endif
-    lua_setfield(L,-2,"class");
+    lua_setfield(L,-2,fpossub_format_enum[format]);
 
   } else if (format == pst_coverage) {
 
@@ -848,7 +848,7 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
     DUMP_STRING_ARRAY("ncovers", rule->u.coverage.ncnt,rule->u.coverage.ncovers);
     DUMP_STRING_ARRAY("bcovers", rule->u.coverage.bcnt,rule->u.coverage.bcovers);
     DUMP_STRING_ARRAY("fcovers", rule->u.coverage.fcnt,rule->u.coverage.fcovers);
-    lua_setfield(L,-2,"coverage");
+    lua_setfield(L,-2,fpossub_format_enum[format]);
 
   } else if (format == pst_reversecoverage) {
 
@@ -857,7 +857,7 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
     DUMP_STRING_ARRAY("bcovers", rule->u.rcoverage.bcnt,rule->u.rcoverage.bcovers);
     DUMP_STRING_ARRAY("fcovers", rule->u.rcoverage.fcnt,rule->u.rcoverage.fcovers);
     dump_stringfield(L,"replacements", rule->u.rcoverage.replacements);
-    lua_setfield(L,-2,"rcoverage");
+    lua_setfield(L,-2,fpossub_format_enum[format]);
   } else {
     fprintf(stderr,"handle_fpst_rule(): Unknown rule format: %d\n",format);
   }
@@ -872,11 +872,10 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
       lua_rawset(L,-3);
     }
     lua_setfield(L,-2,"lookups");
+  } else {
+    /*fprintf(stderr,"handle_fpst_rule(): No lookups?\n");*/
   }
 }
-
-static char *fpossub_format_enum [] = { "glyphs", "class","coverage","reversecoverage"};
-
 
 void 
 do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
@@ -888,12 +887,21 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   }
   dump_enumfield(L,"format", fpst->format, fpossub_format_enum);
   dump_intfield (L,"script_lang_index", (fpst->script_lang_index+1));
-  dump_intfield (L,"flags", fpst->flags);
+
+  if (fpst->flags>0) {
+	dump_intfield (L,"flags", fpst->flags);
+  }
   dump_tag(L,"tag",fpst->tag);
 
-  dump_intfield (L,"nccnt", fpst->nccnt);
-  dump_intfield (L,"bccnt", fpst->bccnt);
-  dump_intfield (L,"fccnt", fpst->fccnt);
+  if (fpst->nccnt>0) {
+	dump_intfield (L,"nccnt", fpst->nccnt);
+  }
+  if (fpst->bccnt>0) {
+	dump_intfield (L,"bccnt", fpst->bccnt);
+  }
+  if (fpst->fccnt>0) {
+	dump_intfield (L,"fccnt", fpst->fccnt);
+  }
   dump_intfield (L,"rule_cnt", fpst->rule_cnt);
 
   DUMP_STRING_ARRAY("nclass",fpst->nccnt,fpst->nclass);
