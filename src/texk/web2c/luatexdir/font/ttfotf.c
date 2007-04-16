@@ -1431,6 +1431,451 @@ return( true );
 return( ch1=='\0' );
 }
 
+static uint16 _WinLangFromMac[] = {
+	0x409,		/* English */
+	0x40c,		/* French */
+	0x407,		/* German */
+	0x410,		/* Italian */
+	0x413,		/* Dutch */
+	0x41d,		/* Swedish */
+	0x40a,		/* Spanish */
+	0x406,		/* Danish */
+	0x416,		/* Portuguese */
+	0x414,		/* Norwegian */
+/*10*/	0x40d,		/* Hebrew */
+	0x411,		/* Japanese */
+	0x401,		/* Arabic */
+	0x40b,		/* Finnish */
+	0x408,		/* Greek */
+	0x40f,		/* Icelandic */
+	0x43a,		/* Maltese */
+	0x41f,		/* Turkish */
+	0x41a,		/* Croatian */
+	0x404,		/* Traditional Chinese */
+/*20*/	0x420,		/* Urdu */
+	0x439,		/* Hindi */
+	0x41e,		/* Thai */
+	0x412,		/* Korean */
+	0x427,		/* Lithuanian */
+	0x415,		/* Polish */
+	0x40e,		/* Hungarian */
+	0x425,		/* Estonian */
+	0x426,		/* Latvian */
+	0x43b,		/* Sami (Lappish) */
+/*30*/	0x438,		/* Faroese (Icelandic) */
+	0x429,		/* Farsi/Persian */
+	0x419,		/* Russian */
+	0x804,		/* Simplified Chinese */
+	0x813,		/* Flemish */
+	0x43c,		/* Irish Gaelic */
+	0x41c,		/* albanian */
+	0x418,		/* Romanian */
+	0x405,		/* Czech */
+	0x41b,		/* Slovak */
+/*40*/	0x424,		/* Slovenian */
+	0x43d,		/* Yiddish */
+	0xc1a,		/* Serbian */
+	0x42f,		/* Macedonian */
+	0x402,		/* Bulgarian */
+	0x422,		/* Ukrainian */
+	0x423,		/* Byelorussian */
+	0x843,		/* Uzbek */
+	0x43f,		/* Kazakh */
+	0x42c,		/* Azerbaijani (Cyrillic) */
+/*50*/	0x82c,		/* Azerbaijani (Arabic) */
+	0x42b,		/* Armenian */
+	0x437,		/* Georgian */
+	0x818,		/* Moldavian */
+	0x440,		/* Kirghiz */
+	0x428,		/* Tajiki */
+	0x442,		/* Turkmen */
+	0x450,		/* Mongolian (Mongolian) */
+	0x850,		/* Mongolian (cyrillic) */
+	0x463,		/* Pashto */
+/*60*/	0xffff,		/* Kurdish */
+	0x860,		/* Kashmiri */
+	0x459,		/* Sindhi */
+	0xffff,		/* Tibetan */
+	0x461,		/* Nepali */
+	0x43b,		/* Sanskrit */
+	0x44e,		/* Marathi */
+	0x445,		/* Bengali */
+	0x44d,		/* Assamese */
+	0x447,		/* Gujarati */
+/*70*/	0x446,		/* Punjabi */
+	0x448,		/* Oriya */
+	0x44c,		/* Malayalam */
+	0x44b,		/* Kannada */
+	0x449,		/* Tamil */
+	0x44a,		/* Telugu */
+	0x45b,		/* Sinhalese */
+	0x455,		/* Burmese */
+	0x453,		/* Khmer */
+	0x454,		/* Lao */
+/*80*/	0x42a,		/* Vietnamese */
+	0x421,		/* Indonesian */
+	0x464,		/* Tagalog */
+	0x43e,		/* Malay (latin) */
+	0x83e,		/* Malay (arabic) */
+	0x45e,		/* Amharic */
+	0x473,		/* Tigrinya */
+	0x472,		/* Galla, oromo, afan */
+	0x477,		/* Somali */
+	0x441,		/* Swahili */
+/*90*/	0xffff,		/* Kinyarwanda/Ruanda */
+	0xffff,		/* Rundi/Kirundi */
+	0xffff,		/* Nyanja/Chewa */
+	0xffff,		/* Malagasy */
+/*94*/	0xffff,		/* Esperanto */
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+/*100*/	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+/*110*/	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+/*120*/	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+	0xffff,
+/*128*/	0x452,		/* Welsh */
+	0x42d,		/* Basque */
+/*130*/	0x403,		/* Catalan */
+	0x476,		/* Latin */
+	0xffff,		/* Quechua */
+	0x474,		/* Guarani */
+	0xffff,		/* Aymara */
+	0x444,		/* Tatar */
+	0xffff,		/* Uighur */
+	0xffff,		/* Dzongkha/Bhutani */
+	0xffff,		/* Javanese (roman) */
+	0xffff,		/* Sundanese (roman) */
+/*140*/	0x456,		/* Galician */
+	0x436,		/* Afrikaans */
+	0xffff,		/* Breton */
+	0x45d,		/* Inuktitut */
+	0x43c,		/* Scottish Gaelic */
+	0xc3c,		/* Manx Gaelic */
+	0x83c,		/* Irish Gaelic (with dot) */
+	0xffff,		/* Tongan */
+	0xffff,		/* Greek (polytonic) */
+	0xffff,		/* Greenlandic */	/* Presumably icelandic? */
+/*150*/	0x42c,		/* Azebaijani (roman) */
+	0xffff
+};
+
+
+uint16 WinLangFromMac(int maclang) {
+
+    if ( maclang<0 || maclang>=sizeof(_WinLangFromMac)/sizeof(_WinLangFromMac[0]))
+return( 0xffff );
+
+return( _WinLangFromMac[maclang] );
+}
+
+#define N_(a) a
+
+
+static struct ttf_nameids { char *text; int data; }   ttfnameids[] = {
+    { N_("Fullname"), 4},
+    { N_("Styles (SubFamily)"), 2},
+    { N_("Copyright"), 0},
+    { N_("Family"), 1},
+    { N_("UniqueID"), 3},
+    { N_("Version"), 5},
+    { N_("Trademark"), 7},
+    { N_("Manufacturer"), 8},
+    { N_("Designer"), 9},
+    { N_("Descriptor"), 10},
+    { N_("Vendor URL"), 11},
+    { N_("Designer URL"), 12},
+    { N_("License"), 13},
+    { N_("License URL"), 14},
+    { N_("Preferred Family"), 16},
+    { N_("Preferred Styles"), 17},
+    { N_("Compatible Full"), 18},
+    { N_("Sample Text"), 19},
+    { N_("CID findfont Name"), 20},
+    { NULL }};
+
+
+const char *TTFNameIds(int id) {
+    int i;
+    for ( i=0; ttfnameids[i].text!=NULL; ++i )
+	if ( ttfnameids[i].data == id )
+return( (char *) ttfnameids[i].text );
+
+    if ( id==6 )
+return( "Postscript" );
+
+return( "Unknown" );
+}
+
+
+static struct ms_languages { char *text; int data; }  mslanguages[] = {
+    { N_("Afrikaans"), 0x436},
+    { N_("Albanian"), 0x41c},
+    { N_("Lang|Amharic"), 0x45e},
+    { N_("Arabic (Saudi Arabia)"), 0x401},
+    { N_("Arabic (Iraq)"), 0x801},
+    { N_("Arabic (Egypt)"), 0xc01},
+    { N_("Arabic (Libya)"), 0x1001},
+    { N_("Arabic (Algeria)"), 0x1401},
+    { N_("Arabic (Morocco)"), 0x1801},
+    { N_("Arabic (Tunisia)"), 0x1C01},
+    { N_("Arabic (Oman)"), 0x2001},
+    { N_("Arabic (Yemen)"), 0x2401},
+    { N_("Arabic (Syria)"), 0x2801},
+    { N_("Arabic (Jordan)"), 0x2c01},
+    { N_("Arabic (Lebanon)"), 0x3001},
+    { N_("Arabic (Kuwait)"), 0x3401},
+    { N_("Arabic (U.A.E.)"), 0x3801},
+    { N_("Arabic (Bahrain)"), 0x3c01},
+    { N_("Arabic (Qatar)"), 0x4001},
+    { N_("Lang|Armenian"), 0x42b},
+    { N_("Assamese"), 0x44d},
+    { N_("Azeri (Latin)"), 0x42c},
+    { N_("Azeri (Cyrillic)"), 0x82c},
+    { N_("Basque"), 0x42d},
+    { N_("Byelorussian"), 0x423},
+    { N_("Lang|Bengali"), 0x445},
+    { N_("Bengali Bangladesh"), 0x845},
+    { N_("Bulgarian"), 0x402},
+    { N_("Burmese"), 0x455},
+    { N_("Catalan"), 0x403},
+    { N_("Cambodian"), 0x453},
+    { N_("Lang|Cherokee"), 0x45c},
+    { N_("Chinese (Taiwan)"), 0x404},
+    { N_("Chinese (PRC)"), 0x804},
+    { N_("Chinese (Hong Kong)"), 0xc04},
+    { N_("Chinese (Singapore)"), 0x1004},
+    { N_("Chinese (Macau)"), 0x1404},
+    { N_("Croatian"), 0x41a},
+    { N_("Croatian Bosnia/Herzegovina"), 0x101a},
+    { N_("Czech"), 0x405},
+    { N_("Danish"), 0x406},
+    { N_("Divehi"), 0x465},
+    { N_("Dutch"), 0x413},
+    { N_("Flemish (Belgian Dutch)"), 0x813},
+    { N_("Edo"), 0x466},
+    { N_("English (British)"), 0x809},
+    { N_("English (US)"), 0x409},
+    { N_("English (Canada)"), 0x1009},
+    { N_("English (Australian)"), 0xc09},
+    { N_("English (New Zealand)"), 0x1409},
+    { N_("English (Irish)"), 0x1809},
+    { N_("English (South Africa)"), 0x1c09},
+    { N_("English (Jamaica)"), 0x2009},
+    { N_("English (Caribbean)"), 0x2409},
+    { N_("English (Belize)"), 0x2809},
+    { N_("English (Trinidad)"), 0x2c09},
+    { N_("English (Zimbabwe)"), 0x3009},
+    { N_("English (Philippines)"), 0x3409},
+    { N_("English (Indonesia)"), 0x3809},
+    { N_("English (Hong Kong)"), 0x3c09},
+    { N_("English (India)"), 0x4009},
+    { N_("English (Malaysia)"), 0x4409},
+    { N_("Estonian"), 0x425},
+    { N_("Faeroese"), 0x438},
+    { N_("Lang|Farsi"), 0x429},
+    { N_("Filipino"), 0x464},
+    { N_("Finnish"), 0x40b},
+    { N_("French French"), 0x40c},
+    { N_("French Belgium"), 0x80c},
+    { N_("French Canadian"), 0xc0c},
+    { N_("French Swiss"), 0x100c},
+    { N_("French Luxembourg"), 0x140c},
+    { N_("French Monaco"), 0x180c},
+    { N_("French West Indies"), 0x1c0c},
+    { N_("French Réunion"), 0x200c},
+    { N_("French D.R. Congo"), 0x240c},
+    { N_("French Senegal"), 0x280c},
+    { N_("French Camaroon"), 0x2c0c},
+    { N_("French Côte d'Ivoire"), 0x300c},
+    { N_("French Mali"), 0x340c},
+    { N_("French Morocco"), 0x380c},
+    { N_("French Haiti"), 0x3c0c},
+    { N_("French North Africa"), 0xe40c},
+    { N_("Frisian"), 0x462},
+    { N_("Fulfulde"), 0x467},
+    { N_("Gaelic (Scottish)"), 0x43c},
+    { N_("Gaelic (Irish)"), 0x83c},
+    { N_("Galician"), 0x467},
+    { N_("Lang|Georgian"), 0x437},
+    { N_("German German"), 0x407},
+    { N_("German Swiss"), 0x807},
+    { N_("German Austrian"), 0xc07},
+    { N_("German Luxembourg"), 0x1007},
+    { N_("German Liechtenstein"), 0x1407},
+    { N_("Lang|Greek"), 0x408},
+    { N_("Guarani"), 0x474},
+    { N_("Lang|Gujarati"), 0x447},
+    { N_("Hausa"), 0x468},
+    { N_("Hawaiian"), 0x475},
+    { N_("Lang|Hebrew"), 0x40d},
+    { N_("Hindi"), 0x439},
+    { N_("Hungarian"), 0x40e},
+    { N_("Ibibio"), 0x469},
+    { N_("Icelandic"), 0x40f},
+    { N_("Igbo"), 0x470},
+    { N_("Indonesian"), 0x421},
+    { N_("Inuktitut"), 0x45d},
+    { N_("Italian"), 0x410},
+    { N_("Italian Swiss"), 0x810},
+    { N_("Japanese"), 0x411},
+    { N_("Lang|Kannada"), 0x44b},
+    { N_("Kanuri"), 0x471},
+    { N_("Kashmiri (India)"), 0x860},
+    { N_("Kazakh"), 0x43f},
+    { N_("Lang|Khmer"), 0x453},
+    { N_("Kirghiz"), 0x440},
+    { N_("Konkani"), 0x457},
+    { N_("Korean"), 0x412},
+    { N_("Korean (Johab)"), 0x812},
+    { N_("Lao"), 0x454},
+    { N_("Latvian"), 0x426},
+    { N_("Lang|Latin"), 0x476},
+    { N_("Lithuanian"), 0x427},
+    { N_("Lithuanian (Classic)"), 0x827},
+    { N_("Macedonian"), 0x42f},
+    { N_("Malay"), 0x43e},
+    { N_("Malay (Brunei)"), 0x83e},
+    { N_("Lang|Malayalam"), 0x44c},
+    { N_("Maltese"), 0x43a},
+    { N_("Manipuri"), 0x458},
+    { N_("Maori"), 0x481},
+    { N_("Marathi"), 0x44e},
+    { N_("Mongolian (Cyrillic)"), 0x450},
+    { N_("Mongolian (Mongolian)"), 0x850},
+    { N_("Nepali"), 0x461},
+    { N_("Nepali (India)"), 0x861},
+    { N_("Norwegian (Bokmal)"), 0x414},
+    { N_("Norwegian (Nynorsk)"), 0x814},
+    { N_("Lang|Oriya"), 0x448},
+    { N_("Oromo"), 0x472},
+    { N_("Papiamentu"), 0x479},
+    { N_("Pashto"), 0x463},
+    { N_("Polish"), 0x415},
+    { N_("Portugese (Portugal)"), 0x416},
+    { N_("Portuguese (Brasil)"), 0x816},
+    { N_("Punjabi (India)"), 0x446},
+    { N_("Punjabi (Pakistan)"), 0x846},
+    { N_("Quecha (Bolivia)"), 0x46b},
+    { N_("Quecha (Ecuador)"), 0x86b},
+    { N_("Quecha (Peru)"), 0xc6b},
+    { N_("Rhaeto-Romanic"), 0x417},
+    { N_("Romanian"), 0x418},
+    { N_("Romanian (Moldova)"), 0x818},
+    { N_("Russian"), 0x419},
+    { N_("Russian (Moldova)"), 0x819},
+    { N_("Sami (Lappish)"), 0x43b},
+    { N_("Sanskrit"), 0x43b},
+    { N_("Sepedi"), 0x46c},
+    { N_("Serbian (Cyrillic)"), 0xc1a},
+    { N_("Serbian (Latin)"), 0x81a},
+    { N_("Sindhi India"), 0x459},
+    { N_("Sindhi Pakistan"), 0x859},
+    { N_("Lang|Sinhalese"), 0x45b},
+    { N_("Slovak"), 0x41b},
+    { N_("Slovenian"), 0x424},
+    { N_("Sorbian"), 0x42e},
+    { N_("Spanish (Traditional)"), 0x40a},
+    { N_("Spanish Mexico"), 0x80a},
+    { N_("Spanish (Modern)"), 0xc0a},
+    { N_("Spanish (Guatemala)"), 0x100a},
+    { N_("Spanish (Costa Rica)"), 0x140a},
+    { N_("Spanish (Panama)"), 0x180a},
+    { N_("Spanish (Dominican Republic)"), 0x1c0a},
+    { N_("Spanish (Venezuela)"), 0x200a},
+    { N_("Spanish (Colombia)"), 0x240a},
+    { N_("Spanish (Peru)"), 0x280a},
+    { N_("Spanish (Argentina)"), 0x2c0a},
+    { N_("Spanish (Ecuador)"), 0x300a},
+    { N_("Spanish (Chile)"), 0x340a},
+    { N_("Spanish (Uruguay)"), 0x380a},
+    { N_("Spanish (Paraguay)"), 0x3c0a},
+    { N_("Spanish (Bolivia)"), 0x400a},
+    { N_("Spanish (El Salvador)"), 0x440a},
+    { N_("Spanish (Honduras)"), 0x480a},
+    { N_("Spanish (Nicaragua)"), 0x4c0a},
+    { N_("Spanish (Puerto Rico)"), 0x500a},
+    { N_("Spanish (United States)"), 0x540a},
+    { N_("Spanish (Latin America)"), 0xe40a},
+    { N_("Sutu"), 0x430},
+    { N_("Swahili (Kenyan)"), 0x441},
+    { N_("Swedish (Sweden)"), 0x41d},
+    { N_("Swedish (Finland)"), 0x81d},
+    { N_("Lang|Syriac"), 0x45a},
+    { N_("Lang|Tagalog"), 0x464},
+    { N_("Tajik"), 0x428},
+    { N_("Tamazight (Arabic)"), 0x45f},
+    { N_("Tamazight (Latin)"), 0x85f},
+    { N_("Lang|Tamil"), 0x449},
+    { N_("Tatar (Tatarstan)"), 0x444},
+    { N_("Lang|Telugu"), 0x44a},
+    { N_("Lang|Thai"), 0x41e},
+    { N_("Tibetan (PRC)"), 0x451},
+    { N_("Tibetan Bhutan"), 0x851},
+    { N_("Tigrinya Ethiopia"), 0x473},
+    { N_("Tigrinyan Eritrea"), 0x873},
+    { N_("Tsonga"), 0x431},
+    { N_("Tswana"), 0x432},
+    { N_("Turkish"), 0x41f},
+    { N_("Turkmen"), 0x442},
+    { N_("Lang|Uighur"), 0x480},
+    { N_("Ukrainian"), 0x422},
+    { N_("Urdu (Pakistan)"), 0x420},
+    { N_("Urdu (India)"), 0x820},
+    { N_("Uzbek (Latin)"), 0x443},
+    { N_("Uzbek (Cyrillic)"), 0x843},
+    { N_("Venda"), 0x433},
+    { N_("Vietnamese"), 0x42a},
+    { N_("Welsh"), 0x452},
+    { N_("Xhosa"), 0x434},
+    { N_("Lang|Yi"), 0x478},
+    { N_("Yiddish"), 0x43d},
+    { N_("Yoruba"), 0x46a},
+    { N_("Zulu"), 0x435},
+    { NULL }};
+
+
+const char *MSLangString(int language) {
+    int i;
+    for ( i=0; mslanguages[i].text!=NULL; ++i )
+        if ( mslanguages[i].data == language )
+return( (char *) mslanguages[i].text );
+
+    language &= 0xff;
+    for ( i=0; mslanguages[i].text!=NULL; ++i )
+        if ( (mslanguages[i].data & 0xff) == language )
+return( (char *) mslanguages[i].text );
+
+return "Unknown" ;
+}
+
+
 static void TTFAddLangStr(FILE *ttf, struct ttfinfo *info, int id,
 	int strlen, int stroff,int plat,int spec,int language) {
     struct ttflangname *cur, *prev;

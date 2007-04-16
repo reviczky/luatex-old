@@ -847,7 +847,6 @@ extern void SFDummyUpCIDs(struct glyphinfo *gi,SplineFont *sf);
 #define CID2NameUni(a,b,c,d) 0
 #define CIDFindBounds(a,b)
 #define MMMakeMasterFontname(a,b,c) copy("<MMMakeMasterFontname>")
-#define MSLangString(a) copy("<MSLangString>")
 #define MacEncToUnicode(a,b) NULL /* const int32 * */
 #define MacFeatureToOTTag(a,b) 0
 #define MacLanguageFromCode(a) copy("<MacLanguageFromCode>") /* char * */
@@ -866,9 +865,7 @@ extern void SFDummyUpCIDs(struct glyphinfo *gi,SplineFont *sf);
 #define SPInterpolate(a) 1
 #define SplineMake(a,b,c)
 #define SplineRefigure(s) 
-#define TTFNameIds(a) copy("<TTFNameIds>")
 #define TTF_PSDupsDefault(a)
-#define WinLangFromMac(l) copy(l)
 #define XUIDFromFD(a) copy("<XUIDFromFD>")
 #define getAdobeEnc(a) 0
 #define gwwv_choose(a,b,c,d,e) -2
