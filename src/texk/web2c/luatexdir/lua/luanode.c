@@ -411,9 +411,13 @@ nodelist_from_lua (lua_State *L) {
   head = t;
   luaL_checkstack(L,3,"out of lua memory");
   lua_pushnil(L);
-  while (lua_next(L,-2) != 0) {    
+  while (lua_next(L,-2) != 0) {
+    /* it is more sensible here to ignore rubbish, instead of
+       generating an error, because nodes may be deleted on the lua
+       side in various ways. Requiring a table to return as a proper
+       array would likely result in speed penalties */
     if (lua_istable(L,-1)) {
-      lua_rawgeti(L,-1,1);
+      lua_rawgeti(L,-1,1); 
       if (lua_isstring(L,-1)) { /* it is a node */
 	s = (char *)lua_tostring(L,-1);
 	for (i=0;node_names[i]!=NULL;i++) {
