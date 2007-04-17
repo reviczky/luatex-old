@@ -902,7 +902,7 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   if (fpst->fccnt>0) {
 	dump_intfield (L,"fccnt", fpst->fccnt);
   }
-  dump_intfield (L,"rule_cnt", fpst->rule_cnt);
+  /*dump_intfield (L,"rule_cnt", fpst->rule_cnt);*/
 
   DUMP_STRING_ARRAY("nclass",fpst->nccnt,fpst->nclass);
   DUMP_STRING_ARRAY("bclass",fpst->nccnt,fpst->bclass);
