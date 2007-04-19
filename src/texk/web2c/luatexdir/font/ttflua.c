@@ -31,6 +31,9 @@ dump_intfield (lua_State *L, char *name, long int field) {
   lua_rawset(L,-3);
 }
 
+#define dump_cond_intfield(a,b,c) if ((c)>0) { dump_intfield ((a),(b),(c)); }
+
+
 static void 
 dump_stringfield (lua_State *L, char *name, char *field) {
   lua_pushstring(L,name);
@@ -524,15 +527,15 @@ do_handle_enc (lua_State *L, struct enc *enc) {
   dump_intfield  (L,"only_1byte",         enc->only_1byte     );
   dump_intfield  (L,"has_1byte",          enc->has_1byte      );
   dump_intfield  (L,"has_2byte",          enc->has_2byte      );
-  dump_intfield  (L,"is_unicodebmp",      enc->is_unicodebmp  );
-  dump_intfield  (L,"is_unicodefull",     enc->is_unicodefull );
-  dump_intfield  (L,"is_custom",          enc->is_custom      );
-  dump_intfield  (L,"is_original",        enc->is_original      );  
-  dump_intfield  (L,"is_compact",         enc->is_compact     );
-  dump_intfield  (L,"is_japanese",        enc->is_japanese      );  
-  dump_intfield  (L,"is_korean",          enc->is_korean      );
-  dump_intfield  (L,"is_tradchinese",     enc->is_tradchinese );
-  dump_intfield  (L,"is_simplechinese",   enc->is_simplechinese);
+  dump_cond_intfield  (L,"is_unicodebmp",      enc->is_unicodebmp  );
+  dump_cond_intfield  (L,"is_unicodefull",     enc->is_unicodefull );
+  dump_cond_intfield  (L,"is_custom",          enc->is_custom      );
+  dump_cond_intfield  (L,"is_original",        enc->is_original    );  
+  dump_cond_intfield  (L,"is_compact",         enc->is_compact     );
+  dump_cond_intfield  (L,"is_japanese",        enc->is_japanese    );  
+  dump_cond_intfield  (L,"is_korean",          enc->is_korean      );
+  dump_cond_intfield  (L,"is_tradchinese",     enc->is_tradchinese );
+  dump_cond_intfield  (L,"is_simplechinese",   enc->is_simplechinese);
 
   if (enc->iso_2022_escape_len > 0) {
 	dump_lstringfield (L,"iso_2022_escape", enc->iso_2022_escape, enc->iso_2022_escape_len);
@@ -548,7 +551,7 @@ do_handle_enc (lua_State *L, struct enc *enc) {
   /* int (*tounicode_func)(int); */
   /* int (*fromunicode_func)(int); */
 
-  dump_intfield  (L,"is_temporary", enc->is_temporary);
+  /*dump_intfield  (L,"is_temporary", enc->is_temporary);*/
   dump_intfield  (L,"char_max", enc->char_max);
 
 }
