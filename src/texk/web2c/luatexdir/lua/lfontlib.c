@@ -9,6 +9,12 @@ extern int make_vf_table(lua_State *L, char *name, scaled s);
 /* this function is in ttfotf.c for the moment */
 extern int make_ttf_table(lua_State *L, char *name, scaled s, char *tt_type, int info_only);
 
+static int 
+tex_current_font (lua_State *L) {
+  int i = get_cur_font();
+  lua_pushnumber(L,i);
+  return 1;
+}
 
 static int 
 font_read_tfm (lua_State *L) {
@@ -182,6 +188,7 @@ static const struct luaL_reg fontlib [] = {
   {"read_ttf_info", font_read_ttf_info},
   {"read_tfm",      font_read_tfm},
   {"read_vf",       font_read_vf},
+  {"currentid",     tex_current_font},
   {"getfont",       getfont},
   {"setfont",       setfont},
   {"define",        deffont},
