@@ -58,7 +58,7 @@ int luapdfprint(lua_State * L)
             }
         }
     } else {
-        if (n != 1) {
+	    if (n != 1) {
             lua_pushstring(L, "invalid number of arguments");
             lua_error(L);
         }
@@ -77,11 +77,11 @@ int luapdfprint(lua_State * L)
     default:
         assert(0);
     }
-    st = lua_tostring(L, n);
-    len = lua_strlen(L, n);
+    st = lua_tolstring(L, n,&len);
     for (i = 0; i < len; i++) {
-        pdfroom(1);
-        pdf_buf[pdf_ptr++] = st[i];
+	  if (i%16 == 0) 
+        pdfroom(16);
+	  pdf_buf[pdf_ptr++] = st[i];
     }
     return 0;
 }
