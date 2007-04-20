@@ -70,8 +70,8 @@ static struct statistic stats[] = {
   { "cs_count",                  'g', &cs_count         },
   { "hash_size",                 'G', &get_hash_size     },
   { "hash_extra",                'g', &hash_extra       },
-  { "font_ptr",                  'G', &max_font_id      },
-  //{ "font_base",                 'g', &fontbase        },
+  { "font_ptr",                  'G', &max_font_id      }, 
+ //{ "font_base",                 'g', &fontbase        },
   { "hyph_count",                'g', &hyph_count       },
   { "hyph_size",                 'g', &hyph_size        },
   { "max_in_stack",              'g', &max_in_stack      },
@@ -111,6 +111,8 @@ static struct statistic stats[] = {
   { "luabytecode_bytes",         'g', &luabytecode_bytes },
   { "luastates",                 'g', &luastate_max      },
   { "luastate_bytes",            'g', &luastate_bytes    },
+
+  { "output_active",             'g', &output_active    },
   
   { NULL,                         0 , 0                } };
 
@@ -197,7 +199,7 @@ static const struct luaL_reg statslib [] = {
 
 int luaopen_stats (lua_State *L) 
 {
-  luaL_register(L, "statistics", statslib);
+  luaL_register(L, "status", statslib);
   luaL_newmetatable(L,"stats_meta"); 
   lua_pushstring(L, "__index");
   lua_pushcfunction(L, getstats); 
