@@ -16575,6 +16575,10 @@ begin
   get_active_base:= active_base;
 end;
 
+function get_cur_font: internal_font_number;
+begin
+  get_cur_font:= cur_font;
+end;
 
 function get_current_name: str_number;
 begin
