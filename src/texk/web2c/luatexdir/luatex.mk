@@ -8,7 +8,7 @@ luatexdir = luatexdir
 
 LIBOBSDCOMPATDIR=../../libs/obsdcompat
 LIBOBSDCOMPATFSRCDIR=$(srcdir)/$(LIBOBSDCOMPATDIR)
-XCPPFLAGS=-I$(LIBOBSDCOMPATDIR) -I$(LIBOBSDCOMPATDIR)/.. -I$(LIBOBSDCOMPATFSRCDIR) -I$(LIBOBSDCOMPATFSRCDIR)/..  -Dextra_version_info="$(EXTRA_VERSION)"
+XCPPFLAGS=-I$(LIBOBSDCOMPATDIR) -I$(LIBOBSDCOMPATDIR)/.. -I$(LIBOBSDCOMPATFSRCDIR) -I$(LIBOBSDCOMPATFSRCDIR)/..  -Dextra_version_info=`date +-%Y%m%d%H`
 
 Makefile: $(srcdir)/$(luatexdir)/luatex.mk
 
