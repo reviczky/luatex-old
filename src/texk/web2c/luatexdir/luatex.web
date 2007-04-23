@@ -11,9 +11,9 @@
 % WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 % A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-% You should have received a copy of the GNU General Public License along with
-% luaTeX; if not, write to the Free Software Foundation, Inc., 59 Temple Place,
-% Suite 330, Boston, MA  02111-1307  USA
+% You should have received a copy of the GNU General Public License
+% along with luaTeX; if not, write to the Free Software Foundation, Inc.,
+% 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
 % pdfTeX is copyright (C) 1996-2006 Han The Thanh, <thanh@@pdftex.org>.
 % e-TeX is copyright (C) 1994,98 by Peter Breitenlohner.
@@ -1512,7 +1512,7 @@ buffer, and returns its character value.
 
 @d flush_string==begin decr(str_ptr); pool_ptr:=str_start_macro(str_ptr);
   end
-@d test_sequence_byte(#)==if #<@"80 then begin
+@d test_sequence_byte(#)==if (#<@"80) or (#>=@"C0) then begin
   print_err("Text line contains an invalid utf-8 sequence");
 @.Text line contains...@>
   help2("A funny symbol that I can't read has just been input.")@/
@@ -7388,6 +7388,8 @@ primitive("noexpand",no_expand,0);@/
 @!@:no_expand_}{\.{\\noexpand} primitive@>
 primitive("primitive",no_expand,1);@/
 @!@:primitive_}{\.{\\primitive} primitive@>
+primitive("pdfprimitive",no_expand,1);@/
+@!@:pdfprimitive_}{\.{\\pdfprimitive} primitive@>
 primitive("nonscript",non_script,0);@/
 @!@:non_script_}{\.{\\nonscript} primitive@>
 primitive("omit",omit,0);@/
@@ -11593,7 +11595,7 @@ The new Cicero follows the new Didot point; $\rm 1\,nc=12\,nd$.  These
 would lead to the ratios $21681/20320$ and $65043/5080$, respectively.
 The closest approximations supported by the algorithm would be
 $11183/10481$ and $1370/107$.  In order to maintain the
-relation $\rm 1\,nc=12\nd$, we pick the ratio $685/642$ for $\rm nc$,
+relation $\rm 1\,nc=12\nd$, we pick the ratio $685/642$ for $\rm nd$,
 however.
 
 @d set_conversion_end(#)== denom:=#; end
@@ -12602,6 +12604,8 @@ primitive("ifcase",if_test,if_case_code);
 @!@:if_case_}{\.{\\ifcase} primitive@>
 primitive("ifprimitive",if_test,if_primitive_code);
 @!@:if_primitive_}{\.{\\ifprimitive} primitive@>
+primitive("ifpdfprimitive",if_test,if_primitive_code);
+@!@:if_primitive_}{\.{\\ifpdfprimitive} primitive@>
 
 @ @<Cases of |print_cmd_chr|...@>=
 if_test: begin if chr_code>=unless_code then print_esc("unless");
@@ -39353,6 +39357,10 @@ primitive("ifabsnum",if_test,if_abs_num_code);
 @!@:if_abs_num_}{\.{\\ifabsnum} primitive@>
 primitive("ifabsdim",if_test,if_abs_dim_code);
 @!@:if_abs_dim_}{\.{\\ifabsdim} primitive@>
+primitive("ifpdfabsnum",if_test,if_abs_num_code);
+@!@:if_abs_num_}{\.{\\ifpdfabsnum} primitive@>
+primitive("ifpdfabsdim",if_test,if_abs_dim_code);
+@!@:if_abs_dim_}{\.{\\ifpdfabsdim} primitive@>
 
 @ @<Cases of |expandafter| for |print_cmd_chr|@>=
 else print_esc("unless")
