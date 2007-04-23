@@ -23,7 +23,7 @@ char *getbanner (void) {
 char *getfilename (void) {
   integer t;
   t = get_current_name();
-  if (t>(2<<21))
+  if (t>(1<<21))
 	return makecstring(t);
   else
 	return xstrdup ("");
@@ -112,7 +112,7 @@ static struct statistic stats[] = {
   { "luastates",                 'g', &luastate_max      },
   { "luastate_bytes",            'g', &luastate_bytes    },
 
-  { "output_active",             'g', &output_active    },
+  { "output_active",             'b', &output_active    },
   
   { NULL,                         0 , 0                } };
 
@@ -153,6 +153,13 @@ static int do_getstat (lua_State *L,int i) {
 	break;
   case 'g':
 	lua_pushnumber(L,*(integer *)(stats[i].value));
+	break;
+  case 'B':
+	g = stats[i].value;
+	lua_pushboolean(L,g());
+	break;
+  case 'b':
+	lua_pushboolean(L,*(integer *)(stats[i].value));
 	break;
   default:
 	lua_pushnil(L);
