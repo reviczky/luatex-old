@@ -24,6 +24,8 @@ $Id$
 #include "luatex-api.h"
 #include "ttf.h"
 
+#define LUA_OTF_VERSION "0.1"
+
 static void 
 dump_intfield (lua_State *L, char *name, long int field) {
   lua_pushstring(L,name);
@@ -1013,6 +1015,7 @@ char *uni_interp_enum[9] = {
 	
 void
 handle_splinefont_info(lua_State *L, struct splinefont *sf) {
+  dump_stringfield(L,"table_version",   LUA_OTF_VERSION);
   dump_stringfield(L,"fontname",        sf->fontname);
   dump_stringfield(L,"fullname",        sf->fullname);
   dump_stringfield(L,"familyname",      sf->familyname);
@@ -1025,7 +1028,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   int k;
 
   handle_splinefont_info (L,sf);
-
+  
   dump_stringfield(L,"copyright",       sf->copyright);
   dump_stringfield(L,"filename",        sf->filename);
   dump_stringfield(L,"defbasefilename", sf->defbasefilename);
