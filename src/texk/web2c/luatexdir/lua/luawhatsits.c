@@ -105,7 +105,7 @@ action_node_from_lua (lua_State *L) {
 
 void
 whatsit_open_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddsss", subtype(p),write_stream(p), 
+  generic_node_to_lua(L,"whatsit","dbdsss", subtype(p),status(p),write_stream(p), 
 		      open_name(p),open_area(p),open_ext(p));
 }
 
@@ -115,6 +115,7 @@ whatsit_open_from_lua (lua_State *L) {
   make_whatsit(p,open_node_size);  
 
   numeric_field(subtype(p),i++);
+  status_field(p,i++);
   numeric_field(write_stream(p),i++);
   string_field(open_name(p),i++);
   string_field(open_area(p),i++);
@@ -124,7 +125,7 @@ whatsit_open_from_lua (lua_State *L) {
 
 void
 whatsit_write_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddt",subtype(p),write_stream(p),write_tokens(p));
+  generic_node_to_lua(L,"whatsit","dbdt",subtype(p),status(p),write_stream(p),write_tokens(p));
 }
 
 
@@ -134,6 +135,7 @@ whatsit_write_from_lua (lua_State *L) {
   make_whatsit(p,write_node_size);
 
   numeric_field(subtype(p),i++);
+  status_field(p,i++);
   numeric_field(write_stream(p),i++);
   tokenlist_field(write_tokens(p),i++);
   return p;
@@ -141,7 +143,7 @@ whatsit_write_from_lua (lua_State *L) {
 
 void
 whatsit_close_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dd",subtype(p),write_stream(p));
+  generic_node_to_lua(L,"whatsit","dbd",subtype(p),status(p),write_stream(p));
 }
 
 halfword 
@@ -150,13 +152,14 @@ whatsit_close_from_lua (lua_State *L) {
   make_whatsit(p,small_node_size);
 
   numeric_field(subtype(p),i++);
+  status_field(p,i++);
   numeric_field(write_stream(p),i++);
   return p;
 }
 
 void
 whatsit_special_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dt",subtype(p),write_tokens(p));
+  generic_node_to_lua(L,"whatsit","dbt",subtype(p),status(p),write_tokens(p));
 }
 
 halfword 
@@ -166,13 +169,14 @@ whatsit_special_from_lua (lua_State *L) {
   write_stream(p) = null;
 
   numeric_field(subtype(p),i++);
+  status_field(p,i++);
   tokenlist_field(write_tokens(p),i++);
   return p;
 }
 
 void
 whatsit_language_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dddd",subtype(p),what_lang(p),what_lhm(p),what_rhm(p));
+  generic_node_to_lua(L,"whatsit","dbddd",subtype(p),status(p),what_lang(p),what_lhm(p),what_rhm(p));
 }
 
 halfword 
@@ -181,6 +185,7 @@ whatsit_language_from_lua (lua_State *L) {
   make_whatsit(p,small_node_size);
 
   numeric_field(subtype(p),i++);
+  status_field(p,i++);
   numeric_field(what_lang(p),i++);
   numeric_field(what_lhm(p),i++);
   numeric_field(what_rhm(p),i++);
@@ -191,7 +196,7 @@ whatsit_language_from_lua (lua_State *L) {
 
 void 
 whatsit_local_par_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddddndnd",subtype(p),local_pen_inter(p),local_pen_broken(p),
+  generic_node_to_lua(L,"whatsit","dbdddndnd",subtype(p),status(p),local_pen_inter(p),local_pen_broken(p),
 		      local_par_dir(p),local_box_left(p),local_box_left_width(p),
 		      local_box_right(p),local_box_right_width(p));
 }
@@ -202,6 +207,7 @@ whatsit_local_par_from_lua (lua_State *L) {
   make_whatsit(p,local_par_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (local_pen_inter(p),i++);
   numeric_field  (local_pen_broken(p),i++);
   numeric_field  (local_par_dir(p),i++);
@@ -214,7 +220,7 @@ whatsit_local_par_from_lua (lua_State *L) {
 
 void
 whatsit_dir_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddddd",subtype(p),dir_dir(p),dir_level(p),dir_dvi_ptr(p),dir_dvi_h(p));
+  generic_node_to_lua(L,"whatsit","dbdddd",subtype(p),status(p),dir_dir(p),dir_level(p),dir_dvi_ptr(p),dir_dvi_h(p));
 }
 
 halfword 
@@ -223,6 +229,7 @@ whatsit_dir_from_lua (lua_State *L) {
   make_whatsit(p,dir_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (dir_dir(p),i++);
   numeric_field  (dir_level(p),i++);
   numeric_field  (dir_dvi_ptr(p),i++);
@@ -233,7 +240,7 @@ whatsit_dir_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_literal_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddt",subtype(p),pdf_literal_mode(p),pdf_literal_data(p));
+  generic_node_to_lua(L,"whatsit","dbdt",subtype(p),status(p),pdf_literal_mode(p),pdf_literal_data(p));
 }
 
 halfword 
@@ -241,6 +248,7 @@ whatsit_pdf_literal_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,write_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_literal_mode(p),i++);
   tokenlist_field(pdf_literal_data(p),i++);
   return p;
@@ -248,7 +256,7 @@ whatsit_pdf_literal_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_refobj_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dd",subtype(p),pdf_obj_objnum(p));
+  generic_node_to_lua(L,"whatsit","dbd",subtype(p),status(p),pdf_obj_objnum(p));
 }
 
 halfword 
@@ -257,13 +265,14 @@ whatsit_pdf_refobj_from_lua (lua_State *L) {
   make_whatsit(p,pdf_refobj_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_obj_objnum(p),i++);
   return p;
 }
 
 void
 whatsit_pdf_refxform_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddddd",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+  generic_node_to_lua(L,"whatsit","dbdddd",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 		      pdf_xform_objnum(p));
 }
 
@@ -273,6 +282,7 @@ whatsit_pdf_refxform_from_lua (lua_State *L) {
   make_whatsit(p,pdf_refxform_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_width(p),i++);
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
@@ -282,7 +292,7 @@ whatsit_pdf_refxform_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_refximage_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddddd",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+  generic_node_to_lua(L,"whatsit","dbdddd",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 		      pdf_ximage_objnum(p));
 }
 
@@ -292,6 +302,7 @@ whatsit_pdf_refximage_from_lua (lua_State *L) {
   make_whatsit(p,pdf_refximage_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_width(p),i++);
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
@@ -301,7 +312,7 @@ whatsit_pdf_refximage_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_annot_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dddddt",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+  generic_node_to_lua(L,"whatsit","dbddddt",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 		      pdf_annot_objnum(p),pdf_annot_data(p));
 }
 
@@ -311,6 +322,7 @@ whatsit_pdf_annot_from_lua (lua_State *L) {
   make_whatsit(p,pdf_annot_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_width(p),i++);
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
@@ -321,7 +333,7 @@ whatsit_pdf_annot_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_start_link_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dddddta",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+  generic_node_to_lua(L,"whatsit","dbddddta",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 		      pdf_link_objnum(p),pdf_link_attr(p),pdf_link_action(p));
 }
 
@@ -331,6 +343,7 @@ whatsit_pdf_start_link_from_lua (lua_State *L) {
   make_whatsit(p,pdf_annot_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_width(p),i++);
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
@@ -342,7 +355,7 @@ whatsit_pdf_start_link_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_end_link_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","d",subtype(p));
+  generic_node_to_lua(L,"whatsit","db",subtype(p),status(p));
 }
 
 halfword 
@@ -350,17 +363,18 @@ whatsit_pdf_end_link_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,small_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   return p;
 }
 
 void
 whatsit_pdf_dest_to_lua (lua_State *L, halfword p) {
   if(pdf_dest_named_id(p)==1) {
-    generic_node_to_lua(L,"whatsit","dddddtddd",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+    generic_node_to_lua(L,"whatsit","dbddddtddd",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 			pdf_dest_named_id(p),pdf_dest_id(p),pdf_dest_type(p),pdf_dest_xyz_zoom(p),
                         pdf_dest_objnum(p));
   } else {
-    generic_node_to_lua(L,"whatsit","ddddddddd",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+    generic_node_to_lua(L,"whatsit","dbdddddddd",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 			pdf_dest_named_id(p),pdf_dest_id(p),pdf_dest_type(p),pdf_dest_xyz_zoom(p),
                         pdf_dest_objnum(p));
   }
@@ -372,6 +386,7 @@ whatsit_pdf_dest_from_lua (lua_State *L) {
   make_whatsit(p,pdf_dest_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_width(p),i++);
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
@@ -390,10 +405,10 @@ whatsit_pdf_dest_from_lua (lua_State *L) {
 void
 whatsit_pdf_thread_to_lua (lua_State *L, halfword p) {
   if (pdf_thread_named_id(p)==1) {
-    generic_node_to_lua(L,"whatsit","dddddtt",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+    generic_node_to_lua(L,"whatsit","dbddddtt",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 			pdf_thread_named_id(p),pdf_thread_id(p),pdf_thread_attr(p));
   } else {
-    generic_node_to_lua(L,"whatsit","ddddddt",subtype(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+    generic_node_to_lua(L,"whatsit","dbdddddt",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 			pdf_thread_named_id(p),pdf_thread_id(p),pdf_thread_attr(p));
   }
 }
@@ -404,6 +419,7 @@ whatsit_pdf_thread_from_lua (lua_State *L) {
   make_whatsit(p,pdf_thread_node_size);
 
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_width(p),i++);
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
@@ -419,7 +435,7 @@ whatsit_pdf_thread_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_end_thread_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","d",subtype(p));
+  generic_node_to_lua(L,"whatsit","db",subtype(p),status(p));
 }
 
 halfword 
@@ -427,12 +443,13 @@ whatsit_pdf_end_thread_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,small_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   return p;
 }
 
 void
 whatsit_pdf_save_pos_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","d",subtype(p));
+  generic_node_to_lua(L,"whatsit","db",subtype(p),status(p));
 }
 
 halfword 
@@ -440,12 +457,13 @@ whatsit_pdf_save_pos_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,small_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   return p;
 }
 
 void
 whatsit_pdf_snap_ref_point_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","d",subtype(p));
+  generic_node_to_lua(L,"whatsit","db",subtype(p),status(p));
 }
 
 halfword 
@@ -453,6 +471,7 @@ whatsit_pdf_snap_ref_point_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,small_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   return p;
 }
 
@@ -460,7 +479,7 @@ void
 whatsit_pdf_snapy_to_lua (lua_State *L, halfword p) {
   halfword q;
   q = snap_glue_ptr(p);
-  generic_node_to_lua(L,"whatsit","ddddddd",subtype(p),final_skip(p),
+  generic_node_to_lua(L,"whatsit","dbdddddd",subtype(p),status(p),final_skip(p),
 		      width(q),stretch(q),stretch_order(q),shrink(q),shrink_order(q));
 }
 
@@ -472,6 +491,7 @@ whatsit_pdf_snapy_from_lua (lua_State *L) {
   q = new_spec(0); /* 0 == the null glue at zmem[0] */
   make_whatsit(p,snap_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (final_skip(p),i++);
   numeric_field  (width(q),i++);
   numeric_field  (stretch(q),i++);
@@ -485,7 +505,7 @@ whatsit_pdf_snapy_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_snapy_comp_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddd",subtype(p),snapy_comp_ratio(p),final_skip(p));
+  generic_node_to_lua(L,"whatsit","dbdd",subtype(p),status(p),snapy_comp_ratio(p),final_skip(p));
 }
 
 halfword 
@@ -493,6 +513,7 @@ whatsit_pdf_snapy_comp_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,snap_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (snapy_comp_ratio(p),i++);
   numeric_field  (final_skip(p),i++);
   return p;
@@ -501,7 +522,7 @@ whatsit_pdf_snapy_comp_from_lua (lua_State *L) {
 
 void
 whatsit_late_lua_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","ddt",subtype(p),late_lua_reg(p),late_lua_data(p));
+  generic_node_to_lua(L,"whatsit","dbdt",subtype(p),status(p),late_lua_reg(p),late_lua_data(p));
 }
 
 halfword 
@@ -510,6 +531,7 @@ whatsit_late_lua_from_lua (lua_State *L) {
   make_whatsit(p,write_node_size);
 
   numeric_field(subtype(p),i++);
+  status_field(p,i++);
   numeric_field(late_lua_reg(p),i++);
   tokenlist_field(late_lua_data(p),i++);
   return p;
@@ -517,7 +539,7 @@ whatsit_late_lua_from_lua (lua_State *L) {
 
 void
 whatsit_close_lua_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dd",subtype(p),late_lua_reg(p));
+  generic_node_to_lua(L,"whatsit","dbd",subtype(p),status(p),late_lua_reg(p));
 }
 
 halfword 
@@ -526,13 +548,14 @@ whatsit_close_lua_from_lua (lua_State *L) {
   make_whatsit(p,small_node_size);
 
   numeric_field(subtype(p),i++);
+  status_field(p,i++);
   numeric_field(late_lua_reg(p),i++);
   return p;
 }
 
 void
 whatsit_pdf_colorstack_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dddt",subtype(p),
+  generic_node_to_lua(L,"whatsit","dbddt",subtype(p),status(p),
 		      pdf_colorstack_stack(p),
 		      pdf_colorstack_cmd(p),
 		      pdf_colorstack_data(p));
@@ -543,6 +566,7 @@ whatsit_pdf_colorstack_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,pdf_colorstack_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   numeric_field  (pdf_colorstack_stack(p),i++);
   numeric_field  (pdf_colorstack_cmd(p),i++);
   tokenlist_field(pdf_colorstack_data(p),i++);
@@ -551,7 +575,7 @@ whatsit_pdf_colorstack_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_setmatrix_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dt",subtype(p), pdf_setmatrix_data(p));
+  generic_node_to_lua(L,"whatsit","dbt",subtype(p), status(p),pdf_setmatrix_data(p));
 }
 
 halfword 
@@ -559,6 +583,7 @@ whatsit_pdf_setmatrix_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,pdf_setmatrix_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   tokenlist_field(pdf_setmatrix_data(p),i++);
   return p;
 }
@@ -566,7 +591,7 @@ whatsit_pdf_setmatrix_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_save_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","d",subtype(p));
+  generic_node_to_lua(L,"whatsit","db",subtype(p),status(p));
 }
 
 halfword 
@@ -574,13 +599,14 @@ whatsit_pdf_save_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,pdf_save_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   return p;
 }
 
 
 void
 whatsit_pdf_restore_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","d",subtype(p));
+  generic_node_to_lua(L,"whatsit","db",subtype(p),status(p));
 }
 
 halfword 
@@ -588,6 +614,7 @@ whatsit_pdf_restore_from_lua (lua_State *L) {
   int p, i = 2;
   make_whatsit(p,pdf_restore_node_size);
   numeric_field  (subtype(p),i++);
+  status_field(p,i++);
   return p;
 }
 

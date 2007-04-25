@@ -10,8 +10,13 @@
 #define llink(a)   zmem[(a+1)].hh.v.LH 
 #define rlink(a)   zmem[(a+1)].hh.v.RH 
 
-#define type(a)    zmem[(a)].hh.u.B0
-#define subtype(a) zmem[(a)].hh.u.B1
+#define status(a)       (zmem[(a)].hh.u.B0 >> 15)
+#define set_status(a)   zmem[(a)].hh.u.B0 |= 32768
+#define unset_status(a) zmem[(a)].hh.u.B0 &= 32767
+
+#define type(a)       (zmem[(a)].hh.u.B0 % 32768)
+#define type_field(a)  zmem[(a)].hh.u.B0
+#define subtype(a)     zmem[(a)].hh.u.B1
 
 #define penalty(a) zmem[(a+1)].cint
 
@@ -28,7 +33,7 @@
 #define shift_amount(a)  zmem[(a+4)].cint
 #define list_ptr(a)      link((a)+5)
 #define glue_order(a)    subtype((a)+5)
-#define glue_sign(a)     type((a)+5)
+#define glue_sign(a)     type_field((a)+5)
 #define glue_set(a)      zmem[(a+6)].gr
 #define box_dir(a)       zmem[(a+7)].cint
 
@@ -43,7 +48,7 @@
 
 #define stretch(a) zmem[(a+2)].cint
 #define shrink(a)  zmem[(a+3)].cint
-#define stretch_order type
+#define stretch_order type_field
 #define shrink_order  subtype
 
 #define lignode_char(a)   ((a)+1)
@@ -53,8 +58,9 @@
 
 #define margin_char(a) info((a)+2)
 
-#define font      type
-#define character subtype
+#define font        type
+#define font_field  type_field
+#define character   subtype
 #define is_char_node(a) ((a)>=hi_mem_min)
 
 #define free_avail(a) { link(a)=avail; avail=a; decr(dyn_used); }
@@ -151,7 +157,7 @@ extern halfword  whatsit_node_from_lua (lua_State *L);
 #define open_ext(a)  link((a)+2)
 
 #define what_lang(a) link((a)+1)
-#define what_lhm(a)  type((a)+1)
+#define what_lhm(a)  type_field((a)+1)
 #define what_rhm(a)  subtype((a)+1)
 
 #define pdf_width(a)         zmem[(a) + 1].cint
@@ -167,7 +173,7 @@ extern halfword  whatsit_node_from_lua (lua_State *L);
 #define pdf_annot_objnum(a)     zmem[(a) + 6].cint
 #define pdf_link_objnum(a)      zmem[(a) + 6].cint
 
-#define pdf_dest_type(a)          type((a) + 5)
+#define pdf_dest_type(a)          type_field((a) + 5)
 #define pdf_dest_named_id(a)      subtype((a) + 5)
 #define pdf_dest_id(a)            link((a) + 5)
 #define pdf_dest_xyz_zoom(a)      info((a) + 6)
@@ -227,9 +233,12 @@ typedef enum {
 #define pdf_save_node_size     2
 #define pdf_restore_node_size  2
 
-#define make_whatsit(p,b)    { p = get_node(b);  type(p)=whatsit_node;  link(p)=null; }
+#define make_whatsit(p,b)    { p = get_node(b);  type_field(p)=whatsit_node;  link(p)=null; }
 
 #define numeric_field(a,b)   { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
+#define status_field(a,b)    { lua_rawgeti(L,-1,b);						\
+	if (lua_toboolean(L,-1)) { set_status(a); }							\
+	else { unset_status(a);}; lua_pop(L,1); }
 #define float_field(a,b)     { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
 #define nodelist_field(a,b)  { lua_rawgeti(L,-1,b); a = nodelist_from_lua(L); lua_pop(L,1); }
 #define tokenlist_field(a,b) { lua_rawgeti(L,-1,b); a = tokenlist_from_lua(L); lua_pop(L,1); }
@@ -237,7 +246,7 @@ typedef enum {
 #define string_field(a,b)    { lua_rawgeti(L,-1,b); a = maketexstring(lua_tostring(L,-1)); lua_pop(L,1); }
 
 #define pdf_action_size 3
-#define pdf_action_type           type
+#define pdf_action_type           type_field
 #define pdf_action_named_id       subtype
 #define pdf_action_id             link
 #define pdf_action_file(a)        info((a) + 1)
