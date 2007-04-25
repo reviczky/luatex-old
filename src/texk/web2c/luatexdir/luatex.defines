@@ -97,6 +97,7 @@ $Id $
 @define var define_font_callback;
 @define var token_filter_callback;
 @define var linebreak_filter_callback;
+@define var buildpage_filter_callback;
 
 
 
@@ -109,6 +110,8 @@ $Id $
 
 @define procedure get_token_lua;
 @define function lua_node_filter();
+@define function lua_hpack_filter();
+@define function lua_vpack_filter();
 
 { bits for extended char code access }
 
