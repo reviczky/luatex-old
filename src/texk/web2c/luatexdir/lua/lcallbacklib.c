@@ -33,7 +33,10 @@ static const char *const callbacknames[] = {
   "start_run",          "stop_run",
   "define_font",
   "token_filter",
-  "linebreak_filter",
+  "pre_linebreak_filter",
+  "buildpage_filter",
+  "hpack_filter",
+  "vpack_filter",
   NULL };
 
 int callback_callbacks_id = 0;
