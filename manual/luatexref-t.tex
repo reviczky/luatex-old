@@ -1,5 +1,5 @@
 % 
-\pdfcompresslevel0
+%\pdfcompresslevel0
  
 %\newcount\crashcounter
 %\appendtoks
@@ -22,8 +22,14 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-03-09}
+\TitlePage{Snapshot 2007-04-26}
 
+\ctxlua{
+  callbacks.push('hpack_filter')
+  callbacks.push('vpack_filter')
+  callbacks.push('pre_linebreak_filter')
+  callbacks.push('buildpage_filter')
+}
 %\appendtoks \newlinechar13 \to\everyMPgraphic
 
 \title{Contents}
@@ -72,18 +78,7 @@ need arises, anything can (and will) be changed without prior notice.
 \item Compiled source code to glue it all together
 \stopitemize
 
-\LUATEX\ has two separate identities:
-
-\startitemize[n]
-\item When \type{\pdfoutput} is set to one, \LUATEX\ behaves like \PDFTEX,
-with the addition of OTP processing and Aleph directionality commands.  
-
-\item When \type{\pdfoutput} is zero, \LUATEX\ behaves like \ALEPH\ with the
-addition of the micro-typography features. The \PDFTEX\ commands that are not
-specific to the PDF output format should work.
-\stopitemize
-
-In either mode, neither I/O translation processes, nor tcx files, nor
+Neither I/O translation processes, nor tcx files, nor
 enctex can be used. All these encoding-related functions are
 superseded by a \LUA-based solution (\type{reader} callbacks).
 
@@ -219,7 +214,7 @@ inside the output routine. It's intended use is is very similar to
 \type{\pdfliteral}.
 
 Within the lua code, you should use \type{pdf.print} to print stuff
-directly to the pdffile..
+directly to the pdffile.
 
 \startsyntax
   \latelua <16-bit number> <general text>
@@ -264,6 +259,16 @@ connected mark texts to empty.
 \startsyntax
       \clearmarks <16-bit number>
 \stopsyntax
+
+\subsection{\primitive{noligkerns}}
+
+This primitive prohibits ligature and kerning insertion at the time
+when the initial node list is built by \LUATEX's main control loop
+(It is a temporary trick that will be removed soon).
+\startsyntax
+      \noligkerns <integer>
+\stopsyntax
+
 
 \subsection{\primitive{formatname}}
 
@@ -479,7 +484,7 @@ in a similar fashion as in traditional \PDFTEX\ and \ALEPH.
 
 Five modules that are normally external are statically linked in with
 \LUATEX: \type{slnunicode}, \type{luazip}, \type{luafilesystem}, 
-\type{lpeg} (version 0.4), and \type{md5}.
+\type{lpeg} (version 0.6), and \type{md5}.
 
 The \type{read("*line")} function from the io library has been
 adjusted so that it is line-ending neutral: any of \type{LF}, \type
@@ -1128,7 +1133,7 @@ This library takes care of the low-level I/O interface.
 \subsubsection{\function{texio.write}}
 
 \startfunctioncall
-  texio.write(string target, tring s)
+  texio.write(string target, string s)
   texio.write(string s)
 \stopfunctioncall
 
@@ -1143,7 +1148,7 @@ The optional \type{target} can be one of three possibilities:
 \subsubsection{\function{tex.write_nl}}
 
 \startfunctioncall
-  texio.write_nl(string target, tring s)
+  texio.write_nl(string target, string s)
   texio.write_nl(string s)
 \stopfunctioncall
 
@@ -1173,10 +1178,11 @@ The associated function calls are
 
 
 It also holds a print function to write stuff to the pdf document,
-to be used from within a \type{\latelua} argument.
+that can be used from within a \type{\latelua} argument. This function
+is not to be used inside \type{\directlua} unless you know {\it
+exactly} what you are doing.
 
-
-\subsubsection{\function{pdf.print}}
+\subsubsubject{\function{pdf.print}}
 
 \startfunctioncall
    pdf.print(<string s>)
@@ -1349,7 +1355,7 @@ You callback function should have the following conventions:
 The \type{asked_name} is a font file. This callback is called while
 \LUATEX\ is building its internal list of needed font files, so the
 actual timing may surprise you. Your return value is later fed back
-into the matching \callback{read__file} callback.
+into the matching \callback{read_file} callback.
 
 Strangely enough, \type{find_type1_file} is also used for OpenType
 (otf) fonts.
@@ -1545,7 +1551,7 @@ something else like nil or an empty table.
 If your lua function does not return a table representing a valid
 token, it will be immediately called again, until it eventually does
 return a useful token or tokenlist (or until you reset the callback
-value to nil). See the description of \callbacklib{token} for some
+value to nil). See the description of \callback{token} for some
 handy functions to be used in conjunction with this callback.
 
 If your function returns a single usable token, then that token will
@@ -1554,6 +1560,119 @@ list (a table consisting of a list of consecutive token tables), then
 that list will be pushed to the input stack as completely new token
 list level, with it's token type set to `inserted'. In either case,
 the returned token(s) will not be fed back into the callback function.
+
+\subsection{Node list processing callbacks}
+
+\subsubsection{\callback{buildpage_filter}}
+
+This callback is called whenever \LUATEX\ is ready to move stuff to
+the main vertical list. You can use this callback to do specialized
+manipulation of the page building stage like imposition or column
+balancing.
+
+\startfunctioncall
+     function (table <nodelist>)
+        return table <nodelist>
+     end
+\stopfunctioncall
+
+A \type{nodelist} is a list of hashes, each representing a single node
+in the list. The node format is another list, and it varies depending
+on the node type. Regardless of that, the first three items always
+have the same semantics:
+
+\starttabulate[|l|l|l|]
+\NC ~ \NC type    \NC  Explanation \NC\FR
+\NC 1 \NC string  \NC  The node's \type{type}, as a string\NC\NR
+\NC 2 \NC number  \NC  The node \type{subtype} identifier\NC\NR
+\NC 3 \NC boolean \NC  A true/false value you can use as you feel fit\NC\NR
+\stoptabulate
+
+The first entry is a controlled list of keywords. The complete list
+is: "hlist", "vlist", "rule", "ins", "mark", "adjust", "ligature",
+"disc", "whatsit", "math", "glue", "kern", "penalty", "unset",
+"glyph", "margin_kern" (these can happen in horizontal and vertical
+lists), as well as: "style", "choice", "ord", "op", "bin", "rel",
+"open", "close", "punct", "inner", "radical", "fraction", "under",
+"over", "accent", "vcenter", "left", "right" (those only happen in
+math lists).
+
+At the moment, the node representation is rather cryptic. A helper
+routine to convert this compact representation of a node to and from a
+dictionary-style table is planned, but not ready yet.
+
+\subsubsection{\callback{pre_linebreak_filter}}
+
+This callback is called just before \LUATEX\ starts converting a list
+of nodes into a stack of \type{\hbox}es. The skip removal and
+insertion of \type{\parfillskip} has not happend yet.
+
+\startfunctioncall
+     function (table <nodelist>, string <groupcode>)
+        return table <nodelist>
+     end
+\stopfunctioncall
+
+The string called \type{groupcode} identifies the nodelist's context
+within \TEX's processing. The range of possibilities is given in the
+table below, but not all of those can actually appear in
+\callback{pre_linebreak_filter}, some are for the
+\callback{Xpack_filter} callbacks that will be explained in the next
+two paragraphs.
+
+\starttabulate[|l|l|]
+\NC Value     \NC                  Explanation \NC\FR
+\NC \NC       \NC\NR
+\NC hbox\NC       \NC\NR
+\NC adjusted_hbox\NC       \NC\NR
+\NC vbox\NC       \NC\NR
+\NC vtop\NC       \NC\NR
+\NC align\NC       \NC\NR
+\NC output\NC       \NC\NR
+\NC math\NC       \NC\NR
+\NC disc\NC       \NC\NR
+\NC insert\NC       \NC\NR
+\NC vcenter\NC       \NC\NR
+\NC local_box\NC       \NC\NR
+\NC split_off\NC       \NC\NR
+\NC split_keep\NC       \NC\NR
+\NC preamble\NC       \NC\NR
+\NC align_set\NC       \NC\NR
+\NC fin_row\NC       \NC\NR
+
+\stoptabulate
+
+\subsubsection{\callback{hpack_filter}}
+
+This callback is called when \TEX\ is ready to start boxing some
+horizontal mode material. Math items are ignored at the moment.
+
+\startfunctioncall
+     function (table <nodelist>, number <size>, string <packtype>,
+     string <groupcode>) return table <nodelist> end
+\stopfunctioncall
+
+The \type{packtype} is either `additional' or `exactly'. If
+`additional', then the \type{size} is a \type{\hbox spread ...}
+argument. If `exacty', then the \type{size} is a \type{\hbox to ...}.
+In both cases, the number is in scaled points.
+
+\subsubsection{\callback{vpack_filter}}
+
+This callback is called when \TEX\ is ready to start boxing some
+vertical mode material. Math items are ignored at the moment.
+
+This function is very similar to the \callback{hpack_filter}. Besides
+the fact that it is called at different moments, there is an extra
+variable that matches \TEX's \type{\maxdepth} setting.
+
+\startfunctioncall
+     function (table <nodelist>, number <size>, string <packtype>, 
+                                 number <maxdepth>, string <groupcode>)
+        return table <nodelist>
+     end
+\stopfunctioncall
+
 
 \subsection{Information reporting callbacks}
 
@@ -1604,7 +1723,7 @@ Replaces the code that prints the \type{]} at the end of \type{\shipout}
 This callback is run from inside the \TEX\ error function, and the idea
 is to allow you to do some extra reporting on top of what \TEX\ already
 does (none of the normal actions are removed). You may find some of
-the values in the \lualib{statistics} table useful.
+the values in the \lualib{status} table useful.
 
 \startitemize
 \sym{message} 
@@ -1808,26 +1927,26 @@ Like kpsewhich's  `-expand-braces':
      string r = kpse.expand_braces(string s)
 \stopfunctioncall
 
-\section{The \lualib{statistics} library}
+\section{The \lualib{status} library}
 
 This contains a number of run||time configuration items that
 you may find useful in message reporting, as well as an iterator
 function that gets all of the names and values as a table.
 
 \startfunctioncall
-   table <info> = statistics.list()
+   table <info> = status.list()
 \stopfunctioncall
 
 The keys in the table are the known items, the value is the current
 value. 
 
-Almost all of the values in \type{statistics} are fetched through a
+Almost all of the values in \type{status} are fetched through a
 metatable at run||time whenever they are accessed, so you cannot use
-\type{pairs} on\type{statistics}, but you {\it can\/} use \type{pairs}
+\type{pairs} on\type{status}, but you {\it can\/} use \type{pairs}
 on \type{<info>}, of course.
 
 If you do not need the full list, you can also ask for a single item
-by using it's name as an index into \type{statistics}. 
+by using it's name as an index into \type{status}. 
 
 The current list is:
 
@@ -1887,6 +2006,7 @@ The current list is:
 \NC luabytecode_bytes\NC         number of bytes in luabytecode registers\NC\AR
 \NC luastates\NC                 number of active lua interpreters\NC\AR
 \NC luastate_bytes\NC            number of bytes in use by lua interpreters\NC\AR
+\NC output_active\NC             \type{true} if the \type{\output} routine is active\NC\AR
 \stoptabulate
 
 
@@ -2024,6 +2144,7 @@ not yet finished):
 
 \starttabulate[|l|l|p|]
 \NC key                          \NC type     \NC explanation \NC\FR
+\NC table_version                \NC number   \NC indicates the \type{read_otf()} version\NC\NR
 \NC fontname                     \NC string   \NC \NC\NR
 \NC fullname                     \NC string   \NC \NC\NR
 \NC familyname                   \NC string   \NC \NC\NR
@@ -2035,6 +2156,7 @@ not yet finished):
 \NC italicangle                  \NC float    \NC \NC\NR
 \NC upos                         \NC float    \NC \NC\NR
 \NC uwidth                       \NC float    \NC \NC\NR
+\NC units_per_em                 \NC number   \NC \NC\NR
 \NC ascent                       \NC number   \NC \NC\NR
 \NC descent                      \NC number   \NC \NC\NR
 \NC vertical_origin              \NC number   \NC \NC\NR
@@ -2068,10 +2190,8 @@ not yet finished):
 \NC vkerns                       \NC table    \NC \NC\NR
 \NC texdata                      \NC table    \NC \NC\NR
 \NC tt_cur                       \NC number   \NC \NC\NR
-\NC tt_max                       \NC number   \NC \NC\NR
 \NC gentags                      \NC table    \NC \NC\NR
 \NC possub                       \NC table    \NC \NC\NR
-\NC features                     \NC table    \NC \NC\NR
 \NC chosenname                   \NC string   \NC \NC\NR
 \NC macstyle                     \NC number   \NC \NC\NR
 \NC sli_cnt                      \NC number   \NC \NC\NR
@@ -2096,31 +2216,29 @@ not yet finished):
 
 \subsubsection{Glyph items}
 
-The \type{glyphs} is an array containing the per-character information.
+The \type{glyphs} is an array containing the per-character
+information (quite a few of these are only present if nonzero).
 
 \starttabulate[|l|l|p|]
 \NC key                          \NC type     \NC explanation \NC\FR
 \NC name                         \NC string   \NC \NC\NR
 \NC unicodeenc                   \NC number   \NC \NC\NR
 \NC boundingbox                  \NC array    \NC Array of four numbers\NC\NR
-\NC orig_pos                     \NC number   \NC \NC\NR
-\NC width                        \NC number   \NC \NC\NR
-\NC vwidth                       \NC number   \NC \NC\NR
-\NC lsidebearing                 \NC number   \NC \NC\NR
-\NC ticked                       \NC number   \NC \NC\NR
-\NC widthset                     \NC number   \NC \NC\NR
-\NC glyph_class                  \NC number   \NC \NC\NR
-\NC kerns                        \NC array    \NC \NC\NR
-\NC vkerns                       \NC array    \NC \NC\NR
-\NC dependents                   \NC array    \NC Linear array of glyph name strings\NC\NR
-\NC possub                       \NC table    \NC \NC\NR
-\NC ligofme                      \NC table    \NC \NC\NR
-\NC comment                      \NC string   \NC \NC\NR
-\NC color                        \NC number   \NC \NC\NR
-\NC tex_height                   \NC number   \NC \NC\NR
-\NC tex_depth                    \NC number   \NC \NC\NR
-\NC tex_sub_pos                  \NC number   \NC \NC\NR
-\NC tex_super_pos                \NC number   \NC \NC\NR
+\NC width                        \NC number   \NC (only for horizontal fonts)\NC\NR
+\NC vwidth                       \NC number   \NC (only for vertical fonts)\NC\NR
+\NC lsidebearing                 \NC number   \NC (only if nonzero)\NC\NR
+\NC glyph_class                  \NC number   \NC (only if nonzero)\NC\NR
+\NC kerns                        \NC array    \NC (only for horizontal fonts, if set)\NC\NR
+\NC vkerns                       \NC array    \NC (only for vertical fonts, if set)\NC\NR
+\NC dependents                   \NC array    \NC Linear array of glyph name strings (only if nonempty)\NC\NR
+\NC possub                       \NC table    \NC (only if nonempty)\NC\NR
+\NC ligofme                      \NC table    \NC (only if nonempty)\NC\NR
+\NC comment                      \NC string   \NC (only if set)\NC\NR
+\NC color                        \NC number   \NC (only if set)\NC\NR
+\NC tex_height                   \NC number   \NC (only if set)\NC\NR
+\NC tex_depth                    \NC number   \NC (only if set)\NC\NR
+\NC tex_sub_pos                  \NC number   \NC (only if set)\NC\NR
+\NC tex_super_pos                \NC number   \NC (only if set)\NC\NR
 \stoptabulate
 
 The \type{kerns} and \type{vkerns} are linear arrays of small hashes:
@@ -2140,7 +2258,6 @@ The \type{possub} is a linear array of small hashes:
                                                   "multiple", "ligature", "lcaret",  "kerning", "vkerning", "anchors",
                                                   "contextpos", "contextsub", "chainpos", "chainsub",
                                                   "reversesub", "max", "kernback", "vkernback" \NC\NR
-\NC macfeature                   \NC number   \NC \NC\NR
 \NC flags                        \NC number   \NC \NC\NR
 \NC tag                          \NC string   \NC \NC\NR
 \NC script_lang_index            \NC number   \NC \NC\NR
@@ -2183,7 +2300,6 @@ The top-level map is a list of encoding mappings. Each of those is a table itsel
 \NC enccount           \NC number   \NC \NC\NR
 \NC encmax             \NC number   \NC \NC\NR
 \NC backmax            \NC number   \NC \NC\NR
-\NC ticked             \NC number   \NC \NC\NR
 \NC remap              \NC table    \NC \NC\NR
 \NC map                \NC array    \NC non-linear array of mappings\NC\NR
 \NC backmap            \NC array    \NC non-linear array of backward mappings\NC\NR
@@ -2211,18 +2327,17 @@ The `enc' table is a bit more verbose:
 \NC only_1byte         \NC number   \NC \NC\NR
 \NC has_1byte          \NC number   \NC \NC\NR
 \NC has_2byte          \NC number   \NC \NC\NR
-\NC is_unicodebmp      \NC number   \NC \NC\NR
-\NC is_unicodefull     \NC number   \NC \NC\NR
-\NC is_custom          \NC number   \NC \NC\NR
-\NC is_original        \NC number   \NC \NC\NR
-\NC is_compact         \NC number   \NC \NC\NR
-\NC is_japanese        \NC number   \NC \NC\NR
-\NC is_korean          \NC number   \NC \NC\NR
-\NC is_tradchinese     \NC number   \NC \NC\NR
+\NC is_unicodebmp      \NC number   \NC (only if nonzero)\NC\NR
+\NC is_unicodefull     \NC number   \NC (only if nonzero)\NC\NR
+\NC is_custom          \NC number   \NC (only if nonzero)\NC\NR
+\NC is_original        \NC number   \NC (only if nonzero)\NC\NR
+\NC is_compact         \NC number   \NC (only if nonzero)\NC\NR
+\NC is_japanese        \NC number   \NC (only if nonzero)\NC\NR
+\NC is_korean          \NC number   \NC (only if nonzero)\NC\NR
+\NC is_tradchinese     \NC number   \NC (only if nonzero)\NC\NR
 \NC is_simplechinese   \NC number   \NC \NC\NR
 \NC low_page           \NC number   \NC \NC\NR
 \NC high_page          \NC number   \NC \NC\NR
-\NC is_temporary       \NC number   \NC \NC\NR
 \NC iconv_name         \NC string   \NC \NC\NR
 \NC iso_2022_escape    \NC string   \NC \NC\NR
 \stoptabulate
@@ -2317,7 +2432,7 @@ Each item has two top-level keys:
 
 \starttabulate[|l|l|p|]
 \NC key                \NC type     \NC explanation \NC\FR
-lang                   \NC number   \NC language for this entry \NC\NR
+lang                   \NC string   \NC language for this entry \NC\NR
 names                  \NC table    \NC \NC\NR
 \stoptabulate
 
@@ -2436,17 +2551,15 @@ Top-level \type{possub} is quite different from the ones at character level.
 \NC type                   \NC number   \NC \NC\NR
 \NC format                 \NC enum     \NC Possible values:  "glyphs", "class","coverage","reversecoverage" \NC\NR
 \NC script_lang_index      \NC number   \NC \NC\NR
-\NC flags                  \NC number   \NC \NC\NR
+\NC flags                  \NC number   \NC (only if nonzero)\NC\NR
 \NC tag                    \NC string   \NC \NC\NR
-\NC nccnt                  \NC number   \NC \NC\NR
-\NC bccnt                  \NC number   \NC \NC\NR
-\NC fccnt                  \NC number   \NC \NC\NR
-\NC rule_cnt               \NC number   \NC \NC\NR
+\NC nccnt                  \NC number   \NC (only if nonzero)\NC\NR
+\NC bccnt                  \NC number   \NC (only if nonzero)\NC\NR
+\NC fccnt                  \NC number   \NC (only if nonzero)\NC\NR
 \NC nclass                 \NC array   \NC \NC\NR
 \NC bclass                 \NC array   \NC \NC\NR
 \NC fclass                 \NC array   \NC \NC\NR
 \NC rules                  \NC array   \NC an array of rule items\NC\NR
-\NC ticked                 \NC number   \NC \NC\NR
 \stoptabulate
 
 Rule items have one common item and one specialized item:
@@ -2456,7 +2569,7 @@ Rule items have one common item and one specialized item:
 \NC glyph                  \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
 \NC class                  \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
 \NC coverage               \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
-\NC rcoverage              \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
+\NC reversecoverage        \NC array     \NC Only if the parent's format is 'glyph'\NC\NR
 \stoptabulate
 
 Each of the lookup item is:
@@ -2491,44 +2604,13 @@ coverage:
 \NC fcovers                \NC array    \NC of strings \NC\NR
 \stoptabulate
 
-rcoverage:
+reversecoverage:
 \starttabulate[|l|l|p|]
 \NC key                    \NC type     \NC explanation \NC\FR
 \NC ncovers                \NC array    \NC of strings \NC\NR
 \NC bcovers                \NC array    \NC of strings\NC\NR
 \NC fcovers                \NC array    \NC of strings \NC\NR
 \NC replacements           \NC string   \NC \NC\NR
-\stoptabulate
-
-\subsubsection{features table}
- 
-These are Apple features.
-
-\starttabulate[|l|l|p|]
-\NC key                    \NC type     \NC explanation \NC\FR
-\NC feature                \NC number   \NC \NC\NR
-\NC ismutex                \NC number   \NC \NC\NR
-\NC default_setting        \NC number   \NC \NC\NR
-\NC strid                  \NC number   \NC \NC\NR
-\NC featname               \NC array    \NC array of `macname' items\NC\NR
-\NC settings               \NC array    \NC \NC\NR
-\stoptabulate
-
-The \type{settings} items are hashes:
-\starttabulate[|l|l|p|]
-\NC key                    \NC type     \NC explanation \NC\FR
-\NC setting                \NC number   \NC \NC\NR
-\NC strid                  \NC number   \NC \NC\NR
-\NC initially_enabled      \NC number   \NC \NC\NR
-\NC setname                \NC array    \NC array of `macname' items\NC\NR
-\stoptabulate
-
-The `macname' hashes:
-\starttabulate[|l|l|p|]
-\NC key                    \NC type     \NC explanation \NC\FR
-\NC enc                    \NC number   \NC \NC\NR
-\NC lang                   \NC number   \NC \NC\NR
-\NC name                   \NC string   \NC \NC\NR
 \stoptabulate
 
 
@@ -2541,8 +2623,8 @@ The `macname' hashes:
 
 These two functions are very similar to the two commands from previous
 section, but they only return a small subset of the information. The
-returned table only has four keys: \type{fontname}, \type{fullname},
-\type{familyname} and \type{weight}. 
+returned table only has five keys: \type{fontname}, \type{fullname},
+\type{familyname}, \type{weight} and \type{table_version}.  
 
 
 \subsection{The fonts array}
@@ -2591,8 +2673,14 @@ index into \type{font.fonts}). If the font creation fails, an error is
 raised. The table is a font structure, as explained in
 \in{chapter}[fonts].
 
-The value of this function is debatable, because there is no direct
-way of accessing the newly defined font, except from Lua code.
+\subsection{Currently active font}
+
+\startfunctioncall
+     number i = font.currentid;
+\stopfunctioncall
+
+This is the currently used font number.
+
 
 \chapter[fonts]{Font structure}
 
@@ -2619,6 +2707,7 @@ The top-level keys in the table are as follows:
 \NC checksum           \NC yes      \NC yes      \NC no  \NC number \NC default: 0 \NC \NR
 \NC designsize         \NC no       \NC yes      \NC yes \NC number \NC expected size (default: 655360 == 10pt) \NC \NR
 \NC direction          \NC no       \NC yes      \NC yes \NC number \NC default: 0 (LTR) \NR
+\NC encodingbytes      \NC no       \NC no       \NC yes \NC number \NC default: depends on `format'\NC\NR
 \NC encodingname       \NC no       \NC no       \NC yes \NC string \NC encoding name\NC\NR
 \NC fonts              \NC yes      \NC no       \NC yes \NC table  \NC locally used fonts\NC \NR
 \NC fullname           \NC no       \NC no       \NC yes \NC string \NC actual (PostScript) name\NC\NR
@@ -2818,11 +2907,9 @@ The actions to be taken depend on a number of different variables:
 A font that uses anything other than an 8-bit encoding vector has to
 be written to the PDF in a different way. 
 
-The test that decides if this is the case is fairly simple in the 
-current version of \LUATEX: If a `real' font has a `cidinfo' structure, 
-then it is assumed to be a wide font, in all other cases it isn't. 
-A more flexible approach is often possible, and will perhaps be 
-implemented later.
+The rule is: if the font table has `encodingbytes' set to 2, then this
+is a wide font, in all other cases it isn't. The value `2' is the
+default for opentype and truetype fonts loaded via lua.
 
 If no special care is needed, \LUATEX\ currently falls back to the
 mapfile||based solution used by \PDFTEX\ and DVIPS. This behaviour
@@ -2857,7 +2944,9 @@ Values for \type{embedding}:
 \NC full           \NC Include this font in it's entirety\NC\NR
 \stoptabulate
 
-At the moment, \type{full} is the only implemented form. 
+At the moment, \type{subset} only works for PostScript-based non-CID
+OpenType fonts, every other font format essentially is treated as
+\type{full}.
 
 It is not possible to artificially modify the transformation matrix
 for the font at the moment.
@@ -3037,6 +3126,10 @@ necessary to clean up the internal interfaces.
 \item "plus 1 fillll" does not generate an error. The extra `l' is
 simply typeset.
 
+\item The \type{\endlinechar} can be either added (values 0 or more), or not
+(negative values). If it is added, the character is always decimal 13 a/k/a
+\type{^^M} a/k/a carriage return (This change may be temporary).
+
 \stopitemize
 
 \section{Changes from \ETEX\ 2.2}
@@ -3079,8 +3172,8 @@ simply typeset.
     \pdfunescapehex
 \stoptyping
 
-\item A few other experimental primitives are provided without the
-      extra  `pdf' prefix, so they are simply called:
+\item A few other experimental primitives are also provided without the
+      extra  `pdf' prefix, so they can also be called like this:
 \starttyping
     \primitive
     \ifprimitive
@@ -3088,6 +3181,9 @@ simply typeset.
     \ifabsdim
 \stoptyping
 
+\item The definitions for new didot and new cicero are patched.
+
+\item The \type{\pdfprimitive} is bugfixed.
 \stopitemize
 
 \section{Changes from \ALEPH\ RC4}
@@ -3139,6 +3235,8 @@ smaller than their maximum \ALEPH\ value (around 5000 fonts and
 \item The internal function \type{scan_dir()} has been renamed to
 \type{scan_direction()} to prevent a naming clash.
 
+\item The \type{^^} notation can come in five and six item repetitions also, to
+insert characters that do not fit in the BMP.
 \stopitemize
 
 \section{Changes from standard \WEBC}
@@ -3249,7 +3347,10 @@ going to be replaced by a new subsystem soon anyway.
 
 \item Not all of Aleph's direction commands are handled properly in 
 PDF mode yet: this affects all the Top-Bottom and Bottom-Top writing 
-directions.
+directions. And also, the \type{\textdir} command is broken.
+
+\item There is interference between rules and \type{\pdfliteral}. This
+is also likely related to the Bidi algorithm.
 
 \item Letter spacing (\type{\letterspacefont}) is currently non-functional 
 due to massive changes in the virtual font handling. This
@@ -3295,4 +3396,10 @@ the natural width of the included items into account.
 
 \stoptext
 
-
++ Fix extensible character handling 
++ Fix for contextual lookup tags in otf
++ TTF language names added
++ Nicer VF error
++ Font subset prefix calculation fix
++ Various patches from David
++ Solaris 9 patches from Arthur
