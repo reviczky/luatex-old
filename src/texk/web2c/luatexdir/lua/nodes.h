@@ -37,6 +37,10 @@
 #define glue_set(a)      zmem[(a+6)].gr
 #define box_dir(a)       zmem[(a+7)].cint
 
+#define glue_stretch(a)  zmem[(a)+6].cint
+#define glue_shrink      shift_amount
+#define span_count       subtype
+
 #define pdf_literal_data(a)  link(a+1)
 #define pdf_literal_mode(a)  info(a+1)
 
