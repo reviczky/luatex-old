@@ -26675,7 +26675,8 @@ else  begin q:=temp_head;
   end;
 r:=q;
 @<DIR: Insert dir nodes at the end of the current line@>;
-if passive_right_box(cur_p)<>null then begin
+{TH: this zero test is a hack!}
+if (passive_right_box(cur_p)<>null)and(passive_right_box(cur_p)<>0) then begin
   r:=copy_node_list(passive_right_box(cur_p));
   link(r):=link(q);
   link(q):=r;
@@ -26766,7 +26767,8 @@ justified. It ends with |q| at the beginning of that list, and with
 
 @<Put the \(l)\.{\\leftskip} glue at the left...@>=
 r:=link(q); link(q):=null; q:=link(temp_head); link(temp_head):=r;
-if passive_left_box(cur_p)<>null then begin
+{TH: this zero test is a hack!}
+if (passive_left_box(cur_p)<>null)and(passive_left_box(cur_p)<>0) then begin
   r:=copy_node_list(passive_left_box(cur_p));
   s:=link(q);
   link(r):=q;
