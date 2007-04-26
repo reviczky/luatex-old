@@ -190,6 +190,7 @@ list_node_to_lua(lua_State *L, int list_type_, halfword p) {
 }
 
 
+
 halfword
 list_node_from_lua(lua_State *L, int list_type_) {
   int i = 2;
@@ -206,6 +207,33 @@ list_node_from_lua(lua_State *L, int list_type_) {
   numeric_field(glue_order(p),i++);
   numeric_field(glue_sign(p),i++);
   float_field(glue_set(p),i++);
+  numeric_field(box_dir(p),i++);
+  return p;
+}
+
+void
+unset_node_to_lua(lua_State *L, halfword p) {
+  generic_node_to_lua(L,"unset","dbddddndddd",span_count(p),status(p),width(p),depth(p),height(p),
+		      glue_shrink(p),list_ptr(p),glue_order(p),glue_sign(p),glue_stretch(p),box_dir(p));
+}
+
+
+halfword
+unset_node_from_lua(lua_State *L) {
+  int i = 2;
+  int p = new_null_box();
+  link(p)=null; 
+  type_field(p) = unset_node;
+  numeric_field(span_count(p),i++);
+  status_field(p,i++);  
+  numeric_field(width(p),i++);
+  numeric_field(depth(p),i++);
+  numeric_field(height(p),i++);
+  numeric_field(glue_shrink(p),i++);
+  nodelist_field(list_ptr(p),i++);
+  numeric_field(glue_order(p),i++);
+  numeric_field(glue_sign(p),i++);
+  numeric_field(glue_stretch(p),i++);
   numeric_field(box_dir(p),i++);
   return p;
 }
@@ -407,6 +435,10 @@ nodelist_to_lua (lua_State *L, halfword t) {
 	margin_kern_node_to_lua(L,t); 
 	lua_rawseti(L,-2,++i);
 	break;
+      case unset_node: 
+	unset_node_to_lua(L,t); 
+	lua_rawseti(L,-2,++i);
+	break;
       default: 
 	if (type(t)<=right_noad) {
 	  fprintf(stdout,"<noad type %s not supported>\n",node_names[type(t)]);
@@ -499,6 +531,10 @@ nodelist_from_lua (lua_State *L) {
 	    u = margin_kern_node_from_lua(L);
 	    append_node(t,u);
 	    break;
+	  case unset_node: 
+	    u = unset_node_from_lua(L);
+	    append_node(t,u);
+	    break;
 	  default: 
 	    fprintf(stdout,"<node type %s not supported yet>\n",node_names[i]);
 	    break;
@@ -575,12 +611,23 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node) {
     error();
     return head_node;
   }
-  /* destroy the old one */
-  flush_node_list(head_node);
-  if ((ret = nodelist_from_lua(L)) != 0) {
-    lua_pop(L,2); /* result and callback container table */
-    return ret;
-  } 
+  if (lua_isboolean(L,-1)) {
+	if (lua_toboolean(L,-1)==1) {
+	  lua_pop(L,2); /* result and callback container table */
+	  return head_node;
+	} else {
+	  flush_node_list(head_node);
+	  lua_pop(L,2); /* result and callback container table */
+	  return null;
+	}
+  } else {
+	/* destroy the old one */
+	flush_node_list(head_node);
+	if ((ret = nodelist_from_lua(L)) !=  null) {
+	  lua_pop(L,2); /* result and callback container table */
+	  return ret;
+	} 
+  }
   lua_pop(L,2); /* result and callback container table */
   fprintf(stdout,"error: node list has gone to the moon\n");
   error();
@@ -615,12 +662,23 @@ lua_hpack_filter (halfword head_node, scaled size, int pack_type, int extrainfo)
     error();
     return head_node;
   }
-  /* destroy the old one */
-  flush_node_list(head_node);
-  if ((ret = nodelist_from_lua(L)) != 0) {
-    lua_pop(L,2); /* result and callback container table */
-    return ret;
-  } 
+  if (lua_isboolean(L,-1)) {
+	if (lua_toboolean(L,-1)==1) {
+	  lua_pop(L,2); /* result and callback container table */
+	  return head_node;
+	} else {
+	  flush_node_list(head_node);
+	  lua_pop(L,2); /* result and callback container table */
+	  return null;
+	}
+  } else {
+	/* destroy the old one */
+	flush_node_list(head_node);
+	if ((ret = nodelist_from_lua(L)) !=  null) {
+	  lua_pop(L,2); /* result and callback container table */
+	  return ret;
+	} 
+  }
   lua_pop(L,2); /* result and callback container table */
   fprintf(stdout,"error: node list has gone to the moon\n");
   error();
@@ -653,12 +711,23 @@ lua_vpack_filter (halfword head_node, scaled size, int pack_type, scaled maxd, i
     error();
     return head_node;
   }
-  /* destroy the old one */
-  flush_node_list(head_node);
-  if ((ret = nodelist_from_lua(L)) != 0) {
-    lua_pop(L,2); /* result and callback container table */
-    return ret;
-  } 
+  if (lua_isboolean(L,-1)) {
+	if (lua_toboolean(L,-1)==1) {
+	  lua_pop(L,2); /* result and callback container table */
+	  return head_node;
+	} else {
+	  flush_node_list(head_node);
+	  lua_pop(L,2); /* result and callback container table */
+	  return null;
+	}
+  } else {
+	/* destroy the old one */
+	flush_node_list(head_node);
+	if ((ret = nodelist_from_lua(L)) != null) {
+	  lua_pop(L,2); /* result and callback container table */
+	  return ret;
+	} 
+  }
   lua_pop(L,2); /* result and callback container table */
   fprintf(stdout,"error: node list has gone to the moon\n");
   error();
