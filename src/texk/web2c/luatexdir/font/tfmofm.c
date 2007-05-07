@@ -873,6 +873,7 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
     }
     /* put it in the actual font */
     co = get_charinfo(f,k);
+    set_charinfo_index     (co,k);
     set_charinfo_tag       (co,ci._tag);
     if (ci._tag == ext_tag) {
       set_charinfo_extensible(co,
