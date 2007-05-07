@@ -243,7 +243,8 @@ parse_options(int argc, char **argv)
 			(strstr(firstfile,".luc") == firstfile+strlen(firstfile)-4) ||
             (strstr(firstfile,".LUA") == firstfile+strlen(firstfile)-4) ||
 			(strstr(firstfile,".LUC") == firstfile+strlen(firstfile)-4) ||
-			(strstr(argv[0],"luatexlua") != NULL)) {
+			(strstr(argv[0],"luatexlua") != NULL) ||
+            (strstr(argv[0],"texlua") != NULL)) {
 		  startup_filename = firstfile;
 		  lua_only = 1;
 		  lua_offset = optind;		  
@@ -254,7 +255,8 @@ parse_options(int argc, char **argv)
 	  }
 	}
   } else {
-	if (strstr(argv[0],"luatexlua") != NULL) {
+	if ((strstr(argv[0],"luatexlua") != NULL)||
+        (strstr(argv[0],"texlua") != NULL)) {
 	  lua_only = 1;
 	  luainit = 1 ;
 	}
