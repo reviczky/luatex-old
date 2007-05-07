@@ -17038,27 +17038,31 @@ procedure pdf_print_char(f: internal_font_number; cc: integer);
 { print out a character to PDF buffer; the character will be printed in octal
   form in the following cases: chars <= 32, backslash (92), left parenthesis
   (40) and  right parenthesis (41) }
-var c: integer;
+var c,chari: integer;
 begin
     pdf_mark_char(f, cc);
 	if font_encodingbytes(f)=2 then begin
-      c := char_index(f, cc);
-      c := c div 256;
+      chari := char_index(f, cc);
+      c := chari div 256;
 	  if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
-    	 pdf_out(92);           {output a backslash}
-         pdf_print_octal(c);
-         end
+        if c<256 then begin 
+      	  pdf_out(92);           {output a backslash}
+          pdf_print_octal(c);
+          end;
+        end
       else
         pdf_out(c);
+      c := chari mod 256;
+    end else begin
       c := char_index(f, cc);
-      c := c mod 256;
-    end else
-      c := cc;
+    end;
     begin
       if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
-        pdf_out(92);           {output a backslash}
-        pdf_print_octal(c);
-      end
+        if c<256 then begin
+          pdf_out(92);           {output a backslash}
+          pdf_print_octal(c);
+          end;
+        end
       else
         pdf_out(c);
     end;
