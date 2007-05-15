@@ -322,6 +322,52 @@ int getcount (lua_State *L) {
   return 1;
 }
 
+
+int setattribute (lua_State *L) {
+  int i,j,k;
+  int cur_cs;
+  int texstr;
+  i = lua_gettop(L);
+  j = (int)luaL_checkinteger(L,i);
+  if (lua_type(L,i-1)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i-1));
+    cur_cs = string_lookup(texstr);
+    flush_str(texstr);
+    k = zget_equiv(cur_cs)-get_attribute_base();
+  } else {
+    k = (int)luaL_checkinteger(L,i-1);
+  }
+  check_index_range(k);
+  if (set_tex_attribute_register(k,j)) {
+	lua_pushstring(L, "incorrect value");
+	lua_error(L);
+  }
+  return 0;
+}
+
+int getattribute (lua_State *L) {
+  int i, j, k;
+  int cur_cs;
+  int texstr;
+  i = lua_gettop(L);
+  if (lua_type(L,i)==LUA_TSTRING) {
+    texstr = maketexstring(lua_tostring(L,i));
+    cur_cs = string_lookup(texstr);
+    flush_str(texstr);
+    if (is_undefined_cs(cur_cs)) {
+      lua_pushnil(L);
+      return 1;
+    }
+    k = zget_equiv(cur_cs)-get_attribute_base();
+  } else {
+    k = (int)luaL_checkinteger(L,i);
+  }
+  check_index_range(k);
+  j = get_tex_attribute_register(k);
+  lua_pushnumber(L, j);
+  return 1;
+}
+
 int settoks (lua_State *L) {
   int i,j,k,len;
   int cur_cs;
@@ -572,6 +618,8 @@ static const struct luaL_reg texlib [] = {
   {"sprint",   luacsprint},
   {"setdimen", setdimen},
   {"getdimen", getdimen},
+  {"setattribute", setattribute},
+  {"getattribute", getattribute},
   {"setcount", setcount},
   {"getcount", getcount},
   {"settoks",  settoks},
@@ -588,6 +636,7 @@ static const struct luaL_reg texlib [] = {
 int luaopen_tex (lua_State *L) 
 {
   luaL_register(L, "tex", texlib);
+  make_table(L,"attribute","getattribute","setattribute");
   make_table(L,"dimen","getdimen","setdimen");
   make_table(L,"count","getcount","setcount");
   make_table(L,"toks","gettoks","settoks");

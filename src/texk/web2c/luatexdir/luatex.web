@@ -5147,13 +5147,20 @@ assignment of values to \TeX's internal registers or tables.
 Codes that are |max_internal| or less represent internal quantities
 that might be expanded by `\.{\\the}'.
 
+There is no matching primitive to go with |assign_attr|, but even if
+there was no \.{\\attributedef}, a reserved number would still be
+needed because there is an implied correspondence between the
+|assign_xxx| commands and |xxx_val| expression values. That would 
+break down otherwise.
+
 @d toks_register=max_non_prefixed_command+1
    {token list register ( \.{\\toks} )}
 @d assign_toks=toks_register+1
    {special token list ( \.{\\output}, \.{\\everypar}, etc.~)}
 @d assign_int=assign_toks+1
    {user-defined integer ( \.{\\tolerance}, \.{\\day}, etc.~)}
-@d assign_dimen=assign_int+1
+@d assign_attr=assign_int+1 { user-defined attributes }
+@d assign_dimen=assign_attr+1
    {user-defined length ( \.{\\hsize}, etc.~)}
 @d assign_glue=assign_dimen+1
    {user-defined glue ( \.{\\baselineskip}, etc.~)}
@@ -6206,10 +6213,12 @@ that will be defined later.
 @#
 @d int_pars=etex_int_pars {total number of integer parameters}
 @d count_base=int_base+int_pars {|number_regs| user \.{\\count} registers}
-@d del_code_base=count_base+number_regs {|number_chars| delimiter code mappings}
+@d attribute_base=count_base+number_regs {|number_regs| user \.{\\attribute} registers}
+@d del_code_base=attribute_base+number_regs {|number_chars| delimiter code mappings}
 @d dimen_base=del_code_base+1 {beginning of region 6}
 @#
 @d count(#)==eqtb[count_base+#].int
+@d attribute(#)==eqtb[attribute_base+#].int
 @d int_par(#)==eqtb[int_base+#].int {an integer parameter}
 @d pretolerance==int_par(pretolerance_code)
 @d tolerance==int_par(tolerance_code)
@@ -6608,6 +6617,8 @@ primitive("pdfreplacefont",assign_int,int_base+pdf_replace_font_code);@/
 assign_int: if chr_code<count_base then print_param(chr_code-int_base)
   else  begin print_esc("count"); print_int(chr_code-count_base);
     end;
+assign_attr: begin print_esc("attribute"); print_int(chr_code-attribute_base);
+    end;
 
 @ The integer parameters should really be initialized by a macro package;
 the following initialization does the minimum to keep \TeX\ from
@@ -6640,8 +6651,12 @@ end;
 begin if n<count_base then begin print_param(n-int_base);
     print_char("="); print_int(eqtb[n].int);
   end
-else if n<del_code_base then
+else if n<attribute_base then
   begin print_esc("count"); print_int(n-count_base);
+    print_char("="); print_int(eqtb[n].int);
+  end
+else if n<del_code_base then
+  begin print_esc("attribute"); print_int(n-attribute_base);
     print_char("="); print_int(eqtb[n].int);
   end
 else begin 
@@ -7045,6 +7060,10 @@ end;
 function get_count_base:halfword;
 begin
   get_count_base := count_base;
+end;
+function get_attribute_base:halfword;
+begin
+  get_attribute_base := attribute_base;
 end;
 function get_scaled_base:halfword;
 begin
@@ -10499,16 +10518,18 @@ procedures are also declared at this point.
 @t\4\4@>@<Declare procedures that scan font-related stuff@>
 @t\4\4@>@<Declare procedures that scan ocp-related stuff@>
 
-@ \TeX\ doesn't know exactly what to expect when |scan_something_internal|
-begins.  For example, an integer or dimension or glue value could occur
-immediately after `\.{\\hskip}'; and one can even say \.{\\the} with
-respect to token lists in constructions like
-`\.{\\xdef\\o\{\\the\\output\}}'.  On the other hand, only integers are
-allowed after a construction like `\.{\\count}'. To handle the various
-possibilities, |scan_something_internal| has a |level| parameter, which
-tells the ``highest'' kind of quantity that |scan_something_internal| is
-allowed to produce. Six levels are distinguished, namely |int_val|,
-|dimen_val|, |glue_val|, |mu_val|, |ident_val|, and |tok_val|.
+@ \TeX\ doesn't know exactly what to expect when
+|scan_something_internal| begins.  For example, an integer or
+dimension or glue value could occur immediately after `\.{\\hskip}';
+and one can even say \.{\\the} with respect to token lists in
+constructions like `\.{\\xdef\\o\{\\the\\output\}}'.  On the other
+hand, only integers are allowed after a construction like
+`\.{\\count}'. To handle the various possibilities,
+|scan_something_internal| has a |level| parameter, which tells the
+``highest'' kind of quantity that |scan_something_internal| is allowed
+to produce. Eight levels are distinguished, namely |int_val|,
+|attr_val|, |dimen_val|, |glue_val|, |mu_val|, |dir_val|, |ident_val|,
+and |tok_val|.
 
 The output of |scan_something_internal| (and of the other routines
 |scan_int|, |scan_dimen|, and |scan_glue| below) is put into the global
@@ -10528,27 +10549,29 @@ its reference count, but in this case the count will not have been updated.
 Otherwise |cur_val| will contain the integer or scaled value in question.
 
 @d int_val=0 {integer values}
-@d dimen_val=1 {dimension values}
-@d glue_val=2 {glue specifications}
-@d mu_val=3 {math glue specifications}
-@d dir_val=4 {directions}
-@d ident_val=5 {font identifier}
-@d tok_val=6 {token lists}
+@d attr_val=1 {integer values}
+@d dimen_val=2 {dimension values}
+@d glue_val=3 {glue specifications}
+@d mu_val=4 {math glue specifications}
+@d dir_val=5 {directions}
+@d ident_val=6 {font identifier}
+@d tok_val=7 {token lists}
 
 @<Glob...@>=
 @!cur_val:integer; {value returned by numeric scanners}
 @!cur_val1:integer; {delcodes are now 51 digits}
-{TH: CHECK: aleph has |int_val...dir_val|. }
 @!cur_val_level:int_val..tok_val; {the ``level'' of this value}
 
-@ The hash table is initialized with `\.{\\count}', `\.{\\dimen}', `\.{\\skip}',
-and `\.{\\muskip}' all having |register| as their command code; they are
-distinguished by the |chr_code|, which is either |int_val|, |dimen_val|,
-|glue_val|, or |mu_val|.
+@ The hash table is initialized with `\.{\\count}', `\.{\\attribute}',
+`\.{\\dimen}', `\.{\\skip}', and `\.{\\muskip}' all having |register|
+as their command code; they are distinguished by the |chr_code|, which
+is either |int_val|, |attr_val|, |dimen_val|, |glue_val|, or |mu_val|.
 
 @<Put each...@>=
 primitive("count",register,int_val);
 @!@:count_}{\.{\\count} primitive@>
+primitive("attribute",register,attr_val);
+@!@:count_}{\.{\\attribute} primitive@>
 primitive("dimen",register,dimen_val);
 @!@:dimen_}{\.{\\dimen} primitive@>
 primitive("skip",register,glue_val);
@@ -10557,6 +10580,7 @@ primitive("muskip",register,mu_val);
 
 @ @<Cases of |print_cmd_chr|...@>=
 register: if chr_code=int_val then print_esc("count")
+  else if chr_code=attr_val then print_esc("attribute")
   else if chr_code=dimen_val then print_esc("dimen")
   else if chr_code=glue_val then print_esc("skip")
   else print_esc("muskip");
@@ -10585,6 +10609,7 @@ extdef_code: @<Fetch an ext character code from some table@>;
 toks_register,assign_toks,def_family,set_font,def_font,letterspace_font: @<Fetch a token list or
   font identifier, provided that |level=tok_val|@>;
 assign_int: scanned_result(eqtb[m].int)(int_val);
+assign_attr: scanned_result(eqtb[m].int)(int_val);
 assign_box_dir: begin
   scan_register_num;
   m:=cur_val;
@@ -10626,6 +10651,7 @@ begin m:=subitem; level:=tok_val;
 case cmd of
 assign_toks: scanned_result(equiv(m))(tok_val);
 assign_int: scanned_result(eqtb[m].int)(int_val);
+assign_attr: scanned_result(eqtb[m].int)(int_val);
 assign_dir: scanned_result(eqtb[m].int)(dir_val);
 assign_dimen: scanned_result(eqtb[m].sc)(dimen_val);
 assign_glue: scanned_result(equiv(m))(glue_val);
@@ -10974,6 +11000,7 @@ end
 begin scan_register_num;
 case m of
 int_val:cur_val:=count(cur_val);
+attr_val:cur_val:=attribute(cur_val);
 dimen_val:cur_val:=dimen(cur_val);
 glue_val: cur_val:=skip(cur_val);
 mu_val: cur_val:=mu_skip(cur_val);
@@ -11834,6 +11861,7 @@ if cur_val_level>=ident_val then begin
 else begin old_setting:=selector; selector:=new_string; b:=pool_ptr;
   case cur_val_level of
   int_val:print_int(cur_val);
+  attr_val:print_int(cur_val);
   dir_val:print_dir(cur_val);
   dimen_val:begin print_scaled(cur_val); print("pt");
     end;
@@ -11863,6 +11891,7 @@ if cur_val_level>=ident_val then begin
 else begin
     case cur_val_level of
     int_val:print_int(cur_val);
+    attr_val:print_int(cur_val);
     dir_val:print_dir(cur_val);
     dimen_val:begin print_scaled(cur_val); print("pt");
       end;
@@ -13623,7 +13652,7 @@ character node is not created; thus the output routine can assume
 that characters exist when it sees them. The following procedure
 prints a warning message unless the user has suppressed it.
 
-@p procedure char_warning(@!f:internal_font_number;@!c:eight_bits);
+@p procedure char_warning(@!f:internal_font_number;@!c:integer);
 var old_setting: integer; {saved value of |tracing_online|}
 begin if tracing_lost_chars>0 then
  begin old_setting:=tracing_online;
@@ -13644,7 +13673,7 @@ end;
 given character in a given font. If that character doesn't exist,
 |null| is returned instead.
 
-@p function new_character(@!f:internal_font_number;@!c:eight_bits):pointer;
+@p function new_character(@!f:internal_font_number;@!c:integer):pointer;
 label exit;
 var p:pointer; {newly allocated node}
 begin if char_exists(f,c) then
@@ -16541,7 +16570,7 @@ begin
     get_x_height := x_height(f);
 end;
 
-function get_charwidth(f: internal_font_number; c: eight_bits): scaled;
+function get_charwidth(f: internal_font_number; c: integer): scaled;
 begin
     if is_valid_char(c) then
         get_charwidth := char_width(f,c)
@@ -16549,7 +16578,7 @@ begin
         get_charwidth := 0;
 end;
 
-function get_charheight(f: internal_font_number; c: eight_bits): scaled;
+function get_charheight(f: internal_font_number; c: integer): scaled;
 begin
     if is_valid_char(c) then
         get_charheight := char_height(f,c)
@@ -16557,7 +16586,7 @@ begin
         get_charheight := 0;
 end;
 
-function get_chardepth(f: internal_font_number; c: eight_bits): scaled;
+function get_chardepth(f: internal_font_number; c: integer): scaled;
 begin
     if is_valid_char(c) then
         get_chardepth := char_depth(f,c)
@@ -17054,7 +17083,8 @@ begin
         pdf_out(c);
       c := chari mod 256;
     end else begin
-      c := char_index(f, cc);
+      c := cc;
+      {c := char_index(f, cc);}
     end;
     begin
       if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
@@ -17246,7 +17276,7 @@ For PK fonts things are more complicated,
 as we have to deal with scaling bitmaps as well.
 
 @p
-procedure adv_char_width(f: internal_font_number; c: eight_bits); {update |pdf_h|
+procedure adv_char_width(f: internal_font_number; c: integer); {update |pdf_h|
 by character width |w| from font |f|}
 var w, s_out: scaled;
     s: integer;
@@ -18478,56 +18508,56 @@ begin
     init_font_base := i;
 end;
 
-procedure set_lp_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_lp_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_lp_base[f] = 0 then
         pdf_font_lp_base[f] := init_font_base(0);
     pdf_mem[pdf_font_lp_base[f] + c] := fix_int(i, -1000, 1000);
 end;
 
-procedure set_rp_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_rp_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_rp_base[f] = 0 then
         pdf_font_rp_base[f] := init_font_base(0);
     pdf_mem[pdf_font_rp_base[f] + c] := fix_int(i, -1000, 1000);
 end;
 
-procedure set_ef_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_ef_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_ef_base[f] = 0 then
         pdf_font_ef_base[f] := init_font_base(1000);
     pdf_mem[pdf_font_ef_base[f] + c] := fix_int(i, 0, 1000);
 end;
 
-procedure set_kn_bs_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_kn_bs_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_kn_bs_base[f] = 0 then
         pdf_font_kn_bs_base[f] := init_font_base(0);
     pdf_mem[pdf_font_kn_bs_base[f] + c] := fix_int(i, -1000, 1000);
 end;
 
-procedure set_st_bs_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_st_bs_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_st_bs_base[f] = 0 then
         pdf_font_st_bs_base[f] := init_font_base(0);
     pdf_mem[pdf_font_st_bs_base[f] + c] := fix_int(i, -1000, 1000);
 end;
 
-procedure set_sh_bs_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_sh_bs_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_sh_bs_base[f] = 0 then
         pdf_font_sh_bs_base[f] := init_font_base(0);
     pdf_mem[pdf_font_sh_bs_base[f] + c] := fix_int(i, -1000, 1000);
 end;
 
-procedure set_kn_bc_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_kn_bc_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_kn_bc_base[f] = 0 then
         pdf_font_kn_bc_base[f] := init_font_base(0);
     pdf_mem[pdf_font_kn_bc_base[f] + c] := fix_int(i, -1000, 1000);
 end;
 
-procedure set_kn_ac_code(f: internal_font_number; c: eight_bits; i: integer);
+procedure set_kn_ac_code(f: internal_font_number; c: integer; i: integer);
 begin
     if pdf_font_kn_ac_base[f] = 0 then
         pdf_font_kn_ac_base[f] := init_font_base(0);
@@ -21282,7 +21312,7 @@ begin
     check_expand_pars := true;
 end;
 
-function char_stretch(f: internal_font_number; c: eight_bits): scaled;
+function char_stretch(f: internal_font_number; c: integer): scaled;
 var k: internal_font_number;
     dw: scaled;
     ef: integer;
@@ -21297,7 +21327,7 @@ begin
     end;
 end;
 
-function char_shrink(f: internal_font_number; c: eight_bits): scaled;
+function char_shrink(f: internal_font_number; c: integer): scaled;
 var k: internal_font_number;
     dw: scaled;
     ef: integer;
@@ -29797,9 +29827,9 @@ if(cur_chr<font_bc(main_f))or(cur_chr>font_ec(main_f)) then
 if not char_exists(main_f,cur_l) then
   begin char_warning(main_f,cur_chr); free_avail(lig_stack); goto big_switch;
   end;
-if not (left_ghost or right_ghost) then
+if not (left_ghost or right_ghost) then begin
   tail_append(lig_stack); {|main_loop_lookahead| is next}
-
+end;
 
 @ Here we are at |main_loop_move_lig|.
 When we begin this code we have |cur_q=tail| and |cur_l=character(lig_stack)|.
@@ -32564,6 +32594,7 @@ the command.
 any_mode(toks_register),
 any_mode(assign_toks),
 any_mode(assign_int),
+any_mode(assign_attr),
 any_mode(assign_dir),
 any_mode(assign_dimen),
 any_mode(assign_glue),
@@ -32794,10 +32825,11 @@ corresponding |chr| is the |eqtb| location of the internal register in question.
 @d math_char_def_code=1 {|shorthand_def| for \.{\\mathchardef}}
 @d omath_char_def_code=2 {|shorthand_def| for \.{\\omathchardef}}
 @d count_def_code=3 {|shorthand_def| for \.{\\countdef}}
-@d dimen_def_code=4 {|shorthand_def| for \.{\\dimendef}}
-@d skip_def_code=5 {|shorthand_def| for \.{\\skipdef}}
-@d mu_skip_def_code=6 {|shorthand_def| for \.{\\muskipdef}}
-@d toks_def_code=7 {|shorthand_def| for \.{\\toksdef}}
+@d attribute_def_code=4 {|shorthand_def| for \.{\\attributedef}}
+@d dimen_def_code=5 {|shorthand_def| for \.{\\dimendef}}
+@d skip_def_code=6 {|shorthand_def| for \.{\\skipdef}}
+@d mu_skip_def_code=7 {|shorthand_def| for \.{\\muskipdef}}
+@d toks_def_code=8 {|shorthand_def| for \.{\\toksdef}}
 
 @<Put each...@>=
 primitive("chardef",shorthand_def,char_def_code);@/
@@ -32808,6 +32840,8 @@ primitive("omathchardef",shorthand_def,omath_char_def_code);@/
 @!@:math_char_def_}{\.{\\omathchardef} primitive@>
 primitive("countdef",shorthand_def,count_def_code);@/
 @!@:count_def_}{\.{\\countdef} primitive@>
+primitive("attributedef",shorthand_def,attribute_def_code);@/
+@!@:attribute_def_}{\.{\\attributedef} primitive@>
 primitive("dimendef",shorthand_def,dimen_def_code);@/
 @!@:dimen_def_}{\.{\\dimendef} primitive@>
 primitive("skipdef",shorthand_def,skip_def_code);@/
@@ -32823,6 +32857,7 @@ shorthand_def: case chr_code of
   math_char_def_code: print_esc("mathchardef");
   omath_char_def_code: print_esc("omathchardef");
   count_def_code: print_esc("countdef");
+  attribute_def_code: print_esc("attributedef");
   dimen_def_code: print_esc("dimendef");
   skip_def_code: print_esc("skipdef");
   mu_skip_def_code: print_esc("muskipdef");
@@ -32855,6 +32890,7 @@ shorthand_def: begin n:=cur_chr; get_r_token; p:=cur_cs;
   othercases begin scan_register_num;
     case n of
     count_def_code: define(p,assign_int,count_base+cur_val);
+    attribute_def_code: define(p,assign_attr,attribute_base+cur_val);
     dimen_def_code: define(p,assign_dimen,scaled_base+cur_val);
     skip_def_code: define(p,assign_glue,skip_base+cur_val);
     mu_skip_def_code: define(p,assign_mu_glue,mu_skip_base+cur_val);
@@ -32959,6 +32995,8 @@ might be necessary.  Good first step.}
     local_par_bool:=true;
     end;
   end;
+assign_attr: begin p:=cur_chr; scan_optional_equals; scan_int;
+  word_define(p,cur_val); end;
 assign_dir: begin
   @<DIR: Assign direction codes@>
   end;
@@ -33182,6 +33220,7 @@ begin if q<>register then
 p:=cur_chr; scan_register_num;
 case p of
 int_val: l:=cur_val+count_base;
+attr_val: l:=cur_val+attribute_base;
 dimen_val: l:=cur_val+scaled_base;
 glue_val: l:=cur_val+skip_base;
 mu_val: l:=cur_val+mu_skip_base;
@@ -33191,7 +33230,7 @@ found:
 
 @ @<Compute result of |register| or |advance|...@>=
 if p<glue_val then
-  begin if p=int_val then scan_int@+else scan_normal_dimen;
+  begin if (p=int_val) or (p=attr_val) then scan_int@+else scan_normal_dimen;
   if q=advance then cur_val:=cur_val+eqtb[l].int;
   end
 else  begin scan_glue(p);
@@ -33219,7 +33258,7 @@ end
 begin scan_int;
 if p<glue_val then
   if q=multiply then
-    if p=int_val then cur_val:=mult_integers(eqtb[l].int,cur_val)
+    if (p=int_val)or(p=attr_val) then cur_val:=mult_integers(eqtb[l].int,cur_val)
     else cur_val:=nx_plus_y(eqtb[l].int,cur_val,0)
   else cur_val:=x_over_n(eqtb[l].int,cur_val)
 else  begin s:=equiv(l); r:=new_spec(s);
@@ -39788,7 +39827,7 @@ else  begin o:=expr_none;
 if cur_tok=other_token+"(" then
   @<Push the expression stack and |goto restart|@>;
 back_input;
-if o=int_val then scan_int
+if (o=int_val)or(o=attr_val) then scan_int
 else if o=dimen_val then scan_normal_dimen
 else if o=glue_val then scan_normal_glue
 else scan_mu_glue;
@@ -39852,7 +39891,7 @@ might fail for the value $-2^{31}$ using 32-bit arithmetic.
   end
 
 @<Make sure that |f|...@>=
-if (l=int_val)or(s>expr_sub) then
+if ((l=int_val)or(l=attr_val))or(s>expr_sub) then
   begin if (f>infinity)or(f<-infinity) then num_error(f);
   end
 else if l=dimen_val then
@@ -39888,7 +39927,7 @@ subtracted from the expression |e|.
 @<Evaluate the current expression@>=
 begin s:=expr_none;
 if r=expr_none then e:=t
-else if l=int_val then e:=expr_add_sub(e,t,infinity)
+else if (l=int_val)or(l=attr_val) then e:=expr_add_sub(e,t,infinity)
 else if l=dimen_val then e:=expr_a(e,t)
 else @<Compute the sum or difference of two glue specs@>;
 r:=o;
@@ -39937,7 +39976,7 @@ multiplied by the factor |f|.
 expr_mult: if o=expr_div then
     begin n:=f; o:=expr_scale;
     end
-  else if l=int_val then t:=mult_integers(t,f)
+  else if (l=int_val)or(l=attr_val) then t:=mult_integers(t,f)
   else if l=dimen_val then expr_m(t)
   else  begin expr_m(width(t)); expr_m(stretch(t)); expr_m(shrink(t));
     end;
@@ -39977,7 +40016,7 @@ end;
 @d expr_s(#)==#:=fract(#,n,f,max_dimen)
 
 @<Cases for evaluation of the current term@>=
-expr_scale: if l=int_val then t:=fract(t,n,f,infinity)
+expr_scale: if (l=int_val)or(l=attr_val) then t:=fract(t,n,f,infinity)
   else if l=dimen_val then expr_s(t)
   else  begin expr_s(width(t)); expr_s(stretch(t)); expr_s(shrink(t));
     end;
@@ -40453,6 +40492,18 @@ word_define(j+count_base,v);
 set_tex_count_register := 0;
 end;
 
+function get_tex_attribute_register (j:integer):scaled;
+begin
+  get_tex_attribute_register := attribute(j);
+end;
+
+function set_tex_attribute_register (j:integer;v:scaled):integer;
+var a:small_number;
+begin  {return non-nil for error}
+word_define(j+attribute_base,v);
+set_tex_attribute_register := 0;
+end;
+
 function get_tex_toks_register (j:integer):str_number;
 var s:str_number;
 begin
@@ -40680,16 +40731,13 @@ while (cur_cmd=letter) or (cur_cmd=other_char) or
   { |cur_chr| can cover the full range |0..0x10FFFF| }
   if cur_chr<@"10000 then
     otp_init_input_buf[otp_init_input_end]:=cur_chr
-  else
-    if false then begin  { ignore for now }
-      otp_init_input_buf[otp_init_input_end]:=((cur_chr - @"10000) div @"400) + @"D800;
-      incr(otp_init_input_end);
-      if otp_init_input_end >ocp_buf_size then
-        overflow_ocp_buf_size;
-      otp_init_input_buf[otp_init_input_end]:=((cur_chr - @"10000) mod @"400) + @"DC00;
-      end 
-    else
-      otp_init_input_buf[otp_init_input_end]:=cur_chr;
+  else begin
+    otp_init_input_buf[otp_init_input_end]:=((cur_chr - @"10000) div @"400) + @"D800;
+    incr(otp_init_input_end);
+    if otp_init_input_end >ocp_buf_size then
+      overflow_ocp_buf_size;
+    otp_init_input_buf[otp_init_input_end]:=((cur_chr - @"10000) mod @"400) + @"DC00;
+    end;
   get_token;
   if (cur_cmd<>letter) and (cur_cmd<>other_char) and
      (cur_cmd<>char_given) then begin
@@ -40749,11 +40797,10 @@ else begin
   end
 end
 
-@ The OTP output buffer is an array of 16-bit values. To convert
-back to the |buffer| it has to be re-encoded into UTF-8. An
-incompatibility with Aleph is unavoidable here: In the future, the
- range |@"D800| \dots |@"DFFF| is used for surrogate pairs, not for
-simple 16-bit values. 
+@ The OTP output buffer is an array of 16-bit values. To convert back
+to the |buffer| it has to be re-encoded into UTF-8. An incompatibility
+with Aleph is unavoidable here: The range |@"D800| \dots |@"DFFF| is
+used for surrogate pairs, not for simple 16-bit values.
 
 @<Place the output buffer back on the stream@>=
 begin
@@ -40770,7 +40817,6 @@ for otp_counter:=1 to otp_output_end do begin
     { convert back to utf-8 }
 	t := otp_output_buf[otp_counter];
 	if otp_counter < otp_output_end then
-	 if false then { ignore surrogates for now }
        if ((t>=@"D800) and (t<@"DC00)) then 
 	     if (otp_output_buf[otp_counter+1]>=@"DC00)
           and (otp_output_buf[otp_counter+1]<@"E000) then begin
@@ -40783,7 +40829,6 @@ for otp_counter:=1 to otp_output_end do begin
              incr(otp_counter);
 	         t := (otp_output_buf[otp_counter]-@"D800) * @"400 + (t-@"DC00) + @"10000;
            end;
-	{write('[', t:1,'] ');}
     if t <= @"7F then
       buffer[last]:= t
     else if t<=@"7FF then begin
