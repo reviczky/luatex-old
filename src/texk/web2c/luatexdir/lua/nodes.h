@@ -55,17 +55,14 @@
 #define stretch_order type_field
 #define shrink_order  subtype
 
-#define lignode_char(a)   ((a)+1)
-#define lig_ptr(a)    link(lignode_char(a))
-
 #define adjust_ptr(a) zmem[(a+1)].cint
 
 #define margin_char(a) info((a)+2)
 
-#define font        type
-#define font_field  type_field
-#define character   subtype
-#define is_char_node(a) ((a)>=hi_mem_min)
+#define font(a)         link(a+1)
+#define character(a)    info(a+1)
+#define lig_ptr(a)    link((a+2))
+#define is_char_node(a) (type(a)==glyph_node)
 
 #define free_avail(a) { link(a)=avail; avail=a; decr(dyn_used); }
 
@@ -86,8 +83,9 @@ typedef enum {
   penalty_node,
   unset_node,
   right_noad = 31,
-  glyph_node = 39,
-  margin_kern_node = 40 } node_types ;
+  margin_kern_node = 40,
+  glyph_node = 41,
+  last_known_node = 42  } node_types ;
 
 #define small_node_size 2
 #define margin_kern_node_size 3
@@ -149,7 +147,8 @@ typedef enum {
   pdf_colorstack_node,
   pdf_setmatrix_node,
   pdf_save_node,
-  pdf_restore_node } whatsit_types ;
+  pdf_restore_node,
+  user_defined_node } whatsit_types ;
 
 
 extern void      whatsit_node_to_lua (lua_State *L, halfword p);

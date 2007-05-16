@@ -45,8 +45,9 @@ static char * node_names[] = {
     I am now misusing that as a spine for my own new nodes*/
   "!",
   "!",
-  "glyph",  
+  "!",  
   "margin_kern", /* 40 */
+  "glyph",
    NULL };
 
 
@@ -62,22 +63,22 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
   va_start(args,fmt);
   while (*fmt) {
     switch(*fmt++) {
-    case 'a':           /* int */
+    case 'a':           /* action, int */
       val = va_arg(args, int);
       action_node_to_lua(L,val);
       lua_rawseti(L,-2,i++);
       break;
-    case 'b':           /* int */
+    case 'b':           /* boolean, int */
       val = va_arg(args, int);
       lua_pushboolean(L,val);
       lua_rawseti(L,-2,i++);
       break;
-    case 'd':           /* int */
+    case 'd':           /* number, int */
       val = va_arg(args, int);
       lua_pushnumber(L,val);
       lua_rawseti(L,-2,i++);
       break;
-    case 'f':           /* float */
+    case 'f':           /* float, double */
       fval = va_arg(args, double);
       lua_pushnumber(L,fval);
       lua_rawseti(L,-2,i++);
@@ -85,10 +86,10 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
     case 'n':           /* nodelist */
       val = va_arg(args, int);
       if (val!=null) {
-	nodelist_to_lua(L,val);
-	lua_rawseti(L,-2,i++);
+		nodelist_to_lua(L,val);
+		lua_rawseti(L,-2,i++);
       } else {
-	i++;
+		i++;
       }
       break;
     case 's':           /* strnumber */
@@ -99,9 +100,9 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
     case 't':           /* tokenlist */
       val = va_arg(args, int);
       if (val == null) {
-	lua_pushnil(L);
+		lua_pushnil(L);
       } else {
-	tokenlist_to_lua(L,link(val));
+		tokenlist_to_lua(L,link(val));
       }
       lua_rawseti(L,-2,i++);
       break;
@@ -120,7 +121,7 @@ glyph_node_to_lua (lua_State *L, halfword p) {
 void 
 ligature_node_to_lua (lua_State *L, halfword p) {
   generic_node_to_lua(L,"glyph","dbddn",(subtype(p)+1),status(p),
-		      character(lignode_char(p)),font(lignode_char(p)),lig_ptr(p));
+		      character(p),font(p),lig_ptr(p));
 }
 
 halfword 
@@ -133,9 +134,7 @@ glyph_node_from_lua (lua_State *L) {
   numeric_field(c,i++);
   numeric_field(f,i++);
   if (t==0) { /* char node */
-    p = get_avail();
-    character(p) = c;
-    font_field(p) = f;
+    p = new_glyph(f,c);
   } else {
     nodelist_field(l,i++); 
     p = new_ligature(f,c,l);
@@ -311,7 +310,7 @@ margin_kern_node_from_lua (lua_State *L) {
   numeric_field(subtype(p),i++);
   status_field(p,i++);  
   numeric_field(width(p),i++);
-  numeric_field(font_field(margin_char(p)),i++);
+  numeric_field(font(margin_char(p)),i++);
   numeric_field(character(margin_char(p)),i++);
   return p;
 }
@@ -380,12 +379,12 @@ nodelist_to_lua (lua_State *L, halfword t) {
   while (link(v)!=null) { i++;  v = link(v);  }
   lua_createtable(L,i,0);
   i = 0;
-  do {
-    if (is_char_node(t)) {
-      glyph_node_to_lua(L, t);
-      lua_rawseti(L,-2,++i);
-    } else {
+  while (t!=null) {
       switch (type(t)) {
+      case glyph_node:
+        glyph_node_to_lua(L, t);
+        lua_rawseti(L,-2,++i);
+        break;
       case hlist_node:
       case vlist_node:
 	list_node_to_lua(L,type(t),t); 
@@ -447,10 +446,8 @@ nodelist_to_lua (lua_State *L, halfword t) {
 	}
 	break;
       }
-    }
     t = link(t);
-
-  } while (t>mem_min);
+  };
 }
 
 halfword
@@ -480,7 +477,7 @@ nodelist_from_lua (lua_State *L) {
 	    break;
 	}
 	lua_pop(L,1); /* the string */
-	if (i<=margin_kern_node) {
+	if (i<last_known_node) {
 	  switch (i) {
  	  case hlist_node:
 	  case vlist_node:
