@@ -51,6 +51,7 @@ char *whatsit_node_names[] = {
   "pdf_setmatrix",
   "pdf_save",
   "pdf_restore",
+  "user_defined",
   NULL };
 
 void 
@@ -618,6 +619,38 @@ whatsit_pdf_restore_from_lua (lua_State *L) {
   return p;
 }
 
+#define user_defined_node_size 2
+#define user_node_type llink
+#define user_node_value rlink
+
+void
+whatsit_user_defined_to_lua (lua_State *L, halfword p) {
+  switch (user_node_type(p)) {
+  case 'a': 
+	generic_node_to_lua(L,"whatsit","dbna", subtype(p),status(p),
+						user_node_type(p),user_node_value(p)); 
+	break;
+  case 'b': 
+	generic_node_to_lua(L,"whatsit","dbnb", subtype(p),status(p),
+						user_node_type(p),user_node_value(p)); 
+	break;
+  case 'd': 
+	generic_node_to_lua(L,"whatsit","dbnd", subtype(p),status(p),
+						user_node_type(p),user_node_value(p)); 
+	break;
+  }
+  
+}
+
+halfword 
+whatsit_user_defined_from_lua (lua_State *L) {
+  int p, i = 2;
+  make_whatsit(p,user_defined_node_size);
+  numeric_field  (subtype(p),i++);
+  status_field(p,i++);
+  return p;
+}
+
 halfword 
 whatsit_node_from_lua (lua_State *L) {
   int t;
@@ -654,6 +687,7 @@ whatsit_node_from_lua (lua_State *L) {
   case pdf_setmatrix_node:      p = whatsit_pdf_setmatrix_from_lua(L);      break;
   case pdf_save_node:           p = whatsit_pdf_save_from_lua(L);           break;
   case pdf_restore_node:        p = whatsit_pdf_restore_from_lua(L);        break;
+  case user_defined_node:       p = whatsit_user_defined_from_lua(L);       break;
   default:
     fprintf(stdout,"<unknown whatsit type cannot be de-lua-fied (%d)>\n",t);
     error();
@@ -693,6 +727,7 @@ whatsit_node_to_lua (lua_State *L, halfword p) {
   case pdf_setmatrix_node:       whatsit_pdf_setmatrix_to_lua(L,p);      break;
   case pdf_save_node:            whatsit_pdf_save_to_lua(L,p);           break;
   case pdf_restore_node:         whatsit_pdf_restore_to_lua(L,p);        break;
+  case user_defined_node:        whatsit_user_defined_to_lua(L,p);       break;
   default:
     fprintf(stdout,"<unknown whatsit type cannot be lua-fied (%d)>\n",subtype(p));
     error();
