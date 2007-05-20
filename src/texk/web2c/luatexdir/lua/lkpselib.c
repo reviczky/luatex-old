@@ -4,6 +4,7 @@
 #include <ptexlib.h>
 #include <kpathsea/expand.h>
 #include <kpathsea/variable.h>
+#include <kpathsea/tex-glyph.h>
 
 static const int filetypes[] = {
   kpse_gf_format,
@@ -125,17 +126,29 @@ static int find_file (lua_State *L) {
   st = (char *)lua_tostring(L,1);
   i = lua_gettop(L);  
   while (i>1) {
-	if (lua_isboolean (L,i)) {
-	  mexist = lua_toboolean (L,i);
-	} else if (lua_isnumber (L,i)) {
-	  mexist = lua_tonumber (L,i) ? 1 : 0 ;
-	} else if (lua_isstring(L,i)) {
-	  int op = luaL_checkoption(L, i, NULL, filetypenames);
-	  ftype = filetypes[op];
-	}
-	i--;
+    if (lua_isboolean (L,i)) {
+      mexist = lua_toboolean (L,i);
+    } else if (lua_isnumber (L,i)) {
+      mexist = lua_tonumber (L,i) ;
+    } else if (lua_isstring(L,i)) {
+      int op = luaL_checkoption(L, i, NULL, filetypenames);
+      ftype = filetypes[op];
+    }
+    i--;
   }
-  lua_pushstring(L, kpse_find_file (st,ftype,mexist));
+  if (ftype==kpse_pk_format ||
+      ftype==kpse_gf_format ||
+      ftype==kpse_any_glyph_format) {
+    /* ret.format, ret.name, ret.dpi */
+    kpse_glyph_file_type ret;
+    lua_pushstring(L, kpse_find_glyph (st,mexist, ftype, &ret));
+  } else {
+    if (mexist>0) 
+      mexist = 1;
+    if (mexist<0) 
+      mexist = 0;
+    lua_pushstring(L, kpse_find_file (st,ftype,mexist));
+  }
   return 1;
 }
 
@@ -157,8 +170,42 @@ static int expand_var (lua_State *L) {
   return 1;
 }
 
+static int program_name (lua_State *L) {
+  const char *exe_name  = luaL_checkstring(L,1);
+  const char *prog_name = luaL_optstring(L,2,exe_name);
+  kpse_set_program_name(exe_name, prog_name);
+  /* fix up the texconfig entry */
+  lua_checkstack(L,3);
+  lua_getglobal(L,"texconfig");
+  if (lua_istable(L,-1)) {
+    lua_pushstring(L,"kpse_init");
+    lua_pushboolean(L,0);
+    lua_rawset(L,-3);
+  }
+  lua_pop(L,1);
+  return 0;
+}
+
+static int init_prog (lua_State *L) {
+  const char *prefix   = luaL_checkstring(L,1);
+  unsigned dpi         = luaL_checkinteger(L,2);
+  const char *mode     = luaL_checkstring(L,3);
+  const char *fallback = luaL_optstring(L,4,NULL);
+  kpse_init_prog(prefix,dpi,mode,fallback);
+  return 0;
+}
+
+static int readable_file (lua_State *L) {
+  const char *name   = luaL_checkstring(L,1);
+  lua_pushstring(L,(char *)kpse_readable_file (name));
+  return 1;
+}
+
 
 static const struct luaL_reg kpselib [] = {
+  {"set_program_name", program_name},
+  {"init_prog", init_prog},
+  {"readable_file", readable_file},
   {"find_file", find_file},
   {"expand_path", expand_path},
   {"expand_var", expand_var},
