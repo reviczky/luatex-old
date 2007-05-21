@@ -231,13 +231,13 @@ consisting of a backslash with catcode 12.
 \stopsyntax
 
 
-\subsection{\primitive{luaclose}} 
+\subsection{\primitive{closelua}} 
 
 This primitive allows you to close a lua state, freeing all of its
 used memory.
 
 \startsyntax
-  \luaclose <16-bit number>
+  \closelua <16-bit number>
 \stopsyntax
 
 You cannot close lua state zero (0), any attempt to do so will be
