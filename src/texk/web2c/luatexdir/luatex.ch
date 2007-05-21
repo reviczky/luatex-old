@@ -1608,14 +1608,6 @@ if name=str_ptr-1 then {we can conserve string pool space now}
 @z
 
 @x
-@!c,@!f:quarterword; {character and font in current |char_node|}
-@y
- {character and font in current |char_node|}
-@!c:quarterword;
-@!f:internal_font_number;
-@z
-
-@x
 @!dvi_buf:array[dvi_index] of real_eight_bits; {buffer for \.{DVI} output}
 @!half_buf:dvi_index; {half of |dvi_buf_size|}
 @!dvi_limit:dvi_index; {end of the current half buffer}

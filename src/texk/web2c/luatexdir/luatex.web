@@ -15046,7 +15046,7 @@ values of these variables are not needed during recursive calls.
 @!dead_cycles:integer; {recent outputs that didn't ship anything out}
 @!doing_leaders:boolean; {are we inside a leader box?}
 @#
-@!c,@!f:quarterword; {character and font in current |char_node|}
+@!c,@!f:integer; {character and font in current |char_node|}
 @!oval,@!ocmd:integer; {used by |out_cmd| for generating
   |set|, |fnt| and |fnt_def| commands}
 @!rule_ht,@!rule_dp,@!rule_wd:scaled; {size of current rule being output}
