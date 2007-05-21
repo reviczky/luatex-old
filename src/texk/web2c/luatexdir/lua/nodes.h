@@ -61,8 +61,13 @@
 
 #define font(a)         link(a+1)
 #define character(a)    info(a+1)
-#define lig_ptr(a)    link((a+2))
+#define lig_ptr(a)      link((a+2))
+#define glyph_attr(a)   info((a+2))
 #define is_char_node(a) (type(a)==glyph_node)
+
+
+#define attribute_id(a)        info((a) + 1)
+#define attribute_value(a)     link((a) + 1)
 
 #define free_avail(a) { link(a)=avail; avail=a; decr(dyn_used); }
 
@@ -85,7 +90,8 @@ typedef enum {
   right_noad = 31,
   margin_kern_node = 40,
   glyph_node = 41,
-  last_known_node = 42  } node_types ;
+  attribute_node = 42,
+  last_known_node = 43  } node_types ;
 
 #define small_node_size 2
 #define margin_kern_node_size 3
@@ -261,3 +267,4 @@ typedef enum {
 extern void generic_node_to_lua (lua_State *L, char *name, char *fmt, ...);
 
 extern void action_node_to_lua (lua_State *L, halfword p);
+extern void attribute_list_to_lua (lua_State *L, halfword p);

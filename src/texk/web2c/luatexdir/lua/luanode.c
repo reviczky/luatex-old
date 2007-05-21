@@ -48,6 +48,7 @@ static char * node_names[] = {
   "!",  
   "margin_kern", /* 40 */
   "glyph",
+  "attribute",
    NULL };
 
 
@@ -65,12 +66,21 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
     switch(*fmt++) {
     case 'a':           /* action, int */
       val = va_arg(args, int);
-      action_node_to_lua(L,val);
+      if (val==null) {
+	lua_pushnil(L);
+      } else {
+	attribute_list_to_lua(L,val);
+      }
       lua_rawseti(L,-2,i++);
       break;
     case 'b':           /* boolean, int */
       val = va_arg(args, int);
       lua_pushboolean(L,val);
+      lua_rawseti(L,-2,i++);
+      break;
+    case 'c':           /* action, int */
+      val = va_arg(args, int);
+      action_node_to_lua(L,val);
       lua_rawseti(L,-2,i++);
       break;
     case 'd':           /* number, int */
@@ -85,12 +95,12 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
       break;
     case 'n':           /* nodelist */
       val = va_arg(args, int);
-      if (val!=null) {
-		nodelist_to_lua(L,val);
-		lua_rawseti(L,-2,i++);
+      if (val==null) {
+	lua_pushnil(L);
       } else {
-		i++;
+	nodelist_to_lua(L,val);
       }
+      lua_rawseti(L,-2,i++);
       break;
     case 's':           /* strnumber */
       val = va_arg(args, int);
@@ -100,9 +110,9 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
     case 't':           /* tokenlist */
       val = va_arg(args, int);
       if (val == null) {
-		lua_pushnil(L);
+	lua_pushnil(L);
       } else {
-		tokenlist_to_lua(L,link(val));
+	tokenlist_to_lua(L,link(val));
       }
       lua_rawseti(L,-2,i++);
       break;
@@ -111,17 +121,66 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
   va_end(args);
 }
 
+void 
+attribute_list_to_lua (lua_State *L, halfword p) {
+  integer q=p;
+  lua_newtable(L);
+  while (q!=null) {
+    lua_pushnumber(L,attribute_value(q));
+    lua_rawseti(L,-2,attribute_id(q)); 
+    q = link(q);
+  }
+}
+
+halfword 
+attribute_list_from_lua (lua_State *L, int i) {
+  halfword p,q;
+  int k;
+  integer v;
+  q = null;
+  lua_rawgeti(L,-1,i);
+  if (lua_istable(L,-1)) {
+    p = get_avail();
+    for (k=0;k<65536;k++) {
+      lua_rawgeti(L,-1,k);
+      if (lua_isnumber(L,-1)) {
+	v =lua_tonumber(L,-1);
+	if (v>=0) {
+	  link(p) = new_attribute_node(k,v);
+	  if (q==null) q=p;
+	  p = link(p);
+	}
+      }
+      lua_pop(L,1);
+    }
+    
+    lua_pop(L,1);
+    if (q!=null) {
+      p = link(q);
+      free_avail(q);
+      return p;
+    } else {
+      free_avail(p);
+      return null;
+    }
+  } else {
+    lua_pop(L,1);
+    return null;
+  }
+}
+
 
 
 void 
 glyph_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"glyph","dbdd",0,status(p),character(p),font(p));
+  generic_node_to_lua(L,"glyph","dbddna",0,status(p),
+		      character(p),font(p),lig_ptr(p),glyph_attr(p));
 }
 
 void 
 ligature_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"glyph","dbddn",(subtype(p)+1),status(p),
-		      character(p),font(p),lig_ptr(p));
+  generic_node_to_lua(L,"glyph","dbddna",(subtype(p)+1),status(p),
+		      character(p),font(p),lig_ptr(p),glyph_attr(p));
 }
 
 halfword 
@@ -134,12 +193,15 @@ glyph_node_from_lua (lua_State *L) {
   numeric_field(c,i++);
   numeric_field(f,i++);
   if (t==0) { /* char node */
+    i++;
     p = new_glyph(f,c);
   } else {
     nodelist_field(l,i++); 
     p = new_ligature(f,c,l);
     subtype(p) = (t-1);
   }
+  glyph_attr(p) = attribute_list_from_lua(L,i);
+  
   status_field(p,3);  
   link(p) = null;
   return p;

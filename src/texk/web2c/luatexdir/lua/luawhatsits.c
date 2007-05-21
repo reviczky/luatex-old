@@ -334,7 +334,7 @@ whatsit_pdf_annot_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_start_link_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dbddddta",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+  generic_node_to_lua(L,"whatsit","dbddddtc",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 		      pdf_link_objnum(p),pdf_link_attr(p),pdf_link_action(p));
 }
 

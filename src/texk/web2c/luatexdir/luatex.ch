@@ -751,13 +751,6 @@ if r>intcast(p+1) then @<Allocate from the top of node |p| and |goto found|@>;
 @z
 
 @x
-@p function new_ligature(@!f,@!c:quarterword; @!q:pointer):pointer;
-@y
-@p function new_ligature(@!f:internal_font_number; @!c:quarterword;
-                         @!q:pointer):pointer;
-@z
-
-@x
 are debugging.)
 @y
 are debugging.)
