@@ -4,97 +4,101 @@
 #define null -0x3FFFFFFF
 
 #undef link /* defined by cpascal.h */
-#define info(a)    zmem[(a)].hh.v.LH 
-#define link(a)    zmem[(a)].hh.v.RH 
+#define info(a)            zmem[(a)].hh.v.LH 
+#define link(a)            zmem[(a)].hh.v.RH 
+#define type(a)            zmem[(a)].hh.u.B0
+#define subtype(a)         zmem[(a)].hh.u.B1
+#define node_attr(a)       info((a)+1)
 
-#define llink(a)   zmem[(a+1)].hh.v.LH 
-#define rlink(a)   zmem[(a+1)].hh.v.RH 
-
-#define status(a)       (zmem[(a)].hh.u.B0 >> 15)
-#define set_status(a)   zmem[(a)].hh.u.B0 |= 32768
-#define unset_status(a) zmem[(a)].hh.u.B0 &= 32767
-
-#define type(a)       (zmem[(a)].hh.u.B0 % 32768)
-#define type_field(a)  zmem[(a)].hh.u.B0
-#define subtype(a)     zmem[(a)].hh.u.B1
-
-#define penalty(a) zmem[(a+1)].cint
-
-#define glue_ptr   llink
-#define leader_ptr rlink
-
-#define pre_break  llink
-#define post_break rlink
-
-#define width(a)         zmem[(a+1)].cint
-#define depth(a)         zmem[(a+2)].cint
-#define height(a)        zmem[(a+3)].cint
-#define rule_dir(a)      zmem[(a+4)].cint
-#define shift_amount(a)  zmem[(a+4)].cint
-#define list_ptr(a)      link((a)+5)
-#define glue_order(a)    subtype((a)+5)
-#define glue_sign(a)     type_field((a)+5)
-#define glue_set(a)      zmem[(a+6)].gr
-#define box_dir(a)       zmem[(a+7)].cint
-
-#define glue_stretch(a)  zmem[(a)+6].cint
-#define glue_shrink      shift_amount
-#define span_count       subtype
-
-#define pdf_literal_data(a)  link(a+1)
-#define pdf_literal_mode(a)  info(a+1)
-
-#define mark_ptr(a)    link(a+1)
-#define mark_class(a)  info(a+1)
-
-#define write_tokens(a)  link(a+1)
-#define write_stream(a)  info(a+1)
-
-#define stretch(a) zmem[(a+2)].cint
-#define shrink(a)  zmem[(a+3)].cint
-#define stretch_order type_field
-#define shrink_order  subtype
-
-#define adjust_ptr(a) zmem[(a+1)].cint
-
-#define margin_char(a) info((a)+2)
-
-#define font(a)         link(a+1)
-#define character(a)    info(a+1)
-#define lig_ptr(a)      link((a+2))
-#define glyph_attr(a)   info((a+2))
-#define is_char_node(a) (type(a)==glyph_node)
-
-
-#define attribute_id(a)        info((a) + 1)
-#define attribute_value(a)     link((a) + 1)
+#define attribute_id(a)    link((a)+1)
+#define attribute_value(a) info((a)+1)
 
 #define free_avail(a) { link(a)=avail; avail=a; decr(dyn_used); }
 
+#define penalty_node_size 3
+#define penalty(a)       zmem[(a+2)].cint
+
+#define glue_node_size 3
+#define glue_ptr(a)      info((a)+2)
+#define leader_ptr(a)    link((a)+2)
+
+#define disc_node_size 3
+#define pre_break(a)     info((a)+2)
+#define post_break(a)    link((a)+2)
+
+#define kern_node_size 3
+#define margin_kern_node_size 3
+#define box_node_size 9
+#define width(a)         zmem[(a+2)].cint
+#define depth(a)         zmem[(a+3)].cint
+#define height(a)        zmem[(a+4)].cint
+#define shift_amount(a)  zmem[(a+5)].cint
+#define list_ptr(a)      link((a)+6)
+#define glue_order(a)    subtype((a)+6)
+#define glue_sign(a)     type((a)+6)
+#define glue_set(a)      zmem[(a+7)].gr
+#define box_dir(a)       zmem[(a+8)].cint
+
+/* unset nodes */
+#define glue_stretch(a)  zmem[(a)+7].cint
+#define glue_shrink      shift_amount
+#define span_count       subtype
+
+#define rule_node_size 6
+#define rule_dir(a)      info(a+5)
+
+#define mark_node_size 3
+#define mark_ptr(a)    link(a+2)
+#define mark_class(a)  info(a+2)
+
+/* a glue spec */
+#define glue_spec_size 5
+#define stretch(a)      zmem[(a+3)].cint
+#define shrink(a)       zmem[(a+4)].cint
+#define stretch_order   type
+#define shrink_order    subtype
+#define glue_ref_count  link
+
+#define adjust_node_size 3
+#define adjust_ptr(a)   link(a+1)
+
+#define glyph_node_size 3 /* and ligatures */
+#define margin_char(a)  link((a)+1)
+#define font(a)         link((a)+1)
+#define character(a)    info((a)+2)
+#define lig_ptr(a)      link((a)+2)
+#define is_char_node(a) (type(a)==glyph_node)
+
+#define math_node_size 3
+#define surround(a)      link((a)+1)
+
+#define ins_node_size 6
+#define float_cost(a)    zmem[(a)+2].cint
+#define ins_ptr(a)       info((a)+5)
+#define split_top_ptr(a) link((a)+5)
 
 typedef enum {
-  hlist_node = 0,
-  vlist_node = 1,
-  rule_node,
-  ins_node,
-  mark_node,
-  adjust_node,
-  ligature_node,
-  disc_node,
+  hlist_node = 0, //
+  vlist_node = 1, //
+  rule_node,      //
+  ins_node,       //
+  mark_node,      //
+  adjust_node,    //
+  ligature_node,  //
+  disc_node,      //
   whatsit_node,
-  math_node,
-  glue_node,
-  kern_node,
-  penalty_node,
-  unset_node,
+  math_node,      //
+  glue_node,      //
+  kern_node,      //
+  penalty_node,   //
+  unset_node,     //
   right_noad = 31,
-  margin_kern_node = 40,
+  margin_kern_node = 40, //
   glyph_node = 41,
   attribute_node = 42,
   last_known_node = 43  } node_types ;
 
-#define small_node_size 2
-#define margin_kern_node_size 3
+extern int node_sizes[];
 
 extern void  nodelist_to_lua (lua_State *L, halfword t);
 extern halfword nodelist_from_lua (lua_State *L) ;
@@ -106,6 +110,13 @@ extern halfword nodelist_from_lua (lua_State *L) ;
 #define local_box_right(a)       zmem[a+5].cint
 #define local_box_right_width(a) zmem[a+6].cint
 #define local_par_dir(a)         zmem[a+7].cint
+
+#define pdf_literal_data(a)  link(a+1)
+#define pdf_literal_mode(a)  info(a+1)
+
+#define write_tokens(a)  link(a+1)
+#define write_stream(a)  info(a+1)
+
 
 typedef enum {
   open_node = 0,
@@ -166,7 +177,7 @@ extern halfword  whatsit_node_from_lua (lua_State *L);
 #define open_ext(a)  link((a)+2)
 
 #define what_lang(a) link((a)+1)
-#define what_lhm(a)  type_field((a)+1)
+#define what_lhm(a)  type((a)+1)
 #define what_rhm(a)  subtype((a)+1)
 
 #define pdf_width(a)         zmem[(a) + 1].cint
@@ -182,7 +193,7 @@ extern halfword  whatsit_node_from_lua (lua_State *L);
 #define pdf_annot_objnum(a)     zmem[(a) + 6].cint
 #define pdf_link_objnum(a)      zmem[(a) + 6].cint
 
-#define pdf_dest_type(a)          type_field((a) + 5)
+#define pdf_dest_type(a)          type((a) + 5)
 #define pdf_dest_named_id(a)      subtype((a) + 5)
 #define pdf_dest_id(a)            link((a) + 5)
 #define pdf_dest_xyz_zoom(a)      info((a) + 6)
@@ -224,38 +235,41 @@ typedef enum {
   pdf_action_thread,
   pdf_action_user } pdf_action_types;
 
-
-#define write_node_size 2 
-#define small_node_size 2 
-#define dir_node_size 4
-#define open_node_size 2 
-#define local_par_node_size 8 
-#define pdf_refximage_node_size 5
-#define pdf_refxform_node_size  5
+#define language_node_size 3
+#define close_node_size 3
+#define write_node_size 3
+#define dir_node_size 5
+#define open_node_size 3 
+#define local_par_node_size 9
+#define pdf_refximage_node_size 6
+#define pdf_refxform_node_size  6
 #define pdf_refobj_node_size 2
 #define pdf_annot_node_size 7
 #define pdf_dest_node_size 7
 #define pdf_thread_node_size 7
 #define snap_node_size 3
 #define pdf_colorstack_node_size 3
-#define pdf_setmatrix_node_size 2
-#define pdf_save_node_size     2
-#define pdf_restore_node_size  2
+#define pdf_setmatrix_node_size 3
+#define pdf_save_node_size     3
+#define pdf_restore_node_size  3
+#define pdf_end_link_node_size 3
+#define pdf_end_thread_node_size 3
+#define pdf_snap_ref_point_node_size 3
+#define pdf_save_pos_node_size 3
+#define close_lua_node_size 3
 
-#define make_whatsit(p,b)    { p = get_node(b);  type_field(p)=whatsit_node;  link(p)=null; }
+#define make_whatsit(p,b)    { p = get_node(b);  type(p)=whatsit_node; }
 
-#define numeric_field(a,b)   { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
-#define status_field(a,b)    { lua_rawgeti(L,-1,b);						\
-	if (lua_toboolean(L,-1)) { set_status(a); }							\
-	else { unset_status(a);}; lua_pop(L,1); }
-#define float_field(a,b)     { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
-#define nodelist_field(a,b)  { lua_rawgeti(L,-1,b); a = nodelist_from_lua(L); lua_pop(L,1); }
-#define tokenlist_field(a,b) { lua_rawgeti(L,-1,b); a = tokenlist_from_lua(L); lua_pop(L,1); }
-#define action_field(a,b)    { lua_rawgeti(L,-1,b); a = action_node_from_lua(L); lua_pop(L,1); }
-#define string_field(a,b)    { lua_rawgeti(L,-1,b); a = maketexstring(lua_tostring(L,-1)); lua_pop(L,1); }
+#define numeric_field(a,b)    { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
+#define float_field(a,b)      { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
+#define nodelist_field(a,b)   { lua_rawgeti(L,-1,b); a = nodelist_from_lua(L); lua_pop(L,1); }
+#define tokenlist_field(a,b)  { lua_rawgeti(L,-1,b); a = tokenlist_from_lua(L); lua_pop(L,1); }
+#define action_field(a,b)     { lua_rawgeti(L,-1,b); a = action_node_from_lua(L); lua_pop(L,1); }
+#define attributes_field(a,b) { lua_rawgeti(L,-1,b); a = attribute_list_from_lua(L); lua_pop(L,1); }
+#define string_field(a,b)     { lua_rawgeti(L,-1,b); a = maketexstring(lua_tostring(L,-1)); lua_pop(L,1); }
 
 #define pdf_action_size 3
-#define pdf_action_type           type_field
+#define pdf_action_type           type
 #define pdf_action_named_id       subtype
 #define pdf_action_id             link
 #define pdf_action_file(a)        info((a) + 1)

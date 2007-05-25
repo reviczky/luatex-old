@@ -54,8 +54,8 @@ we still have to declare the symbolic names.
 @d debug==@{ {change this to `$\\{debug}\equiv\null$' when debugging}
 @d gubed==@t@>@} {change this to `$\\{gubed}\equiv\null$' when debugging}
 @y
-@d debug==ifdef('TEXMF_DEBUG')
-@d gubed==endif('TEXMF_DEBUG')
+@d debug== {ifdef('TEXMF_DEBUG')}
+@d gubed== {endif('TEXMF_DEBUG')}
 @z
 
 @x
@@ -755,7 +755,8 @@ are debugging.)
 @y
 are debugging.)
 
-@d free==free_arr
+@d free==zfree
+@d was_free==zwas_free
 @z
 
 @x
@@ -763,8 +764,10 @@ are debugging.)
 @t\hskip10pt@>@!was_free: packed array [mem_min..mem_max] of boolean;
 @y
  {The debug memory arrays have not been mallocated yet.}
-@!debug @!free: packed array [0..9] of boolean; {free cells}
-@t\hskip10pt@>@!was_free: packed array [0..9] of boolean;
+@!debug @!yzfree : ^boolean; {the big dynamic storage area}
+@!zfree : ^boolean; {the big dynamic storage area}
+@!yzwas_free : ^boolean; {the big dynamic storage area}
+@!zwas_free : ^boolean; {the big dynamic storage area}
 @z
 
 @x
@@ -2430,6 +2433,10 @@ mem_max := mem_top + extra_mem_top;
 yzmem:=xmallocarray (memory_word, mem_max - mem_min + 1);
 zmem := yzmem - mem_min;   {this pointer arithmetic fails with some compilers}
 mem := zmem;
+yzfree:=xmallocarray (boolean, mem_max - mem_min + 1); 
+yzwas_free:=xmallocarray (boolean, mem_max - mem_min + 1); 
+zfree:=yzfree - mem_min;
+zwas_free:=yzwas_free - mem_min;
 @z
 
 @x
@@ -2966,6 +2973,10 @@ begin @!{|start_here|}
 @+Init
   yzmem:=xmallocarray (memory_word, mem_top - mem_bot + 1);
   zmem := yzmem - mem_bot;   {Some compilers require |mem_bot=0|}
+  yzfree:=xmallocarray (boolean, mem_top - mem_bot + 1); 
+  yzwas_free:=xmallocarray (boolean, mem_top - mem_bot + 1); 
+  zfree:=yzfree - mem_bot;
+  zwas_free:=yzwas_free - mem_bot;
   eqtb_top := eqtb_size+hash_extra;
   if hash_extra=0 then hash_top:=undefined_control_sequence else
         hash_top:=eqtb_top;
@@ -3155,7 +3166,7 @@ tini@/
     breakpoint: m:=0; @{'BREAKPOINT'@}@\
     end
 @y
-    dump_core {do something to cause a core dump}
+    abort {do something to cause a core dump}
 @z
 
 @x

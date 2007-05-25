@@ -176,15 +176,19 @@ int get_command_id (char *s) {
 static int
 get_cur_cmd (lua_State *L) {
   int r = 0;
-  if (lua_objlen(L,-1)==3) {
+  cur_cs = 0;
+  int len = lua_objlen(L,-1);
+  if (len==3 || len==2) {
     r = 1;
     lua_rawgeti(L,-1,1);
     cur_cmd = lua_tointeger(L,-1);
     lua_rawgeti(L,-2,2);
     cur_chr = lua_tointeger(L,-1);
-    lua_rawgeti(L,-3,3);
-    cur_cs = lua_tointeger(L,-1);
-    lua_pop(L,3);
+	if (len==3) {
+	  lua_rawgeti(L,-3,3);
+	  cur_cs = lua_tointeger(L,-1);
+	}
+	lua_pop(L,len);
     if (cur_cs==0) 
       cur_tok=(cur_cmd*string_offset)+cur_chr; 
     else
@@ -196,15 +200,19 @@ get_cur_cmd (lua_State *L) {
 
 static int
 token_from_lua (lua_State *L) {
-  int cmd,chr,cs;
-  if (lua_objlen(L,-1)==3) {
+  int cmd,chr;
+  int cs = 0;  
+  int len = lua_objlen(L,-1);
+  if (len==3 || len==2) {
     lua_rawgeti(L,-1,1);
     cmd = lua_tointeger(L,-1);
     lua_rawgeti(L,-2,2);
     chr = lua_tointeger(L,-1);
-    lua_rawgeti(L,-3,3);
-    cs = lua_tointeger(L,-1);
-    lua_pop(L,3);
+	if (len==3) {
+	  lua_rawgeti(L,-3,3);
+	  cs = lua_tointeger(L,-1);
+	}
+	lua_pop(L,len);
     if (cs==0) {
       return (cmd*string_offset)+chr; 
     } else {
@@ -341,7 +349,7 @@ tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
       m=info(p) / string_offset; 
       c=info(p) % string_offset;
       if ( info(p) < 0 ) {
-	Print_esc ( "BAD.") ;
+		Print_esc ( "BAD.") ;
       } else { 
 	switch ( m ) {
 	case 6 : /* falls through */
