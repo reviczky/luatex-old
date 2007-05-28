@@ -142,14 +142,12 @@ extern char *font_embedding_strings[];
 #define font_name(a)              font_tables[a]->_font_name
 #define set_font_name(f,b)        font_name(f) = b
 #define tex_font_name(a)          maketexstring(font_name(a))
-#define set_tex_font_name(a,b)    font_name(a) = makecstring(b)
 
 boolean cmp_font_name (integer, strnumber);
 
 #define font_area(a)              font_tables[a]->_font_area
 #define set_font_area(f,b)        font_area(f) = b
 #define tex_font_area(a)          maketexstring(font_area(a))
-#define set_tex_font_area(a,b)    font_area(a) = makecstring(b)
 
 boolean cmp_font_area (integer, strnumber);
 

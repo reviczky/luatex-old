@@ -27,7 +27,7 @@ $Id$
 */
 
 #define BANNER "This is luaTeX, Version 3.141592-LUATEX-VERSION-ETEX-VERSION"
-#define COPYRIGHT_HOLDER "Peter Breitenlohner (eTeX)/Han The Thanh (pdfTeX)/H4TH (luaTeX)"
+#define COPYRIGHT_HOLDER "Taco Hoekwater"
 #define AUTHOR NULL
 #define PROGRAM_HELP LUATEXHELP
 #define BUG_ADDRESS "dev-luatex@ntg.nl"
@@ -38,4 +38,5 @@ $Id$
 #define INPUT_FORMAT kpse_tex_format
 #define INI_PROGRAM "luainitex"
 #define VIR_PROGRAM "luavirtex"
+#define TEXMFENGINENAME "luatex"
 

@@ -4,7 +4,7 @@
 #include <ptexlib.h>
 #include "nodes.h"
 
-#define append_node(t,a)   { if (a!=null) { link(a) = null; link(t) = a;  t = a;  } }
+#define append_node(t,a)   { if (a!=null) { vlink(a) = null; vlink(t) = a;  t = a;  } }
 
 static char * node_names[] = {
   "hlist", /* 0 */
@@ -111,7 +111,7 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
       if (val == null) {
         lua_pushnil(L);
       } else {
-        tokenlist_to_lua(L,link(val));
+        tokenlist_to_lua(L,vlink(val));
       }
       lua_rawseti(L,-2,i++);
       break;
@@ -127,7 +127,7 @@ attribute_list_to_lua (lua_State *L, halfword p) {
   while (q!=null && type(q)==attribute_node) {
     lua_pushnumber(L,attribute_value(q));
     lua_rawseti(L,-2,attribute_id(q)); 
-    q = link(q);
+    q = vlink(q);
   }
 }
 
@@ -138,25 +138,25 @@ attribute_list_from_lua (lua_State *L) {
   integer v;
   if (!lua_istable(L,-1))
     return null;
-  p = get_avail();
+  p = get_node(temp_node_size);
   q = p;
   for (k=0;k<256;k++) {
     lua_rawgeti(L,-1,k);
     if (lua_isnumber(L,-1)) {
       v =lua_tonumber(L,-1);
       if (v>=0) {
-        link(p) = new_attribute_node(k,v);
-        p = link(p);
+        vlink(p) = new_attribute_node(k,v);
+        p = vlink(p);
       }
     }
     lua_pop(L,1);
   }
   if (q!=p) {
-    p = link(q);
+    p = vlink(q);
   } else {
     p = null;
   }
-  free_avail(q);
+  free_node(q,temp_node_size);
   return p;
 }
 
@@ -225,7 +225,7 @@ halfword
 ins_node_from_lua(lua_State *L) {
   int i = 2;
   halfword p = get_node(ins_node_size);
-  halfword q = new_spec(mem_bot);
+  halfword q = new_spec(zero_glue);
   type(p) = ins_node;
   numeric_field(subtype(p),i++);
   attributes_field(node_attr(p),i++);  
@@ -457,7 +457,7 @@ nodelist_to_lua (lua_State *L, halfword t) {
     lua_createtable(L,0,0);
     return;
   }
-  while (link(v)!=null) { i++;  v = link(v);  }
+  while (vlink(v)!=null) { i++;  v = vlink(v);  }
   lua_createtable(L,i,0);
   i = 0;
   while (t!=null) {
@@ -531,7 +531,7 @@ nodelist_to_lua (lua_State *L, halfword t) {
         }
         break;
       }
-    t = link(t);
+    t = vlink(t);
   };
 }
 
@@ -543,7 +543,7 @@ nodelist_from_lua (lua_State *L) {
   if (!lua_istable(L,-1)) {
     return null;
   }
-  t = get_avail();
+  t = get_node(temp_node_size);
   head = t;
   luaL_checkstack(L,3,"out of lua memory");
   lua_pushnil(L);
@@ -632,9 +632,9 @@ nodelist_from_lua (lua_State *L) {
     }
     lua_pop(L, 1);
   }
-  t = link(head);
-  link(head) = null;
-  free_avail(head);
+  t = vlink(head);
+  vlink(head) = null;
+  free_node(head,temp_node_size);
   return t;
 }
 
@@ -664,43 +664,46 @@ char *group_code_names[] = {
   "fin_row"};
 
 
-/* TODO: fix up tail node pointer here, as well */
-
 halfword
-lua_node_filter (int filterid, int extrainfo, halfword head_node) {
+lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail_node) {
   halfword ret;  
   integer callback_id ; 
   lua_State *L = Luas[0];
   callback_id = callback_defined(filterid);
   if (callback_id==0) {
-    return head_node;
+    return;
   }
   lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
   lua_rawgeti(L,-1, callback_id);
   if (!lua_isfunction(L,-1)) {
     lua_pop(L,2);
-    return head_node;
+    return;
   }
-  nodelist_to_lua(L,head_node);
+  nodelist_to_lua(L,vlink(head_node));
   lua_pushstring(L,group_code_names[extrainfo]);
   if (lua_pcall(L,2,1,0) != 0) { /* no arg, 1 result */
     fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
     lua_pop(L,2);
     error();
-    return head_node;
+    return;
   }
-  ret = head_node;
   if (lua_isboolean(L,-1)) {
     if (lua_toboolean(L,-1)!=1) {
-      flush_node_list(head_node);
-      ret = null;
+      flush_node_list(vlink(head_node));
+      vlink(head_node) = null;
     }
   } else {
-    flush_node_list(head_node);
-    ret = nodelist_from_lua(L);
+    flush_node_list(vlink(head_node));
+    vlink(head_node) = nodelist_from_lua(L);
   }
   lua_pop(L,2); /* result and callback container table */
-  return ret;
+  ret = vlink(head_node); 
+  if (ret!=null) {
+    while (vlink(ret)!=null)
+      ret=vlink(ret); 
+  }
+  *tail_node=ret;
+  return ;
 }
 
 char *pack_type_name[] = { "exactly", "additional"};

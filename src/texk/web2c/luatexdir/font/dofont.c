@@ -166,7 +166,7 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
   char *cnom, *caire = NULL;
   cnom  = xstrdup(makecstring(nom));
   if (aire != 0) 
-    caire = makecstring(aire);
+    caire = xstrdup(makecstring(aire));
 
   f = new_font();
   if ((f = do_define_font(f, cnom,caire,s,natural_dir))) {

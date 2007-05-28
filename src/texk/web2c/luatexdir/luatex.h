@@ -129,6 +129,9 @@ extern int open_outfile(FILE **f, char *name, char *mode);
 #define do_b_open_out(f) open_outfile(&(f),(nameoffile+1),FOPEN_WBIN_MODE)
 
 #define pdfassert assert
+#define voidcast(a) (void *)(a)
+#define varmemcast(a) (memory_word *)(a)
+#define fixmemcast(a) (memory_word *)(a)
 
 typedef enum {
   find_write_file_callback = 1,

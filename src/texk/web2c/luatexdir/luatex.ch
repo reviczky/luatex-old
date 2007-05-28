@@ -54,8 +54,8 @@ we still have to declare the symbolic names.
 @d debug==@{ {change this to `$\\{debug}\equiv\null$' when debugging}
 @d gubed==@t@>@} {change this to `$\\{gubed}\equiv\null$' when debugging}
 @y
-@d debug== {ifdef('TEXMF_DEBUG')}
-@d gubed== {endif('TEXMF_DEBUG')}
+@d debug== ifdef('TEXMF_DEBUG')
+@d gubed== endif('TEXMF_DEBUG')
 @z
 
 @x
@@ -95,12 +95,6 @@ versions of the program.
 
 @x
 @<Constants...@>=
-@!mem_max=30000; {greatest index in \TeX's internal |mem| array;
-  must be strictly less than |max_halfword|;
-  must be equal to |mem_top| in \.{INITEX}, otherwise |>=mem_top|}
-@!mem_min=0; {smallest index in \TeX's internal |mem| array;
-  must be |min_halfword| or more;
-  must be equal to |mem_bot| in \.{INITEX}, otherwise |<=mem_bot|}
 @!buf_size=500; {maximum number of characters simultaneously present in
   current lines of open files and in control sequences between
   \.{\\csname} and \.{\\endcsname}; must not exceed |max_halfword|}
@@ -150,12 +144,8 @@ versions of the program.
   must be equal to |-trie_op_size|.}
 @!min_trie_op=0; {first possible trie op code for any language}
 @!max_trie_op=ssup_trie_opcode; {largest possible trie opcode for any language}
-@!pool_name=TEXMFPOOLNAME; {this is configurable, for the sake of ML-\TeX}
-  {string of length |file_name_size|; tells where the string pool appears}
-@!engine_name=TEXMFENGINENAME; {the name of this engine}
+@!engine_name='luatex'; {the name of this engine}
 @#
-@!inf_mem_bot = 0;
-@!sup_mem_bot = 1;
 
 @!inf_main_memory = 2000000;
 @!sup_main_memory = 32000000;
@@ -210,15 +200,10 @@ versions of the program.
 @z
 
 @x
-@d mem_bot=0 {smallest index in the |mem| array dumped by \.{INITEX};
-  must not be less than |mem_min|}
-@d mem_top==30000 {largest index in the |mem| array dumped by \.{INITEX};
-  must be substantially larger than |mem_bot|
-  and not greater than |mem_max|}
 @d font_base=0 {smallest internal font number; must not be less
   than |min_quarterword|}
 @d hash_size=2100 {maximum number of control sequences; it should be at most
-  about |(mem_max-mem_min)/10|}
+  about |(fix_mem_max-fix_mem_min)/10|}
 @d hash_prime=1777 {a prime number equal to about 85\pct! of |hash_size|}
 @d hyph_size=307 {another prime; the number of \.{\\hyphenation} exceptions}
 @y
@@ -389,20 +374,6 @@ tini@/
 @!bound_default:integer; {temporary for setup}
 @!bound_name:^char; {temporary for setup}
 @#
-@!mem_bot:integer;{smallest index in the |mem| array dumped by \.{INITEX};
-  must not be less than |mem_min|}
-@!main_memory:integer; {total memory words allocated in initex}
-@!extra_mem_bot:integer; {|mem_min:=mem_bot-extra_mem_bot| except in \.{INITEX}}
-@!mem_min:integer; {smallest index in \TeX's internal |mem| array;
-  must be |min_halfword| or more;
-  must be equal to |mem_bot| in \.{INITEX}, otherwise |<=mem_bot|}
-@!mem_top:integer; {largest index in the |mem| array dumped by \.{INITEX};
-  must be substantially larger than |mem_bot|,
-  equal to |mem_max| in \.{INITEX}, else not greater than |mem_max|}
-@!extra_mem_top:integer; {|mem_max:=mem_top+extra_mem_top| except in \.{INITEX}}
-@!mem_max:integer; {greatest index in \TeX's internal |mem| array;
-  must be strictly less than |max_halfword|;
-  must be equal to |mem_top| in \.{INITEX}, otherwise |>=mem_top|}
 @!error_line:integer; {width of context lines on terminal error messages}
 @!half_error_line:integer; {width of first lines of contexts in terminal
   error messages; should be between 30 and |error_line-15|}
@@ -738,46 +709,19 @@ So they have been simplified here in the obvious way.
 @z
 
 @x
-@!mem : array[mem_min..mem_max] of memory_word; {the big dynamic storage area}
-@y
-@!yzmem : ^memory_word; {the big dynamic storage area}
-@!zmem : ^memory_word; {the big dynamic storage area}
-@z
-
-@x
 if r>p+1 then @<Allocate from the top of node |p| and |goto found|@>;
 @y
 if r>intcast(p+1) then @<Allocate from the top of node |p| and |goto found|@>;
 @z
 
 @x
-are debugging.)
-@y
-are debugging.)
-
-@d free==zfree
-@d was_free==zwas_free
-@z
-
-@x
-@!debug @!free: packed array [mem_min..mem_max] of boolean; {free cells}
-@t\hskip10pt@>@!was_free: packed array [mem_min..mem_max] of boolean;
-@y
- {The debug memory arrays have not been mallocated yet.}
-@!debug @!yzfree : ^boolean; {the big dynamic storage area}
-@!zfree : ^boolean; {the big dynamic storage area}
-@!yzwas_free : ^boolean; {the big dynamic storage area}
-@!zwas_free : ^boolean; {the big dynamic storage area}
-@z
-
-@x
-  if abs(mem[p+glue_offset].int)<@'4000000 then print("?.?")
+  if abs(vmem(p+glue_offset).int)<@'4000000 then print("?.?")
   else if abs(g)>float_constant(20000) then
 @y
   { The Unix |pc| folks removed this restriction with a remark that
     invalid bit patterns were vanishingly improbable, so we follow
     their example without really understanding it.
-  |if abs(mem[p+glue_offset].int)<@'4000000 then print('?.?')|
+  |if abs(vmem(p+glue_offset).int)<@'4000000 then print('?.?')|
   |else| }
   if fabs(g)>float_constant(20000) then
 @z
@@ -1025,9 +969,9 @@ if (hash_offset<0)or(hash_offset>hash_base) then bad:=42;
   case scanner_status of
   defining: begin print("definition"); p:=def_ref;
     end;
-  matching: begin print("argument"); p:=temp_head;
+  matching: begin print("argument"); p:=temp_token_head;
     end;
-  aligning: begin print("preamble"); p:=hold_head;
+  aligning: begin print("preamble"); p:=hold_token_head;
     end;
   absorbing: begin print("text"); p:=def_ref;
     end;
@@ -1038,9 +982,9 @@ if (hash_offset<0)or(hash_offset>hash_base) then bad:=42;
   case scanner_status of
   defining: begin print_nl("Runaway definition"); p:=def_ref;
     end;
-  matching: begin print_nl("Runaway argument"); p:=temp_head;
+  matching: begin print_nl("Runaway argument"); p:=temp_token_head;
     end;
-  aligning: begin print_nl("Runaway preamble"); p:=hold_head;
+  aligning: begin print_nl("Runaway preamble"); p:=hold_token_head;
     end;
   absorbing: begin print_nl("Runaway text"); p:=def_ref;
     end;
@@ -2297,13 +2241,13 @@ if ini_version then format_ident:=" (INITEX)";
 @x
 @!w: four_quarters; {four ASCII codes}
 @y
-@!format_engine: ^text_char;
+@!format_engine: ^packed_ASCII_code;
 @z
 
 @x
 @!w: four_quarters; {four ASCII codes}
 @y
-@!format_engine: ^text_char;
+@!format_engine: ^packed_ASCII_code;
 @z
 
 @x
@@ -2342,7 +2286,7 @@ dump_int(@$);@/
 dump_int(@"57325458);  {Web2C \TeX's magic constant: "W2TX"}
 {Align engine to 4 bytes with one or more trailing NUL}
 x:=strlen(engine_name);
-format_engine:=xmallocarray(text_char,x+4);
+format_engine:=xmallocarray(packed_ASCII_code,x+4);
 strcpy(stringcast(format_engine), stringcast(engine_name));
 for k:=x to x+3 do format_engine[k]:=0;
 x:=x+4-(x mod 4);
@@ -2365,7 +2309,7 @@ if x<>@$ then goto bad_fmt; {check that strings are the same}
 @y
 @+Init
 libcfree(str_pool); libcfree(str_start);
-libcfree(yhash); libcfree(zeqtb); libcfree(yzmem);
+libcfree(yhash); libcfree(zeqtb); libcfree(fixmem); libcfree(varmem);
 @+Tini
 undump_int(x);
 format_debug('format magic number')(x);
@@ -2373,7 +2317,7 @@ if x<>@"57325458 then goto bad_fmt; {not a format file}
 undump_int(x);
 format_debug('engine name size')(x);
 if (x<0) or (x>256) then goto bad_fmt; {corrupted format file}
-format_engine:=xmallocarray(text_char, x);
+format_engine:=xmallocarray(packed_ASCII_code, x);
 undump_things(format_engine[0], x);
 format_engine[x-1]:=0; {force string termination, just in case}
 if strcmp(stringcast(engine_name), stringcast(format_engine)) then
@@ -2410,33 +2354,6 @@ undump_int(hash_high);
   eq_level(undefined_control_sequence):=level_zero;
   for x:=eqtb_size+1 to eqtb_top do
     eqtb[x]:=eqtb[undefined_control_sequence];
-@z
-
-@x
-undump_int(x);
-if x<>mem_bot then goto bad_fmt;
-undump_int(x);
-if x<>mem_top then goto bad_fmt;
-@y
-undump_int(x); format_debug ('mem_bot')(x);
-if x<>mem_bot then goto bad_fmt;
-undump_int(mem_top); format_debug ('mem_top')(mem_top);
-if mem_bot+1100>mem_top then goto bad_fmt;
-
-
-head:=contrib_head; tail:=contrib_head;
-     page_tail:=page_head;  {page initialization}
-
-mem_min := mem_bot - extra_mem_bot;
-mem_max := mem_top + extra_mem_top;
-
-yzmem:=xmallocarray (memory_word, mem_max - mem_min + 1);
-zmem := yzmem - mem_min;   {this pointer arithmetic fails with some compilers}
-mem := zmem;
-yzfree:=xmallocarray (boolean, mem_max - mem_min + 1); 
-yzwas_free:=xmallocarray (boolean, mem_max - mem_min + 1); 
-zfree:=yzfree - mem_min;
-zwas_free:=yzwas_free - mem_min;
 @z
 
 @x
@@ -2483,39 +2400,27 @@ undump_things(str_pool[0], pool_ptr);
 @z
 
 @x
-repeat for k:=p to q+1 do dump_wd(mem[k]);
+for k:=var_mem_min to var_mem_max+1 do dump_wd(vmem(k));
 @y
-repeat dump_things(mem[p], q+2-p);
+dump_things(vmem(var_mem_min), var_mem_max+2-var_mem_min);
 @z
 
 @x
-for k:=p to lo_mem_max do dump_wd(mem[k]);
+for k:=fix_mem_min to fix_mem_end do dump_wd(mem(k));
 @y
-dump_things(mem[p], lo_mem_max+1-p);
+dump_things(mem(fix_mem_min), fix_mem_end-fix_mem_min+1);
 @z
 
 @x
-for k:=hi_mem_min to mem_end do dump_wd(mem[k]);
+for k:=var_mem_min to var_mem_max+1 do undump_wd(vmem(k));
 @y
-dump_things(mem[hi_mem_min], mem_end+1-hi_mem_min);
+undump_things(vmem(var_mem_min), var_mem_max+2-var_mem_min);
 @z
 
 @x
-repeat for k:=p to q+1 do undump_wd(mem[k]);
+for k:=fix_mem_min to fix_mem_end do undump_wd(mem(k));
 @y
-repeat undump_things(mem[p], q+2-p);
-@z
-
-@x
-for k:=p to lo_mem_max do undump_wd(mem[k]);
-@y
-undump_things(mem[p], lo_mem_max+1-p);
-@z
-
-@x
-for k:=hi_mem_min to mem_end do undump_wd(mem[k]);
-@y
-undump_things (mem[hi_mem_min], mem_end+1-hi_mem_min);
+undump_things (mem(fix_mem_min), fix_mem_end-fix_mem_min+1);
 @z
 
 @x
@@ -2871,13 +2776,6 @@ begin @!{|start_here|}
  underscores, so we're stuck giving the names twice, once as a string,
  once as the identifier. How ugly.}
 
-  setup_bound_var (0)('mem_bot')(mem_bot);
-  setup_bound_var (250000)('main_memory')(main_memory);
-    {|memory_word|s for |mem| in \.{INITEX}}
-  setup_bound_var (0)('extra_mem_top')(extra_mem_top);
-    {increase high mem in \.{VIRTEX}}
-  setup_bound_var (0)('extra_mem_bot')(extra_mem_bot);
-    {increase low mem in \.{VIRTEX}}
   setup_bound_var (100000)('pool_size')(pool_size);
   setup_bound_var (75000)('string_vacancies')(string_vacancies);
   setup_bound_var (5000)('pool_free')(pool_free); {min pool avail after fmt}
@@ -2901,18 +2799,6 @@ begin @!{|start_here|}
   setup_bound_var(1000)('ocp_stack_size')(ocp_stack_size);
   setup_bound_var (0)('hash_extra')(hash_extra);
   setup_bound_var (72)('pk_dpi')(pk_dpi);
-  const_chk (mem_bot);
-  const_chk (main_memory);
-@+Init
-  extra_mem_top := 0;
-  extra_mem_bot := 0;
-@+Tini
-  if extra_mem_bot>sup_main_memory then extra_mem_bot:=sup_main_memory;
-  if extra_mem_top>sup_main_memory then extra_mem_top:=sup_main_memory;
-  {|mem_top| is an index, |main_memory| a size}
-  mem_top := mem_bot + main_memory -1;
-  mem_min := mem_bot;
-  mem_max := mem_top;
 
   {Check other constants against their sup and inf.}
   const_chk (trie_size);
@@ -2955,7 +2841,9 @@ begin @!{|start_here|}
   hyph_list :=xmallocarray (halfword, hyph_size);
   hyph_link :=xmallocarray (hyph_pointer, hyph_size);
   ocp_list_info:=xmallocarray (memory_word, ocp_list_size);
+  memset(ocp_list_info,0,sizeof(memory_word)* ocp_list_size);
   ocp_lstack_info:=xmallocarray (memory_word, ocp_list_size);
+  memset(ocp_lstack_info,0,sizeof(memory_word)* ocp_list_size);
   ocp_list_list:=xmallocarray (ocp_list_index, ocp_list_size);
   otp_init_input_buf:=xmallocarray (quarterword, ocp_buf_size);
   otp_input_buf:=xmallocarray (quarterword, ocp_buf_size);
@@ -2971,12 +2859,15 @@ begin @!{|start_here|}
   pdf_os_objnum:=xmallocarray (integer, pdf_os_max_objs);
   pdf_os_objoff:=xmallocarray (integer, pdf_os_max_objs);
 @+Init
-  yzmem:=xmallocarray (memory_word, mem_top - mem_bot + 1);
-  zmem := yzmem - mem_bot;   {Some compilers require |mem_bot=0|}
-  yzfree:=xmallocarray (boolean, mem_top - mem_bot + 1); 
-  yzwas_free:=xmallocarray (boolean, mem_top - mem_bot + 1); 
-  zfree:=yzfree - mem_bot;
-  zwas_free:=yzwas_free - mem_bot;
+  fixmem:=xmallocarray (memory_word, fix_mem_init +1);
+  memset (voidcast(fixmem), 0, (fix_mem_init+1)*sizeof(memory_word));
+  fix_mem_min:=0;
+  fix_mem_max:=fix_mem_init;
+  varmem:=xmallocarray (memory_word, var_mem_init+2);
+  memset (voidcast(varmem), 0, (var_mem_init+2)*sizeof(memory_word));
+  var_mem_min:=0;
+  var_mem_max:=var_mem_init;
+
   eqtb_top := eqtb_size+hash_extra;
   if hash_extra=0 then hash_top:=undefined_control_sequence else
         hash_top:=eqtb_top;

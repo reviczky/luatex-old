@@ -2,80 +2,81 @@
 #include <stdarg.h>
 
 #define null -0x3FFFFFFF
+#define zero_glue 0
 
 #undef link /* defined by cpascal.h */
-#define info(a)            zmem[(a)].hh.v.LH 
-#define link(a)            zmem[(a)].hh.v.RH 
-#define type(a)            zmem[(a)].hh.u.B0
-#define subtype(a)         zmem[(a)].hh.u.B1
-#define node_attr(a)       info((a)+1)
+#define vinfo(a)           varmem[(a)].hh.v.LH 
+#define vlink(a)           varmem[(a)].hh.v.RH 
+#define type(a)            varmem[(a)].hh.u.B0
+#define subtype(a)         varmem[(a)].hh.u.B1
+#define node_attr(a)       vinfo((a)+1)
 
-#define attribute_id(a)    link((a)+1)
-#define attribute_value(a) info((a)+1)
+#define attribute_id(a)    vlink((a)+1)
+#define attribute_value(a) vinfo((a)+1)
 
-#define free_avail(a) { link(a)=avail; avail=a; decr(dyn_used); }
+#define temp_node_size 2
 
 #define penalty_node_size 3
-#define penalty(a)       zmem[(a+2)].cint
+#define penalty(a)       varmem[(a+2)].cint
 
 #define glue_node_size 3
-#define glue_ptr(a)      info((a)+2)
-#define leader_ptr(a)    link((a)+2)
+#define glue_ptr(a)      vinfo((a)+2)
+#define leader_ptr(a)    vlink((a)+2)
 
 #define disc_node_size 3
-#define pre_break(a)     info((a)+2)
-#define post_break(a)    link((a)+2)
+#define pre_break(a)     vinfo((a)+2)
+#define post_break(a)    vlink((a)+2)
 
 #define kern_node_size 3
 #define margin_kern_node_size 3
 #define box_node_size 9
-#define width(a)         zmem[(a+2)].cint
-#define depth(a)         zmem[(a+3)].cint
-#define height(a)        zmem[(a+4)].cint
-#define shift_amount(a)  zmem[(a+5)].cint
-#define list_ptr(a)      link((a)+6)
+#define width(a)         varmem[(a+2)].cint
+#define depth(a)         varmem[(a+3)].cint
+#define height(a)        varmem[(a+4)].cint
+#define shift_amount(a)  varmem[(a+5)].cint
+#define list_ptr(a)      vlink((a)+6)
 #define glue_order(a)    subtype((a)+6)
 #define glue_sign(a)     type((a)+6)
-#define glue_set(a)      zmem[(a+7)].gr
-#define box_dir(a)       zmem[(a+8)].cint
+#define glue_set(a)      varmem[(a+7)].gr
+#define box_dir(a)       varmem[(a+8)].cint
 
 /* unset nodes */
-#define glue_stretch(a)  zmem[(a)+7].cint
+#define glue_stretch(a)  varmem[(a)+7].cint
 #define glue_shrink      shift_amount
 #define span_count       subtype
 
 #define rule_node_size 6
-#define rule_dir(a)      info(a+5)
+#define rule_dir(a)      vinfo(a+5)
 
 #define mark_node_size 3
-#define mark_ptr(a)    link(a+2)
-#define mark_class(a)  info(a+2)
+#define mark_ptr(a)      vlink(a+2)
+#define mark_class(a)    vinfo(a+2)
 
 /* a glue spec */
-#define glue_spec_size 5
-#define stretch(a)      zmem[(a+3)].cint
-#define shrink(a)       zmem[(a+4)].cint
-#define stretch_order   type
-#define shrink_order    subtype
-#define glue_ref_count  link
+#define glue_spec_size 4
+#define stretch(a)       varmem[(a+3)].cint
+#define shrink(a)        varmem[(a+1)].cint
+#define stretch_order    type
+#define shrink_order     subtype
+#define glue_ref_count   vlink
 
 #define adjust_node_size 3
-#define adjust_ptr(a)   link(a+1)
+#define adjust_ptr(a)    vlink(a+1)
 
 #define glyph_node_size 3 /* and ligatures */
-#define margin_char(a)  link((a)+1)
-#define font(a)         link((a)+1)
-#define character(a)    info((a)+2)
-#define lig_ptr(a)      link((a)+2)
-#define is_char_node(a) (type(a)==glyph_node)
+#define margin_char(a)  vlink((a)+1)
+#define font(a)         vlink((a)+1)
+#define character(a)    vinfo((a)+2)
+#define lig_ptr(a)      vlink((a)+2)
+#define is_char_node(a) (a!=null && type(a)==glyph_node)
 
 #define math_node_size 3
-#define surround(a)      link((a)+1)
+#define surround(a)      vlink((a)+1)
 
 #define ins_node_size 6
-#define float_cost(a)    zmem[(a)+2].cint
-#define ins_ptr(a)       info((a)+5)
-#define split_top_ptr(a) link((a)+5)
+#define float_cost(a)    varmem[(a)+2].cint
+#define ins_ptr(a)       vinfo((a)+5)
+#define split_top_ptr(a) vlink((a)+5)
 
 typedef enum {
   hlist_node = 0, //
@@ -103,19 +104,19 @@ extern int node_sizes[];
 extern void  nodelist_to_lua (lua_State *L, halfword t);
 extern halfword nodelist_from_lua (lua_State *L) ;
 
-#define local_pen_inter(a)       zmem[a+1].cint
-#define local_pen_broken(a)      zmem[a+2].cint
-#define local_box_left(a)        zmem[a+3].cint
-#define local_box_left_width(a)  zmem[a+4].cint
-#define local_box_right(a)       zmem[a+5].cint
-#define local_box_right_width(a) zmem[a+6].cint
-#define local_par_dir(a)         zmem[a+7].cint
+#define local_pen_inter(a)       varmem[a+1].cint
+#define local_pen_broken(a)      varmem[a+2].cint
+#define local_box_left(a)        varmem[a+3].cint
+#define local_box_left_width(a)  varmem[a+4].cint
+#define local_box_right(a)       varmem[a+5].cint
+#define local_box_right_width(a) varmem[a+6].cint
+#define local_par_dir(a)         varmem[a+7].cint
 
-#define pdf_literal_data(a)  link(a+1)
-#define pdf_literal_mode(a)  info(a+1)
+#define pdf_literal_data(a)  vlink(a+1)
+#define pdf_literal_mode(a)  vinfo(a+1)
 
-#define write_tokens(a)  link(a+1)
-#define write_stream(a)  info(a+1)
+#define write_tokens(a)  vlink(a+1)
+#define write_stream(a)  vinfo(a+1)
 
 
 typedef enum {
@@ -172,53 +173,53 @@ extern void      whatsit_node_to_lua (lua_State *L, halfword p);
 extern halfword  whatsit_node_from_lua (lua_State *L);
 
 
-#define open_name(a) link((a)+1)
-#define open_area(a) info((a)+2)
-#define open_ext(a)  link((a)+2)
+#define open_name(a) vlink((a)+1)
+#define open_area(a) vinfo((a)+2)
+#define open_ext(a)  vlink((a)+2)
 
-#define what_lang(a) link((a)+1)
+#define what_lang(a) vlink((a)+1)
 #define what_lhm(a)  type((a)+1)
 #define what_rhm(a)  subtype((a)+1)
 
-#define pdf_width(a)         zmem[(a) + 1].cint
-#define pdf_height(a)        zmem[(a) + 2].cint
-#define pdf_depth(a)         zmem[(a) + 3].cint
-#define pdf_ximage_objnum(a) info((a) + 4)
-#define pdf_obj_objnum(a)    info((a) + 1)
-#define pdf_xform_objnum(a)  info((a) + 4)
+#define pdf_width(a)         varmem[(a) + 1].cint
+#define pdf_height(a)        varmem[(a) + 2].cint
+#define pdf_depth(a)         varmem[(a) + 3].cint
+#define pdf_ximage_objnum(a) vinfo((a) + 4)
+#define pdf_obj_objnum(a)    vinfo((a) + 1)
+#define pdf_xform_objnum(a)  vinfo((a) + 4)
 
-#define pdf_annot_data(a)       info((a) + 5)
-#define pdf_link_attr(a)        info((a) + 5)
-#define pdf_link_action(a)      link((a) + 5)
-#define pdf_annot_objnum(a)     zmem[(a) + 6].cint
-#define pdf_link_objnum(a)      zmem[(a) + 6].cint
+#define pdf_annot_data(a)       vinfo((a) + 5)
+#define pdf_link_attr(a)        vinfo((a) + 5)
+#define pdf_link_action(a)      vlink((a) + 5)
+#define pdf_annot_objnum(a)     varmem[(a) + 6].cint
+#define pdf_link_objnum(a)      varmem[(a) + 6].cint
 
 #define pdf_dest_type(a)          type((a) + 5)
 #define pdf_dest_named_id(a)      subtype((a) + 5)
-#define pdf_dest_id(a)            link((a) + 5)
-#define pdf_dest_xyz_zoom(a)      info((a) + 6)
-#define pdf_dest_objnum(a)        link((a) + 6)
+#define pdf_dest_id(a)            vlink((a) + 5)
+#define pdf_dest_xyz_zoom(a)      vinfo((a) + 6)
+#define pdf_dest_objnum(a)        vlink((a) + 6)
 
 #define pdf_thread_named_id(a)    subtype((a) + 5)
-#define pdf_thread_id(a)          link((a) + 5)
-#define pdf_thread_attr(a)        info((a) + 6)
+#define pdf_thread_id(a)          vlink((a) + 5)
+#define pdf_thread_attr(a)        vinfo((a) + 6)
 
-#define dir_dir(a)     info((a)+1)
-#define dir_level(a)   link((a)+1)
-#define dir_dvi_ptr(a) info((a)+2)
-#define dir_dvi_h(a)   info((a)+3)
+#define dir_dir(a)     vinfo((a)+1)
+#define dir_level(a)   vlink((a)+1)
+#define dir_dvi_ptr(a) vinfo((a)+2)
+#define dir_dvi_h(a)   vinfo((a)+3)
 
-#define late_lua_data(a)        link((a)+1)
+#define late_lua_data(a)        vlink((a)+1)
 #define late_lua_reg(a)         subtype((a)+1)
 
-#define snap_glue_ptr(a)    info((a) + 1)
-#define final_skip(a)       zmem[(a) + 2].cint
-#define snapy_comp_ratio(a) zmem[(a) + 1].cint
+#define snap_glue_ptr(a)    vinfo((a) + 1)
+#define final_skip(a)       varmem[(a) + 2].cint
+#define snapy_comp_ratio(a) varmem[(a) + 1].cint
 
-#define pdf_colorstack_stack(a)  link((a)+1)
-#define pdf_colorstack_cmd(a)    info((a)+1)
-#define pdf_colorstack_data(a)   link((a)+2)
-#define pdf_setmatrix_data(a)    link((a)+1)
+#define pdf_colorstack_stack(a)  vlink((a)+1)
+#define pdf_colorstack_cmd(a)    vinfo((a)+1)
+#define pdf_colorstack_data(a)   vlink((a)+2)
+#define pdf_setmatrix_data(a)    vlink((a)+1)
 
 typedef enum {
   colorstack_set=0,
@@ -271,12 +272,12 @@ typedef enum {
 #define pdf_action_size 3
 #define pdf_action_type           type
 #define pdf_action_named_id       subtype
-#define pdf_action_id             link
-#define pdf_action_file(a)        info((a) + 1)
-#define pdf_action_new_window(a)  link((a) + 1)
-#define pdf_action_page_tokens(a) info((a) + 2)
-#define pdf_action_user_tokens(a) info((a) + 2)
-#define pdf_action_refcount(a)    link((a) + 2)
+#define pdf_action_id             vlink
+#define pdf_action_file(a)        vinfo((a) + 1)
+#define pdf_action_new_window(a)  vlink((a) + 1)
+#define pdf_action_page_tokens(a) vinfo((a) + 2)
+#define pdf_action_user_tokens(a) vinfo((a) + 2)
+#define pdf_action_refcount(a)    vlink((a) + 2)
 
 extern void generic_node_to_lua (lua_State *L, char *name, char *fmt, ...);
 

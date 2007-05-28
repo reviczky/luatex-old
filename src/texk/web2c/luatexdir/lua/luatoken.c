@@ -8,8 +8,8 @@
 
 #define null -0x3FFFFFFF
 #undef link /* defined by cpascal.h */
-#define info(a)    zmem[(a)].hh.v.LH 
-#define link(a)    zmem[(a)].hh.v.RH 
+#define info(a)    fixmem[(a)].hh.v.LH 
+#define link(a)    fixmem[(a)].hh.v.RH 
 
 #define inserted 4
 
@@ -314,7 +314,7 @@ tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
   int alloci = 0;
   int i = 0;
   while ( p != null ) {      
-    if (p < hi_mem_min || p > mem_end )  {
+    if (p < fix_mem_min || p > fix_mem_end )  {
       Print_esc ("CLOBBERED.") ;
       break;
     } 
@@ -409,10 +409,9 @@ tokenlist_to_lua(lua_State *L, halfword p) {
   int v;
   int i = 1;
   v = p;
-  while (v!=null) {   i++;    v = link(v);  }
-  i = 1;
+  while (v!=null && v < fix_mem_end) {   i++;    v = link(v);  }
   lua_createtable(L,i,0);
-  while (p!=null) {
+  while (p!=null&& p < fix_mem_end) {
     if (info(p)>=cs_token_flag) {
       cs=info(p)-cs_token_flag;
       cmd = zget_eq_type(cs);
