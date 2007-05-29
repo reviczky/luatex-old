@@ -8,8 +8,8 @@
 
 #define null -0x3FFFFFFF
 #undef link /* defined by cpascal.h */
-#define info(a)    fixmem[(a)].hh.v.LH 
-#define link(a)    fixmem[(a)].hh.v.RH 
+#define info(a)    fixmem[(a)].hhlh
+#define link(a)    fixmem[(a)].hhrh
 
 #define inserted 4
 
@@ -371,7 +371,7 @@ tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
 	    Print_char ( c + '0') ;
 	  } else {
 	    Print_char ( '!' ) ;
-	    return ;
+	    return NULL;
 	  } 
 	  break ;
 	case 13 : 
@@ -380,7 +380,7 @@ tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
 	  incr ( n ) ;
 	  Print_char ( n ) ;
 	  if ( n > '9' ) 
-	    return ;
+	    return NULL;
 	  break ;
 	case 14 : 
 	  if ( c == 0 ) {

@@ -664,7 +664,7 @@ char *group_code_names[] = {
   "fin_row"};
 
 
-halfword
+void
 lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail_node) {
   halfword ret;  
   integer callback_id ; 

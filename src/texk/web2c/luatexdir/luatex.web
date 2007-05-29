@@ -3387,6 +3387,13 @@ value represents a null pointer. \TeX\ does not assume that |mem[null]| exists.
 @<Glob...@>=
 @!temp_ptr:pointer; {a pointer variable for occasional emergency use}
 
+@ @<Types...@>=
+@!smemory_word = packed record@;@/
+  @!hhrh:halfword;
+  @!hhlh:halfword;
+  end;
+
+
 @ The |mem| array is divided into two items that are allocated separately; 
 they grow until finding their ``natural'' size in a particular job.
 Locations in |varmem| are used for storing variable-length records
@@ -3406,7 +3413,7 @@ deallocating them after their use.
 @d var_mem_init==1000
 
 @<Glob...@>=
-@!fixmem : ^memory_word; {the big dynamic storage area}
+@!fixmem : ^smemory_word; {the big dynamic storage area}
 @!varmem : ^memory_word;
 @!var_mem_min : pointer; {the smallest location of variable-size memory in use}
 @!var_mem_max : pointer; {the largest location of variable-size memory in use}
@@ -3433,8 +3440,8 @@ $$|avail|,\;\hbox{|link(avail)|},\;\hbox{|link(link(avail))|},\;\ldots$$
 terminated by |null|.
 
 @d mem(#) == fixmem[#]
-@d link(#) == mem(#).hh.rh {the |link| field of a memory word}
-@d info(#) == mem(#).hh.lh {the |info| field of a memory word}
+@d link(#) == mem(#).hhrh {the |link| field of a memory word}
+@d info(#) == mem(#).hhlh {the |info| field of a memory word}
 
 @d temp_node_size==2
 @d vmem(#)  == varmem[#]
@@ -3461,7 +3468,7 @@ we try first to increase |fix_mem_end|. If that cannot be done, i.e., if
 |fix_mem_end=fix_mem_max|, we try to reallocate array |fixmem|. 
 If, that doesn't work, we have to quit.
 
-@d fix_mem_increment=1000
+@d fix_mem_increment=100000
 
 @p function get_avail : pointer; {single-word node allocation}
 var p:pointer; {the new node being got}
@@ -3472,14 +3479,14 @@ else if fix_mem_end<fix_mem_max then {or go into virgin territory}
   begin incr(fix_mem_end); p:=fix_mem_end;
   end
 else  begin t:=fix_mem_max+fix_mem_increment;
-  fixmem := fixmemcast(realloc(fixmem,sizeof(memory_word)*(t+1)));
+  fixmem := fixmemcast(realloc(fixmem,sizeof(smemory_word)*(t+1)));
   if fixmem=NULL then
     begin runaway; {if memory is exhausted, display possible runaway text}
     overflow("token memory size",fix_mem_max);
       {quit; all one-word nodes are busy}
 @:TeX capacity exceeded main memory size}{\quad main memory size@>
     end;
-  memset (voidcast(fixmem+(fix_mem_max+1)),0,fix_mem_increment*sizeof(memory_word));
+  memset (voidcast(fixmem+(fix_mem_max+1)),0,fix_mem_increment*sizeof(smemory_word));
   fix_mem_max:=t; incr(fix_mem_end); p:=fix_mem_end;
   end;
 link(p):=null; {provide an oft-desired initialization of the new node}
@@ -4381,20 +4388,21 @@ vlink(rover):=empty_flag; {now initialize the dynamic memory}
 node_size(rover):=var_mem_max-var_mem_stat_max-1;
 llink(rover):=rover; rlink(rover):=rover;@/
 vlink(var_mem_max):=null; vinfo(var_mem_max):=null;@/
-init_list_heads;
 @<Initialize the special list heads and constant nodes@>;
-avail:=null; fix_mem_end:=fix_mem_max;
+avail:=null; fix_mem_end:=0;
+init_list_heads;
 var_used:=var_mem_stat_max+1; dyn_used:=0;
   {initialize statistics}
 
 @ @p procedure init_list_heads; {initialize token list heads}
+var p:halfword;
 begin
-temp_token_head:=get_avail; info(temp_token_head):=0;
-hold_token_head:=get_avail; info(hold_token_head):=0;
-omit_template:=get_avail;   info(omit_template):=0; 
-null_list:=get_avail;       info(null_list):=0; 
-backup_head:=get_avail;     info(backup_head):=0;
-garbage:=get_avail;         info(garbage):=0;
+p:=get_avail; temp_token_head:=p; info(temp_token_head):=0;
+p:=get_avail; hold_token_head:=p; info(hold_token_head):=0;
+p:=get_avail; omit_template:=p;   info(omit_template):=0; 
+p:=get_avail; null_list:=p;       info(null_list):=0; 
+p:=get_avail; backup_head:=p;     info(backup_head):=0;
+p:=get_avail; garbage:=p;         info(garbage):=0;
 end;
 
 @ @p
@@ -5502,7 +5510,7 @@ if local_par<>null then begin
   if local_par_bool then begin end {|tail_append(local_par)|}
   else free_node(local_par,local_par_size);
   end;
-free_avail(head); decr(nest_ptr); cur_list:=nest[nest_ptr];
+free_node(head,temp_node_size); decr(nest_ptr); cur_list:=nest[nest_ptr];
 end;
 
 @ Here is a procedure that displays what \TeX\ is working on, at all levels.
@@ -12387,7 +12395,7 @@ var t:halfword; {token representing the highest parameter number}
 @!hash_brace:halfword; {possible `\.{\#\{}' token}
 begin if macro_def then scanner_status:=defining
 @+else scanner_status:=absorbing;
-warning_index:=cur_cs; def_ref:=get_avail; token_ref_count(def_ref):=null;
+warning_index:=cur_cs; p:=get_avail; def_ref:=p; token_ref_count(def_ref):=null;
 p:=def_ref; hash_brace:=0; t:=zero_token;
 if macro_def then @<Scan and build the parameter part of the macro definition@>
 else scan_left_brace; {remove the compulsory left brace}
@@ -12521,7 +12529,7 @@ var p:pointer; {tail of the token list}
 @!s:integer; {saved value of |align_state|}
 @!m:small_number; {stream number}
 begin scanner_status:=defining; warning_index:=r;
-def_ref:=get_avail; token_ref_count(def_ref):=null;
+p:=get_avail; def_ref:=p; token_ref_count(def_ref):=null;
 p:=def_ref; {the reference count}
 store_new_token(end_match_token);
 if (n<0)or(n>15) then m:=16@+else m:=n;
@@ -22210,6 +22218,7 @@ programming.
 @d subscr(#)==#+3 {the |subscr| field of a noad}
 @d math_type==vlink {a |halfword| in |mem|}
 @d fam(#)==type(#) {a |quarterword| in |mem|}
+@d mcharacter(#)==subtype(#)
 @d math_char=1 {|math_type| when the attribute is simple}
 @d sub_box=2 {|math_type| when the attribute is a box}
 @d sub_mlist=3 {|math_type| when the attribute is a formula}
@@ -22314,7 +22323,7 @@ end;
 @ A few more kinds of noads will complete the set: An |under_noad| has its
 nucleus underlined; an |over_noad| has it overlined. An |accent_noad| places
 an accent over its nucleus; the accent character appears as
-|fam(accent_chr(p))| and |character(accent_chr(p))|. A |vcenter_noad|
+|fam(accent_chr(p))| and |mcharacter(accent_chr(p))|. A |vcenter_noad|
 centers its nucleus vertically with respect to the axis of the formula;
 in such noads we always have |math_type(nucleus(p))=sub_box|.
 
@@ -22418,7 +22427,7 @@ fraction_noad:@<Display fraction noad |p|@>;
 @<Declare procedures needed for displaying the elements of mlists@>=
 procedure print_fam_and_char(@!p:pointer); {prints family and character}
 begin print_esc("fam"); print_int(fam(p)); print_char(" ");
-print(qo(character(p)));
+print(qo(mcharacter(p)));
 end;
 @#
 procedure print_delimiter(@!p:pointer); {prints a delimiter as 24-bit hex value}
@@ -22870,7 +22879,7 @@ begin if (width(b)<>w)and(list_ptr(b)<>null) then
   begin if type(b)=vlist_node then b:=hpack(b,natural);
   p:=list_ptr(b);
   if (is_char_node(p))and(vlink(p)=null) then
-    begin f:=font(p); v:=char_width(f,character(p));
+    begin f:=font(p); v:=char_width(f,mcharacter(p));
     if v<>width(b) then vlink(p):=new_kern(width(b)-v);
     end;
   ext_free_node(b,box_node_size);
@@ -23010,7 +23019,7 @@ nonexistent characters; in such cases, |char_exists(cur_f,cur_c)| will be |false
 after |fetch| has acted, and the field will also have been reset to |empty|.
 
 @p procedure fetch(@!a:pointer); {unpack the |math_char| field |a|}
-begin cur_c:=character(a); cur_f:=fam_fnt(fam(a)+cur_size);
+begin cur_c:=mcharacter(a); cur_f:=fam_fnt(fam(a)+cur_size);
 if cur_f=null_font then
   @<Complain about an undefined family@>
 else  begin 
@@ -23463,7 +23472,7 @@ if math_type(nucleus(q))=math_char then
   if (cur_style<text_style)and(char_tag(cur_f,cur_c)=list_tag) then {make it larger}
     begin c:=char_remainder(cur_f,cur_c);
     if char_exists(cur_f,c) then
-      begin cur_c:=c; character(nucleus(q)):=c;
+      begin cur_c:=c; mcharacter(nucleus(q)):=c;
       end;
     end;
   delta:=char_italic(cur_f,cur_c); x:=clean_box(nucleus(q),cur_style);
@@ -23548,7 +23557,7 @@ if math_type(subscr(q))=empty then if math_type(supscr(q))=empty then
       fetch(nucleus(q)); a:=cur_c;
       if disable_ligkern=0 then
       if (has_kern(cur_f,a))or(has_lig(cur_f,a)) then
-        begin cur_c:=character(nucleus(p));
+        begin cur_c:=mcharacter(nucleus(p));
           @<If character |a| has a kern with |cur_c|, attach
             the kern after~|q|; or if it has a ligature with |cur_c|, combine
             noads |q| and~|p| appropriately; then |return| if the cursor has
@@ -23573,17 +23582,17 @@ if has_lig(cur_f,a) then begin
   if is_ligature(lig) then begin
 	check_interrupt; {allow a way out of infinite ligature loop}
     case lig_type(lig) of
-    qi(1),qi(5): character(nucleus(q)):=lig_replacement(lig); {\.{=:\?}, \.{=:\?>}}
-    qi(2),qi(6): character(nucleus(p)):=lig_replacement(lig); {\.{\?=:}, \.{\?=:>}}
+    qi(1),qi(5): mcharacter(nucleus(q)):=lig_replacement(lig); {\.{=:\?}, \.{=:\?>}}
+    qi(2),qi(6): mcharacter(nucleus(p)):=lig_replacement(lig); {\.{\?=:}, \.{\?=:>}}
     qi(3),qi(7),qi(11):begin r:=new_noad; {\.{\?=:\?}, \.{\?=:\?>}, \.{\?=:\?>>}}
-      character(nucleus(r)):=lig_replacement(lig);
+      mcharacter(nucleus(r)):=lig_replacement(lig);
       fam(nucleus(r)):=fam(nucleus(q));@/
       vlink(q):=r; vlink(r):=p;
       if lig_type(lig)<qi(11) then math_type(nucleus(r)):=math_char
       else math_type(nucleus(r)):=math_text_char; {prevent combination}
       end;
     othercases begin vlink(q):=vlink(p);
-      character(nucleus(q)):=lig_replacement(lig); {\.{=:}}
+      mcharacter(nucleus(q)):=lig_replacement(lig); {\.{=:}}
       vmem(subscr(q)):=vmem(subscr(p)); vmem(supscr(q)):=vmem(supscr(p));@/
       free_node(p,noad_size);
       end
@@ -23637,7 +23646,7 @@ make_scripts(q,delta)
 @ @<Create a character node |p| for |nucleus(q)|...@>=
 begin fetch(nucleus(q));
 if char_exists(cur_f,cur_c) then
-  begin delta:=char_italic(cur_f,cur_c); p:=new_character(cur_f,qo(cur_c));
+  begin delta:=char_italic(cur_f,cur_c); p:=new_character(cur_f,cur_c);
   if (math_type(nucleus(q))=math_text_char)and(space(cur_f)<>0) then
     delta:=0; {no italic correction in mid-word of text font}
   if (math_type(subscr(q))=empty)and(delta<>0) then
@@ -24111,7 +24120,7 @@ procedure@?normal_paragraph; forward;@t\2@>@/
 procedure init_align;
 label done, done1, done2, continue;
 var save_cs_ptr:pointer; {|warning_index| value for error messages}
-@!p:pointer; {for short-term temporary use}
+@!p,r:pointer; {for short-term temporary use}
 begin save_cs_ptr:=cur_cs; {\.{\\halign} or \.{\\valign}, usually}
 push_alignment; align_state:=-1000000; {enter a new alignment level}
 @<Check for improper alignment in displayed math@>;
@@ -24256,7 +24265,7 @@ loop@+  begin get_preamble_token;
     back_error; goto done1;
     end
   else if (cur_cmd<>spacer)or(p<>hold_token_head) then
-    begin link(p):=get_avail; p:=link(p); info(p):=cur_tok;
+    begin r:=get_avail; link(p):=r; p:=link(p); info(p):=cur_tok;
     end;
   end;
 done1:
@@ -24274,9 +24283,9 @@ loop@+  begin continue: get_preamble_token;
     ("more than one, so I'm ignoring all but the first.");
     error; goto continue;
     end;
-  link(p):=get_avail; p:=link(p); info(p):=cur_tok;
+  r:=get_avail; link(p):=r; p:=link(p); info(p):=cur_tok;
   end;
-done2: link(p):=get_avail; p:=link(p);
+done2: r:=get_avail; link(p):=r; p:=link(p);
 info(p):=end_template_token {put \.{\\endtemplate} at the end}
 
 @ The tricky part about alignments is getting the templates into the
@@ -24319,7 +24328,7 @@ begin push_nest; mode:=(-hmode-vmode)-mode;
 if mode=-hmode then space_factor:=0 @+else prev_depth:=0;
 tail_append(new_glue(glue_ptr(preamble)));
 subtype(tail):=tab_skip_code+1;@/
-cur_align:=link(preamble); cur_tail:=cur_head; cur_pre_tail:=cur_pre_head;
+cur_align:=vlink(preamble); cur_tail:=cur_head; cur_pre_tail:=cur_pre_head;
 init_span(cur_align);
 end;
 
@@ -24436,12 +24445,12 @@ end
 @ @<Copy the templates from node |cur_loop| into node |p|@>=
 q:=hold_token_head; r:=u_part(cur_loop);
 while r<>null do
-  begin link(q):=get_avail; q:=link(q); info(q):=info(r); r:=link(r);
+  begin s:=get_avail; link(q):=s; q:=link(q); info(q):=info(r); r:=link(r);
   end;
 link(q):=null; u_part(p):=link(hold_token_head);
 q:=hold_token_head; r:=v_part(cur_loop);
 while r<>null do
-  begin link(q):=get_avail; q:=link(q); info(q):=info(r); r:=link(r);
+  begin s:=get_avail; link(q):=s; q:=link(q); info(q):=info(r); r:=link(r);
   end;
 link(q):=null; v_part(p):=link(hold_token_head)
 
@@ -24452,7 +24461,7 @@ subtype(tail):=tab_skip_code+1
 @ @<Package an unset...@>=
 begin if mode=-hmode then
   begin adjust_tail:=cur_tail; pre_adjust_tail:=cur_pre_tail;
-  u:=filtered_hpack(link(head),natural,align_group); w:=width(u);
+  u:=filtered_hpack(vlink(head),natural,align_group); w:=width(u);
   cur_tail:=adjust_tail; adjust_tail:=null;
   cur_pre_tail:=pre_adjust_tail; pre_adjust_tail:=null;
   end
@@ -25948,7 +25957,7 @@ end;
 
 if pdf_protrude_chars > 1 then
     shortfall := shortfall + total_pw(r, cur_p);
-if (pdf_adjust_spacing > 1) and (shortfall <> 0) then begin
+if (shortfall <> 0) and (pdf_adjust_spacing > 1) then begin
     margin_kern_stretch := 0;
     margin_kern_shrink := 0;
     if pdf_protrude_chars > 1 then
@@ -31763,7 +31772,7 @@ delim_num: begin
   end;
 othercases @<Scan a subformula enclosed in braces and |return|@>
 endcases;@/
-math_type(p):=math_char; character(p):=qi(c mod @"10000);
+math_type(p):=math_char; mcharacter(p):=qi(c mod @"10000);
 if (c>=var_code)and fam_in_range then fam(p):=cur_fam
 else fam(p):=(c div @"10000) mod @"100;
 exit:end;
@@ -31825,7 +31834,7 @@ var p,q,r:pointer; {the new noad}
 begin if c>=@"8000000 then
   @<Treat |cur_chr|...@>
 else  begin p:=new_noad; math_type(nucleus(p)):=math_char;
-  character(nucleus(p)):=qi(c mod @"10000);
+  mcharacter(nucleus(p)):=qi(c mod @"10000);
   fam(nucleus(p)):=(c div @"10000) mod @"100;
   if c>=var_code then
     begin if fam_in_range then fam(nucleus(p)):=cur_fam;
@@ -31973,7 +31982,7 @@ vmem(supscr(tail)).hh:=empty_field;
 math_type(accent_chr(tail)):=math_char;
 if cur_chr=0 then scan_fifteen_bit_int
 else scan_big_fifteen_bit_int;
-character(accent_chr(tail)):=qi(cur_val mod @"1000);
+mcharacter(accent_chr(tail)):=qi(cur_val mod @"1000);
 if (cur_val>=var_code)and fam_in_range then fam(accent_chr(tail)):=cur_fam
 else fam(accent_chr(tail)):=(cur_val div @"10000) mod @"100;
 scan_math(nucleus(tail));
@@ -32939,9 +32948,10 @@ toks_register,assign_toks: begin q:=cur_cs;
     begin define(p,undefined_cs,null); free_avail(def_ref);
     end
   else  begin if p=output_routine_loc then {enclose in curlies}
-      begin link(q):=get_avail; q:=link(q);
-      info(q):=right_brace_token+"}";
-      q:=get_avail; info(q):=left_brace_token+"{";
+      begin p:=get_avail; link(q):=p; p:=output_routine_loc; 
+      q:=link(q);info(q):=right_brace_token+"}";
+      q:=get_avail;      
+      info(q):=left_brace_token+"{";
       link(q):=link(def_ref); link(def_ref):=q;
       end;
     define(p,call,def_ref);
@@ -34172,8 +34182,8 @@ undump_int(temp_token_head); undump_int(hold_token_head);
 undump_int(omit_template); undump_int(null_list); 
 undump_int(backup_head); undump_int(garbage);
 undump_int(fix_mem_min);undump_int(fix_mem_max);
-fixmem:= xmallocarray (memory_word, fix_mem_max+1);
-memset (voidcast(fixmem),0,(fix_mem_max+1)*sizeof(memory_word));
+fixmem:= xmallocarray (smemory_word, fix_mem_max+1);
+memset (voidcast(fixmem),0,(fix_mem_max+1)*sizeof(smemory_word));
 undump_int(fix_mem_end);
 undump_int(avail);
 for k:=fix_mem_min to fix_mem_end do undump_wd(mem(k));
@@ -37428,6 +37438,13 @@ if subtype(cur_p)=local_par_node then begin
   internal_right_box:=local_box_right(cur_p);
   internal_right_box_width:=local_box_right_width(cur_p);
   end
+else begin
+  internal_pen_inter:=0; internal_pen_broken:=0;
+  init_internal_left_box:=null; init_internal_left_box_width:=0;
+  internal_left_box:=init_internal_left_box;
+  internal_left_box_width:=init_internal_left_box_width;
+  internal_right_box:=null; internal_right_box_width:=0;
+  end
 
 @ @<LOCAL: Advance past a |local_paragraph| node@>=
 if subtype(cur_p)=local_par_node then begin
@@ -37663,7 +37680,8 @@ end
 begin
 unsave;
 decr(save_ptr);
-flush_node_list(text_dir_ptr);
+if vlink(text_dir_ptr)<>null then
+  flush_node_list(text_dir_ptr);
 text_dir_ptr:=saved(0);
 end
 
@@ -37690,7 +37708,8 @@ end
 
 @ @<DIR: Adjust back |text_dir_ptr| for |scan_spec|@>=
 begin
-flush_node_list(text_dir_ptr);
+if vlink(text_dir_ptr)<>null then
+  flush_node_list(text_dir_ptr);
 text_dir_ptr:=saved(4);
 end
 
@@ -39158,7 +39177,7 @@ var s:normal..absorbing; {to save |scanner_status|}
 @!unbalance:halfword; {number of unmatched left braces}
 begin s:=scanner_status; w:=warning_index; d:=def_ref;
 scanner_status:=absorbing; warning_index:=cur_cs;
-def_ref:=get_avail; token_ref_count(def_ref):=null; p:=def_ref;
+p:=get_avail; def_ref:=p; token_ref_count(def_ref):=null; p:=def_ref;
 scan_left_brace; {remove the compulsory left brace}
 unbalance:=1;
 loop@+  begin get_token;

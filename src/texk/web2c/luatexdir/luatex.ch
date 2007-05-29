@@ -2859,8 +2859,8 @@ begin @!{|start_here|}
   pdf_os_objnum:=xmallocarray (integer, pdf_os_max_objs);
   pdf_os_objoff:=xmallocarray (integer, pdf_os_max_objs);
 @+Init
-  fixmem:=xmallocarray (memory_word, fix_mem_init +1);
-  memset (voidcast(fixmem), 0, (fix_mem_init+1)*sizeof(memory_word));
+  fixmem:=xmallocarray (smemory_word, fix_mem_init +1);
+  memset (voidcast(fixmem), 0, (fix_mem_init+1)*sizeof(smemory_word));
   fix_mem_min:=0;
   fix_mem_max:=fix_mem_init;
   varmem:=xmallocarray (memory_word, var_mem_init+2);
@@ -3356,19 +3356,19 @@ exit:end;
 @ @<Declare action procedures for use by |main_control|@>=
 
 procedure insert_src_special;
-var toklist, p, q : pointer;
+var toklist, p, q,r : pointer;
 begin
   if (source_filename_stack[in_open] > 0 and isnewsource (source_filename_stack[in_open]
 , line)) then begin
     toklist := get_avail;
     p := toklist;
     info(p) := cs_token_flag+frozen_special;
-    link(p) := get_avail; p := link(p);
+    r := get_avail; link(p):=r; p := link(p);
     info(p) := left_brace_token+"{";
     q := str_toks (makesrcspecial (source_filename_stack[in_open], line));
     link(p) := link(temp_head);
     p := q;
-    link(p) := get_avail; p := link(p);
+    r := get_avail; link(p):=r; p := link(p);
     info(p) := right_brace_token+"}";
     ins_list (toklist);
     remembersourceinfo (source_filename_stack[in_open], line);
@@ -3382,7 +3382,7 @@ begin
 , line)) then begin
     new_whatsit (special_node, write_node_size);
     write_stream(tail) := 0;
-    def_ref := get_avail;
+    q:=get_avail; def_ref := q;
     token_ref_count(def_ref) := null;
     q := str_toks (makesrcspecial (source_filename_stack[in_open], line));
     link(def_ref) := link(temp_head);

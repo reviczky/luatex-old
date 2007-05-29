@@ -131,7 +131,7 @@ extern int open_outfile(FILE **f, char *name, char *mode);
 #define pdfassert assert
 #define voidcast(a) (void *)(a)
 #define varmemcast(a) (memory_word *)(a)
-#define fixmemcast(a) (memory_word *)(a)
+#define fixmemcast(a) (smemory_word *)(a)
 
 typedef enum {
   find_write_file_callback = 1,
@@ -178,6 +178,5 @@ extern void get_saved_lua_string    (int i, char *name, char **target);
 extern void get_lua_boolean        (char *table, char *name, boolean *target);
 extern void get_lua_number         (char *table, char *name, integer *target);
 extern void get_lua_string         (char *table, char *name, char **target);
-
 
 #include <luatexdir/ptexlib.h>

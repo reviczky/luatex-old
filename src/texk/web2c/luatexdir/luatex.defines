@@ -25,9 +25,11 @@ $Id $
 @define function sizeof();
 @define procedure memset();
 @define function realloc();
+@define function malloc();
 @define function voidcast();
 @define function fixmemcast();
 @define function varmemcast();
+@define type void;
 @define var NULL;
 
 { macros from luatex.h }

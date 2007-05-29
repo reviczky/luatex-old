@@ -50,7 +50,7 @@ test_protected (lua_State *L) {
     } else if (lua_isstring(L,-1)) {
       chr = get_command_id((char *)lua_tostring(L,-1));
     }
-    if (fixmem[fixmem[chr].hh.v.RH].hh.v.LH==protected_token) {
+    if (fixmem[fixmem[chr].hhrh].hhlh==protected_token) {
       lua_pushboolean(L,1);
     } else {
       lua_pushboolean(L,0);
