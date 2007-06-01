@@ -64,7 +64,6 @@ static struct statistic stats[] = {
   { "init_pool_ptr",             'g', &init_pool_ptr     },
   { "pool_size",                 'g', &pool_size        },
   { "var_mem_max",               'g', &var_mem_max      },
-  { "var_mem_min",               'g', &var_mem_min      },
   { "fix_mem_max",               'g', &fix_mem_max      },
   { "fix_mem_min",               'g', &fix_mem_min      },
   { "fix_mem_end",               'g', &fix_mem_end      },

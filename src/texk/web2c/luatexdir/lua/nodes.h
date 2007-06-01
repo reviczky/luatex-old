@@ -4,7 +4,6 @@
 #define null -0x3FFFFFFF
 #define zero_glue 0
 
-#undef link /* defined by cpascal.h */
 #define vinfo(a)           varmem[(a)].hh.v.LH 
 #define vlink(a)           varmem[(a)].hh.v.RH 
 #define type(a)            varmem[(a)].hh.u.B0
@@ -97,7 +96,11 @@ typedef enum {
   margin_kern_node = 40, //
   glyph_node = 41,
   attribute_node = 42,
-  last_known_node = 43  } node_types ;
+  last_known_node = 43,
+  unhyphenated_node = 50, 
+  hyphenated_node = 51,
+  delta_node = 52,
+  passive_node = 53 } node_types ;
 
 extern int node_sizes[];
 
@@ -236,28 +239,31 @@ typedef enum {
   pdf_action_thread,
   pdf_action_user } pdf_action_types;
 
-#define language_node_size 3
-#define close_node_size 3
-#define write_node_size 3
-#define dir_node_size 5
 #define open_node_size 3 
-#define local_par_node_size 9
-#define pdf_refximage_node_size 6
-#define pdf_refxform_node_size  6
-#define pdf_refobj_node_size 2
-#define pdf_annot_node_size 7
-#define pdf_dest_node_size 7
-#define pdf_thread_node_size 7
-#define snap_node_size 3
+#define write_node_size 3
+#define close_node_size 3
+#define special_node_size 3
+#define language_node_size 3
+#define dir_node_size 3
+#define pdf_end_link_node_size 3
+#define pdf_end_thread_node_size 3
+#define pdf_save_pos_node_size 3
+#define pdf_snap_ref_point_node_size 3
+#define pdf_snapy_comp_node_size 3
+#define local_par_size 8
+
 #define pdf_colorstack_node_size 3
 #define pdf_setmatrix_node_size 3
 #define pdf_save_node_size     3
 #define pdf_restore_node_size  3
-#define pdf_end_link_node_size 3
-#define pdf_end_thread_node_size 3
-#define pdf_snap_ref_point_node_size 3
-#define pdf_save_pos_node_size 3
-#define close_lua_node_size 3
+#define pdf_refobj_node_size 3
+#define pdf_refxform_node_size  5
+#define pdf_refximage_node_size 5
+#define pdf_annot_node_size 7
+#define pdf_action_size 3
+#define pdf_dest_node_size 7
+#define pdf_thread_node_size 7
+#define snap_node_size 3
 
 #define make_whatsit(p,b)    { p = get_node(b);  type(p)=whatsit_node; }
 
@@ -269,7 +275,6 @@ typedef enum {
 #define attributes_field(a,b) { lua_rawgeti(L,-1,b); a = attribute_list_from_lua(L); lua_pop(L,1); }
 #define string_field(a,b)     { lua_rawgeti(L,-1,b); a = maketexstring(lua_tostring(L,-1)); lua_pop(L,1); }
 
-#define pdf_action_size 3
 #define pdf_action_type           type
 #define pdf_action_named_id       subtype
 #define pdf_action_id             vlink

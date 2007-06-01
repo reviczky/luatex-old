@@ -1630,3 +1630,154 @@ void matrixrecalculate(scaled urx)
 {
     matrixtransformrect(last_llx, last_lly, urx, last_ury);
 }
+
+#define MAX_CHAIN_SIZE 12
+
+memory_word *varmem = NULL;
+
+char *varmem_sizes = NULL;
+halfword var_mem_max = 0;
+halfword rover = 0;
+
+#define max_halfword  0x3FFFFFFF
+#define null         -0x3FFFFFFF
+
+#define vlink(a)     varmem[a].hh.v.RH
+#define node_size(a) varmem[a].hh.v.LH
+#define type(a)      varmem[a].hh.u.B0
+#define subtype(a)   varmem[a].hh.u.B1
+#define llink(a)     varmem[(a)+1].hh.v.LH
+
+halfword free_chain[MAX_CHAIN_SIZE];
+
+static int prealloc=0;
+
+#define TEST_CHAIN(s)  if (free_chain[s]>=0) {	\
+    assert(free_chain[s]>prealloc);		\
+    assert(free_chain[s]<var_mem_max);		\
+  } else { assert(free_chain[s]==null);  }
+
+
+halfword 
+get_node (integer s) {
+  halfword p,q,r;
+  integer t,x;
+  if (s==010000000000)
+    return max_halfword;
+
+  while (1) {
+    if (s<MAX_CHAIN_SIZE && free_chain[s]!=null) {
+      TEST_CHAIN(s);
+      r = free_chain[s];
+      free_chain[s] = vlink(r);
+      TEST_CHAIN(s);
+      assert(varmem_sizes[r]==s);
+      break;
+    } 
+    t=node_size(rover);
+    if (t>s) {
+      node_size(rover) = t-s;
+      r=rover+node_size(rover);
+      varmem_sizes[r]=s;
+      break;
+    } else {
+      if (t<MAX_CHAIN_SIZE) {
+	TEST_CHAIN(t);
+	vlink(rover) = free_chain[t];
+	free_chain[t] = rover;
+	TEST_CHAIN(t);
+        varmem_sizes[rover]=t;
+	q = vlink(rover);
+      } else {
+	q = rover;
+      }
+      x = var_mem_max/5;
+      if (s+1>x ) x = s+1;
+      t=var_mem_max+x;
+      varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
+      varmem_sizes = (memory_word *)realloc(varmem_sizes,sizeof(char)*t);
+      if (varmem==NULL) {
+	runaway;
+	overflow("node memory size",var_mem_max);
+      }
+      memset ((void *)(varmem+var_mem_max),0,x*sizeof(memory_word));
+      memset ((void *)(varmem_sizes+var_mem_max),0,x*sizeof(char));
+      p = var_mem_max;
+      node_size(p) = x; vlink(p) = q;
+      rover = p;
+      var_mem_max=t;
+      continue;
+    }
+  }
+  vlink(r)=null; /* this node is now nonempty */
+  type(r)=255; subtype(r)=255;
+  if (s>1) llink(r)=null;
+  var_used=var_used+s; /* maintain usage statistics */
+  /*fprintf(stdout,"%d = get_node(%d)\n",r,s);*/
+  return r;
+}
+
+void
+free_node (halfword p, integer s) {
+  if (p<=prealloc) 
+    return;
+  /*fprintf(stdout,"free_node(%d,%d)\n",p,s);*/
+  assert(varmem_sizes[p]==s);
+  if (s<MAX_CHAIN_SIZE) {
+    TEST_CHAIN(s);
+    vlink(p) = free_chain[s];
+    free_chain[s] = p;
+    TEST_CHAIN(s);
+  } else {
+    node_size(p)=s; vlink(p)=rover;
+    rover=p;
+  }
+  var_used=var_used-s; /* maintain statistics */
+}
+
+void
+init_node_mem (halfword prealloced, halfword t) {
+  int i;
+  prealloc=prealloced;
+  for (i=0;i<MAX_CHAIN_SIZE;i++) {
+    free_chain[i]=null;
+  }
+  varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
+  varmem_sizes = (char *)realloc(varmem_sizes,sizeof(char)*t);
+  if (varmem==NULL) {
+    runaway; /* if memory is exhausted, display possible runaway text */
+    overflow("node memory size",var_mem_max);
+  }
+  memset ((void *)varmem,0,sizeof(memory_word)*t);
+  memset ((void *)varmem_sizes,0,sizeof(char)*t);
+  var_mem_max=t; 
+  rover = prealloced+1; vlink(rover) = null;
+  node_size(rover)=(t-prealloced-1);
+  var_used = 0;
+}
+
+void
+dump_node_mem (void) {
+  dump_int(var_mem_max);
+  dump_int(rover);
+  dump_things(varmem[0],var_mem_max);
+  dump_things(varmem_sizes[0],var_mem_max);
+  dump_things(free_chain[0],MAX_CHAIN_SIZE);
+  dump_int(var_used);
+  dump_int(prealloc);
+}
+
+void
+undump_node_mem (void) {
+  undump_int(var_mem_max);
+  undump_int(rover);
+  varmem = xmallocarray (memory_word, var_mem_max);
+  memset ((void *)varmem,0,var_mem_max*sizeof(memory_word));
+  undump_things(varmem[0],var_mem_max);
+  varmem_sizes = xmallocarray (char, var_mem_max);
+  memset ((void *)varmem_sizes,0,var_mem_max*sizeof(char));
+  undump_things(varmem_sizes[0],var_mem_max);
+  undump_things(free_chain[0],MAX_CHAIN_SIZE);
+  undump_int(var_used); 
+  undump_int(prealloc);
+}

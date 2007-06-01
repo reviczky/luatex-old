@@ -207,7 +207,7 @@ whatsit_local_par_to_lua (lua_State *L, halfword p) {
 halfword 
 whatsit_local_par_from_lua (lua_State *L) {
   int p, i = 2;
-  make_whatsit(p,local_par_node_size);
+  make_whatsit(p,local_par_size);
 
   numeric_field  (subtype(p),i++);
   status_field(p,i++);
@@ -547,7 +547,7 @@ whatsit_close_lua_to_lua (lua_State *L, halfword p) {
 halfword 
 whatsit_close_lua_from_lua (lua_State *L) {
   int p, i = 2;
-  make_whatsit(p,close_lua_node_size);
+  make_whatsit(p,write_node_size);
 
   numeric_field(subtype(p),i++);
   status_field(p,i++);

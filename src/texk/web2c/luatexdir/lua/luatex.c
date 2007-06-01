@@ -252,6 +252,8 @@ do_zundump (char *p,  int item_size,  int nitems, FILE *in_file)
 	}
 }
 
+#define COMPRESSION "0"
+
 boolean 
 zopen_w_input (FILE **f, int format, const_string fopen_mode) {
   int callbackid;
@@ -276,7 +278,7 @@ zopen_w_input (FILE **f, int format, const_string fopen_mode) {
 	res = open_input(f,format,fopen_mode);
   }
   if (res) {
-	gz_fmtfile = gzdopen(fileno(*f),"rb3");
+	gz_fmtfile = gzdopen(fileno(*f),"rb" COMPRESSION);
   }
   return res;
 }
@@ -295,7 +297,7 @@ zopen_w_output (FILE **f, const_string fopen_mode) {
     res =  open_output(f,fopen_mode);
   }
   if (res) {
-	gz_fmtfile = gzdopen(fileno(*f),"wb3");
+	gz_fmtfile = gzdopen(fileno(*f),"wb" COMPRESSION);
   }
   return res;
 }

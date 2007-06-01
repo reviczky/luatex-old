@@ -132,6 +132,15 @@ extern int open_outfile(FILE **f, char *name, char *mode);
 #define voidcast(a) (void *)(a)
 #define varmemcast(a) (memory_word *)(a)
 #define fixmemcast(a) (smemory_word *)(a)
+extern memory_word *varmem;
+extern halfword var_mem_min;
+extern halfword var_mem_max;
+extern halfword  get_node (integer s);
+extern void free_node (halfword p, integer s) ;
+extern void init_node_mem (integer r, integer s) ;
+extern void dump_node_mem (void) ;
+extern void undump_node_mem (void);
+
 
 typedef enum {
   find_write_file_callback = 1,

@@ -4,6 +4,10 @@
 #include <ptexlib.h>
 #include "nodes.h"
 
+#undef link /* defined by cpascal.h */
+#define info(a)    fixmem[(a)].hhlh
+#define link(a)    fixmem[(a)].hhrh
+
 #define append_node(t,a)   { if (a!=null) { vlink(a) = null; vlink(t) = a;  t = a;  } }
 
 static char * node_names[] = {
@@ -111,7 +115,7 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
       if (val == null) {
         lua_pushnil(L);
       } else {
-        tokenlist_to_lua(L,vlink(val));
+        tokenlist_to_lua(L,link(val));
       }
       lua_rawseti(L,-2,i++);
       break;
@@ -341,13 +345,15 @@ glue_node_to_lua (lua_State *L, halfword p) {
 
 halfword 
 glue_node_from_lua (lua_State *L) {
+  int junk;
   int i = 2;
   halfword q = get_node(glue_spec_size);
   halfword p = get_node(glue_node_size); 
   type(p)=glue_node; 
   leader_ptr(p)=null;
+  glue_ptr(p)=q;
   numeric_field (subtype(p),i++);
-  attributes_field(node_attr(p),i++);  
+  attributes_field(node_attr(p),i++);   
   numeric_field (width(q),i++);
   numeric_field (stretch(q),i++);
   numeric_field (stretch_order(q),i++);
@@ -355,7 +361,6 @@ glue_node_from_lua (lua_State *L) {
   numeric_field (shrink_order(q),i++);
   nodelist_field(leader_ptr(p),i++);
   glue_ref_count(q) = null;
-  node_attr(q)=null;
   return p;
 }
 
@@ -679,6 +684,11 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
     lua_pop(L,2);
     return;
   }
+  /*
+   breadth_max=100000;
+   depth_threshold=100;
+   show_node_list(vlink(head_node));
+  */
   nodelist_to_lua(L,vlink(head_node));
   lua_pushstring(L,group_code_names[extrainfo]);
   if (lua_pcall(L,2,1,0) != 0) { /* no arg, 1 result */
@@ -695,6 +705,7 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
   } else {
     flush_node_list(vlink(head_node));
     vlink(head_node) = nodelist_from_lua(L);
+    /*show_node_list(vlink(head_node));*/
   }
   lua_pop(L,2); /* result and callback container table */
   ret = vlink(head_node); 

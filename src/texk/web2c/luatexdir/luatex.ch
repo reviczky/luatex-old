@@ -709,12 +709,6 @@ So they have been simplified here in the obvious way.
 @z
 
 @x
-if r>p+1 then @<Allocate from the top of node |p| and |goto found|@>;
-@y
-if r>intcast(p+1) then @<Allocate from the top of node |p| and |goto found|@>;
-@z
-
-@x
   if abs(vmem(p+glue_offset).int)<@'4000000 then print("?.?")
   else if abs(g)>float_constant(20000) then
 @y
@@ -2400,21 +2394,9 @@ undump_things(str_pool[0], pool_ptr);
 @z
 
 @x
-for k:=var_mem_min to var_mem_max+1 do dump_wd(vmem(k));
-@y
-dump_things(vmem(var_mem_min), var_mem_max+2-var_mem_min);
-@z
-
-@x
 for k:=fix_mem_min to fix_mem_end do dump_wd(mem(k));
 @y
 dump_things(mem(fix_mem_min), fix_mem_end-fix_mem_min+1);
-@z
-
-@x
-for k:=var_mem_min to var_mem_max+1 do undump_wd(vmem(k));
-@y
-undump_things(vmem(var_mem_min), var_mem_max+2-var_mem_min);
 @z
 
 @x
@@ -2859,14 +2841,10 @@ begin @!{|start_here|}
   pdf_os_objnum:=xmallocarray (integer, pdf_os_max_objs);
   pdf_os_objoff:=xmallocarray (integer, pdf_os_max_objs);
 @+Init
-  fixmem:=xmallocarray (smemory_word, fix_mem_init +1);
+  fixmem:=xmallocarray (smemory_word, fix_mem_init+1);
   memset (voidcast(fixmem), 0, (fix_mem_init+1)*sizeof(smemory_word));
   fix_mem_min:=0;
   fix_mem_max:=fix_mem_init;
-  varmem:=xmallocarray (memory_word, var_mem_init+2);
-  memset (voidcast(varmem), 0, (var_mem_init+2)*sizeof(memory_word));
-  var_mem_min:=0;
-  var_mem_max:=var_mem_init;
 
   eqtb_top := eqtb_size+hash_extra;
   if hash_extra=0 then hash_top:=undefined_control_sequence else
