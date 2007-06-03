@@ -13,10 +13,10 @@
 #define attribute_id(a)    vlink((a)+1)
 #define attribute_value(a) vinfo((a)+1)
 
-#define temp_node_size 2
+#define temp_node_size 1
 
-#define penalty_node_size 3
-#define penalty(a)       varmem[(a+2)].cint
+#define penalty_node_size 3 
+#define penalty(a)       vlink((a)+1)
 
 #define glue_node_size 3
 #define glue_ptr(a)      vinfo((a)+2)
@@ -28,38 +28,38 @@
 
 #define kern_node_size 3
 #define margin_kern_node_size 3
-#define box_node_size 9
+#define box_node_size 8
 #define width(a)         varmem[(a+2)].cint
 #define depth(a)         varmem[(a+3)].cint
 #define height(a)        varmem[(a+4)].cint
-#define shift_amount(a)  varmem[(a+5)].cint
+#define shift_amount(a)  vlink((a)+5)
+#define box_dir(a)       vinfo((a)+5)
 #define list_ptr(a)      vlink((a)+6)
 #define glue_order(a)    subtype((a)+6)
 #define glue_sign(a)     type((a)+6)
 #define glue_set(a)      varmem[(a+7)].gr
-#define box_dir(a)       varmem[(a+8)].cint
 
 /* unset nodes */
 #define glue_stretch(a)  varmem[(a)+7].cint
 #define glue_shrink      shift_amount
 #define span_count       subtype
 
-#define rule_node_size 6
-#define rule_dir(a)      vinfo(a+5)
+#define rule_node_size 5
+#define rule_dir(a)      vlink((a)+1)
 
 #define mark_node_size 3
-#define mark_ptr(a)      vlink(a+2)
-#define mark_class(a)    vinfo(a+2)
+#define mark_ptr(a)      vlink((a)+2)
+#define mark_class(a)    vinfo((a)+2)
 
 /* a glue spec */
-#define glue_spec_size 4
-#define stretch(a)       varmem[(a+3)].cint
-#define shrink(a)        varmem[(a+1)].cint
+#define glue_spec_size 3
+#define stretch(a)       vlink((a)+1)
+#define shrink(a)        vinfo((a)+1)
 #define stretch_order    type
 #define shrink_order     subtype
 #define glue_ref_count   vlink
 
-#define adjust_node_size 3
+#define adjust_node_size 2
 #define adjust_ptr(a)    vlink(a+1)
 
 #define glyph_node_size 3 /* and ligatures */
@@ -69,7 +69,7 @@
 #define lig_ptr(a)      vlink((a)+2)
 #define is_char_node(a) (a!=null && type(a)==glyph_node)
 
-#define math_node_size 3
+#define math_node_size 2
 #define surround(a)      vlink((a)+1)
 
 #define ins_node_size 6

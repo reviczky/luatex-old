@@ -1671,6 +1671,9 @@ get_node (integer s) {
       r = free_chain[s];
       free_chain[s] = vlink(r);
       TEST_CHAIN(s);
+      fprintf(stdout,"get_node(%d), %d (%p)\n",s,r, varmem);
+      assert(varmem_sizes[r]<0);
+      varmem_sizes[r] = abs(varmem_sizes[r]);
       assert(varmem_sizes[r]==s);
       break;
     } 
@@ -1679,8 +1682,10 @@ get_node (integer s) {
       node_size(rover) = t-s;
       r=rover+node_size(rover);
       varmem_sizes[r]=s;
+      fprintf(stdout,"get_node+(%d), %d (%p)\n",s,r, varmem);
       break;
     } else {
+      fprintf(stdout,"get_node(%d), (%p)\n",s, varmem);
       if (t<MAX_CHAIN_SIZE) {
 	TEST_CHAIN(t);
 	vlink(rover) = free_chain[t];
@@ -1691,11 +1696,12 @@ get_node (integer s) {
       } else {
 	q = rover;
       }
-      x = var_mem_max/5;
-      if (s+1>x ) x = s+1;
+      x = (var_mem_max/5)+s; /* this way |s| will always fit */
+      /* make sure we get up to speed quickly */
+      if (var_mem_max<25000) {	x += 25000;  }
       t=var_mem_max+x;
       varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
-      varmem_sizes = (memory_word *)realloc(varmem_sizes,sizeof(char)*t);
+      varmem_sizes = (char *)realloc(varmem_sizes,sizeof(char)*t);
       if (varmem==NULL) {
 	runaway;
 	overflow("node memory size",var_mem_max);
@@ -1713,7 +1719,7 @@ get_node (integer s) {
   type(r)=255; subtype(r)=255;
   if (s>1) llink(r)=null;
   var_used=var_used+s; /* maintain usage statistics */
-  /*fprintf(stdout,"%d = get_node(%d)\n",r,s);*/
+  /*if (r==155909)*/
   return r;
 }
 
@@ -1721,8 +1727,10 @@ void
 free_node (halfword p, integer s) {
   if (p<=prealloc) 
     return;
-  /*fprintf(stdout,"free_node(%d,%d)\n",p,s);*/
+  fprintf(stdout,"free_node(%d), %d (%p)\n",s,p,varmem);
+  assert(varmem_sizes[p]>0);
   assert(varmem_sizes[p]==s);
+  varmem_sizes[p] = -varmem_sizes[p];
   if (s<MAX_CHAIN_SIZE) {
     TEST_CHAIN(s);
     vlink(p) = free_chain[s];

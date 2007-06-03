@@ -3455,8 +3455,6 @@ we try first to increase |fix_mem_end|. If that cannot be done, i.e., if
 |fix_mem_end=fix_mem_max|, we try to reallocate array |fixmem|. 
 If, that doesn't work, we have to quit.
 
-@d fix_mem_increment=100000
-
 @p function get_avail : pointer; {single-word node allocation}
 var p:pointer; {the new node being got}
 t:integer;
@@ -3465,16 +3463,17 @@ if p<>null then avail:=link(avail) {and pop it off}
 else if fix_mem_end<fix_mem_max then {or go into virgin territory}
   begin incr(fix_mem_end); p:=fix_mem_end;
   end
-else  begin t:=fix_mem_max+fix_mem_increment;
-  fixmem := fixmemcast(realloc(fixmem,sizeof(smemory_word)*(t+1)));
+else  begin
+  t:=(fix_mem_max/5);
+  fixmem := fixmemcast(realloc(fixmem,sizeof(smemory_word)*(fix_mem_max+t+1)));
   if fixmem=NULL then
     begin runaway; {if memory is exhausted, display possible runaway text}
     overflow("token memory size",fix_mem_max);
       {quit; all one-word nodes are busy}
 @:TeX capacity exceeded main memory size}{\quad main memory size@>
     end;
-  memset (voidcast(fixmem+(fix_mem_max+1)),0,fix_mem_increment*sizeof(smemory_word));
-  fix_mem_max:=t; incr(fix_mem_end); p:=fix_mem_end;
+  memset (voidcast(fixmem+fix_mem_max+1),0,t*sizeof(smemory_word));
+  fix_mem_max:=fix_mem_max+t; incr(fix_mem_end); p:=fix_mem_end;
   end;
 link(p):=null; {provide an oft-desired initialization of the new node}
 @!stat incr(dyn_used);@+tats@;{maintain statistics}
@@ -3521,7 +3520,7 @@ end;
 of |mem| is a nonempty, doubly-linked circular list of empty nodes,
 pointed to by the roving pointer |rover|.
 
-@d temp_node_size==2
+@d temp_node_size==1
 @d vmem(#) == varmem[#]
 @d vlink(#) == vmem(#).hh.rh {the |link| field of a memory word}
 @d vinfo(#) == vmem(#).hh.lh {the |info| field of a memory word}
@@ -3534,16 +3533,6 @@ pointed to by the roving pointer |rover|.
 the operation |free_node(p,s)| will make its words available, by inserting
 |p| as a new empty node just before where |rover| now points.
 @^inner loop@>
-
-@p procedure ext_free_node(@!p:pointer; @!s:halfword); {node liberation}
-var q,r:pointer; {|llink(rover)|}
-begin q := node_attr(p);
-while q<>null do begin
-  r:=q; q:=vlink(q);
-  free_node(r,attribute_node_size);
-  end;
-free_node(p,s);
-end;
 
 @* \[10] Data structures for boxes and their friends.
 From the computer's standpoint, \TeX's chief mission is to create
@@ -3604,6 +3593,24 @@ In order to make sure that the |character| code fits in a quarterword,
 
 Character nodes appear only in horizontal lists, never in vertical lists.
 
+@ Attribute lists need two extra globals to increase processing efficiency.
+|max_used_attr| limits the test loop that checks for set attributes, and
+|attr_list_cache| contains a pointer to an already created attribute list.  It is
+set to the special value |cache_disabled| when the current value can no longer be
+trusted: after an assignment to an attribute register, and after a group has
+ended.
+
+@d cache_disabled==max_halfword
+@d attr_list_ref(#)==vinfo(#) {the reference count}
+@d add_node_attr_ref(#)==if #<>null then incr(attr_list_ref(#))
+ 
+@<Glob...@>=
+max_used_attr:integer; { maximum assigned attribute id }
+attr_list_cache:halfword; { a cached attribute list }
+
+@ @<Set init...@>=
+max_used_attr:=0; 
+attr_list_cache:=null;
 
 @ An |attribute_node| is a pretty simple two-word construct, that is
 used to attach the current attribute values to the main nodes. 
@@ -3622,30 +3629,59 @@ new_attribute_node:=p;
 end;
 
 @ @p procedure build_attribute_list(b:pointer);
-var p,q:pointer; {temporary attribute list}
+var p,q,r:pointer; {temporary attribute list}
 i,v:integer;
 begin i:=0;
-if node_attr(b)<>null then begin
-  writeln('attribute list was not zero for a node of type: ', type(b):1);
-  node_attr(b):=null;
+if max_used_attr<>0 then begin
+  if attr_list_cache=cache_disabled then begin
+    p:=get_node(temp_node_size); q:=null;
+    while i<max_used_attr do {temporary limit}
+      begin v:=attribute(i);
+       if v>=0 then begin
+         r:=new_attribute_node(i,v);  vlink(p):=r;
+         if q=null then q:=p;
+         p:=vlink(p);
+         end;
+       incr(i);
+      end;
+    if q<>null then begin
+      attr_list_cache:=q;
+      attr_list_ref(attr_list_cache):=null+1;
+      end
+    else begin
+      free_node(p,temp_node_size);
+      attr_list_cache:=null;
+      end;
+    node_attr(b):=attr_list_cache;
+    end
+  else begin
+    if attr_list_cache<>null then
+      incr(attr_list_ref(attr_list_cache));
+    node_attr(b):=attr_list_cache;
+    end;
   end;
-if true then begin
-p:=get_node(temp_node_size); q:=null;
-while i<256 do {temporary limit}
-  begin v:=attribute(i);
-   if v>=0 then begin
-     vlink(p):=new_attribute_node(i,v); 
-     if q=null then q:=p;
-     p:=vlink(p);
-     end;
-   incr(i);
-  end;
-if q<>null then begin
-  node_attr(b):=vlink(q);
-  free_node(q,temp_node_size);
-  end
-else free_node(p,temp_node_size);
 end;
+
+@ @p procedure delete_attribute_ref(b:pointer);
+var r,q:halfword;
+begin 
+  if b<>null then begin
+    decr(attr_list_ref(b));
+    if attr_list_ref(b)=null then begin
+      q:=vlink(b);
+      while q<>null do begin
+        r:=q; q:=vlink(q);
+        free_node(r,attribute_node_size);
+        end;
+      free_node(b,temp_node_size);
+    end;
+  end;
+end;
+@#
+procedure ext_free_node(@!p:pointer; @!s:halfword); {node liberation}
+begin 
+delete_attribute_ref(node_attr(p));
+free_node(p,s);
 end;
 
 
@@ -3668,14 +3704,15 @@ specifies the order of infinity to which glue setting applies (|normal|,
 |sfi|, |fil|, |fill|, or |filll|). The |subtype| field is not used.
 
 @d hlist_node=0 {|type| of hlist nodes}
-@d box_node_size=9 {number of words to allocate for a box node}
+@d box_node_size=8 {number of words to allocate for a box node}
 @d width_offset=2 {position of |width| field in a box node}
 @d depth_offset=3 {position of |depth| field in a box node}
 @d height_offset=4 {position of |height| field in a box node}
 @d width(#) == vmem(#+width_offset).sc {width of the box, in sp}
 @d depth(#) == vmem(#+depth_offset).sc {depth of the box, in sp}
 @d height(#) == vmem(#+height_offset).sc {height of the box, in sp}
-@d shift_amount(#) == vmem(#+5).sc {repositioning distance, in sp}
+@d shift_amount(#) == vlink(#+5) {repositioning distance, in sp}
+@d box_dir(#) == vinfo(#+5) {position of |box_dir| in a box node}
 @d list_offset=6 {position of |list_ptr| field in a box node}
 @d list_ptr(#) == vlink(#+list_offset) {beginning of the list inside the box}
 @d glue_order(#) == subtype(#+list_offset) {applicable order of infinity}
@@ -3686,8 +3723,6 @@ specifies the order of infinity to which glue setting applies (|normal|,
 @d glue_offset = 7 {position of |glue_set| in a box node}
 @d glue_set(#) == vmem(#+glue_offset).gr
   {a word of type |glue_ratio| for glue setting}
-@d dir_offset = 8 {position of |box_dir| in a box node}
-@d box_dir(#) == vmem(#+dir_offset).int
 
 @ The |new_null_box| function returns a pointer to an |hlist_node| in
 which all subfields have the values corresponding to `\.{\\hbox\{\}}'.
@@ -3718,10 +3753,10 @@ This is called a ``running dimension.'' The |width| is never running in
 an hlist; the |height| and |depth| are never running in a~vlist.
 
 @d rule_node=2 {|type| of rule nodes}
-@d rule_node_size=6 {number of words to allocate for a rule node}
+@d rule_node_size=5 {number of words to allocate for a rule node}
 @d null_flag==-@'10000000000 {$-2^{30}$, signifies a missing item}
 @d is_running(#) == (#=null_flag) {tests for a running dimension}
-@d rule_dir(#)==vinfo(#+5)
+@d rule_dir(#)==vlink(#+1)
 
 @ A new rule node is delivered by the |new_rule| function. It
 makes all the dimensions ``running,'' so you have to change the
@@ -3771,7 +3806,7 @@ operation.  The |adjust_ptr| field points to the vlist containing this
 material.
 
 @d adjust_node=5 {|type| of an adjust node}
-@d adjust_node_size=3
+@d adjust_node_size=2
 @d adjust_pre == subtype  {pre-adjustment?}
 @d adjust_ptr(#)==vlink(#+1) {vertical list to be moved out of horizontal list}
 @#{|append_list| is used to append a list to |tail|}
@@ -3795,7 +3830,7 @@ to a potential attribute list.
 
 @p function new_glyph(@!f,@!c:integer):pointer;
 var p:pointer; {the new node}
-begin p:=get_node(glyph_node_size);  set_type(p,glyph_node);
+begin p:=get_node(glyph_node_size); set_type(p,glyph_node);
 subtype(p):=0; font(p):=f;  character(p):=c; 
 build_attribute_list(p);
 lig_ptr(p):=null;
@@ -3889,11 +3924,11 @@ discussion of extensions until the end of this program.
 
 @ A |math_node|, which occurs only in horizontal lists, appears before and
 after mathematical formulas. The |subtype| field is |before| before the
-formula and |after| after it. There is a |width| field, which represents
+formula and |after| after it. There is a |surround field, which represents
 the amount of surrounding space inserted by \.{\\mathsurround}.
 
 @d math_node=9 {|type| of a math node}
-@d math_node_size=3
+@d math_node_size=2
 @d surround(#)==vlink(#+1)
 @d before=0 {|subtype| for math node that introduces a formula}
 @d after=1 {|subtype| for math node that winds up a formula}
@@ -3964,10 +3999,10 @@ fields called |stretch_order| and |shrink_order|; these contain the
 orders of infinity (|normal|, |sfi|, |fil|, |fill|, or |filll|)
 corresponding to the stretch and shrink values.
 
-@d glue_spec_size=4 {number of words to allocate for a glue specification}
+@d glue_spec_size=3 {number of words to allocate for a glue specification}
 @d glue_ref_count(#) == vlink(#) {reference count of a glue specification}
-@d stretch(#) == vmem(#+3).sc {the stretchability of this glob of glue}
-@d shrink(#) == vmem(#+1).sc {the shrinkability of this glob of glue}
+@d stretch(#) == vlink(#+1) {the stretchability of this glob of glue}
+@d shrink(#) == vinfo(#+1) {the shrinkability of this glob of glue}
 @d stretch_order == type {order of infinity for stretching}
 @d shrink_order == subtype {order of infinity for shrinking}
 @d sfi=1 {first-order infinity}
@@ -4092,10 +4127,10 @@ Similarly, any penalty |<=-10000| is treated as negative infinity, and a
 break will be forced.
 
 @d penalty_node=12 {|type| of a penalty node}
-@d penalty_node_size=3
+@d penalty_node_size=3 {has to be the same as |glue_node_size|}
 @d inf_penalty=inf_bad {``infinite'' penalty value}
 @d eject_penalty=-inf_penalty {``negatively infinite'' penalty value}
-@d penalty(#) == vmem(#+2).int {the added cost of breaking a list here}
+@d penalty(#) == vlink(#+1) {the added cost of breaking a list here}
 
 @ Anyone who has been reading the last few sections of the program will
 be able to guess what comes next.
@@ -4182,7 +4217,7 @@ initializing itself the slow~way.
 
 @ @<Initialize table entries...@>=
 procedure init_link_heads;forward;
-init_node_mem(var_mem_stat_max,10000); 
+init_node_mem(var_mem_stat_max,500); 
 glue_ref_count(zero_glue):=null+1; width(zero_glue):=0; 
 stretch(zero_glue):=0; stretch_order(zero_glue):=normal;@/
 shrink(zero_glue):=0; shrink_order(zero_glue):=normal;@/
@@ -4486,6 +4521,7 @@ else  begin @<Display the value of |glue_set(p)|@>;
     end;
   print(", direction "); print_dir(box_dir(p));
   end;
+pdfassert(list_ptr(p)<>0);
 node_list_display(list_ptr(p)); {recursive call}
 end
 
@@ -4686,10 +4722,8 @@ while p<>null do
   begin q:=vlink(p);
     case type(p) of
     glyph_node: begin
+      flush_node_list(lig_ptr(p));
       ext_free_node(p,glyph_node_size); 
-      end;
-    attribute_node: begin 
-      free_node(p,attribute_node_size); 
       end;
     hlist_node,vlist_node,unset_node: begin 
       flush_node_list(list_ptr(p));
@@ -4777,6 +4811,7 @@ relative position---then this code may need to be changed too.
 var h:pointer; {temporary head of copied list}
 @!q:pointer; {previous position in new list}
 @!r:pointer; {current node being fabricated for new list}
+@!s:pointer; {a helper variable for copying into variable mem }
 begin h:=get_node(temp_node_size); q:=h;
 while p<>null do
   begin @<Make a copy of node |p| in node |r|@>;
@@ -4789,71 +4824,78 @@ end;
 
 @ @<Make a copy of node |p|...@>=
 case type(p) of
-attribute_node: begin r:=get_node(attribute_node_size); 
-  attribute_id(r):=attribute_id(p); 
-  attribute_value(r):=attribute_value(p);
-  end;
 glyph_node,ligature_node: begin r:=get_node(glyph_node_size);
   character(r):=character(p); font(r):=font(p);
-  node_attr(r):=copy_node_list(node_attr(p));
-  lig_ptr(r):=copy_node_list(lig_ptr(p));
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
+  s:=copy_node_list(lig_ptr(p));
+  lig_ptr(r):=s;
   end;
 hlist_node,vlist_node,unset_node: begin r:=get_node(box_node_size);
   width(r):=width(p);  height(r):=height(p); depth(r):=depth(p);
   shift_amount(r):=shift_amount(p); 
-  list_ptr(r):=copy_node_list(list_ptr(p));
+  pdfassert(list_ptr(p)<>0);
+  s:=copy_node_list(list_ptr(p));
+  list_ptr(r):=s;
+  pdfassert(list_ptr(r)<>0);
   glue_order(r):=glue_order(p); glue_sign(r):=glue_sign(p);
   glue_set(r):=glue_set(p); box_dir(r):=box_dir(p);
-  node_attr(r):=copy_node_list(node_attr(p));
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 rule_node: begin r:=get_node(rule_node_size);
   width(r):=width(p);  height(r):=height(p); depth(r):=depth(p);
   rule_dir(r):=rule_dir(p);
-  node_attr(r):=copy_node_list(node_attr(p));
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 ins_node: begin r:=get_node(ins_node_size);
   float_cost(r):=float_cost(p); 
   height(r):=height(p); depth(r):=depth(p);
   split_top_ptr(r):=split_top_ptr(p); add_glue_ref(split_top_ptr(p)); 
-  ins_ptr(r):=copy_node_list(ins_ptr(p));
-  node_attr(r):=copy_node_list(node_attr(p));
+  s:=copy_node_list(ins_ptr(p));
+  ins_ptr(r):=s;
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 whatsit_node:@<Make a partial copy of the whatsit node |p| and make |r|
   point to it; set |words| to the number of initial words not yet copied@>;
 glue_node: begin r:=get_node(glue_node_size); add_glue_ref(glue_ptr(p));
   glue_ptr(r):=glue_ptr(p); 
-  leader_ptr(r):=copy_node_list(leader_ptr(p));
-  node_attr(r):=copy_node_list(node_attr(p));
+  s:=copy_node_list(leader_ptr(p));
+  leader_ptr(r):=s;
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
-kern_node,math_node:  begin r:=get_node(math_node_size);
+kern_node: begin r:=get_node(kern_node_size);
+  width(r):=width(p);
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
+  end;
+math_node: begin r:=get_node(math_node_size);
   surround(r):=surround(p);
-  node_attr(r):=copy_node_list(node_attr(p));
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 penalty_node: begin r:=get_node(penalty_node_size);
   penalty(r):=penalty(p);
-  node_attr(r):=copy_node_list(node_attr(p));
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 margin_kern_node: begin r:=get_node(margin_kern_node_size);
   width(r):=width(p);
-  node_attr(r):=copy_node_list(node_attr(p));
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   margin_char(r):=get_node(glyph_node_size);
   font(margin_char(r)):=font(margin_char(p));
   character(margin_char(r)):=character(margin_char(p));  
   lig_ptr(margin_char(r)):=null;
-  node_attr(margin_char(r)):=copy_node_list(node_attr(margin_char(p)));
+  node_attr(margin_char(r)):=node_attr(margin_char(p));
+  add_node_attr_ref(node_attr(margin_char(p)));
   end;
 disc_node: begin r:=get_node(disc_node_size);
-  pre_break(r):=copy_node_list(pre_break(p));
-  post_break(r):=copy_node_list(post_break(p));
-  node_attr(r):=copy_node_list(node_attr(p));
+  s:=copy_node_list(pre_break(p)); pre_break(r):=s;
+  s:=copy_node_list(post_break(p)); post_break(r):=s;
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 mark_node: begin r:=get_node(mark_node_size); add_token_ref(mark_ptr(p));
   mark_ptr(r):=mark_ptr(p); mark_class(r):=mark_class(p);
-  node_attr(r):=copy_node_list(node_attr(p));
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 adjust_node: begin r:=get_node(adjust_node_size);
-  adjust_ptr(r):=copy_node_list(adjust_ptr(p));
-  node_attr(r):=copy_node_list(node_attr(p));
+  s:=copy_node_list(adjust_ptr(p)); adjust_ptr(r):=s;
+  node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
 othercases confusion("copying")
 @:this can't happen copying}{\quad copying@>
@@ -7662,6 +7704,7 @@ if cur_level>level_one then
   end
 else confusion("curlevel"); {|unsave| is not used when |cur_group=bottom_level|}
 @:this can't happen curlevel}{\quad curlevel@>
+attr_list_cache:=cache_disabled;
 end;
 
 @ @<Clear off...@>=
@@ -15412,6 +15455,7 @@ dvi_dir_h,dvi_dir_ptr,dvi_temp_ptr:integer;
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
+pdfassert(p<>0);
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
 @<DIR: Initialize |dir_ptr| for |ship_out|@>;
@@ -15851,6 +15895,7 @@ var left_edge: scaled; {the left coordinate for this box}
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
+pdfassert(p<>0);
 saving_v:=dvi_v; saving_h:=dvi_h;
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
@@ -18925,6 +18970,7 @@ dvi_dir_h,dvi_dir_ptr,dvi_temp_ptr:integer;
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
+pdfassert(p<>0);
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
 @<DIR: Initialize |dir_ptr| for |ship_out|@>;
@@ -19342,6 +19388,7 @@ var left_edge: scaled; {the left coordinate for this box}
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
+pdfassert(p<>0);
 saving_v:=cur_v; saving_h:=cur_h;
 {writeln(''); writeln('vlist_out: left edge: ', cur_h:1 , '');}
 save_direction:=dvi_direction;
@@ -21740,6 +21787,7 @@ var r:pointer; {the box node that will be returned}
 @!g:pointer; {points to a glue specification}
 @!o:glue_ord; {order of infinity}
 begin last_badness:=0; 
+pdfassert(p<>0);
 r:=get_node(box_node_size); set_type(r,vlist_node); build_attribute_list(r);
 if pack_direction=-1 then
   box_dir(r):=body_direction
@@ -22605,7 +22653,7 @@ var @!b,@!p:pointer; {the new box and its character node}
 begin 
 b:=new_null_box; width(b):=char_width(f,c)+char_italic(f,c);
 height(b):=char_height(f,c); depth(b):=char_depth(f,c);
-p:=new_glyph(f,c); list_ptr(b):=p; char_box:=b;
+p:=new_glyph(f,c); pdfassert(p<>0); list_ptr(b):=p; char_box:=b;
 end;
 
 @ When the following code is executed, |char_tag(q)| will be equal to
@@ -24848,19 +24896,19 @@ recently created passive node. Another global variable, |printed_node|,
 is used to help print out the paragraph when detailed information about
 the line-breaking computation is being displayed.
 
-@d passive_node_size=11 {number of words in passive nodes}
+@d passive_node_size=8 {number of words in passive nodes}
 @d passive_node=53
 @d cur_break==rlink {in passive node, points to position of this breakpoint}
 @d prev_break==llink {points to passive node that should precede this one}
-@d serial(#)==vlink(#+10) {serial number for symbolic identification}
+@d serial(#)==vlink(#+7) {serial number for symbolic identification}
 @d passive_pen_inter(#)==vmem(#+2).int
 @d passive_pen_broken(#)==vmem(#+3).int
-@d passive_left_box(#)==vmem(#+4).int
-@d passive_left_box_width(#)==vmem(#+5).int
-@d passive_last_left_box(#)==vmem(#+6).int
-@d passive_last_left_box_width(#)==vmem(#+7).int
-@d passive_right_box(#)==vmem(#+8).int
-@d passive_right_box_width(#)==vmem(#+9).int
+@d passive_left_box(#)==vlink(#+4)
+@d passive_left_box_width(#)==vinfo(#+4)
+@d passive_last_left_box(#)==vlink(#+5)
+@d passive_last_left_box_width(#)==vinfo(#+5)
+@d passive_right_box(#)==vlink(#+6)
+@d passive_right_box_width(#)==vinfo(#+6)
 
 @<Glob...@>=
 @!passive:pointer; {most recent node on passive list}
@@ -26866,11 +26914,11 @@ first letter.
 
 @<Skip to node |ha|, or |goto done1|...@>=
 loop@+  begin if is_char_node(s) then
-    begin c:=qo(character(s)); hf:=font(s); hattr:=copy_node_list(node_attr(s));
+    begin c:=qo(character(s)); hf:=font(s); hattr:=node_attr(s); {add_node_attr_ref(node_attr(s));}
     end
   else if type(s)=ligature_node then
     if lig_ptr(s)=null then goto continue
-    else begin q:=lig_ptr(s); c:=qo(character(q)); hf:=font(q); hattr:=copy_node_list(node_attr(q));
+    else begin q:=lig_ptr(s); c:=qo(character(q)); hf:=font(q); hattr:=node_attr(q); {add_node_attr_ref(node_attr(q));}
       end
   else if (type(s)=kern_node)and(subtype(s)=normal) then goto continue
   else if type(s)=whatsit_node then
@@ -27134,7 +27182,7 @@ $$|cur_r|=\cases{|character(lig_stack)|,&if |lig_stack>null|;\cr
 @!lft_hit,@!rt_hit:boolean; {did we hit a ligature with a boundary character?}
 
 @ @d append_charnode_to_t(#)== begin vlink(t):=new_glyph(hf,#); t:=vlink(t); 
-    node_attr(t):=copy_node_list(hattr);
+    node_attr(t):=hattr; add_node_attr_ref(hattr);
    end
 @d set_cur_r==begin if j<n then cur_r:=qi(hu[j+1])@+else cur_r:=bchar;
     if odd(hyf[j]) then cur_rh:=hchar@+else cur_rh:=non_boundarychar;
@@ -27198,8 +27246,8 @@ else begin
 
 @ @d wrap_lig(#)==if ligature_present then
     begin p:=new_ligature(hf,cur_l,vlink(cur_q));
-    flush_node_list(node_attr(p));
-    node_attr(p):=copy_node_list(hattr);
+    delete_attribute_ref(node_attr(p));
+    node_attr(p):=hattr; add_node_attr_ref(hattr);
     if lft_hit then
       begin subtype(p):=2; lft_hit:=false;
       end;
@@ -27239,8 +27287,8 @@ qi(2),qi(6):begin cur_r:=lig_replacement(lig); {\.{\?=:}, \.{\?=:>}}
   else begin lig_stack:=new_lig_item(cur_r);
     if j=n then bchar:=non_boundarychar
     else begin p:=new_glyph(hf,qi(hu[j+1])); lig_ptr(lig_stack):=p;
-      flush_node_list(node_attr(p));
-      node_attr(p):=copy_node_list(hattr); end;
+      delete_attribute_ref(node_attr(p));
+      node_attr(p):=hattr; add_node_attr_ref(hattr); end;
     end;
   end;
 qi(3):begin cur_r:=lig_replacement(lig); {\.{\?=:\?}}
@@ -29658,7 +29706,7 @@ if ((cur_chr<font_bc(main_f))or(cur_chr>font_ec(main_f)))or
     ext_free_node(lig_stack,glyph_node_size); goto big_switch;
   end;
 if not (left_ghost or right_ghost) then begin
-  tail_append(lig_stack); {|main_loop_lookahead| is next}
+  tail_append(lig_stack);  {|main_loop_lookahead| is next}
 end;
 
 @ Here we are at |main_loop_move_lig|.
@@ -29809,7 +29857,7 @@ is zero or~not.
 if space_skip=zero_glue then
   begin @<Find the glue specification, |main_p|, for
     text spaces in the current font@>;
-  temp_ptr:=new_glue(main_p); glue_ref_count(main_p):=null;
+  temp_ptr:=new_glue(main_p);
   end
 else temp_ptr:=new_param_glue(space_skip_code);
 if pdf_adjust_interword_glue > 0 then
@@ -29819,14 +29867,29 @@ vlink(tail):=temp_ptr; tail:=temp_ptr
 
 @ From Knuth: ``Having |font_glue| allocated for each text font saves
 both time and memory.''  That may be true, but it also punches through
-the API wall for fonts, so I removed it -- Taco.
+the API wall for fonts, so I removed that -- Taco. But a bit of caching
+is very welcome, which is why I need to have the next two globals:
 
-@<Find the glue specification...@>=
+@<Glob...@>=
+space_spec_font:internal_font_number;
+space_spec_cache:halfword;
+
+@ @<Set init...@>=
+space_spec_font:=0;
+space_spec_cache:=zero_glue;
+
+@ @<Find the glue specification...@>=
 begin 
-main_p:=new_spec(zero_glue);
-width(main_p):=space(cur_font);
-stretch(main_p):=space_stretch(cur_font);
-shrink(main_p):=space_shrink(cur_font);
+if cur_font<>space_spec_font then begin
+  if space_spec_cache<>zero_glue then
+     delete_glue_ref(space_spec_cache);
+  space_spec_cache:=new_spec(zero_glue);
+  width(space_spec_cache):=space(cur_font);
+  stretch(space_spec_cache):=space_stretch(cur_font);
+  shrink(space_spec_cache):=space_shrink(cur_font);
+  space_spec_font:=cur_font;
+  end;
+main_p:=space_spec_cache;
 end
 
 @ @<Declare act...@>=
@@ -29836,7 +29899,12 @@ begin if (space_factor>=2000)and(xspace_skip<>zero_glue) then
   q:=new_param_glue(xspace_skip_code)
 else begin if space_skip<>zero_glue then 
     main_p:=new_param_glue(space_skip_code)
-  else @<Find the glue specification...@>;
+  else begin 
+    main_p:=new_spec(zero_glue);
+    width(main_p):=space(cur_font);
+    stretch(main_p):=space_stretch(cur_font);
+    shrink(main_p):=space_shrink(cur_font);
+    end;
   @<Modify the glue specification in |main_p| according to the space factor@>;
   q:=new_glue(main_p); glue_ref_count(main_p):=null;
   end;
@@ -30961,6 +31029,7 @@ label done, exit;
 var p:pointer; {the box}
     r: pointer; {to remove marginal kern nodes}
 @!c:box_code..copy_code; {should we copy?}
+@!s:pointer; {for varmem assignment }
 begin if cur_chr>copy_code then @<Handle saved items and |goto done|@>;
 c:=cur_chr; scan_register_num; p:=box(cur_val);
 if p=null then return;
@@ -30973,7 +31042,7 @@ if (abs(mode)=mmode)or((abs(mode)=vmode)and(type(p)<>vlist_node))or@|
   ("And I can't open any boxes in math mode.");@/
   error; return;
   end;
-if c=copy_code then vlink(tail):=copy_node_list(list_ptr(p))
+if c=copy_code then begin s:=copy_node_list(list_ptr(p)); vlink(tail):=s; end
 else  begin vlink(tail):=list_ptr(p); box(cur_val):=null;
   ext_free_node(p,box_node_size);
   end;
@@ -32796,31 +32865,31 @@ end
 
 @<Assignments@>=
 assign_int: begin p:=cur_chr; scan_optional_equals; scan_int;
-	if p=(int_base+cat_code_table_code) then begin
-	  if valid_catcode_table(cur_val) then begin
-	     if cur_val<>cat_code_table then
-           word_define(p,cur_val);
-         end
-       else begin
-	     print_err("Invalid \catcode table");
-	     help2("You can only switch to a \catcode table that is initialized")
+  if p=(int_base+cat_code_table_code) then begin
+    if valid_catcode_table(cur_val) then begin
+      if cur_val<>cat_code_table then
+        word_define(p,cur_val);
+      end
+    else begin
+      print_err("Invalid \catcode table");
+      help2("You can only switch to a \catcode table that is initialized")
            ("using \savecatcodetable or \initcatcodetable, or to table 0");
-	     error;
-         end;
-	end
-	else if (p=new_line_char)and(cur_val>127) then begin
-	  print_err("Invalid \newlinechar");
-      help1("The value for \newlinechar has to be between 0 and 127.");
-	  error;
-      end
-	else if p=end_line_char then begin
-	  if (cur_val<0)or(cur_val>biggest_char) then
-      	 word_define(p,-1)
-      else
-      	 word_define(p,13);
-      end
+      error;
+      end;
+    end
+  else if (p=new_line_char)and(cur_val>127) then begin
+    print_err("Invalid \newlinechar");
+    help1("The value for \newlinechar has to be between 0 and 127.");
+    error;
+    end
+  else if p=end_line_char then begin
+    if (cur_val<0)or(cur_val>biggest_char) then
+      word_define(p,-1)
     else
-	  word_define(p,cur_val);
+      word_define(p,13);
+    end
+  else 
+   word_define(p,cur_val);
 {If we are defining subparagraph penalty levels while we are
 in hmode, then we put out a whatsit immediately, otherwise
 we leave it alone.  This mechanism might not be sufficiently
@@ -32835,6 +32904,8 @@ might be necessary.  Good first step.}
     end;
   end;
 assign_attr: begin p:=cur_chr; scan_optional_equals; scan_int;
+  if (p-attribute_base)>max_used_attr then max_used_attr:=(p-attribute_base);
+  attr_list_cache:=cache_disabled;
   word_define(p,cur_val); end;
 assign_dir: begin
   @<DIR: Assign direction codes@>
@@ -33034,7 +33105,13 @@ if arith_error then
     ("since the result is out of range.");
   error; return;
   end;
-if p<glue_val then word_define(l,cur_val)
+if p<glue_val then begin
+   if p=attr_val then begin
+     if (l-attribute_base)>max_used_attr then max_used_attr:=(l-attribute_base);
+     attr_list_cache:=cache_disabled;
+     end;
+  word_define(l,cur_val);
+  end
 else  begin trap_zero_glue; define(l,glue_ref,cur_val);
   end;
 exit: end;
@@ -34475,8 +34552,8 @@ if log_opened then
   wlog_ln(' out of ', max_strings-init_str_ptr+string_offset:1);@/
   wlog_ln(' ',pool_ptr-init_pool_ptr:1,' string characters out of ',
     pool_size-init_pool_ptr:1);@/
-  wlog_ln(' ',var_used,'+',fix_mem_end-fix_mem_min+1:1,@|
-    ' words of memory');@/
+  wlog_ln(' ',var_mem_max:1,',',fix_mem_max:1,@|
+    ' words of node,token memory allocated');@/
   wlog_ln(' ',cs_count:1,' multiletter control sequences out of ',
     hash_size:1);@/
   wlog(' ',max_font_id,' font');

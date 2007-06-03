@@ -83,25 +83,28 @@ action_node_to_lua (lua_State *L, halfword p) {
 
 halfword 
 action_node_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   p = get_node(pdf_action_size);  
   numeric_field(pdf_action_type(p),i++);
   switch (pdf_action_type(p)) {
   case pdf_action_user:
-    tokenlist_field(pdf_action_user_tokens(p),i++);
+    tokenlist_field(a,i++);
+    pdf_action_user_tokens(p)=a;
     break;
   case pdf_action_goto:
   case pdf_action_thread:
   case pdf_action_page:
     numeric_field(pdf_action_named_id(p),i++);
     if (pdf_action_named_id(p)==1) {
-      tokenlist_field(pdf_action_id(p),i++);
+      tokenlist_field(a,i++);
+      pdf_action_id(p)=a;
     } else {
       numeric_field  (pdf_action_id(p),i++);
     }
-    tokenlist_field(pdf_action_file(p),i++);
+    tokenlist_field(a,i++); pdf_action_file(p)=a;
     numeric_field  (pdf_action_new_window(p),i++);
-    tokenlist_field(pdf_action_page_tokens(p),i++);
+    tokenlist_field(a,i++); pdf_action_page_tokens(p)=a;
     break;
   }
   return p;
@@ -135,13 +138,14 @@ whatsit_write_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_write_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,write_node_size);
 
   numeric_field(subtype(p),i++);
   status_field(p,i++);
   numeric_field(write_stream(p),i++);
-  tokenlist_field(write_tokens(p),i++);
+  tokenlist_field(a,i++); write_tokens(p)=a;
   return p;
 }
 
@@ -168,12 +172,13 @@ whatsit_special_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_special_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,write_node_size);
   write_stream(p) = null;
   numeric_field(subtype(p),i++);
   status_field(p,i++);
-  tokenlist_field(write_tokens(p),i++);
+  tokenlist_field(a,i++); write_tokens(p)=a;
   return p;
 }
 
@@ -206,6 +211,7 @@ whatsit_local_par_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_local_par_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,local_par_size);
 
@@ -214,9 +220,9 @@ whatsit_local_par_from_lua (lua_State *L) {
   numeric_field  (local_pen_inter(p),i++);
   numeric_field  (local_pen_broken(p),i++);
   numeric_field  (local_par_dir(p),i++);
-  nodelist_field (local_box_left(p),i++);
+  nodelist_field (a,i++); local_box_left(p)=a;
   numeric_field  (local_box_left_width(p),i++);
-  nodelist_field (local_box_right(p),i++);
+  nodelist_field (a,i++); local_box_right(p)=a;
   numeric_field  (local_box_right_width(p),i++);
   return p;
 }
@@ -248,12 +254,13 @@ whatsit_pdf_literal_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_pdf_literal_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,write_node_size);
   numeric_field  (subtype(p),i++);
   status_field(p,i++);
   numeric_field  (pdf_literal_mode(p),i++);
-  tokenlist_field(pdf_literal_data(p),i++);
+  tokenlist_field(a,i++); pdf_literal_data(p)=a;
   return p;
 }
 
@@ -321,6 +328,7 @@ whatsit_pdf_annot_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_pdf_annot_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,pdf_annot_node_size);
 
@@ -330,7 +338,7 @@ whatsit_pdf_annot_from_lua (lua_State *L) {
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
   numeric_field  (pdf_annot_objnum(p),i++);
-  tokenlist_field(pdf_annot_data(p),i++);
+  tokenlist_field(a,i++); pdf_annot_data(p)=a;
   return p;
 }
 
@@ -342,6 +350,7 @@ whatsit_pdf_start_link_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_pdf_start_link_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,pdf_annot_node_size);
 
@@ -351,7 +360,7 @@ whatsit_pdf_start_link_from_lua (lua_State *L) {
   numeric_field  (pdf_height(p),i++);
   numeric_field  (pdf_depth(p),i++);
   numeric_field  (pdf_link_objnum(p),i++);
-  tokenlist_field(pdf_link_attr(p),i++);
+  tokenlist_field(a,i++); pdf_link_attr(p)=a;
   action_field   (pdf_link_action(p),i++);
   return p;
 }
@@ -385,6 +394,7 @@ whatsit_pdf_dest_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_pdf_dest_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,pdf_dest_node_size);
 
@@ -395,7 +405,8 @@ whatsit_pdf_dest_from_lua (lua_State *L) {
   numeric_field  (pdf_depth(p),i++);
   numeric_field  (pdf_dest_named_id(p),i++);
   if(pdf_dest_named_id(p)==1) {
-    tokenlist_field  (pdf_dest_id(p),i++);
+    tokenlist_field  (a,i++);
+    pdf_dest_id(p)=a;
   } else {
     numeric_field  (pdf_dest_id(p),i++);
   }
@@ -418,6 +429,7 @@ whatsit_pdf_thread_to_lua (lua_State *L, halfword p) {
 
 halfword
 whatsit_pdf_thread_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,pdf_thread_node_size);
 
@@ -428,11 +440,11 @@ whatsit_pdf_thread_from_lua (lua_State *L) {
   numeric_field  (pdf_depth(p),i++);
   numeric_field  (pdf_thread_named_id(p),i++);
   if(pdf_thread_named_id(p)==1) {
-    tokenlist_field  (pdf_thread_id(p),i++);
+    tokenlist_field  (a,i++); pdf_thread_id(p)=a;
   } else {
     numeric_field  (pdf_thread_id(p),i++);
   }
-  tokenlist_field  (pdf_thread_attr(p),i++);
+  tokenlist_field  (a,i++); pdf_thread_attr(p)=a;
   return p;
 }
 
@@ -529,13 +541,14 @@ whatsit_late_lua_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_late_lua_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,write_node_size);
 
   numeric_field(subtype(p),i++);
   status_field(p,i++);
   numeric_field(late_lua_reg(p),i++);
-  tokenlist_field(late_lua_data(p),i++);
+  tokenlist_field(a,i++); late_lua_data(p)=a;
   return p;
 }
 
@@ -565,13 +578,14 @@ whatsit_pdf_colorstack_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_pdf_colorstack_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,pdf_colorstack_node_size);
   numeric_field  (subtype(p),i++);
   status_field(p,i++);
   numeric_field  (pdf_colorstack_stack(p),i++);
   numeric_field  (pdf_colorstack_cmd(p),i++);
-  tokenlist_field(pdf_colorstack_data(p),i++);
+  tokenlist_field(a,i++); pdf_colorstack_data(p)=a;
   return p;
 }
 
@@ -582,11 +596,12 @@ whatsit_pdf_setmatrix_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_pdf_setmatrix_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,pdf_setmatrix_node_size);
   numeric_field  (subtype(p),i++);
   status_field(p,i++);
-  tokenlist_field(pdf_setmatrix_data(p),i++);
+  tokenlist_field(a,i++); pdf_setmatrix_data(p)=a;
   return p;
 }
 

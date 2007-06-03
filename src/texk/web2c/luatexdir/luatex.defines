@@ -37,6 +37,7 @@ $Id $
 @define procedure undump_node_mem;
 @define var NULL;
 @define var varmem;
+@define var var_mem_max;
 
 { macros from luatex.h }
 @define function pdf_char_marked();
