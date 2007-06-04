@@ -681,6 +681,8 @@ char *group_code_names[] = {
   "fin_row"};
 
 
+#define LUA_GC_STEP_SIZE 1
+
 void
 lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail_node) {
   halfword ret;  
@@ -722,6 +724,7 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
     /*show_node_list(vlink(head_node));*/
   }
   lua_pop(L,2); /* result and callback container table */
+  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);
   ret = vlink(head_node); 
   if (ret!=null) {
     while (vlink(ret)!=null)
@@ -770,6 +773,7 @@ lua_hpack_filter (halfword head_node, scaled size, int pack_type, int extrainfo)
     ret = nodelist_from_lua(L);
   }
   lua_pop(L,2); /* result and callback container table */
+  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);
   return ret;
 }
 
@@ -814,5 +818,6 @@ lua_vpack_filter (halfword head_node, scaled size, int pack_type, scaled maxd, i
     ret = nodelist_from_lua(L);
   }
   lua_pop(L,2); /* result and callback container table */
+  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);
   return ret;
 }
