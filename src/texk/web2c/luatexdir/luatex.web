@@ -4717,6 +4717,7 @@ and they are glue nodes in about half of the remaining cases.
 @p procedure flush_node_list(@!p:pointer); {erase list of nodes starting at |p|}
 var q:pointer; {successor to node |p|}
 begin 
+if p<>null then pdfassert(p>0);
 while p<>null do
 @^inner loop@>
   begin q:=vlink(p);
@@ -4726,6 +4727,7 @@ while p<>null do
       ext_free_node(p,glyph_node_size); 
       end;
     hlist_node,vlist_node,unset_node: begin 
+	  if list_ptr(p)<>null then pdfassert(list_ptr(p)>0);
       flush_node_list(list_ptr(p));
       ext_free_node(p,box_node_size);
       end;
@@ -22154,7 +22156,7 @@ be placed at the left and right of the fraction. In this way, a
 @d small_char(#)==vmem(#).qqqq.b1 {|character| for ``small'' delimiter}
 @d large_fam(#)==vmem(#).qqqq.b2 {|fam| for ``large'' delimiter}
 @d large_char(#)==vmem(#).qqqq.b3 {|character| for ``large'' delimiter}
-@d thickness==width {|thickness| field in a fraction noad}
+@d thickness(#)==vmem(#+1).sc {|thickness| field in a fraction noad}
 @d default_code==@'10000000000 {denotes |default_rule_thickness|}
 @d numerator==supscr {|numerator| field in a fraction noad}
 @d denominator==subscr {|denominator| field in a fraction noad}
@@ -22230,7 +22232,7 @@ i.e., a smaller style has a larger numerical value.
 @:TeXbook}{\sl The \TeX book@>
 
 @d style_node=unset_node+1 {|type| of a style node}
-@d style_node_size=3 {number of words in a style node}
+@d style_node_size=4 {number of words in a style node}
 @d display_style=0 {|subtype| for \.{\\displaystyle}}
 @d text_style=2 {|subtype| for \.{\\textstyle}}
 @d script_style=4 {|subtype| for \.{\\scriptstyle}}
@@ -28605,7 +28607,7 @@ The data structure definitions here use the fact that the |@!height| field
 appears in the fourth word of a box node.
 @^data structure assumptions@>
 
-@d page_ins_node_size=4 {number of words for a page insertion node}
+@d page_ins_node_size=5 {number of words for a page insertion node}
 @d inserting=0 {an insertion class that has not yet overflowed}
 @d split_up=1 {an overflowed insertion class}
 @d broken_ptr(#)==vlink(#+2)

@@ -2834,6 +2834,7 @@ begin @!{|start_here|}
   otp_calcs:=xmallocarray (halfword, ocp_stack_size);
   otp_states:=xmallocarray (halfword, ocp_stack_size);
   obj_tab:=xmallocarray (obj_entry, inf_obj_tab_size); {will grow dynamically}
+	{obj_tab[0].int2:=0;}
   pdf_mem:=xmallocarray (integer, inf_pdf_mem_size); {will grow dynamically}
   dest_names:=xmallocarray (dest_name_entry, inf_dest_names_size); {will grow dynamically}
   pdf_op_buf:=xmallocarray (real_eight_bits, pdf_op_buf_size);
