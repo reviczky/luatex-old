@@ -4521,7 +4521,7 @@ else  begin @<Display the value of |glue_set(p)|@>;
     end;
   print(", direction "); print_dir(box_dir(p));
   end;
-pdfassert(list_ptr(p)<>0);
+{pdfassert(list_ptr(p)<>0);}
 node_list_display(list_ptr(p)); {recursive call}
 end
 
@@ -4717,7 +4717,7 @@ and they are glue nodes in about half of the remaining cases.
 @p procedure flush_node_list(@!p:pointer); {erase list of nodes starting at |p|}
 var q:pointer; {successor to node |p|}
 begin 
-if p<>null then pdfassert(p>0);
+{if p<>null then pdfassert(p>0);}
 while p<>null do
 @^inner loop@>
   begin q:=vlink(p);
@@ -4727,7 +4727,7 @@ while p<>null do
       ext_free_node(p,glyph_node_size); 
       end;
     hlist_node,vlist_node,unset_node: begin 
-	  if list_ptr(p)<>null then pdfassert(list_ptr(p)>0);
+	  {if list_ptr(p)<>null then pdfassert(list_ptr(p)>0);}
       flush_node_list(list_ptr(p));
       ext_free_node(p,box_node_size);
       end;
@@ -4835,10 +4835,10 @@ glyph_node,ligature_node: begin r:=get_node(glyph_node_size);
 hlist_node,vlist_node,unset_node: begin r:=get_node(box_node_size);
   width(r):=width(p);  height(r):=height(p); depth(r):=depth(p);
   shift_amount(r):=shift_amount(p); 
-  pdfassert(list_ptr(p)<>0);
+  {pdfassert(list_ptr(p)<>0);}
   s:=copy_node_list(list_ptr(p));
   list_ptr(r):=s;
-  pdfassert(list_ptr(r)<>0);
+  {pdfassert(list_ptr(r)<>0);}
   glue_order(r):=glue_order(p); glue_sign(r):=glue_sign(p);
   glue_set(r):=glue_set(p); box_dir(r):=box_dir(p);
   node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
@@ -15457,7 +15457,7 @@ dvi_dir_h,dvi_dir_ptr,dvi_temp_ptr:integer;
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
-pdfassert(p<>0);
+{pdfassert(p<>0);}
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
 @<DIR: Initialize |dir_ptr| for |ship_out|@>;
@@ -15897,7 +15897,7 @@ var left_edge: scaled; {the left coordinate for this box}
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
-pdfassert(p<>0);
+{pdfassert(p<>0);}
 saving_v:=dvi_v; saving_h:=dvi_h;
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
@@ -18972,7 +18972,7 @@ dvi_dir_h,dvi_dir_ptr,dvi_temp_ptr:integer;
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
-pdfassert(p<>0);
+{pdfassert(p<>0);}
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
 @<DIR: Initialize |dir_ptr| for |ship_out|@>;
@@ -19390,7 +19390,7 @@ var left_edge: scaled; {the left coordinate for this box}
 begin cur_g:=0; cur_glue:=float_constant(0);
 this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
-pdfassert(p<>0);
+{pdfassert(p<>0);}
 saving_v:=cur_v; saving_h:=cur_h;
 {writeln(''); writeln('vlist_out: left edge: ', cur_h:1 , '');}
 save_direction:=dvi_direction;
@@ -21789,7 +21789,7 @@ var r:pointer; {the box node that will be returned}
 @!g:pointer; {points to a glue specification}
 @!o:glue_ord; {order of infinity}
 begin last_badness:=0; 
-pdfassert(p<>0);
+{pdfassert(p<>0);}
 r:=get_node(box_node_size); set_type(r,vlist_node); build_attribute_list(r);
 if pack_direction=-1 then
   box_dir(r):=body_direction
@@ -22655,7 +22655,7 @@ var @!b,@!p:pointer; {the new box and its character node}
 begin 
 b:=new_null_box; width(b):=char_width(f,c)+char_italic(f,c);
 height(b):=char_height(f,c); depth(b):=char_depth(f,c);
-p:=new_glyph(f,c); pdfassert(p<>0); list_ptr(b):=p; char_box:=b;
+p:=new_glyph(f,c); list_ptr(b):=p; char_box:=b;
 end;
 
 @ When the following code is executed, |char_tag(q)| will be equal to
