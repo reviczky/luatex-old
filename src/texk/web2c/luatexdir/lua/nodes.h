@@ -231,7 +231,9 @@ typedef enum {
   colorstack_current } colorstack_commands;
 
 extern void tokenlist_to_lua(lua_State *L, halfword p) ;
+extern void tokenlist_to_luastring(lua_State *L, halfword p) ;
 extern halfword tokenlist_from_lua(lua_State *L) ;
+extern halfword tokenlist_from_luastring(lua_State *L) ;
 
 typedef enum {
   pdf_action_page = 0,

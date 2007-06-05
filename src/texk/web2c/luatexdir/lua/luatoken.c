@@ -410,6 +410,7 @@ tokenlist_to_lua(lua_State *L, halfword p) {
   int i = 1;
   v = p;
   while (v!=null && v < fix_mem_end) {   i++;    v = link(v);  }
+  i = 1;
   lua_createtable(L,i,0);
   while (p!=null&& p < fix_mem_end) {
     if (info(p)>=cs_token_flag) {
@@ -428,12 +429,22 @@ tokenlist_to_lua(lua_State *L, halfword p) {
 }
 
 
+void
+tokenlist_to_luastring(lua_State *L, halfword p) {
+  int l;
+  char *s;
+  s = tokenlist_to_cstring(p,1,&l);
+  lua_pushlstring(L,s,l);
+}
+
+
 halfword
 tokenlist_from_lua(lua_State *L) {
-  int tok;
-  halfword p,q,r,i,j;
+  char *s;
+  int tok,i,j;
+  halfword p,q,r;
   r = get_avail();
-  info(r)=null; /* ref count */
+  info(r)=0; /* ref count */
   link(r)=null;
   p = r;
   if (lua_istable(L,-1)) {
@@ -447,6 +458,17 @@ tokenlist_from_lua(lua_State *L) {
 	}
 	lua_pop(L,1);
       };
+    }
+    return r;
+  } else if (lua_isstring(L,-1)) {
+    s = lua_tolstring(L,-1,&j);
+    for (i=0;i<j;i++) {
+      if (s[i] == 32) {
+	tok = (10*string_offset)+s[i]; 	  
+      } else {
+	tok = (12*string_offset)+s[i]; 	  
+      }
+      store_new_token(tok);
     }
     return r;
   } else {

@@ -119,6 +119,15 @@ generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
       }
       lua_rawseti(L,-2,i++);
       break;
+    case 'u':           /* tokenlist */
+      val = va_arg(args, int);
+      if (val == null) {
+        lua_pushnil(L);
+      } else {
+        tokenlist_to_luastring(L,link(val));
+      }
+      lua_rawseti(L,-2,i++);
+      break;
     }
   }
   va_end(args);
@@ -143,7 +152,7 @@ attribute_list_from_lua (lua_State *L) {
   if (!lua_istable(L,-1))
     return null;
   p = get_node(temp_node_size);
-  vinfo(p)=null; /* refcount=0*/
+  vinfo(p)=1; /* refcount=1*/
   q = p;
   for (k=0;k<256;k++) {
     lua_rawgeti(L,-1,k);

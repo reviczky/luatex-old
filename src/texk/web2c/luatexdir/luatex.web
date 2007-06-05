@@ -3646,7 +3646,7 @@ if max_used_attr<>0 then begin
       end;
     if q<>null then begin
       attr_list_cache:=q;
-      attr_list_ref(attr_list_cache):=null+1;
+      attr_list_ref(attr_list_cache):=1;
       end
     else begin
       free_node(p,temp_node_size);
@@ -3666,14 +3666,15 @@ end;
 var r,q:halfword;
 begin 
   if b<>null then begin
+    pdfassert(attr_list_ref(b)>0);
     decr(attr_list_ref(b));
-    if attr_list_ref(b)=null then begin
+    if attr_list_ref(b)=0 then begin
       q:=vlink(b);
       while q<>null do begin
         r:=q; q:=vlink(q);
         free_node(r,attribute_node_size);
         end;
-      free_node(b,temp_node_size);
+      free_node(b,temp_node_size);      
     end;
   end;
 end;
@@ -4692,7 +4693,8 @@ otherwise the count should be decreased by one.
 
 @p procedure delete_token_ref(@!p:pointer); {|p| points to the reference count
   of a token list that is losing one reference}
-begin if token_ref_count(p)=null then flush_list(p)
+begin pdfassert(token_ref_count(p)>=0);
+if token_ref_count(p)=0 then flush_list(p)
 else decr(token_ref_count(p));
 end;
 
@@ -12256,7 +12258,7 @@ var t:halfword; {token representing the highest parameter number}
 @!hash_brace:halfword; {possible `\.{\#\{}' token}
 begin if macro_def then scanner_status:=defining
 @+else scanner_status:=absorbing;
-warning_index:=cur_cs; p:=get_avail; def_ref:=p; token_ref_count(def_ref):=null;
+warning_index:=cur_cs; p:=get_avail; def_ref:=p; token_ref_count(def_ref):=0;
 p:=def_ref; hash_brace:=0; t:=zero_token;
 if macro_def then @<Scan and build the parameter part of the macro definition@>
 else scan_left_brace; {remove the compulsory left brace}
@@ -12390,7 +12392,7 @@ var p:pointer; {tail of the token list}
 @!s:integer; {saved value of |align_state|}
 @!m:small_number; {stream number}
 begin scanner_status:=defining; warning_index:=r;
-p:=get_avail; def_ref:=p; token_ref_count(def_ref):=null;
+p:=get_avail; def_ref:=p; token_ref_count(def_ref):=0;
 p:=def_ref; {the reference count}
 store_new_token(end_match_token);
 if (n<0)or(n>15) then m:=16@+else m:=n;
@@ -39060,7 +39062,7 @@ var s:normal..absorbing; {to save |scanner_status|}
 @!unbalance:halfword; {number of unmatched left braces}
 begin s:=scanner_status; w:=warning_index; d:=def_ref;
 scanner_status:=absorbing; warning_index:=cur_cs;
-p:=get_avail; def_ref:=p; token_ref_count(def_ref):=null; p:=def_ref;
+p:=get_avail; def_ref:=p; token_ref_count(def_ref):=0; p:=def_ref;
 scan_left_brace; {remove the compulsory left brace}
 unbalance:=1;
 loop@+  begin get_token;

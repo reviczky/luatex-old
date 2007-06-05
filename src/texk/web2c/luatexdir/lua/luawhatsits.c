@@ -63,17 +63,17 @@ action_node_to_lua (lua_State *L, halfword p) {
   lua_newtable(L);
   switch (pdf_action_type(p)) {
   case pdf_action_user:
-    generic_node_to_lua(L,"action","dt", pdf_action_type(p), pdf_action_user_tokens(p));
+    generic_node_to_lua(L,"action","du", pdf_action_type(p), pdf_action_user_tokens(p));
     break;
   case pdf_action_goto:
   case pdf_action_thread:
   case pdf_action_page:
     if (pdf_action_named_id(p) == 1) {
-      generic_node_to_lua(L,"action","ddttdt", pdf_action_type(p),pdf_action_named_id(p),
+      generic_node_to_lua(L,"action","dduudu", pdf_action_type(p),pdf_action_named_id(p),
 			  pdf_action_id(p),pdf_action_file(p),pdf_action_new_window(p),
 			  pdf_action_page_tokens(p));
     } else {
-      generic_node_to_lua(L,"action","dddtdt", pdf_action_type(p),pdf_action_named_id(p),
+      generic_node_to_lua(L,"action","dddudu", pdf_action_type(p),pdf_action_named_id(p),
 			  pdf_action_id(p),pdf_action_file(p),pdf_action_new_window(p),
 			  pdf_action_page_tokens(p));
     }
@@ -167,7 +167,7 @@ whatsit_close_from_lua (lua_State *L) {
 
 void
 whatsit_special_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dat",subtype(p),status(p),write_tokens(p));
+  generic_node_to_lua(L,"whatsit","dau",subtype(p),status(p),write_tokens(p));
 }
 
 halfword 
@@ -249,7 +249,7 @@ whatsit_dir_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_literal_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dadt",subtype(p),status(p),pdf_literal_mode(p),pdf_literal_data(p));
+  generic_node_to_lua(L,"whatsit","dadu",subtype(p),status(p),pdf_literal_mode(p),pdf_literal_data(p));
 }
 
 halfword 
@@ -322,7 +322,7 @@ whatsit_pdf_refximage_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_annot_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","daddddt",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+  generic_node_to_lua(L,"whatsit","daddddu",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 		      pdf_annot_objnum(p),pdf_annot_data(p));
 }
 
@@ -344,7 +344,7 @@ whatsit_pdf_annot_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_start_link_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","daddddtc",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+  generic_node_to_lua(L,"whatsit","dadddduc",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 		      pdf_link_objnum(p),pdf_link_attr(p),pdf_link_action(p));
 }
 
@@ -382,7 +382,7 @@ whatsit_pdf_end_link_from_lua (lua_State *L) {
 void
 whatsit_pdf_dest_to_lua (lua_State *L, halfword p) {
   if(pdf_dest_named_id(p)==1) {
-    generic_node_to_lua(L,"whatsit","daddddtddd",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+    generic_node_to_lua(L,"whatsit","dadddduddd",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 			pdf_dest_named_id(p),pdf_dest_id(p),pdf_dest_type(p),pdf_dest_xyz_zoom(p),
                         pdf_dest_objnum(p));
   } else {
@@ -419,10 +419,10 @@ whatsit_pdf_dest_from_lua (lua_State *L) {
 void
 whatsit_pdf_thread_to_lua (lua_State *L, halfword p) {
   if (pdf_thread_named_id(p)==1) {
-    generic_node_to_lua(L,"whatsit","daddddtt",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+    generic_node_to_lua(L,"whatsit","dadddduu",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 			pdf_thread_named_id(p),pdf_thread_id(p),pdf_thread_attr(p));
   } else {
-    generic_node_to_lua(L,"whatsit","dadddddt",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
+    generic_node_to_lua(L,"whatsit","dadddddu",subtype(p),status(p),pdf_width(p),pdf_height(p),pdf_depth(p),
 			pdf_thread_named_id(p),pdf_thread_id(p),pdf_thread_attr(p));
   }
 }
@@ -536,7 +536,7 @@ whatsit_pdf_snapy_comp_from_lua (lua_State *L) {
 
 void
 whatsit_late_lua_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dadt",subtype(p),status(p),late_lua_reg(p),late_lua_data(p));
+  generic_node_to_lua(L,"whatsit","dadu",subtype(p),status(p),late_lua_reg(p),late_lua_data(p));
 }
 
 halfword 
@@ -570,7 +570,7 @@ whatsit_close_lua_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_colorstack_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","daddt",subtype(p),status(p),
+  generic_node_to_lua(L,"whatsit","daddu",subtype(p),status(p),
 		      pdf_colorstack_stack(p),
 		      pdf_colorstack_cmd(p),
 		      pdf_colorstack_data(p));
@@ -591,7 +591,7 @@ whatsit_pdf_colorstack_from_lua (lua_State *L) {
 
 void
 whatsit_pdf_setmatrix_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"whatsit","dat",subtype(p), status(p),pdf_setmatrix_data(p));
+  generic_node_to_lua(L,"whatsit","dau",subtype(p), status(p),pdf_setmatrix_data(p));
 }
 
 halfword 

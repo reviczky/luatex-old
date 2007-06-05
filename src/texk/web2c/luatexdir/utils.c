@@ -1699,7 +1699,7 @@ get_node (integer s) {
       /*fprintf(stdout,"q=%d\n", q);*/
       x = (var_mem_max/5)+s; /* this way |s| will always fit */
       /* make sure we get up to speed quickly */
-      if (var_mem_max<25000) {	x += 25000;  }
+      if (var_mem_max<2500) {	x += 25000;  }
       t=var_mem_max+x;
       varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
       varmem_sizes = (char *)realloc(varmem_sizes,sizeof(char)*t);
