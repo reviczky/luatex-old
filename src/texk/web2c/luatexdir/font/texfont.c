@@ -34,7 +34,7 @@
  */
 
 #include "ptexlib.h"
-
+#include "luatex-api.h"
 
 #define proper_char_index(c) (c<=font_ec(f) && c>=font_bc(f))
 #define dxfree(a,b) { xfree(a); a = b ; }
@@ -236,17 +236,46 @@ char_info (internal_font_number f, integer c) {
 integer
 char_exists (internal_font_number f, integer c) {
   sa_tree_item glyph;
+  int ret;
+  ret = 0;
   if (proper_char_index(c)) {
     glyph = get_sa_item(font_tables[f]->characters, c);
     if (glyph) 
-      return 1;
+      ret=1;
   } else if (c == left_boundarychar && has_left_boundary(f)) {
-      return 1;
+      ret=1;
   } else if (c == right_boundarychar && has_right_boundary(f)) {
-      return 1;
+      ret=1;
   }
-  return 0;
+  return ret;
 }
+
+int
+lua_char_exists_callback (internal_font_number f, integer c) {
+  integer callback_id ; 
+  lua_State *L = Luas[0];
+  int ret=0;
+  callback_id = callback_defined(char_exists_callback);
+  if (callback_id!=0) {
+	lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
+	lua_rawgeti(L,-1, callback_id);
+	if (!lua_isfunction(L,-1)) {
+	  lua_pop(L,2);
+	  return 0;
+	}
+	lua_pushnumber(L,f);
+	lua_pushnumber(L,c);
+	if (lua_pcall(L,2,1,0) != 0) { /* two args, 1 result */
+	  fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
+	  lua_pop(L,2);
+	  error();
+	} else {
+	  ret = lua_toboolean(L,-1);
+	}
+  }
+  return ret;
+}
+
 
 void set_charinfo_width       (charinfo *ci, scaled val)          { ci->width = val;     }
 void set_charinfo_height      (charinfo *ci, scaled val)          { ci->height = val;    }
@@ -411,7 +440,7 @@ set_font_params(internal_font_number f, int b) {
 
 integer
 copy_font (integer f) {
-  int i, x;
+  int i;
   charinfo *ci;
   integer k = new_font();
   memcpy(font_tables[k],font_tables[f],sizeof(texfont));
@@ -518,9 +547,10 @@ create_null_font (void) {
 
 boolean 
 is_valid_font (integer id) {
-  if (id>=0 && id<font_id_maxval && font_tables[id]!=NULL)
-    return 1;
-  return 0;
+  int ret=0;
+  if (id>=0 && id<=font_id_maxval && font_tables[id]!=NULL)
+    ret=1;
+  return ret;
 }
 
 /* return 1 == identical */
@@ -567,6 +597,7 @@ same_font_name (integer id, integer t) {
   } else {
 	ret =1 ;
   }
+  return ret;
 }
 
 boolean
@@ -735,7 +766,6 @@ dump_charinfo (int f , int c) {
   int x;
   liginfo *lig;
   kerninfo *kern;
-  real_eight_bits *packets;
 
   dump_int(c);
   co = char_info(f,c);
