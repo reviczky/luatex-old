@@ -86,6 +86,7 @@ vf_packet_bytes (charinfo *co) {
     case packet_font_code:
     case packet_right_code:
     case packet_down_code:
+    case packet_node_code:
 	  cur_packet_byte += 4;
       break;
     case packet_push_code: 
@@ -113,7 +114,7 @@ vf_packet_bytes (charinfo *co) {
 
 char *packet_command_names[] = {  
   "char", "font","pop",	"push",	"special",
-  "right","down","rule","nop","end", NULL};
+  "right","down","rule","node", "nop","end", NULL};
 
 
 void 
@@ -179,8 +180,8 @@ do_vf_packet (internal_font_number vf_f, integer c) {
       packet_scaled(rule_ht,fs_f);
       packet_scaled(rule_wd,fs_f);
       if ((rule_wd > 0) && (rule_ht > 0)) {
-		pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-		cur_h = cur_h + rule_wd;
+	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	cur_h = cur_h + rule_wd;
       }
       break;
     case packet_right_code:
@@ -202,6 +203,11 @@ do_vf_packet (internal_font_number vf_f, integer c) {
       literal(s, scan_special, false);
       flush_str(s);
       break;
+	case packet_node_code:
+	  packet_number(k);
+	  temp_ptr = k; 
+	  pdf_hlist_out();
+	  break;
     case packet_nop_code:
       break;
     default: 
@@ -250,6 +256,7 @@ integer *packet_local_fonts(internal_font_number f, integer *num) {
 	case packet_char_code: 
 	case packet_right_code:
 	case packet_down_code:
+	case packet_node_code:
 	  cur_packet_byte+=4;
 	  break;
 	case packet_rule_code: 
@@ -315,6 +322,7 @@ replace_packet_fonts(internal_font_number f, integer *old_fontid, integer *new_f
 	case packet_char_code: 
 	case packet_right_code:
 	case packet_down_code:
+	case packet_node_code:
 	  cur_packet_byte+=4;
 	  break;
 	case packet_rule_code: 

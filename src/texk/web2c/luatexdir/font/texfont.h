@@ -420,6 +420,7 @@ typedef enum {  packet_char_code,
 		packet_right_code,
 		packet_down_code,
 		packet_rule_code,
+		packet_node_code,
 		packet_nop_code,
 		packet_end_code } packet_command_codes;
 

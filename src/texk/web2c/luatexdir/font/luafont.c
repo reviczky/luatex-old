@@ -330,6 +330,7 @@ count_char_packet_bytes  (lua_State *L) {
 	else if (streq(s,"pop"))     { l++;  } 
 	else if (streq(s,"rule"))    { l+=9; }
 	else if (streq(s,"right"))   { l+=5; }
+	else if (streq(s,"node"))    { l+=5; }
 	else if (streq(s,"down"))    { l+=5; }
 	else if (streq(s,"special")) { 
 	  lua_rawgeti(L,-2,2);
@@ -397,6 +398,7 @@ read_char_packets  (lua_State *L, integer *l_fonts, charinfo *co) {
 	  do_store_four(n);
 	} 
 	else if (streq(s,"comment")) {  cmd = packet_nop_code;     } 
+	else if (streq(s,"node"))    {  cmd = packet_node_code;    }
 	else if (streq(s,"push"))    {  cmd = packet_push_code;    } 
 	else if (streq(s,"pop"))     {  cmd = packet_pop_code;     } 
 	else if (streq(s,"rule"))    {  cmd = packet_rule_code;    }
@@ -415,6 +417,13 @@ read_char_packets  (lua_State *L, integer *l_fonts, charinfo *co) {
 	  n = lua_tointeger(L,-1);
 	  ff = (n>max_f ? 1 : l_fonts[n]);
 	  do_store_four(ff);
+	  lua_pop(L,1);
+	  break;
+	case packet_node_code:
+	  append_packet(cmd);
+	  lua_rawgeti(L,-2,2);
+	  n = copy_node_list(nodelist_from_lua(L));
+	  do_store_four(n);
 	  lua_pop(L,1);
 	  break;
 	case packet_char_code:
