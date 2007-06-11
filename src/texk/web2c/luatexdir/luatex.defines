@@ -33,6 +33,7 @@ $Id $
 @define function get_node();
 @define procedure free_node();
 @define procedure init_node_mem();
+@define procedure print_node_mem_stats;
 @define procedure dump_node_mem;
 @define procedure undump_node_mem;
 @define var NULL;
