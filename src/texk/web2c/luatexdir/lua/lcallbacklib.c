@@ -36,7 +36,7 @@ static const char *const callbacknames[] = {
   "pre_linebreak_filter", "pre_output_filter",
   "buildpage_filter",
   "hpack_filter",  "vpack_filter",
-  "char_exists",
+  "char_exists", "hyphenate",
   NULL };
 
 int callback_callbacks_id = 0;

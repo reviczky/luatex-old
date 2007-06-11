@@ -877,3 +877,43 @@ lua_vpack_filter (halfword head_node, scaled size, int pack_type, scaled maxd, i
   /*  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);*/
   return ret;
 }
+
+boolean 
+lua_hyphenate_callback (int callback_id, int lang, halfword ha, halfword hb) {
+  int i;
+  halfword ret,p,q,r;
+  lua_State *L = Luas[0];
+
+  lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
+  lua_rawgeti(L,-1, callback_id);
+  if (!lua_isfunction(L,-1)) {
+    lua_pop(L,2);
+    return false;
+  } 
+
+  p = vlink(hb);  /* for safe keeping */
+  vlink(hb)=null; 
+  r=vlink(ha); 
+  nodelist_to_lua(L,r);
+  lua_pushnumber(L,lang);
+  if (lua_pcall(L,2,1,0) != 0) { /* no arg, 1 result */
+    fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
+    lua_pop(L,2);
+    error();
+    return false;
+  }
+  ret = nodelist_from_lua(L);
+  if (ret!=null) {
+    flush_node_list(r);
+    vlink(ha)=ret;
+    q = ret;
+    while(vlink(q)!=null) {
+      q=vlink(q);
+    }
+    vlink(q) = p;
+  } else {
+    vlink(hb) = p;
+  }
+  lua_pop(L,2); /* result and callback container table */
+  return true;
+}

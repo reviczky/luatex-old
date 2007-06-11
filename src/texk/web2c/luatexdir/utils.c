@@ -1816,3 +1816,4 @@ undump_node_mem (void) {
   undump_int(var_used); 
   undump_int(prealloc);
 }
+
