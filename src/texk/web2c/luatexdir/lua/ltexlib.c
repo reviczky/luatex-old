@@ -2,6 +2,7 @@
 
 #include "luatex-api.h"
 #include <ptexlib.h>
+#include "nodes.h"
 
 typedef struct {
   char *text;
@@ -425,6 +426,77 @@ int gettoks (lua_State *L) {
   return 1;
 }
 
+int getbox (lua_State *L) {
+  int k, t;
+  k = (int)luaL_checkinteger(L,-1);
+  check_index_range(k);
+  t = get_tex_box_register(k);
+  nodelist_to_lua(L,t);
+  return 1;
+}
+
+
+int getnodelist (lua_State *L) {
+  int k;
+  k = (int)luaL_checkinteger(L,-1);
+  nodelist_to_lua(L,list_ptr(k));
+  return 1;
+}
+
+
+int setbox (lua_State *L) {
+  int i,j,k;
+  int cur_cs;
+  char *s;
+  int ok = 0;
+  k = (int)luaL_checkinteger(L,-2);
+  check_index_range(k);
+  if (lua_istable(L,-1)) {
+	if (lua_objlen(L,-1)==1) {
+	  lua_rawgeti(L,-1,1);
+	  if (lua_istable(L,-1)) {
+		lua_rawgeti(L,-1,1);
+		if (lua_isstring(L,-1)) {
+		  s = (char *)lua_tostring(L,-1);
+		  if (strcmp(s,"hlist")==0||
+			  strcmp(s,"vlist")==0) {
+			ok = 1;
+		  }
+		}
+		lua_pop(L,1);
+	  }
+	  lua_pop(L,1);
+	}
+	if (ok) {
+	  i = get_tex_box_register(k);
+	  j = nodelist_from_lua(L);
+	  /*  if (i!=null) flush_node_list(i); */
+	  if(set_tex_box_register(k,j)) {
+		lua_pushstring(L, "incorrect value");
+		lua_error(L);
+	  }
+	} else {
+	  lua_pushstring(L, "incorrect return value");
+	  lua_error(L);
+	}
+  } else if (lua_isboolean(L,-1)) {
+	j = lua_toboolean(L,-1);
+	if (j==0) { /* false */
+	  i = get_tex_box_register(k);
+	  /* if (i!=null) flush_node_list(i); */
+	  if(set_tex_box_register(k,null)) {
+		lua_pushstring(L, "werid error");
+		lua_error(L);
+	  }
+	} /* true == do nothing */
+  } else {
+	lua_pushstring(L, "incorrect return value");
+	lua_error(L);
+  }
+  return 0;
+}
+
+
 static int getboxdim (lua_State *L, int whichdim) {
   int i, j;
   i = lua_gettop(L);
@@ -624,12 +696,15 @@ static const struct luaL_reg texlib [] = {
   {"getcount", getcount},
   {"settoks",  settoks},
   {"gettoks",  gettoks},
+  {"setbox",   setbox},
+  {"getbox",   getbox},
   {"setboxwd", setboxwd},
   {"getboxwd", getboxwd},
   {"setboxht", setboxht},
   {"getboxht", getboxht},
   {"setboxdp", setboxdp},
   {"getboxdp", getboxdp},
+  {"get_node_list", getnodelist},
   {NULL, NULL}  /* sentinel */
 };
 
@@ -640,6 +715,7 @@ int luaopen_tex (lua_State *L)
   make_table(L,"dimen","getdimen","setdimen");
   make_table(L,"count","getcount","setcount");
   make_table(L,"toks","gettoks","settoks");
+  make_table(L,"box","getbox","setbox");
   make_table(L,"wd","getboxwd","setboxwd");
   make_table(L,"ht","getboxht","setboxht");
   make_table(L,"dp","getboxdp","setboxdp");
