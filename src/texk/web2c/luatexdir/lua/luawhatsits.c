@@ -635,19 +635,32 @@ whatsit_pdf_restore_from_lua (lua_State *L) {
   return p;
 }
 
-#define user_defined_node_size 2
+#define user_defined_node_size 3
 #define user_node_type(a)  vinfo((a)+1)
-#define user_node_value(a) vlink((a)+1)
+#define user_node_id(a)    vlink((a)+1)
+#define user_node_value(a) vinfo((a)+2)
 
 void
 whatsit_user_defined_to_lua (lua_State *L, halfword p) {
   switch (user_node_type(p)) {
-  case 'b': 
-	generic_node_to_lua(L,"whatsit","danb", subtype(p),status(p),
+  case 'a': 
+	generic_node_to_lua(L,"whatsit","dadda", subtype(p),status(p),user_node_id(p),
 						user_node_type(p),user_node_value(p)); 
 	break;
   case 'd': 
-	generic_node_to_lua(L,"whatsit","dand", subtype(p),status(p),
+	generic_node_to_lua(L,"whatsit","daddd", subtype(p),status(p),user_node_id(p),
+						user_node_type(p),user_node_value(p)); 
+	break;
+  case 'n': 
+	generic_node_to_lua(L,"whatsit","daddn", subtype(p),status(p),user_node_id(p),
+						user_node_type(p),user_node_value(p)); 
+	break;
+  case 's': 
+	generic_node_to_lua(L,"whatsit","dadds", subtype(p),status(p),user_node_id(p),
+						user_node_type(p),user_node_value(p)); 
+	break;
+  case 't': 
+	generic_node_to_lua(L,"whatsit","daddt", subtype(p),status(p),user_node_id(p),
 						user_node_type(p),user_node_value(p)); 
 	break;
   }
@@ -656,10 +669,21 @@ whatsit_user_defined_to_lua (lua_State *L, halfword p) {
 
 halfword 
 whatsit_user_defined_from_lua (lua_State *L) {
+  int a;
   int p, i = 2;
   make_whatsit(p,user_defined_node_size);
   numeric_field  (subtype(p),i++);
   status_field(p,i++);
+  numeric_field(user_node_id(p),i++);
+  numeric_field(user_node_type(p),i++);
+  switch (user_node_type(p)) {
+  case 'a': attributes_field(a,i++);   break;
+  case 'd': numeric_field(a,i++);      break;
+  case 'n': nodelist_field(a,i++);     break;
+  case 's': string_field(a,i++);       break;
+  case 't': tokenlist_field(a,i++);    break;
+  }
+  user_node_value(p)=a;
   return p;
 }
 
