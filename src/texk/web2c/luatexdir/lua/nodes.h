@@ -85,12 +85,12 @@ typedef enum {
   mark_node,      //
   adjust_node,    //
   ligature_node,  //
-  disc_node,      //
+  disc_node,      // 7
   whatsit_node,
   math_node,      //
   glue_node,      //
   kern_node,      //
-  penalty_node,   //
+  penalty_node,   // 12
   unset_node,     //
   right_noad = 31,
   margin_kern_node = 40, //
@@ -105,6 +105,7 @@ typedef enum {
 extern int node_sizes[];
 
 extern void  nodelist_to_lua (lua_State *L, halfword t);
+extern void  full_nodelist_to_lua (lua_State *L, halfword t);
 extern halfword nodelist_from_lua (lua_State *L) ;
 
 #define local_pen_inter(a)       varmem[a+1].cint
@@ -133,7 +134,7 @@ typedef enum {
   dir_node,
   pdf_literal_node,
   pdf_obj_code,
-  pdf_refobj_node,
+  pdf_refobj_node, /* 10 */
   pdf_xform_code,
   pdf_refxform_node,
   pdf_ximage_code,
@@ -143,7 +144,7 @@ typedef enum {
   pdf_end_link_node,
   pdf_outline_code,
   pdf_dest_node,
-  pdf_thread_node,
+  pdf_thread_node, /* 20 */
   pdf_start_thread_node,
   pdf_end_thread_node,
   pdf_save_pos_node,
@@ -153,23 +154,23 @@ typedef enum {
   pdf_font_attr_code,
   pdf_include_chars_code,
   pdf_map_file_code,
-  pdf_map_line_code,
+  pdf_map_line_code, /* 30 */
   pdf_trailer_code,
   pdf_font_expand_code,
   set_random_seed_code,
   pdf_snap_ref_point_node,
-  pdf_snapy_node,
+  pdf_snapy_node, /* 35 */
   pdf_snapy_comp_node,
   pdf_glyph_to_unicode_code,
   late_lua_node,
   close_lua_node,
-  save_cat_code_table_code,
+  save_cat_code_table_code, /* 40 */
   init_cat_code_table_code,
   pdf_colorstack_node,
   pdf_setmatrix_node,
   pdf_save_node,
   pdf_restore_node,
-  user_defined_node } whatsit_types ;
+  user_defined_node /* 46 */ } whatsit_types ;
 
 
 extern void      whatsit_node_to_lua (lua_State *L, halfword p);
@@ -269,6 +270,7 @@ typedef enum {
 
 #define make_whatsit(p,b)    { p = get_node(b);  type(p)=whatsit_node; }
 
+#define boolean_field(a,b)    { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
 #define numeric_field(a,b)    { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
 #define float_field(a,b)      { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
 #define nodelist_field(a,b)   { lua_rawgeti(L,-1,b); a = nodelist_from_lua(L); lua_pop(L,1); }
