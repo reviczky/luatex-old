@@ -303,16 +303,22 @@ tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
   integer m, c  ;
   integer q;
   char *s;
+  int active_base,hash_base,null_cs,e,undefined_control_sequence;
   char *ret=NULL;
   int match_chr = '#';
   int n = '0';
-  int active_base = get_active_base();
-  int hash_base = get_hash_base();
-  int null_cs = get_nullcs();
-  int e = get_escape_char();
-  int undefined_control_sequence = get_undefined_control_sequence();
   int alloci = 0;
   int i = 0;
+  if (p==null) {
+    if (siz!=NULL)
+      *siz = 0;
+    return NULL;
+  }
+  active_base = get_active_base();
+  hash_base = get_hash_base();
+  null_cs = get_nullcs();
+  e = get_escape_char();
+  undefined_control_sequence = get_undefined_control_sequence();
   while ( p != null ) {      
     if (p < fix_mem_min || p > fix_mem_end )  {
       Print_esc ("CLOBBERED.") ;
@@ -327,7 +333,7 @@ tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
 	  } else {
 	    if (q<active_base) {
 	      Print_esc("IMPOSSIBLE.");
-	    } else {
+ 	    } else {
 	      Print_uchar(q-active_base);
 	    }
 	  }
