@@ -3345,7 +3345,7 @@ begin
     r := get_avail; link(p):=r; p := link(p);
     info(p) := left_brace_token+"{";
     q := str_toks (makesrcspecial (source_filename_stack[in_open], line));
-    link(p) := link(temp_head);
+    link(p) := link(temp_token_head);
     p := q;
     r := get_avail; link(p):=r; p := link(p);
     info(p) := right_brace_token+"}";
