@@ -1649,6 +1649,7 @@ halfword rover = 0;
 #define llink(a)     varmem[(a)+1].hh.v.LH
 
 halfword free_chain[MAX_CHAIN_SIZE];
+integer free_chain_counts[MAX_CHAIN_SIZE];
 
 static int prealloc=0;
 
@@ -1664,14 +1665,13 @@ get_node (integer s) {
   integer t,x;
   if (s==010000000000)
     return max_halfword;
-
+  
   while (1) {
     if (s<MAX_CHAIN_SIZE && free_chain[s]!=null) {
       TEST_CHAIN(s);
       r = free_chain[s];
       free_chain[s] = vlink(r);
       TEST_CHAIN(s);
-      /*fprintf(stdout,"get_node(%d), %d (%p)\n",s,r, varmem);*/
       assert(varmem_sizes[r]<0);
       varmem_sizes[r] = abs(varmem_sizes[r]);
       assert(varmem_sizes[r]==s);
@@ -1687,16 +1687,15 @@ get_node (integer s) {
     } else {
       /*fprintf(stdout,"get_node(%d), t=%d, rover=%d, (%p)\n",s, t, rover,varmem);*/
       if (t<MAX_CHAIN_SIZE) {
-	TEST_CHAIN(t);
-	vlink(rover) = free_chain[t];
-	free_chain[t] = rover;
-	TEST_CHAIN(t);
+		TEST_CHAIN(t);
+		vlink(rover) = free_chain[t];
+		free_chain[t] = rover;
+		TEST_CHAIN(t);
         varmem_sizes[rover]=-t;
-	q = vlink(rover);
+		q = vlink(rover);
       } else {
-	q = rover;
+		q = rover;
       }
-      /*fprintf(stdout,"q=%d\n", q);*/
       x = (var_mem_max/5)+s; /* this way |s| will always fit */
       /* make sure we get up to speed quickly */
       if (var_mem_max<2500) {	x += 25000;  }
@@ -1704,8 +1703,8 @@ get_node (integer s) {
       varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
       varmem_sizes = (char *)realloc(varmem_sizes,sizeof(char)*t);
       if (varmem==NULL) {
-	runaway;
-	overflow("node memory size",var_mem_max);
+		runaway;
+		overflow("node memory size",var_mem_max);
       }
       memset ((void *)(varmem+var_mem_max),0,x*sizeof(memory_word));
       memset ((void *)(varmem_sizes+var_mem_max),0,x*sizeof(char));
@@ -1718,6 +1717,7 @@ get_node (integer s) {
   }
   vlink(r)=null; /* this node is now nonempty */
   type(r)=255; subtype(r)=255;
+  /*fprintf(stdout,"get_node(%d), %d (%p)\n",s,r, varmem);*/
   if (s>1) llink(r)=null;
   var_used=var_used+s; /* maintain usage statistics */
   return r;
@@ -1727,11 +1727,18 @@ void
 free_node (halfword p, integer s) {
   /*fprintf(stdout,"free_node(%d), %d (%p)\n",s,p,varmem);*/
   assert (p>prealloc) ;
-  assert(varmem_sizes[p]>0);
+  if (varmem_sizes[p]<=0) {
+    fprintf(stdout,"assert(varmem_sizes[p]>0): varmem_sizes[p]=%d,p=%d,s=%d,^=%d\n",varmem_sizes[p],p,s,var_mem_max);
+    fprintf(stdout,"varmem[p]: type=%d,subtype=%d,link=%d\n",type(p),subtype(p),vlink(p));
+    assert(varmem_sizes[p]>0);
+  }
   assert(varmem_sizes[p]==s);
   varmem_sizes[p] = -varmem_sizes[p];
   if (s<MAX_CHAIN_SIZE) {
     TEST_CHAIN(s);
+    /* this seemed like an interesting idea for debugging, but it doesn't work
+       (found too late) */
+    /* type(p) = 254; */
     vlink(p) = free_chain[s];
     free_chain[s] = p;
     TEST_CHAIN(s);
@@ -1761,6 +1768,27 @@ init_node_mem (halfword prealloced, halfword t) {
   rover = prealloced+1; vlink(rover) = null;
   node_size(rover)=(t-prealloced-1);
   var_used = 0;
+}
+
+void
+print_node_mem_stats (void) {
+  int i,a;
+  halfword j;
+  a = node_size(rover);
+  fprintf(stdout,"\nin use: %d node words from %d\n",(var_used+prealloc), var_mem_max);
+  fprintf(stdout,"still untouched: %d node words\n",a);
+  for (i=0;i<MAX_CHAIN_SIZE;i++) {
+    free_chain_counts[i]=0;
+  }
+  for (i=0;i<MAX_CHAIN_SIZE;i++) {
+	j = free_chain[i];
+    while(j!=null) {
+	  free_chain_counts[i] += i;
+	  j = vlink(j);
+	}
+	if (free_chain_counts[i]!=0) 
+	  fprintf(stdout,"size %2d avail list: %5d\n",i,free_chain_counts[i]);
+  }
 }
 
 void
