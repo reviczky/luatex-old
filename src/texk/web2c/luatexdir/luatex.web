@@ -22038,10 +22038,12 @@ nodes, math nodes, ligature nodes,
 or unset nodes; in particular, each mlist item appears in the
 variable-size part of |mem|, so the |type| field is always present.
 
-@ Each noad is four or more words long. The first word contains the |type|
-and |subtype| and |link| fields that are already so familiar to us; the
-second, third, and fourth words are called the noad's |nucleus|, |subscr|,
-and |supscr| fields.
+@ Each noad is five or more words long. The first word contains the
+|type| and |subtype| and |link| fields that are already so familiar to
+us; the second contains the attribute list pointer, and the third,
+fourth an fifth words are called the noad's |nucleus|, |subscr|, and
+|supscr| fields. (This use of a combined attribute list is temporary. 
+Eventually, each of fields need their own list)
 
 Consider, for example, the simple formula `\.{\$x\^2\$}', which would be
 parsed into an mlist containing a single element called an |ord_noad|.
@@ -22081,18 +22083,22 @@ and `\.{\$P\$}' produce different results (the former will not have the
 ``italic correction'' added to the width of |P|, but the ``script skip''
 will be added).
 
-The definitions of subfields given here are evidently wasteful of space,
-since a halfword is being used for the |math_type| although only three
+The definitions of subfields given here are a little wasteful of space,
+since a quarterword is being used for the |math_type| although only three
 bits would be needed. However, there are hardly ever many noads present at
 once, since they are soon converted to nodes that take up even more space,
 so we can afford to represent them in whatever way simplifies the
 programming.
 
-@d noad_size=4 {number of words in a normal noad}
-@d nucleus(#)==#+1 {the |nucleus| field of a noad}
-@d supscr(#)==#+2 {the |supscr| field of a noad}
-@d subscr(#)==#+3 {the |subscr| field of a noad}
-@d math_type==vlink {a |halfword| in |mem|}
+I tried exchanging |mcharacter()| and |math_type()| so that a character 
+could use the full Unicode range, but for some reason that does not work
+properly. TH
+
+@d noad_size=5 {number of words in a normal noad}
+@d nucleus(#)==#+2 {the |nucleus| field of a noad}
+@d supscr(#)==#+3 {the |supscr| field of a noad}
+@d subscr(#)==#+4 {the |subscr| field of a noad}
+@d math_type==vlink {a |quarterword| in |mem|}
 @d fam(#)==type(#) {a |quarterword| in |mem|}
 @d mcharacter(#)==subtype(#)
 @d math_char=1 {|math_type| when the attribute is simple}
@@ -22156,17 +22162,17 @@ be placed at the left and right of the fraction. In this way, a
 \.{\\atop}, \.{\\above}, \.{\\overwithdelims}, \.{\\atopwithdelims}, and
  \.{\\abovewithdelims}.
 
-@d left_delimiter(#)==#+4 {first delimiter field of a noad}
-@d right_delimiter(#)==#+5 {second delimiter field of a fraction noad}
+@d left_delimiter(#)==#+5 {first delimiter field of a noad}
+@d right_delimiter(#)==#+6 {second delimiter field of a fraction noad}
 @d radical_noad=inner_noad+1 {|type| of a noad for square roots}
-@d radical_noad_size=5 {number of |mem| words in a radical noad}
+@d radical_noad_size=6 {number of |mem| words in a radical noad}
 @d fraction_noad=radical_noad+1 {|type| of a noad for generalized fractions}
-@d fraction_noad_size=6 {number of |mem| words in a fraction noad}
+@d fraction_noad_size=7 {number of |mem| words in a fraction noad}
 @d small_fam(#)==vmem(#).qqqq.b0 {|fam| for ``small'' delimiter}
 @d small_char(#)==vmem(#).qqqq.b1 {|character| for ``small'' delimiter}
 @d large_fam(#)==vmem(#).qqqq.b2 {|fam| for ``large'' delimiter}
 @d large_char(#)==vmem(#).qqqq.b3 {|character| for ``large'' delimiter}
-@d thickness(#)==vmem(#+1).sc {|thickness| field in a fraction noad}
+@d thickness(#)==vmem(#+2).sc {|thickness| field in a fraction noad}
 @d default_code==@'10000000000 {denotes |default_rule_thickness|}
 @d numerator==supscr {|numerator| field in a fraction noad}
 @d denominator==subscr {|denominator| field in a fraction noad}
@@ -22190,6 +22196,7 @@ null_delimiter.b2:=0; null_delimiter.b3:=min_quarterword;
 var p:pointer;
 begin p:=get_node(noad_size);
 type(p):=ord_noad; subtype(p):=normal;
+build_attribute_list(p);
 vmem(nucleus(p)).hh:=empty_field;
 vmem(subscr(p)).hh:=empty_field;
 vmem(supscr(p)).hh:=empty_field;
@@ -22217,8 +22224,8 @@ fields are always |empty| in a |left_noad| and a |right_noad|.
 @d under_noad=fraction_noad+1 {|type| of a noad for underlining}
 @d over_noad=under_noad+1 {|type| of a noad for overlining}
 @d accent_noad=over_noad+1 {|type| of a noad for accented subformulas}
-@d accent_noad_size=5 {number of |mem| words in an accent noad}
-@d accent_chr(#)==#+4 {the |accent_chr| field of an accent noad}
+@d accent_noad_size=6 {number of |mem| words in an accent noad}
+@d accent_chr(#)==#+5 {the |accent_chr| field of an accent noad}
 @d vcenter_noad=accent_noad+1 {|type| of a noad for \.{\\vcenter}}
 @d left_noad=vcenter_noad+1 {|type| of a noad for \.{\\left}}
 @d right_noad=left_noad+1 {|type| of a noad for \.{\\right}}
@@ -22253,6 +22260,7 @@ i.e., a smaller style has a larger numerical value.
 var p:pointer; {the new node}
 begin p:=get_node(style_node_size); type(p):=style_node;
 subtype(p):=s; width(p):=0; depth(p):=0; {the |width| and |depth| are not used}
+build_attribute_list(p);
 new_style:=p;
 end;
 
@@ -22261,15 +22269,16 @@ has special subfields |display_mlist|, |text_mlist|, |script_mlist|,
 and |script_script_mlist| pointing to the mlists for each style.
 
 @d choice_node=unset_node+2 {|type| of a choice node}
-@d display_mlist(#)==vinfo(#+1) {mlist to be used in display style}
-@d text_mlist(#)==vlink(#+1) {mlist to be used in text style}
-@d script_mlist(#)==vinfo(#+2) {mlist to be used in script style}
-@d script_script_mlist(#)==vlink(#+2) {mlist to be used in scriptscript style}
+@d display_mlist(#)==vinfo(#+2) {mlist to be used in display style}
+@d text_mlist(#)==vlink(#+2) {mlist to be used in text style}
+@d script_mlist(#)==vinfo(#+3) {mlist to be used in script style}
+@d script_script_mlist(#)==vlink(#+3) {mlist to be used in scriptscript style}
 
 @p function new_choice:pointer; {create a choice node}
 var p:pointer; {the new node}
 begin p:=get_node(style_node_size); type(p):=choice_node;
 subtype(p):=0; {the |subtype| is not used}
+build_attribute_list(p);
 display_mlist(p):=null; text_mlist(p):=null; script_mlist(p):=null;
 script_script_mlist(p):=null;
 new_choice:=p;
@@ -22437,13 +22446,13 @@ end
 @ That which can be displayed can also be destroyed.
 
 @<Cases of |flush_node_list| that arise...@>=
-style_node: begin free_node(p,style_node_size); 
+style_node: begin ext_free_node(p,style_node_size); 
   end;
 choice_node:begin flush_node_list(display_mlist(p));
   flush_node_list(text_mlist(p));
   flush_node_list(script_mlist(p));
   flush_node_list(script_script_mlist(p));
-  free_node(p,style_node_size);
+  ext_free_node(p,style_node_size);
   end;
 ord_noad,op_noad,bin_noad,rel_noad,open_noad,close_noad,punct_noad,inner_noad,
   radical_noad,over_noad,under_noad,vcenter_noad,accent_noad:@t@>@;@/
@@ -22453,15 +22462,15 @@ ord_noad,op_noad,bin_noad,rel_noad,open_noad,close_noad,punct_noad,inner_noad,
     flush_node_list(vinfo(supscr(p)));
   if math_type(subscr(p))>=sub_box then
     flush_node_list(vinfo(subscr(p)));
-  if type(p)=radical_noad then free_node(p,radical_noad_size)
-  else if type(p)=accent_noad then free_node(p,accent_noad_size)
-  else free_node(p,noad_size);
+  if type(p)=radical_noad then ext_free_node(p,radical_noad_size)
+  else if type(p)=accent_noad then ext_free_node(p,accent_noad_size)
+  else ext_free_node(p,noad_size);
   end;
-left_noad,right_noad: begin free_node(p,noad_size);
+left_noad,right_noad: begin ext_free_node(p,noad_size);
   end;
 fraction_noad: begin flush_node_list(vinfo(numerator(p)));
   flush_node_list(vinfo(denominator(p)));
-  free_node(p,fraction_noad_size); 
+  ext_free_node(p,fraction_noad_size); 
   end;
 
 @* \[35] Subroutines for math mode.
@@ -22755,7 +22764,7 @@ begin if (width(b)<>w)and(list_ptr(b)<>null) then
   begin if type(b)=vlist_node then b:=hpack(b,natural);
   p:=list_ptr(b);
   if (is_char_node(p))and(vlink(p)=null) then
-    begin f:=font(p); v:=char_width(f,mcharacter(p));
+    begin f:=font(p); v:=char_width(f,character(p));
     if v<>width(b) then begin 
        q:=new_kern(width(b)-v); vlink(p):=q;
        end;
@@ -22890,9 +22899,9 @@ if is_char_node(q) then
   end
 
 @ It is convenient to have a procedure that converts a |math_char|
-field to an ``unpacked'' form. The |fetch| routine sets |cur_f|, |cur_c|,
-and |cur_i| to the font code, character code, and character information bytes of
-a given noad field. It also takes care of issuing error messages for
+field to an ``unpacked'' form. The |fetch| routine sets |cur_f| and |cur_c|
+to the font code and character code of a given noad field. 
+It also takes care of issuing error messages for
 nonexistent characters; in such cases, |char_exists(cur_f,cur_c)| will be |false|
 after |fetch| has acted, and the field will also have been reset to |empty|.
 
@@ -23114,6 +23123,7 @@ procedure make_over(@!q:pointer);
 var p:pointer;
 begin p:=overbar(clean_box(nucleus(q),cramped_style(cur_style)),@|
   	  3*default_rule_thickness,default_rule_thickness);
+node_attr(p):=node_attr(q); add_node_attr_ref(node_attr(q));
 vinfo(nucleus(q)):=p;
 math_type(nucleus(q)):=sub_box;
 end;
@@ -23128,6 +23138,7 @@ r:=fraction_rule(default_rule_thickness); vlink(p):=r;
 pack_direction:=math_direction; y:=vpack(x,natural);
 delta:=height(y)+depth(y)+default_rule_thickness;
 height(y):=height(x); depth(y):=delta-height(y);
+node_attr(y):=node_attr(q); add_node_attr_ref(node_attr(y));
 vinfo(nucleus(q)):=y; math_type(nucleus(q)):=sub_box;
 end;
 
@@ -23141,6 +23152,7 @@ if type(v)<>vlist_node then confusion("vcenter");
 delta:=height(v)+depth(v);
 height(v):=axis_height(cur_size)+half(delta);
 depth(v):=delta-height(v);
+node_attr(v):=node_attr(q); add_node_attr_ref(node_attr(q));
 end;
 
 @ According to the rules in the \.{DVI} file specifications, we ensure alignment
@@ -23168,6 +23180,7 @@ if delta>0 then clr:=clr+half(delta); {increase the actual clearance}
 shift_amount(y):=-(height(x)+clr);
 p:=overbar(x,clr,height(y)); vlink(y):=p;
 p:=hpack(y,natural); vinfo(nucleus(q)):=p; 
+node_attr(p):=node_attr(q); add_node_attr_ref(node_attr(q));
 math_type(nucleus(q)):=sub_box;
 end;
 
@@ -23202,6 +23215,7 @@ if char_exists(cur_f,cur_c) then
   pack_direction:=math_direction;
   y:=vpack(y,natural); width(y):=width(x);
   if height(y)<h then @<Make the height of box |y| equal to |h|@>;
+  node_attr(y):=node_attr(q); add_node_attr_ref(node_attr(q));
   vinfo(nucleus(q)):=y;
   math_type(nucleus(q)):=sub_box;
   end;
@@ -23322,6 +23336,7 @@ if cur_style<text_style then delta:=delim1(cur_size)
 else delta:=delim2(cur_size);
 x:=var_delimiter(left_delimiter(q), cur_size, delta); vlink(x):=v;@/
 z:=var_delimiter(right_delimiter(q), cur_size, delta); vlink(v):=z;@/
+node_attr(y):=node_attr(q); add_node_attr_ref(node_attr(q));
 y:=hpack(x,natural); new_hlist(q):=y
 
 @ If the nucleus of an |op_noad| is a single character, it is to be
@@ -23467,6 +23482,7 @@ if has_lig(cur_f,a) then begin
     qi(3),qi(7),qi(11):begin r:=new_noad; {\.{\?=:\?}, \.{\?=:\?>}, \.{\?=:\?>>}}
       mcharacter(nucleus(r)):=lig_replacement(lig);
       fam(nucleus(r)):=fam(nucleus(q));@/
+      node_attr(r):=node_attr(q); add_node_attr_ref(node_attr(q));
       vlink(q):=r; vlink(r):=p;
       if lig_type(lig)<qi(11) then math_type(nucleus(r)):=math_char
       else math_type(nucleus(r)):=math_text_char; {prevent combination}
@@ -23474,7 +23490,7 @@ if has_lig(cur_f,a) then begin
     othercases begin vlink(q):=vlink(p);
       mcharacter(nucleus(q)):=lig_replacement(lig); {\.{=:}}
       vmem(subscr(q)):=vmem(subscr(p)); vmem(supscr(q)):=vmem(supscr(p));@/
-      free_node(p,noad_size);
+      ext_free_node(p,noad_size);
       end
     endcases;
     if lig_type(lig)>qi(3) then return;
@@ -23647,7 +23663,7 @@ while q<>null do
   @<Append any |new_hlist| entries for |q|, and any appropriate penalties@>;
   if type(q)=right_noad then t:=open_noad;
   r_type:=t;
-  delete_q: r:=q; q:=vlink(q); free_node(r,s);
+  delete_q: r:=q; q:=vlink(q); ext_free_node(r,s);
   done: end
 
 @ Just before doing the big |case| switch in the second pass, the program
@@ -32139,7 +32155,7 @@ math_group: begin @<DIR: |unsave| math@>; decr(save_ptr);@/
     begin if math_type(subscr(p))=empty then
      if math_type(supscr(p))=empty then
       begin vmem(saved(0)).hh:=vmem(nucleus(p)).hh;
-      free_node(p,noad_size);
+      ext_free_node(p,noad_size);
       end;
     end
   else if type(p)=accent_noad then if saved(0)=nucleus(tail) then
@@ -32148,7 +32164,7 @@ math_group: begin @<DIR: |unsave| math@>; decr(save_ptr);@/
 
 @ @<Replace the tail...@>=
 begin q:=head; while vlink(q)<>tail do q:=vlink(q);
-vlink(q):=p; free_node(tail,noad_size); tail:=p;
+vlink(q):=p; ext_free_node(tail,noad_size); tail:=p;
 end
 
 @ We have dealt with all constructions of math mode except `\.{\\left}' and
