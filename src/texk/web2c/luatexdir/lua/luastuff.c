@@ -317,6 +317,7 @@ luainterpreter (int n) {
   luaopen_pdf(L);
   luaopen_tex(L);
   luaopen_token(L);
+  luaopen_node(L);
   luaopen_texio(L);
   luaopen_kpse(L);
   if (n==0) {

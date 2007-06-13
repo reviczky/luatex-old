@@ -3,6 +3,7 @@
 
 #define null -0x3FFFFFFF
 #define zero_glue 0
+#define normal 0
 
 #define vinfo(a)           varmem[(a)].hh.v.LH 
 #define vlink(a)           varmem[(a)].hh.v.RH 
@@ -10,6 +11,10 @@
 #define subtype(a)         varmem[(a)].hh.u.B1
 #define node_attr(a)       vinfo((a)+1)
 
+#define attribute_node_size 2
+#define attribute_list_node_size 2
+
+#define attr_list_ref(a)   vinfo((a)+1)
 #define attribute_id(a)    vlink((a)+1)
 #define attribute_value(a) vinfo((a)+1)
 
@@ -23,6 +28,7 @@
 #define leader_ptr(a)    vlink((a)+2)
 
 #define disc_node_size 3
+#define replace_count    subtype
 #define pre_break(a)     vinfo((a)+2)
 #define post_break(a)    vlink((a)+2)
 
@@ -52,12 +58,12 @@
 #define mark_class(a)    vinfo((a)+2)
 
 /* a glue spec */
-#define glue_spec_size 3
-#define stretch(a)       vlink((a)+1)
-#define shrink(a)        vinfo((a)+1)
-#define stretch_order    type
-#define shrink_order     subtype
-#define glue_ref_count   vlink
+#define glue_spec_size 4
+#define stretch(a)        vlink((a)+1)
+#define shrink(a)         vinfo((a)+1)
+#define stretch_order(a)  type((a)+3)
+#define shrink_order(a)   subtype((a)+3)
+#define glue_ref_count(a) vlink((a)+3)
 
 #define adjust_node_size 2
 #define adjust_ptr(a)    vlink(a+1)
@@ -96,7 +102,9 @@ typedef enum {
   margin_kern_node = 40, //
   glyph_node = 41,
   attribute_node = 42,
-  last_known_node = 43,
+  glue_spec_node = 43,
+  attribute_list_node = 44,
+  last_known_node = 45,
   unhyphenated_node = 50, 
   hyphenated_node = 51,
   delta_node = 52,
@@ -172,6 +180,7 @@ typedef enum {
   pdf_restore_node,
   user_defined_node /* 46 */ } whatsit_types ;
 
+extern char * node_names[];
 
 extern void      whatsit_node_to_lua (lua_State *L, halfword p);
 extern halfword  whatsit_node_from_lua (lua_State *L);
@@ -292,3 +301,5 @@ extern void generic_node_to_lua (lua_State *L, char *name, char *fmt, ...);
 
 extern void action_node_to_lua (lua_State *L, halfword p);
 extern void attribute_list_to_lua (lua_State *L, halfword p);
+
+extern void unodelist_to_lua (lua_State *L, halfword n);

@@ -3601,7 +3601,7 @@ trusted: after an assignment to an attribute register, and after a group has
 ended.
 
 @d cache_disabled==max_halfword
-@d attr_list_ref(#)==vinfo(#) {the reference count}
+@d attr_list_ref(#)==vinfo(#+1) {the reference count}
 @d add_node_attr_ref(#)==begin pdfassert(#<>cache_disabled); 
   if #<>null then incr(attr_list_ref(#)); end
  
@@ -3617,7 +3617,9 @@ attr_list_cache:=null;
 used to attach the current attribute values to the main nodes. 
 
 @d attribute_node_size==2 {!! has to be a parameter macro, not a numeric}
-@d attribute_node=42 {|type| of an attribute list node}
+@d attribute_list_node_size==2 {!! has to be a parameter macro, not a numeric}
+@d attribute_node=42 {|type| of an attribute node}
+@d attribute_list_node=44 {|type| of an attribute list node}
 @d attribute_id(#)==vlink(#+1)
 @d attribute_value(#)==vinfo(#+1)
 
@@ -3636,7 +3638,8 @@ begin i:=0;
 node_attr(b):=null;
 if max_used_attr<>0 then begin
   if attr_list_cache=cache_disabled then begin
-    q:=get_node(temp_node_size); p:=q;
+    q:=get_node(attribute_list_node_size); p:=q;
+	set_type(q,attribute_list_node);
     while i<=max_used_attr do begin
       v:=attribute(i);
       if v>=0 then begin
@@ -3650,7 +3653,7 @@ if max_used_attr<>0 then begin
       attr_list_ref(attr_list_cache):=0;
       end
     else begin
-      free_node(q,temp_node_size);
+      free_node(q,attribute_list_node_size);
       attr_list_cache:=null;
       end;
     end;
@@ -3675,7 +3678,7 @@ begin
         r:=q; q:=vlink(q);
         free_node(r,attribute_node_size);
         end;
-      free_node(b,temp_node_size);      
+      free_node(b,attribute_list_node_size);      
     end;
   end;
 end;
@@ -3731,15 +3734,21 @@ which all subfields have the values corresponding to `\.{\\hbox\{\}}'.
 The |subtype| field is set to |min_quarterword|, since that's the desired
 |span_count| value if this |hlist_node| is changed to an |unset_node|.
 
-@p function new_null_box:pointer; {creates a new box node}
+@p function bare_null_box:pointer; {creates a new box node}
 var p:pointer; {the new node}
-begin p:=get_node(box_node_size); set_type(p,hlist_node);
-subtype(p):=min_quarterword;
+begin p:=get_node(box_node_size); set_type(p,hlist_node); subtype(p):=min_quarterword;
 width(p):=0; depth(p):=0; height(p):=0; shift_amount(p):=0; list_ptr(p):=null;
 glue_sign(p):=normal; glue_order(p):=normal; set_glue_ratio_zero(glue_set(p));
 box_dir(p):=text_direction; 
-build_attribute_list(p);
-new_null_box:=p;
+node_attr(p):=0;
+bare_null_box:=p;
+end;
+@#
+function new_null_box:pointer;
+var p:pointer; {the new node}
+begin p:=bare_null_box;
+ build_attribute_list(p);
+ new_null_box:=p;
 end;
 
 @ A |vlist_node| is like an |hlist_node| in all respects except that it
@@ -3764,15 +3773,24 @@ an hlist; the |height| and |depth| are never running in a~vlist.
 makes all the dimensions ``running,'' so you have to change the
 ones that are not allowed to run.
 
-@p function new_rule:pointer;
+@p 
+function bare_rule:pointer;
 var p:pointer; {the new node}
 begin p:=get_node(rule_node_size); set_type(p,rule_node);
 subtype(p):=0; {the |subtype| is not used}
 width(p):=null_flag; depth(p):=null_flag; height(p):=null_flag;
 rule_dir(p):=-1;
-build_attribute_list(p);
-new_rule:=p;
+node_attr(p):=0;
+bare_rule:=p;
 end;
+@#
+function new_rule:pointer;
+var p:pointer; {the new node}
+begin p:=bare_rule;
+  build_attribute_list(p);
+  new_rule:=p;
+end;
+
 
 @ Insertions are represented by |ins_node| records, where the |subtype|
 indicates the corresponding box number. For example, `\.{\\insert 250}'
@@ -4007,12 +4025,13 @@ fields called |stretch_order| and |shrink_order|; these contain the
 orders of infinity (|normal|, |sfi|, |fil|, |fill|, or |filll|)
 corresponding to the stretch and shrink values.
 
-@d glue_spec_size=3 {number of words to allocate for a glue specification}
-@d glue_ref_count(#) == vlink(#) {reference count of a glue specification}
+@d glue_spec_size=4 {number of words to allocate for a glue specification}
+@d glue_spec_node=43
+@d glue_ref_count(#) == vlink(#+3) {reference count of a glue specification}
 @d stretch(#) == vlink(#+1) {the stretchability of this glob of glue}
 @d shrink(#) == vinfo(#+1) {the shrinkability of this glob of glue}
-@d stretch_order == type {order of infinity for stretching}
-@d shrink_order == subtype {order of infinity for shrinking}
+@d stretch_order(#) == type(#+3) {order of infinity for stretching}
+@d shrink_order(#) == subtype(#+3) {order of infinity for shrinking}
 @d sfi=1 {first-order infinity}
 @d fil=2 {second-order infinity}
 @d fill=3 {third-order infinity}
@@ -4027,8 +4046,8 @@ to be exactly one reference to the new specification.
 
 @p function new_spec(@!p:pointer):pointer; {duplicates a glue specification}
 var q:pointer; {the new spec}
-begin q:=get_node(glue_spec_size);@/
-vmem(q):=vmem(p); glue_ref_count(q):=null;@/
+begin q:=get_node(glue_spec_size);@/ set_type(q,glue_spec_node);
+subtype(q):=0; vmem(q+3):=vmem(p+3); glue_ref_count(q):=null;@/
 width(q):=width(p); stretch(q):=stretch(p); shrink(q):=shrink(p);
 new_spec:=q;
 end;
@@ -6045,9 +6064,10 @@ that will be defined later.
 @d no_local_dirs_code=58
 @d level_local_dir_code=59
 @d luastartup_id_code=60
-@d disable_ligkern_code=61
-@d cat_code_table_code=62
-@d tex_int_pars=63 {total number of \.{\\TeX} + Aleph integer parameters}
+@d disable_lig_code=61
+@d disable_kern_code=62
+@d cat_code_table_code=63
+@d tex_int_pars=64 {total number of \.{\\TeX} + Aleph integer parameters}
 @#
 @d dir_base=int_base+tex_int_pars
 @d page_direction_code=0
@@ -6175,7 +6195,8 @@ that will be defined later.
 @d holding_inserts==int_par(holding_inserts_code)
 @d error_context_lines==int_par(error_context_lines_code)
 @d luastartup_id==int_par(luastartup_id_code)
-@d disable_ligkern==int_par(disable_ligkern_code)
+@d disable_lig==int_par(disable_lig_code)
+@d disable_kern==int_par(disable_kern_code)
 @d cat_code_table==int_par(cat_code_table_code)
 @#
 @d pdf_adjust_spacing   == int_par(pdf_adjust_spacing_code)
@@ -6280,7 +6301,8 @@ right_hyphen_min_code:print_esc("righthyphenmin");
 holding_inserts_code:print_esc("holdinginserts");
 error_context_lines_code:print_esc("errorcontextlines");
 luastartup_id_code:print_esc("luastartup");
-disable_ligkern_code:print_esc("noligkerns");
+disable_lig_code:print_esc("noligs");
+disable_kern_code:print_esc("nokerns");
 cat_code_table_code:print_esc("catcodetable");
 @#
 local_inter_line_penalty_code: print_esc("localinterlinepenalty");
@@ -6440,8 +6462,10 @@ primitive("errorcontextlines",assign_int,int_base+error_context_lines_code);@/
 @!@:error_context_lines_}{\.{\\errorcontextlines} primitive@>
 primitive("luastartup",assign_int,int_base+luastartup_id_code);@/
 @!@:luastartup_id_}{\.{\\luastartup} primitive@>
-primitive("noligkerns",assign_int,int_base+disable_ligkern_code);@/
-@!@:disable_ligkern_}{\.{\\noligkerns} primitive@>
+primitive("nokerns",assign_int,int_base+disable_kern_code);@/
+@!@:disable_kern_}{\.{\\noligkerns} primitive@>
+primitive("noligs",assign_int,int_base+disable_lig_code);@/
+@!@:disable_lig_}{\.{\\noligs} primitive@>
 primitive("catcodetable",assign_int,int_base+cat_code_table_code);@/
 @!@:cat_code_table_}{\.{\\catcodetable} primitive@>
 primitive("pdfoutput",assign_int,int_base+pdf_output_code);@/
@@ -23450,7 +23474,6 @@ if math_type(subscr(q))=empty then if math_type(supscr(q))=empty then
     if fam(nucleus(p))=fam(nucleus(q)) then
       begin math_type(nucleus(q)):=math_text_char;
       fetch(nucleus(q)); a:=cur_c;
-      if disable_ligkern=0 then
       if (has_kern(cur_f,a))or(has_lig(cur_f,a)) then
         begin cur_c:=mcharacter(nucleus(p));
           @<If character |a| has a kern with |cur_c|, attach
@@ -23472,7 +23495,7 @@ ligatures only when this convention makes sense.
 
 @<If character |a| has a kern with |cur_c|, ...@>=
 begin
-if has_lig(cur_f,a) then begin
+if disable_lig=0 and has_lig(cur_f,a) then begin
   lig:=get_ligature(cur_f,a,cur_c);
   if is_ligature(lig) then begin
 	check_interrupt; {allow a way out of infinite ligature loop}
@@ -23497,7 +23520,7 @@ if has_lig(cur_f,a) then begin
     math_type(nucleus(q)):=math_char; goto restart;
     end;
   end;
-if has_kern(cur_f,a) then begin
+if disable_kern=0 and has_kern(cur_f,a) then begin
   k:=get_kern(cur_f,a,cur_c);
   if k<>0 then begin 
     p:=new_kern(k); vlink(p):=vlink(q); vlink(q):=p; return;
@@ -27256,8 +27279,7 @@ else
   k:=cur_l;
 begin
   if cur_rh<>non_boundarychar then test_char:=cur_rh@+else test_char:=cur_r;
-  if disable_ligkern=0 then
-  if has_lig(hf,k) then begin
+  if disable_lig=0 and has_lig(hf,k) then begin
 	lig:=get_ligature(hf,k,test_char);
     if is_ligature(lig) then begin
 	  @<Update |hyphen_passed| and |hchar|, maybe goto continue@>;
@@ -27266,7 +27288,7 @@ begin
         advance, otherwise |goto done|@>;
       end;
     end
-  else begin if has_kern(hf,k) then
+  else begin if disable_kern=0 and has_kern(hf,k) then
 	  {TH: this 'Update ..' should not be needed ? }
 	  @<Update |hyphen_passed| and |hchar|, maybe goto continue@>;
 	  w:=get_kern(hf,k,test_char);
@@ -29805,16 +29827,15 @@ lig/kern commands were investigated for every such character.
 tmp_k1 := get_auto_kern(main_f, cur_l, cur_r);
 @<If |tmp_k1| is not null then append that kern@>;
 if new_right_ghost or left_ghost then goto main_loop_wrapup;
-if disable_ligkern<>0 or 
-   ((not has_lig(main_f,cur_l))and 
-    (not has_kern(main_f,cur_l))) then goto main_loop_wrapup;
+if (not has_lig(main_f,cur_l))and 
+    (not has_kern(main_f,cur_l)) then goto main_loop_wrapup;
 main_lig_loop+1:
-if disable_ligkern=0 and has_lig(main_f,cur_l) then begin
+if disable_lig=0 and has_lig(main_f,cur_l) then begin
   lig:=get_ligature(main_f,cur_l,cur_r);
   if is_ligature(lig) then 
     @<Do ligature command and goto somewhere@>;
   end;
-if disable_ligkern=0 and has_kern(main_f,cur_l) then begin
+if disable_kern=0 and has_kern(main_f,cur_l) then begin
   main_k:=get_kern(main_f,cur_l,cur_r);
   if main_k<>0 then begin 
     wrapup(rt_hit);

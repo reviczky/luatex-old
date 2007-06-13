@@ -10,7 +10,7 @@
 
 #define append_node(t,a)   { if (a!=null) { vlink(a) = null; vlink(t) = a;  t = a;  } }
 
-static char * node_names[] = {
+char * node_names[] = {
   "hlist", /* 0 */
   "vlist",  
   "rule",
@@ -52,6 +52,8 @@ static char * node_names[] = {
   "margin_kern", /* 40 */
   "glyph",
   "attribute",
+  "glue_spec",
+  "attribute_list",
    NULL };
 
 
@@ -151,8 +153,9 @@ attribute_list_from_lua (lua_State *L) {
   integer v;
   if (!lua_istable(L,-1))
     return null;
-  p = get_node(temp_node_size);
-  vinfo(p)=1; /* refcount=1*/
+  p = get_node(attribute_list_node_size);
+  type(p) = attribute_list_node;
+  attr_list_ref(p)=1; /* refcount=1*/
   q = p;
   for (k=0;k<256;k++) {
     lua_rawgeti(L,-1,k);
@@ -167,7 +170,7 @@ attribute_list_from_lua (lua_State *L) {
     lua_pop(L,1);
   }
   if (q==p) {
-    free_node(p,temp_node_size);
+    free_node(p,attribute_list_node_size);
     q = null;
   }
   return q;

@@ -79,6 +79,7 @@ image/writepng.o \
 lua/lcallbacklib.o \
 lua/lkpselib.o \
 lua/llualib.o \
+lua/lnodelib.o \
 lua/lpdflib.o \
 lua/lstatslib.o \
 lua/ltexiolib.o \

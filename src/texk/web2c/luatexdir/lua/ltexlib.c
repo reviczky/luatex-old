@@ -431,6 +431,16 @@ int getbox (lua_State *L) {
   k = (int)luaL_checkinteger(L,-1);
   check_index_range(k);
   t = get_tex_box_register(k);
+  unodelist_to_lua(L,t);
+  return 1;
+}
+
+
+int table_getbox (lua_State *L) {
+  int k, t;
+  k = (int)luaL_checkinteger(L,-1);
+  check_index_range(k);
+  t = get_tex_box_register(k);
   nodelist_to_lua(L,t);
   return 1;
 }
@@ -698,6 +708,7 @@ static const struct luaL_reg texlib [] = {
   {"gettoks",  gettoks},
   {"setbox",   setbox},
   {"getbox",   getbox},
+  {"tgetbox",  table_getbox},
   {"setboxwd", setboxwd},
   {"getboxwd", getboxwd},
   {"setboxht", setboxht},
