@@ -91,7 +91,6 @@ lua/luastuff.o \
 lua/luatex.o \
 lua/luatoken.o \
 lua/luanode.o \
-lua/luawhatsits.o \
 managed-sa.o \
 mathcodes.o \
 textcodes.o \

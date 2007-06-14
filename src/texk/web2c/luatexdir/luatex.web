@@ -3734,21 +3734,14 @@ which all subfields have the values corresponding to `\.{\\hbox\{\}}'.
 The |subtype| field is set to |min_quarterword|, since that's the desired
 |span_count| value if this |hlist_node| is changed to an |unset_node|.
 
-@p function bare_null_box:pointer; {creates a new box node}
+@p function new_null_box:pointer; {creates a new box node}
 var p:pointer; {the new node}
 begin p:=get_node(box_node_size); set_type(p,hlist_node); subtype(p):=min_quarterword;
 width(p):=0; depth(p):=0; height(p):=0; shift_amount(p):=0; list_ptr(p):=null;
 glue_sign(p):=normal; glue_order(p):=normal; set_glue_ratio_zero(glue_set(p));
 box_dir(p):=text_direction; 
-node_attr(p):=0;
-bare_null_box:=p;
-end;
-@#
-function new_null_box:pointer;
-var p:pointer; {the new node}
-begin p:=bare_null_box;
- build_attribute_list(p);
- new_null_box:=p;
+build_attribute_list(p);
+new_null_box:=p;
 end;
 
 @ A |vlist_node| is like an |hlist_node| in all respects except that it
@@ -3764,7 +3757,7 @@ This is called a ``running dimension.'' The |width| is never running in
 an hlist; the |height| and |depth| are never running in a~vlist.
 
 @d rule_node=2 {|type| of rule nodes}
-@d rule_node_size=5 {number of words to allocate for a rule node}
+@d rule_node_size=6 {number of words to allocate for a rule node}
 @d null_flag==-@'10000000000 {$-2^{30}$, signifies a missing item}
 @d is_running(#) == (#=null_flag) {tests for a running dimension}
 @d rule_dir(#)==vlink(#+1)
@@ -3774,21 +3767,14 @@ makes all the dimensions ``running,'' so you have to change the
 ones that are not allowed to run.
 
 @p 
-function bare_rule:pointer;
+function new_rule:pointer;
 var p:pointer; {the new node}
 begin p:=get_node(rule_node_size); set_type(p,rule_node);
 subtype(p):=0; {the |subtype| is not used}
 width(p):=null_flag; depth(p):=null_flag; height(p):=null_flag;
 rule_dir(p):=-1;
-node_attr(p):=0;
-bare_rule:=p;
-end;
-@#
-function new_rule:pointer;
-var p:pointer; {the new node}
-begin p:=bare_rule;
-  build_attribute_list(p);
-  new_rule:=p;
+build_attribute_list(p);
+new_rule:=p;
 end;
 
 
@@ -3826,9 +3812,9 @@ operation.  The |adjust_ptr| field points to the vlist containing this
 material.
 
 @d adjust_node=5 {|type| of an adjust node}
-@d adjust_node_size=2
+@d adjust_node_size=3
 @d adjust_pre == subtype  {pre-adjustment?}
-@d adjust_ptr(#)==vlink(#+1) {vertical list to be moved out of horizontal list}
+@d adjust_ptr(#)==vlink(#+2) {vertical list to be moved out of horizontal list}
 @#{|append_list| is used to append a list to |tail|}
 @d append_list(#) == begin vlink(tail) := vlink(#); append_list_end
 @d append_list_end(#) == tail := #; end
@@ -3841,12 +3827,12 @@ required to be strictly less than $2^{16}$). In \LuaTeX, room is
 needed for characters that are larger than that, as well as a pointer
 to a potential attribute list. 
 
-@d glyph_node_size=3
+@d glyph_node_size=4
 @d glyph_node=41 {|type| of a glyph node}
 @d is_char_node(#) == ((#<>null)and(type(#)=glyph_node))
-@d font(#)==vlink(#+1) {the font code in a |glyph_node|}
+@d font(#)==vlink(#+2) {the font code in a |glyph_node|}
 @d character(#)==vinfo(#+2) {the character code in a |glyph_node|}
-@d lig_ptr(#)==vlink(#+2) {the list of characters for ligature replacements }
+@d lig_ptr(#)==vlink(#+3) {the list of characters for ligature replacements }
 
 @p function new_glyph(@!f,@!c:integer):pointer;
 var p:pointer; {the new node}
@@ -3954,8 +3940,8 @@ formula and |after| after it. There is a |surround field, which represents
 the amount of surrounding space inserted by \.{\\mathsurround}.
 
 @d math_node=9 {|type| of a math node}
-@d math_node_size=2
-@d surround(#)==vlink(#+1)
+@d math_node_size=3
+@d surround(#)==vlink(#+2)
 @d before=0 {|subtype| for math node that introduces a formula}
 @d after=1 {|subtype| for math node that winds up a formula}
 
@@ -4111,8 +4097,8 @@ inserted from \.{\\mkern} specifications in math formulas).
 
 @# {memory structure for marginal kerns}
 @d margin_kern_node = 40
-@d margin_kern_node_size = 3
-@d margin_char(#) == vlink(#+1)
+@d margin_kern_node_size = 4
+@d margin_char(#) == vlink(#+3)
 
 @# {|subtype| of marginal kerns}
 @d left_side == 0
@@ -4157,7 +4143,7 @@ break will be forced.
 @d penalty_node_size=3 {has to be the same as |glue_node_size|}
 @d inf_penalty=inf_bad {``infinite'' penalty value}
 @d eject_penalty=-inf_penalty {``negatively infinite'' penalty value}
-@d penalty(#) == vlink(#+1) {the added cost of breaking a list here}
+@d penalty(#) == vlink(#+2) {the added cost of breaking a list here}
 
 @ Anyone who has been reading the last few sections of the program will
 be able to guess what comes next.
@@ -17711,19 +17697,19 @@ are rectangle specification of annotation. For whatsit node representing
 destination |pdf_left| and |pdf_top| are used for some types of destinations}
 
 @# {coordinates of destinations/threads/annotations (in whatsit node)}
-@d pdf_left(#)             == vmem(# + 1).sc
-@d pdf_top(#)              == vmem(# + 2).sc
-@d pdf_right(#)            == vmem(# + 3).sc
-@d pdf_bottom(#)           == vmem(# + 4).sc
+@d pdf_left(#)             == vmem(# + 2).sc
+@d pdf_top(#)              == vmem(# + 3).sc
+@d pdf_right(#)            == vmem(# + 4).sc
+@d pdf_bottom(#)           == vmem(# + 5).sc
 
 @# {dimesion of destinations/threads/annotations (in whatsit node)}
-@d pdf_width(#)            == vmem(# + 1).sc
-@d pdf_height(#)           == vmem(# + 2).sc
-@d pdf_depth(#)            == vmem(# + 3).sc
+@d pdf_width(#)            == vmem(# + 2).sc
+@d pdf_height(#)           == vmem(# + 3).sc
+@d pdf_depth(#)            == vmem(# + 4).sc
 
 @# {data structure for \.{\\pdfliteral}}
-@d pdf_literal_data(#)     == vlink(#+1) {data}
-@d pdf_literal_mode(#)     == vinfo(#+1) {mode of resetting the text matrix
+@d pdf_literal_data(#)     == vlink(#+2) {data}
+@d pdf_literal_mode(#)     == vinfo(#+2) {mode of resetting the text matrix
                               while writing data to the page stream}
 @# {modes of setting the current transformation matrix (CTM)}
 @d set_origin              == 0 {end text (ET) if needed, set CTM to current point}
@@ -17732,10 +17718,10 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 @d scan_special            == 3 {look into special text}
 
 @# {data structure for \.{\\pdfcolorstack}}
-@d pdf_colorstack_node_size == 3
-@d pdf_colorstack_stack(#)  == vlink(#+1) {stack number}
-@d pdf_colorstack_cmd(#)    == vinfo(#+1) {command: set, push, pop, current}
-@d pdf_colorstack_data(#)   == vlink(#+2) {data}
+@d pdf_colorstack_node_size == 4
+@d pdf_colorstack_stack(#)  == vlink(#+2) {stack number}
+@d pdf_colorstack_cmd(#)    == vinfo(#+2) {command: set, push, pop, current}
+@d pdf_colorstack_data(#)   == vlink(#+3) {data}
 
 @# {color stack commands}
 @d colorstack_set          == 0
@@ -17746,7 +17732,7 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 
 @# {data structure for \.{\\pdfsetmatrix}}
 @d pdf_setmatrix_node_size == 3
-@d pdf_setmatrix_data(#)   == vlink(#+1) {data}
+@d pdf_setmatrix_data(#)   == vlink(#+2) {data}
 
 @# {data structure for \.{\\pdsave}}
 @d pdf_save_node_size      == 3
@@ -17756,13 +17742,12 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 
 
 @# {data structure for \.{\\latelua}}
-@d late_lua_data(#)        == vlink(#+1) {data}
-@# {a bit sneaky, since these are quarterwords that are assumed to hold 16bits}
-@d late_lua_reg(#)         == subtype(#+1) {register id}
+@d late_lua_data(#)        == vlink(#+2) {data}
+@d late_lua_reg(#)         == vinfo(#+2) {register id}
 
 @# {data structure for \.{\\pdfobj} and \.{\\pdfrefobj}}
 @d pdf_refobj_node_size    == 3 {size of whatsit node representing the raw object}
-@d pdf_obj_objnum(#)       == vinfo(# + 1) {number of the raw object}
+@d pdf_obj_objnum(#)       == vinfo(# + 2) {number of the raw object}
 @d obj_data_ptr            == obj_aux {pointer to |pdf_mem|}
 @d pdfmem_obj_size         == 4 {size of memory in |pdf_mem| which
                               |obj_data_ptr| holds}
@@ -17775,7 +17760,7 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
                               read from an external file?}
 
 @# {data structure for \.{\\pdfxform} and \.{\\pdfrefxform}}
-@d pdf_refxform_node_size  == 5 {size of whatsit node for xform; words 1..3 are
+@d pdf_refxform_node_size  == 6 {size of whatsit node for xform; words 1..3 are
                               form dimensions}
 @d pdf_xform_objnum(#)     == vinfo(# + 4) {object number}
 @d pdfmem_xform_size       == 6 {size of memory in |pdf_mem| which
@@ -17791,10 +17776,10 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
                               Resources}
 
 @# {data structure for \.{\\pdfximage} and \.{\\pdfrefximage}}
-@d pdf_refximage_node_size == 5 {size of whatsit node for ximage; words 1..3
+@d pdf_refximage_node_size == 6 {size of whatsit node for ximage; words 1..3
                                are image dimensions}
-@d pdf_ximage_objnum(#)    == vinfo(# + 4) {object number}
-@d pdfmem_ximage_size      == 5 {size of memory in |pdf_mem| which
+@d pdf_ximage_objnum(#)    == vinfo(# + 5) {object number}
+@d pdfmem_ximage_size      == 6 {size of memory in |pdf_mem| which
                               |obj_data_ptr| holds}
 @d obj_ximage_width(#)     == pdf_mem[obj_data_ptr(#) + 0]
 @d obj_ximage_height(#)    == pdf_mem[obj_data_ptr(#) + 1]
@@ -17805,12 +17790,12 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 @# {data structure of annotations; words 1..4 represent the coordinates of
     the annotation}
 @d obj_annot_ptr           == obj_aux {pointer to corresponding whatsit node}
-@d pdf_annot_node_size     == 7 {size of whatsit node representing annotation}
-@d pdf_annot_data(#)       == vinfo(# + 5) {raw data of general annotations}
-@d pdf_link_attr(#)        == vinfo(# + 5) {attributes of link annotations}
-@d pdf_link_action(#)      == vlink(# + 5) {pointer to action structure}
-@d pdf_annot_objnum(#)     == vmem(# + 6).int {object number of corresponding object}
-@d pdf_link_objnum(#)      == vmem(# + 6).int {object number of corresponding object}
+@d pdf_annot_node_size     == 8 {size of whatsit node representing annotation}
+@d pdf_annot_data(#)       == vinfo(# + 6) {raw data of general annotations}
+@d pdf_link_attr(#)        == vinfo(# + 6) {attributes of link annotations}
+@d pdf_link_action(#)      == vlink(# + 6) {pointer to action structure}
+@d pdf_annot_objnum(#)     == vmem(# + 7).int {object number of corresponding object}
+@d pdf_link_objnum(#)      == vmem(# + 7).int {object number of corresponding object}
 
 @# {types of actions}
 @d pdf_action_page         == 0 {GoTo action}
@@ -17860,22 +17845,22 @@ action}
 
 @# {data structure of destinations}
 @d obj_dest_ptr             == obj_aux {pointer to |pdf_dest_node|}
-@d pdf_dest_node_size       == 7 {size of whatsit node for destination;
+@d pdf_dest_node_size       == 8 {size of whatsit node for destination;
 words |1..4| hold dest dimensions, word |6| identifier type, subtype
 and identifier of destination, word |6| the corresponding object number}
-@d pdf_dest_type(#)          == type(# + 5) {type of destination}
-@d pdf_dest_named_id(#)      == subtype(# + 5) {is named identifier?}
-@d pdf_dest_id(#)            == vlink(# + 5) {destination identifier}
-@d pdf_dest_xyz_zoom(#)      == vinfo(# + 6) {zoom factor for |destxyz| destination}
-@d pdf_dest_objnum(#)        == vlink(# + 6) {object number of corresponding
+@d pdf_dest_type(#)          == type(# + 6) {type of destination}
+@d pdf_dest_named_id(#)      == subtype(# + 6) {is named identifier?}
+@d pdf_dest_id(#)            == vlink(# + 6) {destination identifier}
+@d pdf_dest_xyz_zoom(#)      == vinfo(# + 7) {zoom factor for |destxyz| destination}
+@d pdf_dest_objnum(#)        == vlink(# + 7) {object number of corresponding
 object}
 
 @# {data structure of threads; words 1..4 represent the coordinates of the
     corners}
-@d pdf_thread_node_size      == 7
-@d pdf_thread_named_id(#)    == subtype(# + 5) {is a named identifier}
-@d pdf_thread_id(#)          == vlink(# + 5) {thread identifier}
-@d pdf_thread_attr(#)        == vinfo(# + 6) {attributes of thread}
+@d pdf_thread_node_size      == 8
+@d pdf_thread_named_id(#)    == subtype(# + 6) {is a named identifier}
+@d pdf_thread_id(#)          == vlink(# + 6) {thread identifier}
+@d pdf_thread_attr(#)        == vinfo(# + 7) {attributes of thread}
 @d obj_thread_first          == obj_aux {pointer to the first bead}
 
 @# {data structure of beads}
@@ -17894,10 +17879,10 @@ so we can use this field for both}
 
 @# {data structure of snap node}
 @d snap_node_size           == 3
-@d snap_glue_ptr(#)         == vinfo(# + 1)
-@d final_skip(#)            == vmem(# + 2).sc {the amount to skip}
+@d snap_glue_ptr(#)         == vlink(# + 2)
+@d final_skip(#)            == vinfo(# + 2) {the amount to skip}
 @# {data structure of snap compensation node}
-@d snapy_comp_ratio(#)       == vmem(# + 1).int
+@d snapy_comp_ratio(#)       == vinfo(# + 2)
 
 @<Constants...@>=
 @!inf_obj_tab_size = 1000; {min size of the cross-reference table for PDF output}
@@ -34863,7 +34848,7 @@ case of \.{\\openout}, we need three words and three auxiliary subfields
 to hold the string numbers for name, area, and extension.
 
 @d open_node=0 {|subtype| in whatsits that represent files to \.{\\openout}}
-@d open_node_size==3 {number of words in an open/whatsit node}
+@d open_node_size==4 {number of words in an open/whatsit node}
 @d write_node=1 {|subtype| in whatsits that represent things to \.{\\write}}
 @d write_node_size==3 {number of words in a write/whatsit node}
 @d close_node=2 {|subtype| in whatsits that represent streams to \.{\\closeout}}
@@ -34872,19 +34857,19 @@ to hold the string numbers for name, area, and extension.
 @d special_node_size==3 {number of words in a write/whatsit node}
 @d language_node=4 {|subtype| in whatsits that change the current language}
 @d language_node_size==3 {number of words in a write/whatsit node}
-@d dir_node_size=3 {number of words in change direction node}
-@d dir_dir(#)==vinfo(#+1) {keep the direction to be taken}
-@d dir_level(#)==vlink(#+1) {the save level at which the direction was defined}
-@d dir_dvi_ptr(#)==vinfo(#+2) {for reflecting dvi output}
-@d dir_dvi_h(#)==vlink(#+2) {for reflecting dvi output}
-@d what_lang(#)==vlink(#+1) {language number, in the range |0..255|}
-@d what_lhm(#)==type(#+1) {minimum left fragment, in the range |1..63|}
-@d what_rhm(#)==subtype(#+1) {minimum right fragment, in the range |1..63|}
-@d write_tokens(#) == vlink(#+1) {reference count of token list to write}
-@d write_stream(#) == vinfo(#+1) {stream number (0 to 17)}
-@d open_name(#) == vlink(#+1) {string number of file name to open}
-@d open_area(#) == vinfo(#+2) {string number of file area for |open_name|}
-@d open_ext(#) == vlink(#+2) {string number of file extension for |open_name|}
+@d dir_node_size=4 {number of words in change direction node}
+@d dir_dir(#)==vinfo(#+2) {keep the direction to be taken}
+@d dir_level(#)==vlink(#+2) {the save level at which the direction was defined}
+@d dir_dvi_ptr(#)==vinfo(#+3) {for reflecting dvi output}
+@d dir_dvi_h(#)==vlink(#+3) {for reflecting dvi output}
+@d what_lang(#)==vlink(#+2) {language number, in the range |0..255|}
+@d what_lhm(#)==type(#+2) {minimum left fragment, in the range |1..63|}
+@d what_rhm(#)==subtype(#+2) {minimum right fragment, in the range |1..63|}
+@d write_tokens(#) == vlink(#+2) {reference count of token list to write}
+@d write_stream(#) == vinfo(#+2) {stream number (0 to 17)}
+@d open_name(#) == vlink(#+2) {string number of file name to open}
+@d open_area(#) == vinfo(#+3) {string number of file area for |open_name|}
+@d open_ext(#) == vlink(#+3) {string number of file extension for |open_name|}
 
 @ The sixteen possible \.{\\write} streams are represented by the |write_file|
 array. The |j|th file is open if and only if |write_open[j]=true|. The last
@@ -35223,6 +35208,7 @@ and appends it to the current list.
 procedure new_whatsit(@!s:small_number;@!w:small_number);
 var p:pointer; {the new node}
 begin p:=get_node(w); set_type(p,whatsit_node); subtype(p):=s;
+build_attribute_list(p);
 vlink(tail):=p; tail:=p;
 end;
 
@@ -36602,10 +36588,10 @@ typesetting engine itself. Each has an id, a type, and a value. The
 type of the value depends on the |user_node_type| field. 
 
 @d user_defined_node==pdf_restore_node+1
-@d user_defined_node_size=3
-@d user_node_id(#)==vlink(#+1)
-@d user_node_type(#)==vinfo(#+1)
-@d user_node_value(#)==vinfo(#+2)
+@d user_defined_node_size=4
+@d user_node_id(#)==vlink(#+2)
+@d user_node_type(#)==vinfo(#+2)
+@d user_node_value(#)==vinfo(#+3)
 
 @ @<Display the whatsit...@>=
 case subtype(p) of
@@ -36850,7 +36836,7 @@ othercases print("whatsit?")
 endcases
 
 @ @<Make a partial copy of the whatsit...@>=
-case subtype(p) of
+begin case subtype(p) of
 open_node: begin r:=get_node(open_node_size);
   write_stream(r) := write_stream(p);
   open_name(r) := open_name(p);
@@ -37001,7 +36987,11 @@ user_defined_node: begin r:=get_node(user_defined_node_size);
   end;
 othercases confusion("ext2")
 @:this can't happen ext2}{\quad ext2@>
-endcases
+endcases;
+node_attr(r):=node_attr(p); 
+add_node_attr_ref(node_attr(p));
+end
+
 
 @ @<Wipe out the whatsit...@>=
 begin case subtype(p) of
@@ -37097,6 +37087,7 @@ user_defined_node: begin
 othercases confusion("ext3")
 @:this can't happen ext3}{\quad ext3@>
 endcases;@/
+delete_attribute_ref(node_attr(p));
 end
 
 @ @<Incorporate a whatsit node into a vbox@>=
@@ -37380,14 +37371,14 @@ else begin new_whatsit(language_node,language_node_size);
 for k:=0 to 15 do if write_open[k] then lua_a_close_out(write_file[k])
 
 @ 
-@d local_pen_inter(#)==vmem(#+1).int {\.{\\localinterlinepenalty}}
-@d local_pen_broken(#)==vmem(#+2).int {\.{\\localbrokenpenalty}}
-@d local_box_left(#)==vmem(#+3).int {\.{\\localleftbox}}
-@d local_box_left_width(#)==vmem(#+4).int
-@d local_box_right(#)==vmem(#+5).int {\.{\\localleftbox}}
-@d local_box_right_width(#)==vmem(#+6).int
-@d local_par_dir(#)==vmem(#+7).int
-@d local_par_size==8
+@d local_pen_inter(#)==vinfo(#+2) {\.{\\localinterlinepenalty}}
+@d local_pen_broken(#)==vlink(#+2) {\.{\\localbrokenpenalty}}
+@d local_box_left(#)==vlink(#+3) {\.{\\localleftbox}}
+@d local_box_left_width(#)==vinfo(#+3)
+@d local_box_right(#)==vlink(#+4) {\.{\\localleftbox}}
+@d local_box_right_width(#)==vinfo(#+4)
+@d local_par_dir(#)==vinfo(#+5)
+@d local_par_size==6
 
 @<LOCAL: Declare |make_local_par_node|@>=
 function make_local_par_node:pointer;

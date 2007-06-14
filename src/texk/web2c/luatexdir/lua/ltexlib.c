@@ -431,7 +431,7 @@ int getbox (lua_State *L) {
   k = (int)luaL_checkinteger(L,-1);
   check_index_range(k);
   t = get_tex_box_register(k);
-  unodelist_to_lua(L,t);
+  nodelist_to_lua(L,t);
   return 1;
 }
 
@@ -460,7 +460,7 @@ int setbox (lua_State *L) {
 	}
 	if (ok) {
 	  i = get_tex_box_register(k);
-	  j = unodelist_from_lua(L);
+	  j = nodelist_from_lua(L);
 	  if(set_tex_box_register(k,j)) {
 		lua_pushstring(L, "incorrect value");
 		lua_error(L);

@@ -467,7 +467,7 @@ tokenlist_from_lua(lua_State *L) {
     }
     return r;
   } else if (lua_isstring(L,-1)) {
-    s = lua_tolstring(L,-1,&j);
+    s = (char *)lua_tolstring(L,-1,&j);
     for (i=0;i<j;i++) {
       if (s[i] == 32) {
 	tok = (10*string_offset)+s[i]; 	  

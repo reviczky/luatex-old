@@ -8,8 +8,6 @@
 #define info(a)    fixmem[(a)].hhlh
 #define link(a)    fixmem[(a)].hhrh
 
-#define append_node(t,a)   { if (a!=null) { vlink(a) = null; vlink(t) = a;  t = a;  } }
-
 char * node_names[] = {
   "hlist", /* 0 */
   "vlist",  
@@ -57,659 +55,57 @@ char * node_names[] = {
    NULL };
 
 
-void
-generic_node_to_lua (lua_State *L, char *name, char *fmt, ...) {
-  va_list args;
-  int val;
-  double fval;
-  int i = 1;
-  lua_createtable(L,(strlen(fmt)+1),0);
-  lua_pushstring(L,name);
-  lua_rawseti(L,-2,i++);
-  va_start(args,fmt);
-  while (*fmt) {
-    switch(*fmt++) {
-    case 'a':           /* action, int */
-      val = va_arg(args, int);
-      if (val==null) {
-        lua_pushnil(L);
-      } else {
-        attribute_list_to_lua(L,val);
-      }
-      lua_rawseti(L,-2,i++);
-      break;
-    case 'b':           /* boolean, int */
-      val = va_arg(args, int);
-      lua_pushboolean(L,val);
-      lua_rawseti(L,-2,i++);
-      break;
-    case 'c':           /* action, int */
-      val = va_arg(args, int);
-      action_node_to_lua(L,val);
-      lua_rawseti(L,-2,i++);
-      break;
-    case 'd':           /* number, int */
-      val = va_arg(args, int);
-      lua_pushnumber(L,val);
-      lua_rawseti(L,-2,i++);
-      break;
-    case 'f':           /* float, double */
-      fval = va_arg(args, double);
-      lua_pushnumber(L,fval);
-      lua_rawseti(L,-2,i++);
-      break;
-    case 'n':           /* nodelist */
-      val = va_arg(args, int);
-      if (val==null) {
-        lua_pushnil(L);
-      } else {
-        nodelist_to_lua(L,val);
-      }
-      lua_rawseti(L,-2,i++);
-      break;
-    case 's':           /* strnumber */
-      val = va_arg(args, int);
-      lua_pushstring(L,makecstring(val));
-      lua_rawseti(L,-2,i++);
-      break;
-    case 't':           /* tokenlist */
-      val = va_arg(args, int);
-      if (val == null) {
-        lua_pushnil(L);
-      } else {
-        tokenlist_to_lua(L,link(val));
-      }
-      lua_rawseti(L,-2,i++);
-      break;
-    case 'u':           /* tokenlist */
-      val = va_arg(args, int);
-      if (val == null) {
-        lua_pushnil(L);
-      } else {
-        tokenlist_to_luastring(L,link(val));
-      }
-      lua_rawseti(L,-2,i++);
-      break;
-    }
-  }
-  va_end(args);
-}
+char *whatsit_node_names[] = {
+  "open",
+  "write",
+  "close",
+  "special",
+  "language",
+  "!" /* "set_language" */,
+  "local_par",
+  "dir",
+  "pdf_literal",
+  "!" /* "pdf_obj" */,
+  "pdf_refobj",
+  "!" /* "pdf_xform" */,
+  "pdf_refxform",
+  "!" /* "pdf_ximage" */,
+  "pdf_refximage",
+  "pdf_annot",
+  "pdf_start_link",
+  "pdf_end_link",
+  "!" /* "pdf_outline" */,
+  "pdf_dest",
+  "pdf_thread",
+  "pdf_start_thread",
+  "pdf_end_thread",
+  "pdf_save_pos",
+  "!" /* "pdf_info" */,
+  "!" /* "pdf_catalog" */,
+  "!" /* "pdf_names" */,
+  "!" /* "pdf_font_attr" */,
+  "!" /* "pdf_include_chars" */,
+  "!" /* "pdf_map_file" */,
+  "!" /* "pdf_map_line" */,
+  "!" /* "pdf_trailer" */,
+  "!" /* "pdf_font_expand" */,
+  "!" /* "set_random_seed" */,
+  "pdf_snap_ref_point",
+  "pdf_snapy",
+  "pdf_snapy_comp",
+  "!" /* "pdf_glyph_to_unicode" */,
+  "late_lua",
+  "close_lua",
+  "!" /* "save_cat_code_table" */,
+  "!" /* "init_cat_code_table" */,
+  "pdf_colorstack", 
+  "pdf_setmatrix",
+  "pdf_save",
+  "pdf_restore",
+  "user_defined",
+  NULL };
 
-void 
-attribute_list_to_lua (lua_State *L, halfword p) {
-  integer q=vlink(p);
-  lua_newtable(L);
-  while (q!=null && type(q)==attribute_node) {
-    lua_pushnumber(L,attribute_value(q));
-    lua_rawseti(L,-2,attribute_id(q)); 
-    q = vlink(q);
-  }
-}
-
-halfword 
-attribute_list_from_lua (lua_State *L) {
-  halfword p,q,s;
-  int k;
-  integer v;
-  if (!lua_istable(L,-1))
-    return null;
-  p = get_node(attribute_list_node_size);
-  type(p) = attribute_list_node;
-  attr_list_ref(p)=1; /* refcount=1*/
-  q = p;
-  for (k=0;k<256;k++) {
-    lua_rawgeti(L,-1,k);
-    if (lua_isnumber(L,-1)) {
-      v =lua_tonumber(L,-1);
-      if (v>=0) {
-        s = new_attribute_node(k,v);
-        vlink(p) = s;
-        p = vlink(p);
-      }
-    }
-    lua_pop(L,1);
-  }
-  if (q==p) {
-    free_node(p,attribute_list_node_size);
-    q = null;
-  }
-  return q;
-}
-
-void 
-glyph_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"glyph","daddn",0,node_attr(p),character(p),font(p),lig_ptr(p));
-}
-
-void 
-ligature_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"glyph","daddn",(subtype(p)+1),node_attr(p),
-                      character(p),font(p),lig_ptr(p));
-}
-
-halfword 
-glyph_node_from_lua (lua_State *L) {
-  int f,c,t,l,a;
-  halfword p;
-  int i = 2;
-  numeric_field(t,i++);
-  attributes_field(a,i++);
-  numeric_field(c,i++);
-  numeric_field(f,i++);
-  if (t==0) { /* char node */
-    i++;
-    p = new_glyph(f,c);
-  } else {
-    nodelist_field(l,i++); 
-    p = new_ligature(f,c,l);
-    subtype(p) = (t-1);
-  }
-  delete_attribute_ref(node_attr(p)); 
-  node_attr(p)=a; 
-  return p;
-}
-
-void
-rule_node_to_lua(lua_State *L, halfword p) {
-  generic_node_to_lua(L,"rule","dadddd",0,node_attr(p),
-                      width(p),depth(p),height(p),rule_dir(p));
-}
-
-halfword
-rule_node_from_lua(lua_State *L) {
-  int a;
-  int i = 3;
-  halfword p = new_rule();
-  delete_attribute_ref(node_attr(p)); 
-  attributes_field(a,i++);  node_attr(p)=a;
-  numeric_field(width(p),i++);
-  numeric_field(depth(p),i++);
-  numeric_field(height(p),i++);
-  numeric_field(rule_dir(p),i++);
-  return p;
-}
-
-void
-ins_node_to_lua(lua_State *L, halfword p) {
-  halfword q = split_top_ptr(p);
-  generic_node_to_lua(L,"rule","daddddddddn",subtype(p),node_attr(p),
-                      float_cost(p),depth(p),height(p),
-		      width(q),stretch(q),stretch_order(q),
-                      shrink(q),shrink_order(q),ins_ptr(p));
-}
-
-halfword
-ins_node_from_lua(lua_State *L) {
-  int a;
-  int i = 2;
-  halfword p = get_node(ins_node_size);
-  halfword q = new_spec(zero_glue);
-  type(p) = ins_node;
-  numeric_field(subtype(p),i++);
-  attributes_field(a,i++); node_attr(p)=a;  
-  numeric_field(float_cost(p),i++);
-  numeric_field(depth(p),i++);
-  numeric_field(height(p),i++);
-  numeric_field(width(q),i++);
-  numeric_field(stretch(q),i++);
-  numeric_field(stretch_order(q),i++);
-  numeric_field(shrink(q),i++);
-  numeric_field(shrink_order(q),i++);
-  split_top_ptr(p) = q;
-  nodelist_field(a,i++); ins_ptr(p)=a;
-  return p;
-}
-
-
-void
-disc_node_to_lua(lua_State *L, halfword p) {
-  generic_node_to_lua(L,"disc","dann",subtype(p),node_attr(p),
-                      pre_break(p),post_break(p));
-}
-
-halfword
-disc_node_from_lua(lua_State *L) {
-  int a;
-  int i = 2;
-  halfword p = new_disc();
-  delete_attribute_ref(node_attr(p)); 
-  numeric_field(subtype(p),i++);
-  attributes_field(a,i++);  node_attr(p)=a;
-  nodelist_field(a,i++); pre_break(p)=a;
-  nodelist_field(a,i++); post_break(p)=a;
-  return p;
-}
-
-void
-list_node_to_lua(lua_State *L, int list_type_, halfword p) {
-  generic_node_to_lua(L,node_names[list_type_],"daddddnddfd",subtype(p),node_attr(p),width(p),depth(p),height(p),
-                      shift_amount(p),list_ptr(p),glue_order(p),glue_sign(p),glue_set(p),box_dir(p));
-}
-
-void
-flat_list_node_to_lua(lua_State *L, int list_type_, halfword p) {
-  generic_node_to_lua(L,node_names[list_type_],"dadddddddfd",subtype(p),node_attr(p),width(p),depth(p),height(p),
-                      shift_amount(p),p,glue_order(p),glue_sign(p),glue_set(p),box_dir(p));
-}
-
-halfword 
-list_node_from_lua(lua_State *L, int list_type_) {
-  int a;
-  int i = 2;
-  int p = new_null_box();
-  delete_attribute_ref(node_attr(p)); 
-  type(p) = list_type_;
-  numeric_field(subtype(p),i++);
-  attributes_field(a,i++);  node_attr(p)=a;
-  numeric_field(width(p),i++);
-  numeric_field(depth(p),i++);
-  numeric_field(height(p),i++);
-  numeric_field(shift_amount(p),i++);
-  lua_rawgeti(L,-1,i); 
-  if (lua_isnumber(L,-1)) {
-    lua_pop(L,1);
-    /* this is absolutely unsafe. I should verify that the used values
-       are really acceptable entries and/or create some sort of
-       subtype test to make sure I am not trashing memory completely.
-     */
-    
-    numeric_field(a,i++);
-    list_ptr(p)= list_ptr(a);
-    list_ptr(a) = null;
-    
-  } else {
-    lua_pop(L,1);
-    nodelist_field(a,i++); 
-    list_ptr(p)=a;
-  }
-  numeric_field(glue_order(p),i++);
-  numeric_field(glue_sign(p),i++);
-  float_field(glue_set(p),i++);
-  numeric_field(box_dir(p),i++);
-  return p;
-}
-
-
-void
-unset_node_to_lua(lua_State *L, halfword p) {
-  generic_node_to_lua(L,"unset","daddddndddd",span_count(p),node_attr(p),width(p),depth(p),height(p),
-                      glue_shrink(p),list_ptr(p),glue_order(p),glue_sign(p),glue_stretch(p),box_dir(p));
-}
-
-
-halfword
-unset_node_from_lua(lua_State *L) {
-  int a;
-  int i = 2;
-  int p = new_null_box();
-  delete_attribute_ref(node_attr(p)); 
-  type(p) = unset_node;
-  numeric_field(span_count(p),i++);
-  attributes_field(a,i++);  node_attr(p)=a;
-  numeric_field(width(p),i++);
-  numeric_field(depth(p),i++);
-  numeric_field(height(p),i++);
-  numeric_field(glue_shrink(p),i++);
-  nodelist_field(a,i++); list_ptr(p)=a;
-  numeric_field(glue_order(p),i++);
-  numeric_field(glue_sign(p),i++);
-  numeric_field(glue_stretch(p),i++);
-  numeric_field(box_dir(p),i++);
-  return p;
-}
-
-void
-penalty_node_to_lua(lua_State *L, halfword p) {
-  generic_node_to_lua(L,"penalty","dad",0,node_attr(p),penalty(p));
-}
-
-halfword
-penalty_node_from_lua(lua_State *L) {
-  int a;
-  int i = 3;
-  halfword p = new_penalty(0);
-  delete_attribute_ref(node_attr(p)); 
-  attributes_field(a,i++);  node_attr(p)=a;
-  numeric_field(penalty(p),i++);
-  return p;
-}
-
-void 
-glue_node_to_lua (lua_State *L, halfword p) {
-  halfword q = glue_ptr(p);
-  generic_node_to_lua(L,"glue","dadddddn",subtype(p),node_attr(p),
-                      width(q),stretch(q),stretch_order(q),
-                      shrink(q),shrink_order(q),leader_ptr(p));
-}
-
-halfword 
-glue_node_from_lua (lua_State *L) {
-  int a;
-  int i = 2;
-  halfword q = get_node(glue_spec_size);
-  halfword p = get_node(glue_node_size); 
-  type(p)=glue_node; 
-  leader_ptr(p)=null;
-  glue_ptr(p)=q;
-  numeric_field (subtype(p),i++);
-  attributes_field(a,i++);   node_attr(p)=a;
-  numeric_field (width(q),i++);
-  numeric_field (stretch(q),i++);
-  numeric_field (stretch_order(q),i++);
-  numeric_field (shrink(q),i++);
-  numeric_field (shrink_order(q),i++);
-  nodelist_field(a,i++); leader_ptr(p)=a;
-  glue_ref_count(q) = null;
-  return p;
-}
-
-void 
-kern_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"kern","dad",subtype(p),node_attr(p),width(p));
-}
-
-halfword 
-kern_node_from_lua (lua_State *L) {
-  int a;
-  halfword p;
-  int i = 2;
-  p = new_kern(0);
-  delete_attribute_ref(node_attr(p)); 
-  numeric_field(subtype(p),i++);
-  attributes_field(a,i++);  node_attr(p)=a;
-  numeric_field(width(p),i++);
-  return p;
-}
-
-void 
-margin_kern_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"margin_kern","daddd",subtype(p),node_attr(p),width(p),
-                      font(margin_char(p)),character(margin_char(p)));
-}
-
-
-halfword 
-margin_kern_node_from_lua (lua_State *L) {
-  int a;
-  int i = 2;
-  halfword p = get_node(margin_kern_node_size);
-  type(p) = margin_kern_node;
-  numeric_field(subtype(p),i++);
-  attributes_field(a,i++);    node_attr(p)=a;
-  numeric_field(width(p),i++);
-  margin_char(p)=new_glyph(0,0);
-  a=copy_node_list(node_attr(p));
-  node_attr(margin_char(p))=a;
-  numeric_field(font(margin_char(p)),i++);
-  numeric_field(character(margin_char(p)),i++);
-  return p;
-}
-
-void 
-mark_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"mark","dadt",subtype(p),node_attr(p),mark_class(p),mark_ptr(p));
-}
-
-halfword 
-mark_node_from_lua (lua_State *L) {
-  int a;
-  int i = 2;
-  halfword p = get_node(mark_node_size);
-  type(p) = mark_node;
-  numeric_field  (subtype(p),i++);
-  attributes_field(a,i++);  node_attr(p)=a;
-  numeric_field  (mark_class(p),i++);
-  tokenlist_field(a,i++); mark_ptr(p)=a;
-  return p;
-}
-
-void 
-math_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"math","dad",subtype(p),node_attr(p),surround(p));
-}
-
-halfword
-math_node_from_lua  (lua_State *L) {
-  int a;
-  int i = 2;
-  halfword p = new_math(0,0);
-  delete_attribute_ref(node_attr(p)); 
-  numeric_field(subtype(p),i++);
-  attributes_field(a,i++);  node_attr(p)=a;
-  numeric_field(surround(p),i++);
-  return p;
-}
-
-void 
-adjust_node_to_lua (lua_State *L, halfword p) {
-  generic_node_to_lua(L,"adjust","dan",subtype(p),node_attr(p),adjust_ptr(p));
-}
-
-halfword
-adjust_node_from_lua  (lua_State *L) {
-  int a;
-  int i = 2;
-  halfword p = get_node(adjust_node_size);
-  type(p)= adjust_node;
-  numeric_field(subtype(p),i++);
-  attributes_field(a,i++);  node_attr(p)=a;
-  nodelist_field(a,i++); adjust_ptr(p)=a;
-  return p;
-}
-
-void 
-do_nodelist_to_lua (lua_State *L, halfword t, int flat, int *glyphcount) {
-  halfword v = t;
-  int i = 1;
-  luaL_checkstack(L,2,"out of stack space");
-  if (t==null) {
-    lua_createtable(L,0,0);
-    return;
-  }
-  while (vlink(v)!=null) { i++;  v = vlink(v);  }
-  lua_createtable(L,i,0);
-  i = 0;
-  while (t!=null) {
-      switch (type(t)) {
-      case glyph_node:
-        glyph_node_to_lua(L, t);
-        lua_rawseti(L,-2,++i);
-	if (glyphcount!=NULL)
-	  *glyphcount++;
-        break;
-      case hlist_node:
-      case vlist_node:
-	if (flat){
-	  flat_list_node_to_lua(L,type(t),t);
-	} else {
-	  list_node_to_lua(L,type(t),t);
-	}
-        lua_rawseti(L,-2,++i); 
-        break;
-      case rule_node: 
-        rule_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case ins_node: 
-        ins_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case mark_node: 
-        mark_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case adjust_node: 
-        adjust_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-	if (glyphcount!=NULL)
-	  *glyphcount++;
-        break;
-      case ligature_node: 
-        ligature_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case disc_node: 
-        disc_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case whatsit_node: 
-        whatsit_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case math_node: 
-        math_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case glue_node: 
-        glue_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case kern_node: 
-        kern_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case penalty_node: 
-        penalty_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case margin_kern_node: 
-        margin_kern_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      case unset_node: 
-        unset_node_to_lua(L,t); 
-        lua_rawseti(L,-2,++i);
-        break;
-      default: 
-        if (type(t)<=right_noad) {
-          fprintf(stdout,"<noad type %s not supported>\n",node_names[type(t)]);
-        } else {
-          fprintf(stdout,"<unknown node type %d>\n", type(t));
-        }
-        break;
-      }
-    t = vlink(t);
-  };
-}
-
-void 
-nodelist_to_lua (lua_State *L, halfword t) {
-  do_nodelist_to_lua(L,t,0, NULL);
-}
-
-int 
-flat_nodelist_to_lua (lua_State *L, halfword t) {
-  int n =0;
-  do_nodelist_to_lua(L,t,1, &n);
-  return n;
-}
-
-
-
-halfword
-nodelist_from_lua (lua_State *L) {
-  char *s; 
-  int i; /* general counter */
-  int t, u, head;
-  if (!lua_istable(L,-1)) {
-    return null;
-  }
-  t = get_node(temp_node_size);
-  head = t;
-  luaL_checkstack(L,3,"out of lua memory");
-  lua_pushnil(L);
-  while (lua_next(L,-2) != 0) {
-    /* it is more sensible here to ignore rubbish, instead of
-       generating an error, because nodes may be deleted on the lua
-       side in various ways. Requiring a table to return as a proper
-       array would likely result in speed penalties */
-    if (lua_istable(L,-1)) {
-      lua_rawgeti(L,-1,1); 
-      if (lua_isstring(L,-1)) { /* it is a node */
-        s = (char *)lua_tostring(L,-1);
-        for (i=0;node_names[i]!=NULL;i++) {
-          if (strcmp(s,node_names[i])==0)
-            break;
-        }
-        lua_pop(L,1); /* the string */
-        if (i<last_known_node) {
-          switch (i) {
-          case hlist_node:
-          case vlist_node:
-            u = list_node_from_lua(L,i);
-            append_node(t,u);
-            break;
-          case rule_node: 
-            u = rule_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case ins_node: 
-            u = ins_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case mark_node: 
-            u = mark_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case adjust_node: 
-            u = adjust_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case disc_node: 
-            u = disc_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case whatsit_node: 
-            u = whatsit_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case math_node: 
-            u = math_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case glue_node: 
-            u = glue_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case kern_node: 
-            u = kern_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case penalty_node: 
-            u = penalty_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case glyph_node: 
-            u = glyph_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case margin_kern_node: 
-            u = margin_kern_node_from_lua(L);
-            append_node(t,u);
-            break;
-          case unset_node: 
-            u = unset_node_from_lua(L);
-            append_node(t,u);
-            break;
-          default: 
-            fprintf(stdout,"<node type %s not supported yet>\n",node_names[i]);
-            break;
-          }
-        }
-      } else {
-	/* not decided yet */
-	lua_pop(L,1); /* the not-a-string */
-      }
-    }
-    lua_pop(L, 1);
-  }
-  t = vlink(head);
-  vlink(head) = null;
-  free_node(head,temp_node_size);
-  return t;
-}
-
-char *group_code_names[] = {
+static char *group_code_names[] = {
   "",
   "simple",
   "hbox",
@@ -734,12 +130,468 @@ char *group_code_names[] = {
   "align_set",
   "fin_row"};
 
+char *pack_type_name[] = { "exactly", "additional"};
 
-#define LUA_GC_STEP_SIZE 1
+
+/* allocate a new whatsit */
+
+static int
+lua_node_whatsit_new(int j) {
+  halfword p  = null;
+  switch (j) {
+  case open_node:
+    p = get_node(open_node_size);  
+    write_stream(p)=0;
+    open_name(p) = get_nullstr();
+    open_area(p) = open_name(p);
+    open_ext(p) = open_name(p);
+    break;
+  case write_node:
+    p = get_node(write_node_size);
+    write_stream(p) = null;
+    write_tokens(p) = null;
+    break;
+  case close_node:
+    p = get_node(close_node_size);
+    write_stream(p) = null;
+    break;
+  case special_node:
+    p = get_node(write_node_size);
+    write_stream(p) = null;
+    write_tokens(p) = null;
+    break;
+  case language_node:
+    p = get_node(language_node_size);
+    what_lang(p) = 0;
+    what_lhm(p) = 0;
+    what_rhm(p) = 0;
+    break;
+  case local_par_node:
+    p =get_node(local_par_size);
+    local_pen_inter(p) = 0;
+    local_pen_broken(p) = 0;
+    local_par_dir(p) = 0;
+    local_box_left(p) = null;
+    local_box_left_width(p) = 0;
+    local_box_right(p) = null;
+    local_box_right_width(p) = 0;
+    break;
+  case dir_node:
+    p = get_node(dir_node_size);
+    dir_dir(p) = 0;
+    dir_level(p) = 0;
+    dir_dvi_ptr(p) = 0;
+    dir_dvi_h(p) = 0;
+    break;
+  case pdf_literal_node: 
+    p = get_node(write_node_size);
+    pdf_literal_mode(p) = 0;
+    pdf_literal_data(p) = null;
+    break;
+  case pdf_refobj_node:
+    p =get_node(pdf_refobj_node_size);
+    pdf_obj_objnum(p) = 0;
+    break;
+  case pdf_refxform_node:
+    p =get_node(pdf_refxform_node_size);
+    pdf_width(p) = 0;
+    pdf_height(p) = 0;
+    pdf_depth(p) = 0;
+    pdf_xform_objnum(p) = 0;
+    break;
+  case pdf_refximage_node:
+    p =get_node(pdf_refximage_node_size);
+    pdf_width(p) = 0;
+    pdf_height(p) = 0;
+    pdf_depth(p) = 0;
+    pdf_ximage_objnum(p) = 0;
+    break;
+  case pdf_annot_node:
+    p =get_node(pdf_annot_node_size);
+    pdf_width(p) = 0;
+    pdf_height(p) = 0;
+    pdf_depth(p) = 0;
+    pdf_annot_objnum(p) = 0;
+    pdf_annot_data(p) = null;
+    break;
+  case pdf_start_link_node:
+    p =get_node(pdf_annot_node_size);
+    pdf_width(p) = 0;
+    pdf_height(p) = 0;
+    pdf_depth(p) = 0;
+    pdf_link_objnum(p) = 0;
+    pdf_link_attr(p) = null;
+    pdf_link_action(p) = null;
+    break;
+  case pdf_end_link_node:
+    p =get_node(pdf_end_link_node_size);
+    break;
+  case pdf_dest_node:
+    p =get_node(pdf_dest_node_size);
+    pdf_width(p) = 0;
+    pdf_height(p) = 0;
+    pdf_depth(p) = 0;
+    pdf_dest_named_id(p) = 0;
+    pdf_dest_id(p) = 0;
+    pdf_dest_type(p) = 0;
+    pdf_dest_xyz_zoom(p) = 0;
+    pdf_dest_objnum(p) = 0;
+    break;
+  case pdf_thread_node:
+  case pdf_start_thread_node:
+    p =get_node(pdf_thread_node_size);
+    pdf_width(p) = 0;
+    pdf_height(p) = 0;
+    pdf_depth(p) = 0;
+    pdf_thread_named_id(p) = 0;
+    pdf_thread_id(p) = 0;
+    pdf_thread_attr(p) = null;
+    break;
+  case pdf_end_thread_node:
+    p =get_node(pdf_end_thread_node_size);
+    break;
+  case pdf_save_pos_node:
+    p =get_node(pdf_save_pos_node_size);
+    break;
+  case pdf_snap_ref_point_node:
+    p =get_node(pdf_snap_ref_point_node_size);
+    break;
+  case pdf_snapy_node:
+    p =get_node(snap_node_size);
+    final_skip(p) = 0;
+    snap_glue_ptr(p) = null;
+    break;
+  case pdf_snapy_comp_node:
+    p =get_node(snap_node_size);
+    snapy_comp_ratio(p) = 0;
+    break;
+  case late_lua_node:
+    p =get_node(write_node_size);
+    late_lua_reg(p) = 0;
+    late_lua_data(p) = null;
+    break;
+  case close_lua_node:
+    p =get_node(write_node_size);
+    late_lua_reg(p) = 0;
+    break;
+  case pdf_colorstack_node:
+    p =get_node(pdf_colorstack_node_size);
+    pdf_colorstack_stack(p) = 0;
+    pdf_colorstack_cmd(p) = 0;
+    pdf_colorstack_data(p) = null;
+    break;
+  case pdf_setmatrix_node:
+    p =get_node(pdf_setmatrix_node_size);
+    pdf_setmatrix_data(p) = null;
+    break;
+  case pdf_save_node:
+    p =get_node(pdf_save_node_size);
+    break;
+  case pdf_restore_node:
+    p =get_node(pdf_restore_node_size);
+    break;
+  case user_defined_node:
+    p = get_node(user_defined_node_size);
+    user_node_id(p) = 0;
+    user_node_type(p) = 0;
+    user_node_value(p)= null;
+    break;
+  default:
+    fprintf(stdout,"<unknown whatsit type %d>\n",j);
+  }
+  subtype(p) = j;
+  return p;
+}
+
+halfword
+lua_node_new(int i, int j) {
+  halfword n  = null;
+  switch (i) {
+  case hlist_node:
+  case vlist_node:
+    n=get_node(box_node_size); 
+    width(n)=0; depth(n)=0; height(n)=0; 
+    shift_amount(n)=0; 
+    list_ptr(n)=null;
+    glue_sign(n)=normal; 
+    glue_order(n)=normal; 
+    glue_set(n)=0.0;
+    box_dir(n)=-1; 
+    break;
+  case rule_node:
+    n=get_node(rule_node_size);
+    width(n)=null_flag; 
+    depth(n)=null_flag; 
+    height(n)=null_flag;
+    rule_dir(n)=-1;
+    break;
+  case ins_node:
+	n = get_node(ins_node_size); 
+	float_cost(n)=0; height(n)=0; depth(n)=0;
+	ins_ptr(n)=null; split_top_ptr(n)=null;
+	break;
+  case mark_node: 
+	n = get_node(mark_node_size);  
+	mark_ptr(n)=null;
+	mark_class(n)=0;
+	break;
+  case adjust_node: 
+	n = get_node(adjust_node_size); 
+	adjust_ptr(n)=null;
+	break;
+  case disc_node: 
+	n = get_node(disc_node_size);  
+	replace_count(n)=0;
+	pre_break(n)=null;
+	post_break(n)=null;
+	break;
+  case math_node: 
+	n = get_node(math_node_size);  
+	node_attr(n) = null;
+	surround(n) = 0;
+	break;
+  case glue_node: 
+	n = get_node(glue_node_size);  
+	glue_ptr(n)=null;
+	leader_ptr(n)=null;
+	break;
+  case glue_spec_node: 
+	n = get_node(glue_spec_size);  
+	glue_ref_count(n)=null;
+	width(n)=0; stretch(n)=0; shrink(n)=0;
+	stretch_order(n)=normal; 
+	shrink_order(n)=normal;
+	break;
+  case kern_node: 
+	n = get_node(kern_node_size);  
+	width(n)=null;
+	break;
+  case penalty_node: 
+	n = get_node(penalty_node_size); 
+	penalty(n)=null;
+	break;
+  case glyph_node:          
+	n = get_node(glyph_node_size); 
+	lig_ptr(n) = null; 
+	character(n) = 0;
+	font(n) = 0;
+	break;
+  case margin_kern_node:          
+	n = get_node(margin_kern_node_size); 
+	margin_char(n) = null; 
+	width(n) = 0;
+	break;
+  case unset_node:        
+	n = get_node(box_node_size); 
+	span_count(n)=0;
+	width(n) = null_flag;
+	height(n) = 0;
+	depth(n) = 0 ;	
+	list_ptr(n) = null;
+	glue_shrink(n) = 0;
+	glue_stretch(n) = 0;
+	glue_order(n)=normal;
+	glue_sign(n)=normal;
+	box_dir(n) = 0;
+	break; 
+  case whatsit_node:        
+    n = lua_node_whatsit_new(j);
+    break;
+  default: 
+    fprintf(stdout,"<node type %s not supported yet>\n",node_names[i]);
+    break;
+  }  
+  type(n)=i;
+  if (i!=whatsit_node) {
+    subtype(n)=0;    
+    if (j>=0) 
+      subtype(n)=j;
+  }
+  return n;
+}
+
+#define MAX_CHAIN_SIZE 12
+
+memory_word *varmem = NULL;
+
+char *varmem_sizes = NULL;
+halfword var_mem_max = 0;
+halfword rover = 0;
+
+halfword free_chain[MAX_CHAIN_SIZE];
+integer free_chain_counts[MAX_CHAIN_SIZE];
+
+static int prealloc=0;
+
+#define TEST_CHAIN(s)  if (free_chain[s]>=0) {	\
+    assert(free_chain[s]>prealloc);		\
+    assert(free_chain[s]<var_mem_max);		\
+  } else { assert(free_chain[s]==null);  }
+
+
+halfword 
+get_node (integer s) {
+  halfword p,q,r;
+  integer t,x;
+  if (s==010000000000)
+    return max_halfword;
+  
+  while (1) {
+    if (s<MAX_CHAIN_SIZE && free_chain[s]!=null) {
+      TEST_CHAIN(s);
+      r = free_chain[s];
+      free_chain[s] = vlink(r);
+      TEST_CHAIN(s);
+      assert(varmem_sizes[r]<0);
+      varmem_sizes[r] = abs(varmem_sizes[r]);
+      assert(varmem_sizes[r]==s);
+      break;
+    } 
+    t=node_size(rover);
+    if (t>s) {
+      node_size(rover) = t-s;
+      r=rover+node_size(rover);
+      varmem_sizes[r]=s;
+      /*fprintf(stdout,"get_node+(%d), %d (%p)\n",s,r, varmem);*/
+      break;
+    } else {
+      /*fprintf(stdout,"get_node(%d), t=%d, rover=%d, (%p)\n",s, t, rover,varmem);*/
+      if (t<MAX_CHAIN_SIZE) {
+		TEST_CHAIN(t);
+		vlink(rover) = free_chain[t];
+		free_chain[t] = rover;
+		TEST_CHAIN(t);
+        varmem_sizes[rover]=-t;
+		q = vlink(rover);
+      } else {
+		q = rover;
+      }
+      x = (var_mem_max/5)+s; /* this way |s| will always fit */
+      /* make sure we get up to speed quickly */
+      if (var_mem_max<2500) {	x += 25000;  }
+      t=var_mem_max+x;
+      varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
+      varmem_sizes = (char *)realloc(varmem_sizes,sizeof(char)*t);
+      if (varmem==NULL) {
+		runaway;
+		overflow("node memory size",var_mem_max);
+      }
+      memset ((void *)(varmem+var_mem_max),0,x*sizeof(memory_word));
+      memset ((void *)(varmem_sizes+var_mem_max),0,x*sizeof(char));
+      p = var_mem_max;
+      node_size(p) = x; vlink(p) = q;
+      rover = p;
+      var_mem_max=t;
+      continue;
+    }
+  }
+  vlink(r)=null; /* this node is now nonempty */
+  type(r)=255; subtype(r)=255;
+  /*fprintf(stdout,"get_node(%d), %d (%p)\n",s,r, varmem);*/
+  if (s>1) { node_attr(r)=null; }
+  var_used=var_used+s; /* maintain usage statistics */
+  return r;
+}
+
+void
+free_node (halfword p, integer s) {
+  /*fprintf(stdout,"free_node(%d), %d (%p)\n",s,p,varmem);*/
+  assert (p>prealloc) ;
+  if (varmem_sizes[p]<=0) {
+    fprintf(stdout,"assert(varmem_sizes[p]>0): varmem_sizes[p]=%d,p=%d,s=%d,^=%d\n",varmem_sizes[p],p,s,var_mem_max);
+    fprintf(stdout,"varmem[p]: type=%d,subtype=%d,link=%d\n",type(p),subtype(p),vlink(p));
+    assert(varmem_sizes[p]>0);
+  }
+  assert(varmem_sizes[p]==s);
+  varmem_sizes[p] = -varmem_sizes[p];
+  if (s<MAX_CHAIN_SIZE) {
+    TEST_CHAIN(s);
+    /* this seemed like an interesting idea for debugging, but it doesn't work
+       (found too late) */
+    /* type(p) = 254; */
+    vlink(p) = free_chain[s];
+    free_chain[s] = p;
+    TEST_CHAIN(s);
+  } else {
+    node_size(p)=s; vlink(p)=rover;
+    rover=p;
+  }
+  var_used=var_used-s; /* maintain statistics */
+}
+
+void
+init_node_mem (halfword prealloced, halfword t) {
+  int i;
+  prealloc=prealloced;
+  for (i=0;i<MAX_CHAIN_SIZE;i++) {
+    free_chain[i]=null;
+  }
+  varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
+  varmem_sizes = (char *)realloc(varmem_sizes,sizeof(char)*t);
+  if (varmem==NULL) {
+    runaway; /* if memory is exhausted, display possible runaway text */
+    overflow("node memory size",var_mem_max);
+  }
+  memset ((void *)varmem,0,sizeof(memory_word)*t);
+  memset ((void *)varmem_sizes,0,sizeof(char)*t);
+  var_mem_max=t; 
+  rover = prealloced+1; vlink(rover) = null;
+  node_size(rover)=(t-prealloced-1);
+  var_used = 0;
+}
+
+void
+print_node_mem_stats (void) {
+  int i,a;
+  halfword j;
+  a = node_size(rover);
+  fprintf(stdout,"\nin use: %d node words from %d\n",(var_used+prealloc), var_mem_max);
+  fprintf(stdout,"still untouched: %d node words\n",a);
+  for (i=0;i<MAX_CHAIN_SIZE;i++) {
+    free_chain_counts[i]=0;
+  }
+  for (i=0;i<MAX_CHAIN_SIZE;i++) {
+	j = free_chain[i];
+    while(j!=null) {
+	  free_chain_counts[i] += i;
+	  j = vlink(j);
+	}
+	if (free_chain_counts[i]!=0) 
+	  fprintf(stdout,"size %2d avail list: %5d\n",i,free_chain_counts[i]);
+  }
+}
+
+void
+dump_node_mem (void) {
+  dump_int(var_mem_max);
+  dump_int(rover);
+  dump_things(varmem[0],var_mem_max);
+  dump_things(varmem_sizes[0],var_mem_max);
+  dump_things(free_chain[0],MAX_CHAIN_SIZE);
+  dump_int(var_used);
+  dump_int(prealloc);
+}
+
+void
+undump_node_mem (void) {
+  undump_int(var_mem_max);
+  undump_int(rover);
+  varmem = xmallocarray (memory_word, var_mem_max);
+  memset ((void *)varmem,0,var_mem_max*sizeof(memory_word));
+  undump_things(varmem[0],var_mem_max);
+  varmem_sizes = xmallocarray (char, var_mem_max);
+  memset ((void *)varmem_sizes,0,var_mem_max*sizeof(char));
+  undump_things(varmem_sizes[0],var_mem_max);
+  undump_things(free_chain[0],MAX_CHAIN_SIZE);
+  undump_int(var_used); 
+  undump_int(prealloc);
+}
+
+
 
 void
 lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail_node) {
-  halfword ret;  
+  halfword ret,r;  
   int a;
   integer callback_id ; 
   int glyph_count;
@@ -759,7 +611,15 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
    depth_threshold=100;
    show_node_list(vlink(head_node));
   */
-  glyph_count = flat_nodelist_to_lua(L,vlink(head_node));
+
+  r = vlink(head_node);
+  glyph_count = 0;
+  while (r!=null) {
+    if (type(r)==glyph_node || type(r)==ligature_node) 
+      glyph_count++;
+    r=vlink(r);
+  }
+  nodelist_to_lua(L,vlink(head_node));
   lua_pushstring(L,group_code_names[extrainfo]);
   lua_pushnumber(L,glyph_count);
   if (lua_pcall(L,3,1,0) != 0) { /* no arg, 1 result */
@@ -775,9 +635,7 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
     }
   } else {
     a = nodelist_from_lua(L);
-    flush_node_list(vlink(head_node)); 
     vlink(head_node)= a;
-    /*show_node_list(vlink(head_node));*/
   }
   lua_pop(L,2); /* result and callback container table */
   /*  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);*/
@@ -790,12 +648,9 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
   return ;
 }
 
-char *pack_type_name[] = { "exactly", "additional"};
-
-
 halfword
 lua_hpack_filter (halfword head_node, scaled size, int pack_type, int extrainfo) {
-  halfword ret;  
+  halfword ret,r;  
   integer callback_id ; 
   int glyph_count;
   lua_State *L = Luas[0];
@@ -809,7 +664,15 @@ lua_hpack_filter (halfword head_node, scaled size, int pack_type, int extrainfo)
     lua_pop(L,2);
     return head_node;
   }
-  glyph_count = flat_nodelist_to_lua(L,head_node);
+
+  r =head_node;
+  glyph_count = 0;
+  while (r!=null) {
+    if (type(r)==glyph_node || type(r)==ligature_node) 
+      glyph_count++;
+    r=vlink(r);
+  }
+  nodelist_to_lua(L,head_node);
   lua_pushnumber(L,size);
   lua_pushstring(L,pack_type_name[pack_type]);
   lua_pushstring(L,group_code_names[extrainfo]);
@@ -828,7 +691,6 @@ lua_hpack_filter (halfword head_node, scaled size, int pack_type, int extrainfo)
     }
   } else {
     ret = nodelist_from_lua(L);
-    flush_node_list(head_node);
   }
   lua_pop(L,2); /* result and callback container table */
   /*  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);*/
@@ -837,9 +699,8 @@ lua_hpack_filter (halfword head_node, scaled size, int pack_type, int extrainfo)
 
 halfword
 lua_vpack_filter (halfword head_node, scaled size, int pack_type, scaled maxd, int extrainfo) {
-  halfword ret;  
+  halfword ret,r;  
   integer callback_id ; 
-  int glyph_count; /* not used */
   lua_State *L = Luas[0];
   if (strcmp("output",group_code_names[extrainfo])==0) {
     callback_id = callback_defined(pre_output_filter_callback);
@@ -855,7 +716,7 @@ lua_vpack_filter (halfword head_node, scaled size, int pack_type, scaled maxd, i
     lua_pop(L,2);
     return head_node;
   }
-  glyph_count = flat_nodelist_to_lua(L,head_node);
+  nodelist_to_lua(L,head_node);
   lua_pushnumber(L,size);
   lua_pushstring(L,pack_type_name[pack_type]);
   lua_pushnumber(L,maxd);
@@ -874,7 +735,6 @@ lua_vpack_filter (halfword head_node, scaled size, int pack_type, scaled maxd, i
     }
   } else {
     ret = nodelist_from_lua(L);
-    flush_node_list(head_node);
   }
   lua_pop(L,2); /* result and callback container table */
   /*  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);*/
