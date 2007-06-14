@@ -435,25 +435,6 @@ int getbox (lua_State *L) {
   return 1;
 }
 
-
-int table_getbox (lua_State *L) {
-  int k, t;
-  k = (int)luaL_checkinteger(L,-1);
-  check_index_range(k);
-  t = get_tex_box_register(k);
-  nodelist_to_lua(L,t);
-  return 1;
-}
-
-
-int getnodelist (lua_State *L) {
-  int k;
-  k = (int)luaL_checkinteger(L,-1);
-  nodelist_to_lua(L,list_ptr(k));
-  return 1;
-}
-
-
 int setbox (lua_State *L) {
   int i,j,k;
   int cur_cs;
@@ -479,8 +460,7 @@ int setbox (lua_State *L) {
 	}
 	if (ok) {
 	  i = get_tex_box_register(k);
-	  j = nodelist_from_lua(L);
-	  /*  if (i!=null) flush_node_list(i); */
+	  j = unodelist_from_lua(L);
 	  if(set_tex_box_register(k,j)) {
 		lua_pushstring(L, "incorrect value");
 		lua_error(L);
@@ -493,7 +473,6 @@ int setbox (lua_State *L) {
 	j = lua_toboolean(L,-1);
 	if (j==0) { /* false */
 	  i = get_tex_box_register(k);
-	  /* if (i!=null) flush_node_list(i); */
 	  if(set_tex_box_register(k,null)) {
 		lua_pushstring(L, "werid error");
 		lua_error(L);
@@ -708,14 +687,12 @@ static const struct luaL_reg texlib [] = {
   {"gettoks",  gettoks},
   {"setbox",   setbox},
   {"getbox",   getbox},
-  {"tgetbox",  table_getbox},
   {"setboxwd", setboxwd},
   {"getboxwd", getboxwd},
   {"setboxht", setboxht},
   {"getboxht", getboxht},
   {"setboxdp", setboxdp},
   {"getboxdp", getboxdp},
-  {"get_node_list", getnodelist},
   {NULL, NULL}  /* sentinel */
 };
 

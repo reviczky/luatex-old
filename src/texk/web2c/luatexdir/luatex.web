@@ -4246,21 +4246,27 @@ initializing itself the slow~way.
 procedure init_link_heads;forward;
 init_node_mem(var_mem_stat_max,500); 
 glue_ref_count(zero_glue):=null+1; width(zero_glue):=0; 
+type(zero_glue):=glue_spec_node; vlink(zero_glue):=null;
 stretch(zero_glue):=0; stretch_order(zero_glue):=normal;@/
 shrink(zero_glue):=0; shrink_order(zero_glue):=normal;@/
 glue_ref_count(sfi_glue):=null+1; width(sfi_glue):=0; 
+type(sfi_glue):=glue_spec_node;  vlink(sfi_glue):=null;
 stretch(sfi_glue):=0; stretch_order(sfi_glue):=sfi;@/
 shrink(sfi_glue):=0; shrink_order(sfi_glue):=normal;@/
 glue_ref_count(fil_glue):=null+1; width(fil_glue):=0; 
+type(fil_glue):=glue_spec_node;  vlink(fil_glue):=null;
 stretch(fil_glue):=unity; stretch_order(fil_glue):=fil;@/
 shrink(fil_glue):=0; shrink_order(fil_glue):=normal;@/
 glue_ref_count(fill_glue):=null+1; width(fill_glue):=0; 
+type(fill_glue):=glue_spec_node;  vlink(fill_glue):=null;
 stretch(fill_glue):=unity; stretch_order(fill_glue):=fill;@/
 shrink(fill_glue):=0; shrink_order(fill_glue):=normal;@/
 glue_ref_count(ss_glue):=null+1; width(ss_glue):=0; 
+type(ss_glue):=glue_spec_node;  vlink(ss_glue):=null;
 stretch(ss_glue):=unity; stretch_order(ss_glue):=fil;@/
 shrink(ss_glue):=unity; shrink_order(ss_glue):=fil;@/
 glue_ref_count(fil_neg_glue):=null+1; width(fil_neg_glue):=0; 
+type(fil_neg_glue):=glue_spec_node;  vlink(fil_neg_glue):=null;
 stretch(fil_neg_glue):=-unity; stretch_order(fil_neg_glue):=fil;@/
 shrink(fil_neg_glue):=0; shrink_order(fil_neg_glue):=normal;@/
 {initialize node list heads}

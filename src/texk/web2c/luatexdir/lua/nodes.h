@@ -181,6 +181,7 @@ typedef enum {
   user_defined_node /* 46 */ } whatsit_types ;
 
 extern char * node_names[];
+extern char *whatsit_node_names[];
 
 extern void      whatsit_node_to_lua (lua_State *L, halfword p);
 extern halfword  whatsit_node_from_lua (lua_State *L);
@@ -277,6 +278,11 @@ typedef enum {
 #define pdf_thread_node_size 7
 #define snap_node_size 3
 
+#define user_defined_node_size 3
+#define user_node_type(a)  vinfo((a)+1)
+#define user_node_id(a)    vlink((a)+1)
+#define user_node_value(a) vinfo((a)+2)
+
 #define make_whatsit(p,b)    { p = get_node(b);  type(p)=whatsit_node; }
 
 #define boolean_field(a,b)    { lua_rawgeti(L,-1,b); a = lua_tonumber(L,-1); lua_pop(L,1); }
@@ -303,3 +309,4 @@ extern void action_node_to_lua (lua_State *L, halfword p);
 extern void attribute_list_to_lua (lua_State *L, halfword p);
 
 extern void unodelist_to_lua (lua_State *L, halfword n);
+extern halfword unodelist_from_lua (lua_State *L) ;

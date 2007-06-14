@@ -635,11 +635,6 @@ whatsit_pdf_restore_from_lua (lua_State *L) {
   return p;
 }
 
-#define user_defined_node_size 3
-#define user_node_type(a)  vinfo((a)+1)
-#define user_node_id(a)    vlink((a)+1)
-#define user_node_value(a) vinfo((a)+2)
-
 void
 whatsit_user_defined_to_lua (lua_State *L, halfword p) {
   switch (user_node_type(p)) {
