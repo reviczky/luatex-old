@@ -672,6 +672,64 @@ gettex (lua_State *L) {
   return 0; // not reached
 }
 
+#define STORE_WORD()				\
+if (w>0) {					\
+  word[w] = 0;					\
+  *s = 0;					\
+  if (!(limit>0 && w<limit)) {			\
+    lua_pushlstring(L,(char *)word,w);	\
+    lua_pushlstring(L,value,(s-value));		\
+    lua_rawset(L,-3);				\
+  }						\
+  w=0;						\
+}
+
+static int 
+language_load_dict (lua_State *L) {
+  char *filename;
+  FILE *dict;
+  char *s, *key, *value;
+  int w, limit;
+  integer len;
+  unsigned char word [256];
+  unsigned char *buffer;
+
+  if (lua_isstring(L,1)) {
+    filename = (char *)lua_tostring(L,1);
+  }
+  limit = luaL_optinteger (L,2,0);
+  if((dict = fopen(filename,"rb"))) {
+    if(readbinfile(dict,&buffer,&len)) {
+      s = (char *)buffer;
+      value = (char *)buffer;
+      w = 0;
+      lua_newtable(L);
+      while (*s) {
+		if (*s == ' ' || *s == '\r' || *s == '\t' || *s == '\n') {
+		  STORE_WORD();
+		  value = s+1;
+		} else if (*s == '-' || *s == '=') {
+		  /* skip */
+		} else {
+		  word[w] = *s;  
+		  if (w<255) 
+			w++;
+		}
+		s++;
+      }
+      /* fix a trailing word */
+      STORE_WORD();
+    } else {
+      lua_pushnil(L);
+    }
+    fclose(dict);
+    free(buffer);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
 
 static const struct luaL_reg texlib [] = {
   {"write",    luacwrite},
@@ -681,18 +739,19 @@ static const struct luaL_reg texlib [] = {
   {"getdimen", getdimen},
   {"setattribute", setattribute},
   {"getattribute", getattribute},
-  {"setcount", setcount},
-  {"getcount", getcount},
-  {"settoks",  settoks},
-  {"gettoks",  gettoks},
-  {"setbox",   setbox},
-  {"getbox",   getbox},
-  {"setboxwd", setboxwd},
-  {"getboxwd", getboxwd},
-  {"setboxht", setboxht},
-  {"getboxht", getboxht},
-  {"setboxdp", setboxdp},
-  {"getboxdp", getboxdp},
+  {"setcount",  setcount},
+  {"getcount",  getcount},
+  {"settoks",   settoks},
+  {"gettoks",   gettoks},
+  {"setbox",    setbox},
+  {"getbox",    getbox},
+  {"setboxwd",  setboxwd},
+  {"getboxwd",  getboxwd},
+  {"setboxht",  setboxht},
+  {"getboxht",  getboxht},
+  {"setboxdp",  setboxdp},
+  {"getboxdp",  getboxdp},
+  {"load_dict", language_load_dict},
   {NULL, NULL}  /* sentinel */
 };
 

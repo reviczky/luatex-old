@@ -13,6 +13,7 @@
 #define type(a)            varmem[(a)].hh.u.B0
 #define subtype(a)         varmem[(a)].hh.u.B1
 #define node_attr(a)       vinfo((a)+1)
+#define alink(a)           vlink((a)+1)
 
 /* really special head node pointers that only need vlink */
 
@@ -37,16 +38,21 @@
 
 /* pdf action spec */
 
-#define pdf_action_size 3
+#define pdf_action_size 4
 
-#define pdf_action_type           type
-#define pdf_action_named_id       subtype
-#define pdf_action_id             vlink
-#define pdf_action_file(a)        vinfo((a) + 1)
-#define pdf_action_new_window(a)  vlink((a) + 1)
-#define pdf_action_page_tokens(a) vinfo((a) + 2)
-#define pdf_action_user_tokens(a) vinfo((a) + 2)
-#define pdf_action_refcount(a)    vlink((a) + 2)
+typedef enum {
+  pdf_action_page = 0,
+  pdf_action_goto,
+  pdf_action_thread,
+  pdf_action_user } pdf_action_types;
+
+#define pdf_action_type(a)        type((a) + 1)
+#define pdf_action_named_id(a)    subtype((a) + 1)
+#define pdf_action_id(a)          vlink((a) + 1)
+#define pdf_action_file(a)        vinfo((a) + 2)
+#define pdf_action_new_window(a)  vlink((a) + 2)
+#define pdf_action_tokens(a)      vinfo((a) + 3)
+#define pdf_action_refcount(a)    vlink((a) + 3)
 
 /* normal nodes */
 
@@ -123,6 +129,7 @@ typedef enum {
   penalty_node,   // 12
   unset_node,     //
   right_noad = 31,
+  action_node = 39,
   margin_kern_node = 40, //
   glyph_node = 41,
   attribute_node = 42,
@@ -281,12 +288,6 @@ typedef enum {
   colorstack_push,
   colorstack_pop,
   colorstack_current } colorstack_commands;
-
-typedef enum {
-  pdf_action_page = 0,
-  pdf_action_goto,
-  pdf_action_thread,
-  pdf_action_user } pdf_action_types;
 
 #define user_defined_node_size 4
 #define user_node_type(a)  vinfo((a)+2)

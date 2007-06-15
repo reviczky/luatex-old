@@ -46,7 +46,7 @@ char * node_names[] = {
     I am now misusing that as a spine for my own new nodes*/
   "!",
   "!",
-  "!",  
+  "action",  
   "margin_kern", /* 40 */
   "glyph",
   "attribute",
@@ -326,76 +326,98 @@ lua_node_new(int i, int j) {
     rule_dir(n)=-1;
     break;
   case ins_node:
-	n = get_node(ins_node_size); 
-	float_cost(n)=0; height(n)=0; depth(n)=0;
-	ins_ptr(n)=null; split_top_ptr(n)=null;
-	break;
+    n = get_node(ins_node_size); 
+    float_cost(n)=0; height(n)=0; depth(n)=0;
+    ins_ptr(n)=null; split_top_ptr(n)=null;
+    break;
   case mark_node: 
-	n = get_node(mark_node_size);  
-	mark_ptr(n)=null;
-	mark_class(n)=0;
-	break;
+    n = get_node(mark_node_size);  
+    mark_ptr(n)=null;
+    mark_class(n)=0;
+    break;
   case adjust_node: 
-	n = get_node(adjust_node_size); 
-	adjust_ptr(n)=null;
-	break;
-  case disc_node: 
-	n = get_node(disc_node_size);  
-	replace_count(n)=0;
-	pre_break(n)=null;
-	post_break(n)=null;
-	break;
-  case math_node: 
-	n = get_node(math_node_size);  
-	node_attr(n) = null;
-	surround(n) = 0;
-	break;
-  case glue_node: 
-	n = get_node(glue_node_size);  
-	glue_ptr(n)=null;
-	leader_ptr(n)=null;
-	break;
-  case glue_spec_node: 
-	n = get_node(glue_spec_size);  
-	glue_ref_count(n)=null;
-	width(n)=0; stretch(n)=0; shrink(n)=0;
-	stretch_order(n)=normal; 
-	shrink_order(n)=normal;
-	break;
-  case kern_node: 
-	n = get_node(kern_node_size);  
-	width(n)=null;
-	break;
-  case penalty_node: 
-	n = get_node(penalty_node_size); 
-	penalty(n)=null;
-	break;
+    n = get_node(adjust_node_size); 
+    adjust_ptr(n)=null;
+    break;
+  case ligature_node:          
   case glyph_node:          
-	n = get_node(glyph_node_size); 
-	lig_ptr(n) = null; 
-	character(n) = 0;
-	font(n) = 0;
-	break;
-  case margin_kern_node:          
-	n = get_node(margin_kern_node_size); 
-	margin_char(n) = null; 
-	width(n) = 0;
-	break;
-  case unset_node:        
-	n = get_node(box_node_size); 
-	span_count(n)=0;
-	width(n) = null_flag;
-	height(n) = 0;
-	depth(n) = 0 ;	
-	list_ptr(n) = null;
-	glue_shrink(n) = 0;
-	glue_stretch(n) = 0;
-	glue_order(n)=normal;
-	glue_sign(n)=normal;
-	box_dir(n) = 0;
-	break; 
+    n = get_node(glyph_node_size); 
+    lig_ptr(n) = null; 
+    character(n) = 0;
+    font(n) = 0;
+    break;
+  case disc_node: 
+    n = get_node(disc_node_size);  
+    replace_count(n)=0;
+    pre_break(n)=null;
+    post_break(n)=null;
+    break;
   case whatsit_node:        
     n = lua_node_whatsit_new(j);
+    break;
+  case math_node: 
+    n = get_node(math_node_size);  
+    node_attr(n) = null;
+    surround(n) = 0;
+    break;
+  case glue_node: 
+    n = get_node(glue_node_size);  
+    glue_ptr(n)=null;
+    leader_ptr(n)=null;
+    break;
+  case glue_spec_node: 
+    n = get_node(glue_spec_size);  
+    glue_ref_count(n)=null;
+    width(n)=0; stretch(n)=0; shrink(n)=0;
+    stretch_order(n)=normal; 
+    shrink_order(n)=normal;
+    break;
+  case kern_node: 
+    n = get_node(kern_node_size);  
+    width(n)=null;
+    break;
+  case penalty_node: 
+    n = get_node(penalty_node_size); 
+    penalty(n)=null;
+    break;
+  case unset_node:        
+    n = get_node(box_node_size); 
+    span_count(n)=0;
+    width(n) = null_flag;
+    height(n) = 0;
+    depth(n) = 0 ;	
+    list_ptr(n) = null;
+    glue_shrink(n) = 0;
+    glue_stretch(n) = 0;
+    glue_order(n)=normal;
+    glue_sign(n)=normal;
+    box_dir(n) = 0;
+    break; 
+  case action_node:
+    n = get_node(pdf_action_size);
+    pdf_action_type(n) = pdf_action_page;
+    pdf_action_named_id(n)=0;
+    pdf_action_id(n)=0;
+    pdf_action_file(n) = null;
+    pdf_action_new_window(n) = 0;
+    pdf_action_tokens(n) = null;
+    pdf_action_refcount(n)  = null;
+    break;
+  case margin_kern_node:          
+    n = get_node(margin_kern_node_size); 
+    margin_char(n) = null; 
+    width(n) = 0;
+    break;
+    /* glyph_node: see above         */
+  case attribute_node:
+    n = get_node(attribute_node_size);
+    attribute_id(n)=0;
+    attribute_value(n)=0;
+    break;
+    /* glue_spec_node: see above         */
+  case attribute_list_node:
+    n = get_node(attribute_list_node_size);
+    attr_list_ref(n) = 0;
     break;
   default: 
     fprintf(stdout,"<node type %s not supported yet>\n",node_names[i]);
@@ -457,14 +479,14 @@ get_node (integer s) {
     } else {
       /*fprintf(stdout,"get_node(%d), t=%d, rover=%d, (%p)\n",s, t, rover,varmem);*/
       if (t<MAX_CHAIN_SIZE) {
-		TEST_CHAIN(t);
-		vlink(rover) = free_chain[t];
-		free_chain[t] = rover;
-		TEST_CHAIN(t);
+	TEST_CHAIN(t);
+	vlink(rover) = free_chain[t];
+	free_chain[t] = rover;
+	TEST_CHAIN(t);
         varmem_sizes[rover]=-t;
-		q = vlink(rover);
+	q = vlink(rover);
       } else {
-		q = rover;
+	q = rover;
       }
       x = (var_mem_max/5)+s; /* this way |s| will always fit */
       /* make sure we get up to speed quickly */
@@ -473,8 +495,8 @@ get_node (integer s) {
       varmem = (memory_word *)realloc(varmem,sizeof(memory_word)*t);
       varmem_sizes = (char *)realloc(varmem_sizes,sizeof(char)*t);
       if (varmem==NULL) {
-		runaway;
-		overflow("node memory size",var_mem_max);
+	runaway;
+	overflow(maketexstring("node memory size"),var_mem_max);
       }
       memset ((void *)(varmem+var_mem_max),0,x*sizeof(memory_word));
       memset ((void *)(varmem_sizes+var_mem_max),0,x*sizeof(char));
@@ -488,7 +510,7 @@ get_node (integer s) {
   vlink(r)=null; /* this node is now nonempty */
   type(r)=255; subtype(r)=255;
   /*fprintf(stdout,"get_node(%d), %d (%p)\n",s,r, varmem);*/
-  if (s>1) { node_attr(r)=null; }
+  if (s>1) { node_attr(r)=null; alink(r)=null; }
   var_used=var_used+s; /* maintain usage statistics */
   return r;
 }
@@ -740,6 +762,8 @@ lua_vpack_filter (halfword head_node, scaled size, int pack_type, scaled maxd, i
   /*  lua_gc(L,LUA_GCSTEP, LUA_GC_STEP_SIZE);*/
   return ret;
 }
+
+/* This callback does not actually work yet! */
 
 boolean 
 lua_hyphenate_callback (int callback_id, int lang, halfword ha, halfword hb) {

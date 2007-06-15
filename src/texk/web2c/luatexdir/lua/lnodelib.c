@@ -30,7 +30,7 @@ int get_node_type_id (lua_State *L, int n) {
     /* do some test here as well !*/
   }
   if (i==-1) {
-    lua_pushstring(L, "Invalid node type");
+    lua_pushstring(L, "Invalid node type id");
     lua_error(L);
   }
   return i;
@@ -91,11 +91,25 @@ lua_nodelib_push(lua_State *L) {
 /* converts type strings to type ids */
 
 static int
-lua_nodelib_id(lua_State *L) {
+lua_nodelib_id (lua_State *L) {
   integer i;
   i = get_node_type_id(L,1);
   if (i>=0) {
     lua_pushnumber(L,i);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+/* converts id numbers to type names */
+
+static int
+lua_nodelib_type (lua_State *L) {
+  integer i;
+  i = get_node_type_id(L,1);
+  if (i>=0) {
+    lua_pushstring(L,node_names[i]);
   } else {
     lua_pushnil(L);
   }
@@ -159,8 +173,12 @@ lua_nodelib_flush_list(lua_State *L) {
 
 static int
 lua_nodelib_copy_list (lua_State *L) {
-  halfword *n = check_isnode(L,-1);
-  halfword m = copy_node_list(*n);
+  halfword *n;
+  halfword m;
+  if (lua_isnil(L,1))
+    return 1; /* the nil itself */
+  n = check_isnode(L,1);
+  m = copy_node_list(*n);
   lua_pushnumber(L,m);
   lua_nodelib_push(L);
   return 1;
@@ -172,7 +190,9 @@ static int
 lua_nodelib_copy(lua_State *L) {
   halfword *n;
   halfword m,p;
-  n = check_isnode(L,-1);
+  if (lua_isnil(L,1))
+    return 1; /* the nil itself */
+  n = check_isnode(L,1);
   p = vlink(*n); vlink(*n) = null;
   m = copy_node_list(*n);
   vlink(*n) = p;
@@ -182,45 +202,53 @@ lua_nodelib_copy(lua_State *L) {
 }
 
 /* A whole set of static data for field information */
+/* every node is supposed to have at least "next", 
+   "id", and "subtype" */
 
-static char * node_fields_list    [] =  { "next", "type", "subtype", "attr", "width", "depth", "height", "shift", "list", 
-                                          "glue_order", "glue_sign", "glue_set" , "dir" ,  NULL };
-static char * node_fields_rule     [] = { "next", "type", "subtupe", "attr", "width", "depth", "height", "dir", NULL };
-static char * node_fields_insert   [] = { "next", "type", "subtype", "attr", "cost",  "depth", "height", "top_skip", "insert", NULL };
-static char * node_fields_mark     [] = { "next", "type", "subtype", "attr", "class", "mark", NULL }; 
-static char * node_fields_adjust   [] = { "next", "type", "subtype", "attr", "list", NULL }; 
-static char * node_fields_disc     [] = { "next", "type", "replace", "attr", "pre", "post", "subtype", NULL };
-/*static char * node_fields_whatsit  [] = { "next", "type", NULL };*/
-static char * node_fields_math     [] = { "next", "type", "subtype", "attr", "surround", NULL }; 
-static char * node_fields_glue     [] = { "next", "type", "subtype", "attr", "spec", "leader", NULL }; 
-static char * node_fields_kern     [] = { "next", "type", "subtype", "attr", "width", NULL };
-static char * node_fields_penalty  [] = { "next", "type", "subtype", "attr", "penalty", NULL };
-static char * node_fields_unset    [] = { "next", "type", "subtype", "attr", "width", "depth", "height", "shrink", "list", 
-                                          "glue_order", "glue_sign", "stretch" , "dir" , "span",  NULL };
-static char * node_fields_style    [] = { "next", "type", "subtype", NULL };
-static char * node_fields_choice   [] = { "next", "type", "subtype", NULL };
-static char * node_fields_ord      [] = { "next", "type", "subtype", NULL };
-static char * node_fields_op       [] = { "next", "type", "subtype", NULL };
-static char * node_fields_bin      [] = { "next", "type", "subtype", NULL };
-static char * node_fields_rel      [] = { "next", "type", "subtype", NULL };
-static char * node_fields_open     [] = { "next", "type", "subtype", NULL };
-static char * node_fields_close    [] = { "next", "type", "subtype", NULL };
-static char * node_fields_punct    [] = { "next", "type", "subtype", NULL };
-static char * node_fields_inner    [] = { "next", "type", "subtype", NULL };
-static char * node_fields_radical  [] = { "next", "type", "subtype", NULL };
-static char * node_fields_fraction [] = { "next", "type", "subtype", NULL };
-static char * node_fields_under    [] = { "next", "type", "subtype", NULL };
-static char * node_fields_over     [] = { "next", "type", "subtype", NULL };
-static char * node_fields_accent   [] = { "next", "type", "subtype", NULL };
-static char * node_fields_vcenter  [] = { "next", "type", "subtype", NULL };
-static char * node_fields_left     [] = { "next", "type", "subtype", NULL };
-static char * node_fields_right    [] = { "next", "type", "subtype", NULL };
-static char * node_fields_margin_kern    []  = { "next", "type", "subtype", "attr",  "width", "glyph", NULL };
-static char * node_fields_glyph          []  = { "next", "type", "subtype", "attr", "char", "font", "components", NULL };
-static char * node_fields_attribute      []  = { "next", "type", "subtype", "id", "value", NULL };
-static char * node_fields_glue_spec      []  = { "next", "type", "subtype", "width", "stretch", "shrink", 
+/* ordinary nodes */
+static char * node_fields_list        [] = { "attr", "width", "depth", "height", "shift", "list", 
+					     "glue_order", "glue_sign", "glue_set" , "dir" ,  NULL };
+static char * node_fields_rule        [] = { "next", "id", "subtupe", "attr", "width", "depth", "height", "dir", NULL };
+static char * node_fields_insert      [] = { "attr", "cost",  "depth", "height", "top_skip", "insert", NULL };
+static char * node_fields_mark        [] = { "attr", "class", "mark", NULL }; 
+static char * node_fields_adjust      [] = { "attr", "list", NULL }; 
+static char * node_fields_disc        [] = { "attr", "pre", "post", "replace", NULL };
+static char * node_fields_math        [] = { "attr", "surround", NULL }; 
+static char * node_fields_glue        [] = { "attr", "spec", "leader", NULL }; 
+static char * node_fields_kern        [] = { "attr", "width", NULL };
+static char * node_fields_penalty     [] = { "attr", "penalty", NULL };
+static char * node_fields_unset       [] = { "attr", "width", "depth", "height", "shrink", "list", 
+					     "glue_order", "glue_sign", "stretch" , "dir" , "span",  NULL };
+static char * node_fields_margin_kern [] = { "attr", "width", "glyph", NULL };
+static char * node_fields_glyph       [] = { "attr", "char", "font", "components", NULL };
+
+/* math nodes and noads */
+static char * node_fields_style    [] = { NULL };
+static char * node_fields_choice   [] = { NULL };
+static char * node_fields_ord      [] = { NULL };
+static char * node_fields_op       [] = { NULL };
+static char * node_fields_bin      [] = { NULL };
+static char * node_fields_rel      [] = { NULL };
+static char * node_fields_open     [] = { NULL };
+static char * node_fields_close    [] = { NULL };
+static char * node_fields_punct    [] = { NULL };
+static char * node_fields_inner    [] = { NULL };
+static char * node_fields_radical  [] = { NULL };
+static char * node_fields_fraction [] = { NULL };
+static char * node_fields_under    [] = { NULL };
+static char * node_fields_over     [] = { NULL };
+static char * node_fields_accent   [] = { NULL };
+static char * node_fields_vcenter  [] = { NULL };
+static char * node_fields_left     [] = { NULL };
+static char * node_fields_right    [] = { NULL };
+
+/* terminal objects */
+static char * node_fields_action         [] = { "action_type", "named_id", "action_id", 
+						"file", "new_window", "data", "ref_count", NULL };
+static char * node_fields_attribute      []  = { "number", "value", NULL };
+static char * node_fields_glue_spec      []  = { "width", "stretch", "shrink", 
 						 "stretch_order", "shrink_order", "ref_count", NULL };
-static char * node_fields_attribute_list []  = { "next", "type", "subtype", "ref_count", NULL };
+static char * node_fields_attribute_list []  = { "ref_count", NULL };
 
 /* there are holes in this list because not all node types are actually in use */
 
@@ -258,7 +286,8 @@ static char ** node_fields[] = {
   node_fields_left,  /* 30 */
   node_fields_right, 
   NULL,  NULL,  NULL,  NULL,  
-  NULL,  NULL,  NULL,  NULL,
+  NULL,  NULL,  NULL,
+  node_fields_action,
   node_fields_margin_kern, /* 40 */
   node_fields_glyph,
   node_fields_attribute,
@@ -267,41 +296,41 @@ static char ** node_fields[] = {
   NULL };
 
 
-static char * node_fields_whatsit_open               [] = { "next", "type", "subtype", "attr", "stream", "name", "area", "ext", NULL };
-static char * node_fields_whatsit_write              [] = { "next", "type", "subtype", "attr", "stream", "data", NULL };
-static char * node_fields_whatsit_close              [] = { "next", "type", "subtype", "attr", "stream", NULL };
-static char * node_fields_whatsit_special            [] = { "next", "type", "subtype", "attr", "data", NULL };
-static char * node_fields_whatsit_language           [] = { "next", "type", "subtype", "attr", "lang", "left", "right", NULL };
-static char * node_fields_whatsit_local_par          [] = { "next", "type", "subtype", "attr", "pen_inter", "pen_broken", "dir", 
+static char * node_fields_whatsit_open               [] = { "attr", "stream", "name", "area", "ext", NULL };
+static char * node_fields_whatsit_write              [] = { "attr", "stream", "data", NULL };
+static char * node_fields_whatsit_close              [] = { "attr", "stream", NULL };
+static char * node_fields_whatsit_special            [] = { "attr", "data", NULL };
+static char * node_fields_whatsit_language           [] = { "attr", "lang", "left", "right", NULL };
+static char * node_fields_whatsit_local_par          [] = { "attr", "pen_inter", "pen_broken", "dir", 
 							    "box_left", "box_left_width", "box_right", "box_right_width", NULL };
-static char * node_fields_whatsit_dir                [] = { "next", "type", "subtype", "attr", "dir", "level", "dvi_ptr", "dvi_h", NULL };
+static char * node_fields_whatsit_dir                [] = { "attr", "dir", "level", "dvi_ptr", "dvi_h", NULL };
 
-static char * node_fields_whatsit_pdf_literal        [] = { "next", "type", "subtype", "attr", "mode", "data", NULL };
-static char * node_fields_whatsit_pdf_refobj         [] = { "next", "type", "subtype", "attr", "objnum", NULL };
-static char * node_fields_whatsit_pdf_refxform       [] = { "next", "type", "subtype", "attr", "width", "height", "depth", "objnum", NULL };
-static char * node_fields_whatsit_pdf_refximage      [] = { "next", "type", "subtype", "attr", "width", "height", "depth", "objnum", NULL };
-static char * node_fields_whatsit_pdf_annot          [] = { "next", "type", "subtype", "attr", "width", "height", "depth", "objnum", "data", NULL };
-static char * node_fields_whatsit_pdf_start_link     [] = { "next", "type", "subtype", "attr", "width", "height", "depth", 
+static char * node_fields_whatsit_pdf_literal        [] = { "attr", "mode", "data", NULL };
+static char * node_fields_whatsit_pdf_refobj         [] = { "attr", "objnum", NULL };
+static char * node_fields_whatsit_pdf_refxform       [] = { "attr", "width", "height", "depth", "objnum", NULL };
+static char * node_fields_whatsit_pdf_refximage      [] = { "attr", "width", "height", "depth", "objnum", NULL };
+static char * node_fields_whatsit_pdf_annot          [] = { "attr", "width", "height", "depth", "objnum", "data", NULL };
+static char * node_fields_whatsit_pdf_start_link     [] = { "attr", "width", "height", "depth", 
 							    "objnum", "link_attr", "action", NULL };
-static char * node_fields_whatsit_pdf_end_link       [] = { "next", "type", "subtype", "attr", NULL };
-static char * node_fields_whatsit_pdf_dest           [] = { "next", "type", "subtype", "attr", "width", "height", "depth", 
-							    "named_id", "id", "dest_type", "xyz_zoom", "objnum",  NULL };
-static char * node_fields_whatsit_pdf_thread         [] = { "next", "type", "subtype", "attr", "width", "height", "depth", 
-							    "named_id", "id", "thread_attr", NULL };
-static char * node_fields_whatsit_pdf_start_thread   [] = { "next", "type", "subtype", "attr", "width", "height", "depth", 
-							    "named_id", "id", "thread_attr", NULL };
-static char * node_fields_whatsit_pdf_end_thread     [] = { "next", "type", "subtype", "attr", NULL };
-static char * node_fields_whatsit_pdf_save_pos       [] = { "next", "type", "subtype", "attr", NULL };
-static char * node_fields_whatsit_pdf_snap_ref_point [] = { "next", "type", "subtype", "attr", NULL };
-static char * node_fields_whatsit_pdf_snapy          [] = { "next", "type", "subtype", "attr", "final_skip", "spec", NULL };
-static char * node_fields_whatsit_pdf_snapy_comp     [] = { "next", "type", "subtype", "attr", "comp_ratio", NULL };
-static char * node_fields_whatsit_late_lua           [] = { "next", "type", "subtype", "attr", "reg", "data", NULL };
-static char * node_fields_whatsit_close_lua          [] = { "next", "type", "subtype", "attr", "reg", NULL };
-static char * node_fields_whatsit_pdf_colorstack     [] = { "next", "type", "subtype", "attr", "stack", "cmd", "data", NULL };
-static char * node_fields_whatsit_pdf_setmatrix      [] = { "next", "type", "subtype", "attr", "data", NULL };
-static char * node_fields_whatsit_pdf_save           [] = { "next", "type", "subtype", "attr", NULL };
-static char * node_fields_whatsit_pdf_restore        [] = { "next", "type", "subtype", "attr", NULL };
-static char * node_fields_whatsit_user_defined       [] = { "next", "type", "subtype", "attr", "id", "value_type", "value", NULL };
+static char * node_fields_whatsit_pdf_end_link       [] = { "attr", NULL };
+static char * node_fields_whatsit_pdf_dest           [] = { "attr", "width", "height", "depth", 
+							    "named_id", "dest_id", "dest_type", "xyz_zoom", "objnum",  NULL };
+static char * node_fields_whatsit_pdf_thread         [] = { "attr", "width", "height", "depth", 
+							    "named_id", "thread_id", "thread_attr", NULL };
+static char * node_fields_whatsit_pdf_start_thread   [] = { "attr", "width", "height", "depth", 
+							    "named_id", "thread_id", "thread_attr", NULL };
+static char * node_fields_whatsit_pdf_end_thread     [] = { "attr", NULL };
+static char * node_fields_whatsit_pdf_save_pos       [] = { "attr", NULL };
+static char * node_fields_whatsit_pdf_snap_ref_point [] = { "attr", NULL };
+static char * node_fields_whatsit_pdf_snapy          [] = { "attr", "final_skip", "spec", NULL };
+static char * node_fields_whatsit_pdf_snapy_comp     [] = { "attr", "comp_ratio", NULL };
+static char * node_fields_whatsit_late_lua           [] = { "attr", "reg", "data", NULL };
+static char * node_fields_whatsit_close_lua          [] = { "attr", "reg", NULL };
+static char * node_fields_whatsit_pdf_colorstack     [] = { "attr", "stack", "cmd", "data", NULL };
+static char * node_fields_whatsit_pdf_setmatrix      [] = { "attr", "data", NULL };
+static char * node_fields_whatsit_pdf_save           [] = { "attr", NULL };
+static char * node_fields_whatsit_pdf_restore        [] = { "attr", NULL };
+static char * node_fields_whatsit_user_defined       [] = { "attr", "user_id", "type", "value", NULL };
 
 /* there are holes in this list because not all extension
    codes generate nodes */
@@ -362,16 +391,20 @@ get_node_field_id (lua_State *L, int n, int node ) {
   char *** fields = node_fields;
   if (lua_type(L,n)==LUA_TSTRING) {
     s = (char *)lua_tostring(L,n);
-    if (strcmp(s,"id")==0) {
-      i = -1;
-    } else {
+    if      (strcmp(s,"prev")    == 0) {  i = -1; } 
+    else if (strcmp(s,"next")    == 0) {  i = 0; } 
+    else if (strcmp(s,"id")      == 0) {  i = 1; } 
+    else if (strcmp(s,"subtype") == 0) {  i = 2; }
+    else {
       if (t==whatsit_node) {
 	t = subtype(node);
 	fields = node_fields_whatsits;
       }
       for (i=0;fields[t][i]!=NULL;i++) {
-	if (strcmp(s,fields[t][i])==0)
+	if (strcmp(s,fields[t][i])==0) {
+	  i+=3;
 	  break;
+	}
       }
       if (fields[t][i]==NULL)
 	i=-2;
@@ -415,7 +448,6 @@ lua_nodelib_whatsits (lua_State *L) {
   return 1;
 }
 
-
 /* fetch the list of valid fields */
 
 static int
@@ -429,20 +461,56 @@ lua_nodelib_fields (lua_State *L) {
   }
   lua_checkstack(L,2);
   lua_newtable(L);
+  lua_pushstring(L,"prev");
+  lua_rawseti(L,-2,-1);
+  lua_pushstring(L,"next");
+  lua_rawseti(L,-2,0);
+  lua_pushstring(L,"id");
+  lua_rawseti(L,-2,1);
+  lua_pushstring(L,"subtype");
+  lua_rawseti(L,-2,2);
   for (i=0;fields[t][i]!=NULL;i++) {
     lua_pushstring(L,fields[t][i]);
-    lua_rawseti(L,-2,i);
+    lua_rawseti(L,-2,(i+3));
   }
   return 1;
 }
+
+/* find the end of a list */
+
+static int
+lua_nodelib_tail (lua_State *L) {
+  halfword *n;
+  halfword t;
+  if (lua_isnil(L,1))
+    return 1; /* the nil itself */
+  n = check_isnode(L,1);
+  t=*n;
+  if (t==null)
+    return 1; /* the old userdata */
+  alink(t) = null;
+  while (vlink(t)!=null) {
+    alink(vlink(t)) = t;
+    t = vlink(t);
+  }
+  lua_pushnumber(L,t);
+  lua_nodelib_push(L);
+  return 1;
+}
+
+
 
 /* a utility function for attribute stuff */
 
 static int
 lua_nodelib_has_attribute (lua_State *L) {
   int i;
-  halfword *n = check_isnode(L,1);
-  halfword t=*n;
+  halfword *n;
+  halfword t;
+  if (lua_isnil(L,1))
+    return 1; /* the nil itself */
+  n = check_isnode(L,1);
+  t=*n;
   if (type(t)==attribute_list_node)  {
     t = vlink(t);
     i = lua_tonumber(L,2);
@@ -461,12 +529,12 @@ lua_nodelib_has_attribute (lua_State *L) {
 }
 
 
-
 /* fetching a field from a node */
 
 #define nodelib_pushlist(L,n) { lua_pushnumber(L,n); lua_nodelib_push(L); }
 #define nodelib_pushattr(L,n) { lua_pushnumber(L,n); lua_nodelib_push(L); }
 #define nodelib_pushspec(L,n) { lua_pushnumber(L,n); lua_nodelib_push(L); }
+#define nodelib_pushaction(L,n) { lua_pushnumber(L,n); lua_nodelib_push(L); }
 #define nodelib_pushstring(L,n) { lua_pushstring(L,makecstring(n)); }
 
 static void
@@ -581,7 +649,7 @@ lua_nodelib_getfield_whatsit  (lua_State *L, int n, int field) {
     case  6: lua_pushnumber(L,pdf_depth(n));                 break;
     case  7: lua_pushnumber(L,pdf_link_objnum(n));           break;
     case  8: tokenlist_to_luastring(L,pdf_link_attr(n));     break;
-    case  9: nodelib_pushlist(L,pdf_link_action(n));         break; /* action ! */
+    case  9: nodelib_pushaction(L,pdf_link_action(n));       break;
     default: lua_pushnil(L); 
     }
     break;
@@ -695,6 +763,8 @@ static int
 lua_nodelib_getfield  (lua_State *L) {
   halfword *n_ptr, n;
   int field;
+  if (lua_isnil(L,1))
+    return 1; /* a nil */
   n_ptr = check_isnode(L,1);
   n = *n_ptr;
   field = get_node_field_id(L,2, n);
@@ -703,13 +773,12 @@ lua_nodelib_getfield  (lua_State *L) {
   if (field==0) {
     lua_pushnumber(L,vlink(n));
     lua_nodelib_push(L);
-  } else if (abs(field)==1) {
-    if (field==1 && lua_type(L,2)==LUA_TSTRING) {
-      lua_pushstring(L,node_names[type(n)]);
-    } else {
-      lua_pushnumber(L,type(n));
-    }
-  } else  {
+  } else if (field==1) {
+    lua_pushnumber(L,type(n));
+  } else if (field==-1) {
+    lua_pushnumber(L,alink(n));
+    lua_nodelib_push(L);
+  } else {
     switch (type(n)) {
     case hlist_node:
     case vlist_node:
@@ -787,10 +856,11 @@ lua_nodelib_getfield  (lua_State *L) {
       break;
     case disc_node: 
       switch (field) {
-      case  2: lua_pushnumber(L,replace_count(n));    break;
+      case  2: lua_pushnumber(L,0);                   break;
       case  3: nodelib_pushattr(L,node_attr(n));      break;
       case  4: nodelib_pushlist(L,pre_break(n));      break;
-      case  5: nodelib_pushlist(L,post_break(n));      break;
+      case  5: nodelib_pushlist(L,post_break(n));     break;
+      case  6: lua_pushnumber(L,replace_count(n));    break;
       default: lua_pushnil(L);
       }
       break;
@@ -859,6 +929,23 @@ lua_nodelib_getfield  (lua_State *L) {
       default: lua_pushnil(L);
       }
       break;
+    case action_node:
+      switch (field) {
+      case  2: /* dummy subtype */                            break;
+      case  3: lua_pushnumber(L,pdf_action_type(n));          break;
+      case  4: lua_pushnumber(L,pdf_action_named_id(n));      break;
+      case  5: if (pdf_action_named_id(n)==1) {
+	  tokenlist_to_luastring(L,pdf_action_id(n));
+	} else {
+	  lua_pushnumber(L,pdf_action_id(n));
+	}                                                     break;
+      case  6: tokenlist_to_luastring(L,pdf_action_file(n));  break;
+      case  7: lua_pushnumber(L,pdf_action_new_window(n));    break;
+      case  8: tokenlist_to_luastring(L,pdf_action_tokens(n));break;
+      case  9: lua_pushnumber(L,pdf_action_refcount(n));      break;
+      default: lua_pushnil(L);
+      }
+      break;
     case margin_kern_node :
       switch (field) {
       case  2: lua_pushnumber(L,subtype(n));	      break;
@@ -907,6 +994,7 @@ static int nodelib_getlist(lua_State *L, int n) {
 
 #define nodelib_getattr        nodelib_getlist
 #define nodelib_getspec        nodelib_getlist
+#define nodelib_getaction      nodelib_getlist
 #define nodelib_getstring(L,a) maketexstring(lua_tostring(L,a))
 #define nodelib_gettoks(L,a)   tokenlist_from_lua(L)
 
@@ -1027,7 +1115,7 @@ lua_nodelib_setfield_whatsit(lua_State *L, int n, int field) {
     case  6: pdf_depth(n) = lua_tointeger(L,3);             break;
     case  7: pdf_link_objnum(n) = lua_tointeger(L,3);       break;
     case  8: pdf_link_attr(n) = nodelib_gettoks(L,3);       break;
-    case  9: pdf_link_action(n) = nodelib_getlist(L,3);     break; /* action */
+    case  9: pdf_link_action(n) = nodelib_getaction(L,3);   break;
     default: return nodelib_cantset(L,field,n);
     }
     break;
@@ -1148,10 +1236,12 @@ lua_nodelib_setfield  (lua_State *L) {
   n_ptr = check_isnode(L,1);
   n = *n_ptr;
   field = get_node_field_id(L,2,n);
-  if (field<0)
+  if (field<-1)
     return 0;
   if (field==0) {
     vlink(n) = nodelib_getlist(L,3);
+  } else if (field==-1) {
+    alink(n) = nodelib_getlist(L,3);
   } else {
     switch (type(n)) {
     case hlist_node:
@@ -1283,15 +1373,6 @@ lua_nodelib_setfield  (lua_State *L) {
       }
       break;
     case ligature_node: 
-      switch (field) {
-      case  2: subtype(n) = (lua_tointeger(L,3)-1);     break;
-      case  3: node_attr(n) = nodelib_getattr(L,3);     break;
-      case  4: character(n) = lua_tointeger(L,3);	break;
-      case  5: font(n) = lua_tointeger(L,3);	        break;
-      case  6: lig_ptr(n) = nodelib_getlist(L,3);       break;
-      default: return nodelib_cantset(L,field,n);
-      }
-      break;
     case glyph_node: 
       switch (field) {
       case  2: subtype(n) = lua_tointeger(L,3);	        break;
@@ -1299,6 +1380,23 @@ lua_nodelib_setfield  (lua_State *L) {
       case  4: character(n) = lua_tointeger(L,3);	break;
       case  5: font(n) = lua_tointeger(L,3);	        break;
       case  6: lig_ptr(n) = nodelib_getlist(L,3);       break;
+      default: return nodelib_cantset(L,field,n);
+      }
+      break;
+    case action_node:
+      switch (field) {
+      case  2: /* dummy subtype */                            break;
+      case  3: pdf_action_type(n)     = lua_tointeger(L,3);   break;
+      case  4: pdf_action_named_id(n) = lua_tointeger(L,3);   break;
+      case  5: if (pdf_action_named_id(n)==1) {
+	  pdf_action_id(n) = nodelib_gettoks(L,3);         
+	} else {
+	  pdf_action_id(n) = lua_tointeger(L,3);         
+	}                                                     break;
+      case  6: pdf_action_file(n) =  nodelib_gettoks(L,3);    break;
+      case  7: pdf_action_new_window(n) = lua_tointeger(L,3); break;
+      case  8: pdf_action_tokens(n) =  nodelib_gettoks(L,3);  break;
+      case  9: pdf_action_refcount(n) = lua_tointeger(L,3);   break;
       default: return nodelib_cantset(L,field,n);
       }
       break;
@@ -1339,19 +1437,22 @@ lua_nodelib_setfield  (lua_State *L) {
 
 static int
 lua_nodelib_print  (lua_State *L) {
-  halfword *n_ptr;
-  halfword n;
-  n_ptr = check_isnode(L,1);
-  n = *n_ptr;
-  lua_checkstack(L,1);
-  lua_pushfstring(L,"<node %d: %s>",n, node_names[type(n)]);
+  halfword *n;
+  n = check_isnode(L,1);
+  lua_pushfstring(L,"<node (%d<) %d (>%d): %s>", 
+		  (alink(*n)==null ? -1 : alink(*n)),
+		  *n,
+		  (vlink(*n)==null ? -1 : vlink(*n)),
+		  node_names[type(*n)]);
   return 1;
 }
 
 
 static const struct luaL_reg nodelib_f [] = {
   {"id",            lua_nodelib_id},
+  {"type",          lua_nodelib_type},
   {"new",           lua_nodelib_new},
+  {"slide",         lua_nodelib_tail},
   {"types",         lua_nodelib_types},
   {"whatsits",      lua_nodelib_whatsits},
   {"fields",        lua_nodelib_fields},
@@ -1389,63 +1490,11 @@ nodelist_to_lua (lua_State *L, halfword n) {
 
 halfword
 nodelist_from_lua (lua_State *L) { 
-  halfword *n = check_isnode(L,-1);
+  halfword *n;
+  if (lua_isnil(L,-1))
+    return null;
+  n = check_isnode(L,-1);
   return *n;
 }
 
 
-#if 0
-
-void 
-action_node_to_lua (lua_State *L, halfword p) {
-  lua_newtable(L);
-  switch (pdf_action_type(p)) {
-  case pdf_action_user:
-    generic_node_to_lua(L,"action","du", pdf_action_type(p), pdf_action_user_tokens(p));
-    break;
-  case pdf_action_goto:
-  case pdf_action_thread:
-  case pdf_action_page:
-    if (pdf_action_named_id(p) == 1) {
-      generic_node_to_lua(L,"action","dduudu", pdf_action_type(p),pdf_action_named_id(p),
-			  pdf_action_id(p),pdf_action_file(p),pdf_action_new_window(p),
-			  pdf_action_page_tokens(p));
-    } else {
-      generic_node_to_lua(L,"action","dddudu", pdf_action_type(p),pdf_action_named_id(p),
-			  pdf_action_id(p),pdf_action_file(p),pdf_action_new_window(p),
-			  pdf_action_page_tokens(p));
-    }
-    break;
-  }
-}
-
-halfword 
-action_node_from_lua (lua_State *L) {
-  int a;
-  int p, i = 2;
-  p = get_node(pdf_action_size);  
-  numeric_field(pdf_action_type(p),i++);
-  switch (pdf_action_type(p)) {
-  case pdf_action_user:
-    tokenlist_field(a,i++);
-    pdf_action_user_tokens(p)=a;
-    break;
-  case pdf_action_goto:
-  case pdf_action_thread:
-  case pdf_action_page:
-    numeric_field(pdf_action_named_id(p),i++);
-    if (pdf_action_named_id(p)==1) {
-      tokenlist_field(a,i++);
-      pdf_action_id(p)=a;
-    } else {
-      numeric_field  (pdf_action_id(p),i++);
-    }
-    tokenlist_field(a,i++); pdf_action_file(p)=a;
-    numeric_field  (pdf_action_new_window(p),i++);
-    tokenlist_field(a,i++); pdf_action_page_tokens(p)=a;
-    break;
-  }
-  return p;
-}
-
-#endif

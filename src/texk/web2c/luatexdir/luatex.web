@@ -3760,7 +3760,7 @@ an hlist; the |height| and |depth| are never running in a~vlist.
 @d rule_node_size=6 {number of words to allocate for a rule node}
 @d null_flag==-@'10000000000 {$-2^{30}$, signifies a missing item}
 @d is_running(#) == (#=null_flag) {tests for a running dimension}
-@d rule_dir(#)==vlink(#+1)
+@d rule_dir(#)==vlink(#+5)
 
 @ A new rule node is delivered by the |new_rule| function. It
 makes all the dimensions ``running,'' so you have to change the
@@ -17804,15 +17804,15 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 @d pdf_action_user         == 3 {user-defined action}
 
 @# {data structure of actions}
-@d pdf_action_size         == 3 {size of action structure in |mem|}
-@d pdf_action_type         == type {action type}
-@d pdf_action_named_id     == subtype {identifier is type of name}
-@d pdf_action_id           == vlink {destination/thread name identifier}
-@d pdf_action_file(#)      == vinfo(# + 1) {file name for external action}
-@d pdf_action_new_window(#)== vlink(# + 1) {open a new window?}
-@d pdf_action_page_tokens(#) == vinfo(# + 2) {specification of GoTo page action}
-@d pdf_action_user_tokens(#) == vinfo(# + 2) {user-defined action string}
-@d pdf_action_refcount(#)  == vlink(# + 2) {counter of references to this action}
+@d pdf_action_size         == 4 {size of action structure in |mem|}
+@d action_node         == 39
+@d pdf_action_type(#)      == type(#+1) {action type}
+@d pdf_action_named_id(#)  == subtype(#+1) {identifier is type of name}
+@d pdf_action_id(#)        == vlink(#+1) {destination/thread name identifier}
+@d pdf_action_file(#)      == vinfo(# + 2) {file name for external action}
+@d pdf_action_new_window(#) == vlink(# + 2) {open a new window?}
+@d pdf_action_tokens(#)    == vinfo(# + 3) {specification of GoTo page or user action}
+@d pdf_action_refcount(#)  == vlink(# + 3) {counter of references to this action}
 
 @# {data structure of outlines; it's not able to write out outline entries
 before all outline entries are defined, so memory allocated for outline
@@ -24843,7 +24843,7 @@ pop_nest;
 
 @ It is possible that the user wants to interfere at some point.  
 
-@d check_filter(#)==if (not output_active) and (vlink(head)<>null) then 
+@d check_filter(#)==if (not output_active) and (vlink(head)<>null) then
 lua_node_filter(buildpage_filter_callback,0,head,addressof(tail))
 
 @ When looking for optimal line breaks, \TeX\ creates a ``break node'' for
@@ -35267,12 +35267,12 @@ action; free it if there is no reference to this action}
 begin
     if pdf_action_refcount(#) = null then begin
         if pdf_action_type(#) = pdf_action_user then
-            delete_token_ref(pdf_action_user_tokens(#))
+            delete_token_ref(pdf_action_tokens(#))
         else begin
             if pdf_action_file(#) <> null then
                 delete_token_ref(pdf_action_file(#));
             if pdf_action_type(#) = pdf_action_page then
-                delete_token_ref(pdf_action_page_tokens(#))
+                delete_token_ref(pdf_action_tokens(#))
             else if pdf_action_named_id(#) > 0 then
                 delete_token_ref(pdf_action_id(#));
         end;
@@ -35861,6 +35861,8 @@ function scan_action: pointer; {read an action specification}
 var p: integer;
 begin
     p := get_node(pdf_action_size);
+	set_type(p,action_node);
+	subtype(p):=0;
     scan_action := p;
     pdf_action_file(p) := null;
     pdf_action_refcount(p) := null;
@@ -35874,7 +35876,7 @@ begin
         pdf_error("ext1", "action type missing");
     if pdf_action_type(p) = pdf_action_user then begin
         scan_pdf_ext_toks;
-        pdf_action_user_tokens(p) := def_ref;
+        pdf_action_tokens(p) := def_ref;
         return;
     end;
     if scan_keyword("file") then begin
@@ -35891,7 +35893,7 @@ begin
         pdf_action_id(p) := cur_val;
         pdf_action_named_id(p) := 0;
         scan_pdf_ext_toks;
-        pdf_action_page_tokens(p) := def_ref;
+        pdf_action_tokens(p) := def_ref;
     end
     else if scan_keyword("name") then begin
         scan_pdf_ext_toks;
@@ -36713,7 +36715,7 @@ pdf_start_link_node: begin
     print(" action");
     if pdf_action_type(pdf_link_action(p)) = pdf_action_user then begin
         print(" user");
-        print_mark(pdf_action_user_tokens(pdf_link_action(p)));
+        print_mark(pdf_action_tokens(pdf_link_action(p)));
         return;
     end;
     if pdf_action_file(pdf_link_action(p)) <> null then begin
@@ -36734,7 +36736,7 @@ pdf_start_link_node: begin
     pdf_action_page: begin
         print(" page");
         print_int(pdf_action_id(pdf_link_action(p)));
-        print_mark(pdf_action_page_tokens(pdf_link_action(p)));
+        print_mark(pdf_action_tokens(pdf_link_action(p)));
     end;
     pdf_action_thread: begin
         if pdf_action_named_id(pdf_link_action(p)) > 0 then begin
@@ -37881,7 +37883,7 @@ var s: str_number;
     d: integer;
 begin
     if pdf_action_type(p) = pdf_action_user then begin
-        pdf_print_toks_ln(pdf_action_user_tokens(p));
+        pdf_print_toks_ln(pdf_action_tokens(p));
         return;
     end;
     pdf_print("<< ");
@@ -37916,7 +37918,7 @@ begin
             pdf_print_int(pdf_action_id(p) - 1);
         end;
         pdf_out(" ");
-        pdf_print(tokens_to_string(pdf_action_page_tokens(p)));
+        pdf_print(tokens_to_string(pdf_action_tokens(p)));
         flush_str(last_tokens_string);
         pdf_out("]");
     end;
