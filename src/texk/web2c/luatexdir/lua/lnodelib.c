@@ -208,7 +208,7 @@ lua_nodelib_copy(lua_State *L) {
 /* ordinary nodes */
 static char * node_fields_list        [] = { "attr", "width", "depth", "height", "shift", "list", 
 					     "glue_order", "glue_sign", "glue_set" , "dir" ,  NULL };
-static char * node_fields_rule        [] = { "next", "id", "subtupe", "attr", "width", "depth", "height", "dir", NULL };
+static char * node_fields_rule        [] = { "attr", "width", "depth", "height", "dir", NULL };
 static char * node_fields_insert      [] = { "attr", "cost",  "depth", "height", "top_skip", "insert", NULL };
 static char * node_fields_mark        [] = { "attr", "class", "mark", NULL }; 
 static char * node_fields_adjust      [] = { "attr", "list", NULL }; 
