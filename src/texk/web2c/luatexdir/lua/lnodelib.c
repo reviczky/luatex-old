@@ -385,6 +385,7 @@ static char ** node_fields_whatsits [] = {
 
 static int
 get_node_field_id (lua_State *L, int n, int node ) {
+  int j;
   char *s = NULL;
   int i = -2;
   int t = type(node);
@@ -400,13 +401,13 @@ get_node_field_id (lua_State *L, int n, int node ) {
 	t = subtype(node);
 	fields = node_fields_whatsits;
       }
-      for (i=0;fields[t][i]!=NULL;i++) {
-	if (strcmp(s,fields[t][i])==0) {
-	  i+=3;
+      for (j=0;fields[t][j]!=NULL;j++) {
+	if (strcmp(s,fields[t][j])==0) {
+	  i=j+3;
 	  break;
 	}
       }
-      if (fields[t][i]==NULL)
+      if (fields[t][j]==NULL)
 	i=-2;
     }
   } else if (lua_isnumber(L,n)) {
