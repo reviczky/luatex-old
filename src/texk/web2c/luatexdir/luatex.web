@@ -4920,6 +4920,13 @@ adjust_node: begin r:=get_node(adjust_node_size);
   s:=copy_node_list(adjust_ptr(p)); adjust_ptr(r):=s;
   node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   end;
+attribute_list_node: begin r:=get_node(attribute_list_node_size);
+  attr_list_ref(r):=0;
+  end;
+attribute_node: begin r:=get_node(attribute_node_size);
+  attribute_id(r):=attribute_id(p);
+  attribute_value(r):=attribute_value(p);
+  end;
 othercases confusion("copying")
 @:this can't happen copying}{\quad copying@>
 endcases
