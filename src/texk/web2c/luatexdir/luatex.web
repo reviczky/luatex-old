@@ -3846,20 +3846,20 @@ lig_ptr(p):=null;
 new_glyph:=p;
 end;
 
-@ A |ligature_node|, which also occurs only in horizontal lists,
-specifies a character that was fabricated from the interaction of two
-or more actual characters.  The second word of the node contains
-|font| and |character| fields just as in a |glyph_node|. The characters
-that generated the ligature have not been forgotten, since they are
-needed for diagnostic messages and for hyphenation; the |lig_ptr|
-field points to a linked list of character nodes for all original
-characters that have been deleted. (This list might be empty if the
-characters that generated the ligature were retained in other nodes.)
+@ A subset of the glyphs nodes represent ligatures: characters
+fabricated from the interaction of two or more actual characters.  The
+characters that generated the ligature have not been forgotten, since
+they are needed for diagnostic messages and for hyphenation; the
+|lig_ptr| field points to a linked list of character nodes for all
+original characters that have been deleted. (This list might be empty
+if the characters that generated the ligature were retained in other
+nodes.)
 
-The |subtype| field is 0, plus 2 and/or 1 if the original source of the
-ligature included implicit left and/or right boundaries.
+The |subtype| field of these |glyph_node|s is 1, plus 2 and/or 1 if
+the original source of the ligature included implicit left and/or
+right boundaries.
 
-@d ligature_node=6 {|type| of a ligature node}
+@d is_lig_node(#)==subtype(#)>0 { |glyph_node| is a ligature }
 
 @ The |new_ligature| function creates a ligature node having given
 contents of the |font|, |character|, and |lig_ptr| fields. We also have
@@ -3869,8 +3869,8 @@ are being created.
 
 @p function new_ligature(@!f,@!c:integer; @!q:pointer):pointer;
 var p:pointer; {the new node}
-begin p:=get_node(glyph_node_size);  set_type(p,ligature_node);
-subtype(p):=0; font(p):=f;  character(p):=c; 
+begin p:=get_node(glyph_node_size);  set_type(p,glyph_node);
+subtype(p):=1; font(p):=f;  character(p):=c; 
 if f<>0 then begin
   call_func(char_exists(f,c));
 end;
@@ -3893,7 +3893,7 @@ that starts at |pre_break(p)| will precede the break, the text that starts at
 discretionary hyphen, indicated by `\.{\\-}', yields a |disc_node| with
 |pre_break| pointing to a |char_node| containing a hyphen, |post_break=null|,
 and |replace_count=0|. All three of the discretionary texts must be
-lists that consist entirely of character, kern, box, rule, and ligature nodes.
+lists that consist entirely of character, kern, box and rule nodes.
 
 If |pre_break(p)=null|, the |ex_hyphen_penalty| will be charged for this
 break.  Otherwise the |hyphen_penalty| will be charged.  The texts will
@@ -3952,7 +3952,7 @@ subtype(p):=s; build_attribute_list(p); surround(p):=w; new_math:=p;
 end;
 
 @ \TeX\ makes use of the fact that |hlist_node|, |vlist_node|,
-|rule_node|, |ins_node|, |mark_node|, |adjust_node|, |ligature_node|,
+|rule_node|, |ins_node|, |mark_node|, |adjust_node|, 
 |disc_node|, |whatsit_node|, and |math_node| are at the low end of the
 type codes, by permitting a break at glue in a list if and only if the
 |type| of the previous node is less than |math_node|. Furthermore, a
@@ -4339,14 +4339,18 @@ procedure short_display(@!p:integer); {prints highlights of list |p|}
 var n:integer; {for replacement counts}
 begin while p<>null do
   begin if is_char_node(p) then
-      begin if font(p)<>font_in_short_display then
-        begin if not is_valid_font(font(p)) then
-          print_char("*")
+      begin if lig_ptr(p)<>null then 
+           short_display(lig_ptr(p))
+        else begin
+          if font(p)<>font_in_short_display then
+          begin if not is_valid_font(font(p)) then
+            print_char("*")
 @.*\relax@>
-        else print_font_identifier(font(p));
-        print_char(" "); font_in_short_display:=font(p);
-        end;
-      print(qo(character(p)));
+          else print_font_identifier(font(p));
+          print_char(" "); font_in_short_display:=font(p);
+          end;
+        print(qo(character(p)));
+      end;
     end
   else @<Print a short indication of the contents of node |p|@>;
   p:=vlink(p);
@@ -4360,7 +4364,6 @@ hlist_node,vlist_node,ins_node,whatsit_node,mark_node,adjust_node,
 rule_node: print_char("|");
 glue_node: if glue_ptr(p)<>zero_glue then print_char(" ");
 math_node: print_char("$");
-ligature_node: short_display(lig_ptr(p));
 disc_node: begin short_display(pre_break(p));
   short_display(post_break(p));@/
   n:=replace_count(p);
@@ -4500,8 +4503,11 @@ exit:
 end;
 
 @ @<Display node |p|@>=
-if is_char_node(p) then print_font_and_char(p)
-else  case type(p) of
+if is_char_node(p) then begin 
+ print_font_and_char(p);
+ if is_lig_node(p) then @<Display ligature |p|@>;
+ end
+else case type(p) of
   hlist_node,vlist_node,unset_node: @<Display box |p|@>;
   rule_node: @<Display rule |p|@>;
   ins_node: @<Display insertion |p|@>;
@@ -4517,7 +4523,6 @@ else  case type(p) of
     end;
   kern_node: @<Display kern |p|@>;
   math_node: @<Display math node |p|@>;
-  ligature_node: @<Display ligature |p|@>;
   penalty_node: @<Display penalty |p|@>;
   disc_node: @<Display discretionary |p|@>;
   mark_node: @<Display mark |p|@>;
@@ -4645,7 +4650,7 @@ if width(p)<>0 then
 end
 
 @ @<Display ligature |p|@>=
-begin print_font_and_char(p); print(" (ligature ");
+begin print(" (ligature ");
 if subtype(p)>1 then print_char("|");
 font_in_short_display:=font(p); short_display(lig_ptr(p));
 if odd(subtype(p)) then print_char("|");
@@ -4780,10 +4785,6 @@ while p<>null do
       ext_free_node(margin_char(p),glyph_node_size);
       ext_free_node(p,margin_kern_node_size);
       end;
-    ligature_node: begin 
-      flush_node_list(lig_ptr(p));
-      ext_free_node(p,glyph_node_size);
-      end;
     mark_node: begin 
       delete_token_ref(mark_ptr(p)); 
       ext_free_node(p,mark_node_size); 
@@ -4847,7 +4848,7 @@ end;
 
 @ @<Make a copy of node |p|...@>=
 case type(p) of
-glyph_node,ligature_node: begin r:=get_node(glyph_node_size);
+glyph_node: begin r:=get_node(glyph_node_size);
   character(r):=character(p); font(r):=font(p);
   node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   s:=copy_node_list(lig_ptr(p));
@@ -15669,7 +15670,6 @@ whatsit_node: @<Output the whatsit node |p| in an hlist@>;
 glue_node: @<Move right or output leaders@>;
 margin_kern_node,kern_node:cur_h:=cur_h+width(p);
 math_node:cur_h:=cur_h+surround(p);
-ligature_node: @<Make node |p| look like a |char_node| and |goto reswitch|@>;
 othercases do_nothing
 endcases;@/
 goto next_p;
@@ -18384,7 +18384,7 @@ procedure scan_pdf_ext_toks; forward;
 @ Here come some subroutines to deal with expanded fonts for HZ-algorithm.
 
 @d set_char_and_font(#) ==
-if (is_char_node(#))or(type(#) = ligature_node) then begin
+if is_char_node(#) then begin
     c := character(#);
     f := font(#);
 end
@@ -19200,7 +19200,6 @@ whatsit_node: @<Output the whatsit node |p| in |pdf_hlist_out|@>;
 glue_node: @<(\pdfTeX) Move right or output leaders@>;
 margin_kern_node,kern_node: pdf_dvicmd_h(width(p));
 math_node: pdf_dvicmd_h(surround(p));
-ligature_node: @<Make node |p| look like a |char_node| and |goto reswitch|@>;
 othercases do_nothing
 endcases;@/
 goto next_p;
@@ -21256,10 +21255,6 @@ begin
         return;
     l := prev_char_p;
     r := vlink(p);
-    if type(l) = ligature_node then
-        l := l;
-    if type(r) = ligature_node then
-        r := r;
     if not (is_char_node(l) and is_char_node(r) and
             (font(l) = font(r)) and
             (pdf_font_stretch[font(l)] <> null_font))
@@ -21280,10 +21275,6 @@ begin
         return;
     l := prev_char_p;
     r := vlink(p);
-    if type(l) = ligature_node then
-        l := l;
-    if type(r) = ligature_node then
-        r := r;
     if not (is_char_node(l) and is_char_node(r) and
             (font(l) = font(r)) and
             (pdf_font_shrink[font(l)] <> null_font))
@@ -21302,21 +21293,19 @@ begin
     if not is_char_node(p) and (type(p) = disc_node) then begin
         r := pre_break(p);
         while r <> null do begin
-            if is_char_node(r) or (type(r) = ligature_node) then
+            if is_char_node(r) then
                 do_subst_font(r, ex_ratio);
             r := vlink(r);
         end;
         r := post_break(p);
         while r <> null do begin
-            if is_char_node(r) or (type(r) = ligature_node) then
+            if is_char_node(r) then
                 do_subst_font(r, ex_ratio);
             r := vlink(r);
         end;
         return;
     end;
     if is_char_node(p) then
-        r := p
-    else if type(p) = ligature_node then
         r := p
     else begin
         {|short_display_n(p, 5);|}
@@ -21359,12 +21348,8 @@ begin
         last_rightmost_char := null;
     if p = null then
         return;
-    if not is_char_node(p) then begin
-        if type(p) = ligature_node then
-            p := p
-        else
-            return;
-    end;
+    if not is_char_node(p) then 
+        return;
     f := font(p);
     if side = left_side then begin
         c := get_lp_code(f, character(p));
@@ -21511,26 +21496,13 @@ if p<>null then
             font_shrink := font_shrink + k;
         end;
       end
-    else if (m = subst_ex_font) and (subtype(p) = substituted) then begin
-        if type(vlink(p)) = ligature_node then
-            width(p) := get_kern(font(prev_char_p),
-                                 character(prev_char_p),
-                                 character(vlink(p)))
-        else
-            width(p) := get_kern(font(prev_char_p),
-                                 character(prev_char_p),
-                                 character(vlink(p)))
-      end;
+    else if (m = subst_ex_font) and (subtype(p) = substituted) then 
+         width(p) := get_kern(font(prev_char_p),
+                              character(prev_char_p),
+                              character(vlink(p)));
     x := x + width(p);
     end;
   math_node: x:=x+surround(p);
-  ligature_node: begin
-      if m = subst_ex_font then
-          do_subst_font(p, font_expand_ratio);
-    @<Incorporate character dimensions into the dimensions of
-      the hbox that will contain~it, then move to the next node@>;
-	goto reswitch;
-    end;
   disc_node:
       if m = subst_ex_font then
           do_subst_font(p, font_expand_ratio);
@@ -21540,12 +21512,6 @@ if p<>null then
   end;
 end
 
-
-@ Keep this, because it is needed for |hlist_out|.
-
-@<Make node |p| look like a |char_node| and |goto reswitch|@>=
-begin set_type(p,glyph_node); goto reswitch;
-end
 
 @ The code here implicitly uses the fact that running dimensions are
 indicated by |null_flag|, which will be ignored in the calculations
@@ -22056,8 +22022,7 @@ similar ``nodes'' in hlists and vlists. Certain kinds of ordinary nodes are
 allowed to appear in mlists together with the noads; \TeX\ tells the difference
 by means of the |type| field, since a noad's |type| is always greater than
 that of a node. An mlist does not contain character nodes, hlist nodes, vlist
-nodes, math nodes, ligature nodes,
-or unset nodes; in particular, each mlist item appears in the
+nodes, math nodes or unset nodes; in particular, each mlist item appears in the
 variable-size part of |mem|, so the |type| field is always present.
 
 @ Each noad is five or more words long. The first word contains the
@@ -23446,9 +23411,9 @@ else  begin shift_down:=big_op_spacing4-height(z);
   depth(v):=depth(v)+big_op_spacing5+height(z)+depth(z)+shift_down;
   end
 
-@ A ligature found in a math formula does not create a |ligature_node|, because
+@ A ligature found in a math formula does not create a ligature, because
 there is no question of hyphenation afterwards; the ligature will simply be
-stored in an ordinary |char_node|, after residing in an |ord_noad|.
+stored in an ordinary |glyph_node|, after residing in an |ord_noad|.
 
 The |math_type| is converted to |math_text_char| here if we would not want to
 apply an italic correction to the current character unless it belongs
@@ -25589,7 +25554,7 @@ if post_break(cur_p)=null then s:=vlink(v);
 end
 
 @ Replacement texts and discretionary texts are supposed to contain
-only character nodes, kern nodes, ligature nodes, and box or rule nodes.
+only character nodes, kern nodes, and box or rule nodes.
 
 @<Subtract the width of node |v|...@>=
 if is_char_node(v) then
@@ -25607,20 +25572,6 @@ if is_char_node(v) then
   end;
   end
 else  case type(v) of
-  ligature_node: begin f:=font(v);@/
-   if is_rotated(line_break_dir) then begin
-     break_width[1]:=break_width[1]-char_height(f,character(v))
-                                   -char_depth(f,character(v));
-     end
-   else
-     break_width[1]:=@|break_width[1]-
-       char_width(f,character(v));
-    if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
-        prev_char_p := v;
-        sub_char_stretch(break_width[8])(character(v));
-        sub_char_shrink(break_width[9])(character(v));
-    end;
-    end;
   hlist_node,vlist_node: begin
     if not (dir_orthogonal(dir_primary[box_dir(v)])(dir_primary[line_break_dir]))
       then break_width[1]:=break_width[1]-width(v)
@@ -25656,20 +25607,6 @@ if is_char_node(s) then
   end;
   end
 else  case type(s) of
-  ligature_node: begin f:=font(s);
-   if is_rotated(line_break_dir) then begin
-     break_width[1]:=break_width[1]+char_height(f,character(s))
-                                   +char_depth(f,character(s));
-     end
-   else
-     break_width[1]:=break_width[1]+
-       char_width(f,character(s));
-    if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
-        prev_char_p := s;
-        add_char_stretch(break_width[8])(character(s));
-        add_char_shrink(break_width[9])(character(s));
-    end;
-    end;
   hlist_node,vlist_node: begin
     if not (dir_orthogonal(dir_primary[box_dir(s)])(dir_primary[line_break_dir]))
       then break_width[1]:=break_width[1]+width(s)
@@ -26246,19 +26183,6 @@ kern_node: if subtype(cur_p)=explicit then kern_break
         add_kern_shrink(active_width[9])(cur_p);
     end;
   end;
-ligature_node: begin f:=font(cur_p);
-  if is_rotated(line_break_dir) then begin
-    act_width:=act_width+char_height(f,character(cur_p))
-                        +char_depth(f,character(cur_p));
-    end
-  else
-    act_width:=act_width+char_width(f,character(cur_p));
-  if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
-      prev_char_p := cur_p;
-      add_char_stretch(active_width[8])(character(cur_p));
-      add_char_shrink(active_width[9])(character(cur_p));
-  end;
-  end;
 disc_node: @<Try to break after a discretionary fragment, then |goto done5|@>;
 math_node: begin auto_breaking:=(subtype(cur_p)=after); kern_break;
   end;
@@ -26312,7 +26236,7 @@ active_width[2+stretch_order(q)]:=@|
 active_width[7]:=active_width[7]+shrink(q)
 
 @ The following code knows that discretionary texts contain
-only character nodes, kern nodes, box nodes, rule nodes, and ligature nodes.
+only character nodes, kern nodes, box nodes, and rule nodes.
 
 @<Try to break after a discretionary fragment...@>=
 begin s:=pre_break(cur_p);
@@ -26349,20 +26273,6 @@ if is_char_node(s) then
   end;
   end
 else  case type(s) of
-  ligature_node: begin f:=font(s);
-    if is_rotated(line_break_dir) then begin
-        disc_width[1]:=disc_width[1]+char_height(f,character(s))
-                              +char_depth(f,character(s));
-      end
-    else
-      disc_width[1]:=disc_width[1]+
-        char_width(f,character(s));
-    if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
-        prev_char_p := s;
-        add_char_stretch(disc_width[8])(character(s));
-        add_char_shrink(disc_width[9])(character(s));
-    end;
-    end;
   hlist_node,vlist_node: begin 
     if not (dir_orthogonal(dir_primary[box_dir(s)])(dir_primary[line_break_dir]))
     then disc_width[1]:=disc_width[1]+width(s)
@@ -26397,20 +26307,6 @@ if is_char_node(s) then
   end;
   end
 else  case type(s) of
-  ligature_node: begin f:=font(s);
-    if is_rotated(line_break_dir) then begin
-        act_width:=act_width+char_height(f,character(s))
-                            +char_depth(f,character(s));
-      end
-    else
-      act_width:=act_width+
-        char_width(f,character(s));
-    if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
-        prev_char_p := s;
-        add_char_stretch(active_width[8])(character(s));
-        add_char_shrink(active_width[9])(character(s));
-    end;
-    end;
   hlist_node,vlist_node: begin 
     if not (dir_orthogonal(dir_primary[box_dir(s)])(dir_primary[line_break_dir]))
     then act_width:=act_width+width(s)
@@ -26974,13 +26870,15 @@ exit:end;
 first letter.
 
 @<Skip to node |ha|, or |goto done1|...@>=
-loop@+  begin if is_char_node(s) then
-    begin c:=qo(character(s)); hf:=font(s); hattr:=node_attr(s); {add_node_attr_ref(node_attr(s));}
+loop@+ begin if is_char_node(s) then begin
+    if is_lig_node(s) then begin
+       if lig_ptr(s)=null then goto continue
+       else q:=lig_ptr(s);
+       end
+     else 
+       q:=s;
+     c:=qo(character(q)); hf:=font(q); hattr:=node_attr(q);
     end
-  else if type(s)=ligature_node then
-    if lig_ptr(s)=null then goto continue
-    else begin q:=lig_ptr(s); c:=qo(character(q)); hf:=font(q); hattr:=node_attr(q); {add_node_attr_ref(node_attr(q));}
-      end
   else if (type(s)=kern_node)and(subtype(s)=normal) then goto continue
   else if type(s)=whatsit_node then
     begin @<Advance \(p)past a whatsit node in the \(p)pre-hyphenation loop@>;
@@ -27002,20 +26900,23 @@ ha:=prev_s
 
 @<Skip to node |hb|, putting letters...@>=
 hn:=0;
-loop@+  begin if is_char_node(s) then
-    begin if font(s)<>hf then goto done3;
-    hyf_bchar:=character(s); c:=qo(hyf_bchar);
-    do_set_lc_code(c);
-    if hc[0]=0 then goto done3;
-    if hn=63 then goto done3;
-    hb:=s; incr(hn); 
-    hu[hn]:=c; 
-    hc[hn]:=hc[0]; 
-    hyf_bchar:=non_boundarychar;
+loop@+ begin if is_char_node(s) then begin 
+    if font(s)<>hf then goto done3;
+    if is_lig_node(s) then begin
+      @<Move the characters of a ligature node to |hu| and |hc|;
+        but |goto done3| if they are not all letters@>;
+      end
+    else begin
+      hyf_bchar:=character(s); c:=qo(hyf_bchar);
+      do_set_lc_code(c);
+      if hc[0]=0 then goto done3;
+      if hn=63 then goto done3;
+      hb:=s; incr(hn); 
+      hu[hn]:=c; 
+      hc[hn]:=hc[0]; 
+      hyf_bchar:=non_boundarychar;
+      end;
     end
-  else if type(s)=ligature_node then
-    @<Move the characters of a ligature node to |hu| and |hc|;
-      but |goto done3| if they are not all letters@>
   else if (type(s)=kern_node)and(subtype(s)=normal) then
     begin hb:=s;
       if has_right_boundary(hf) then  hyf_bchar:=right_boundarychar
@@ -27043,15 +26944,14 @@ while q>null do
   q:=vlink(q);
   end;
 hb:=s; hn:=j;
-if odd(subtype(s)) then hyf_bchar:=font_bchar(hf)
-else hyf_bchar:=non_boundarychar;
+if subtype(s)=2 then hyf_bchar:=font_bchar(hf)
+else if subtype(s)=3 then hyf_bchar:=non_boundarychar;
 end
 
 @ @<Check that the nodes following |hb| permit hyphenation...@>=
 if hn<l_hyf+r_hyf then goto done1; {|l_hyf| and |r_hyf| are |>=1|}
 loop@+  begin if not(is_char_node(s)) then
     case type(s) of
-    ligature_node: do_nothing;
     kern_node: if subtype(s)<>normal then goto done4;
     whatsit_node,glue_node,penalty_node,ins_node,adjust_node,mark_node:
       goto done4;
@@ -27107,20 +27007,21 @@ things can be hooked up after we reconstitute the hyphenated word.
 q:=vlink(hb); vlink(hb):=null; r:=vlink(ha); vlink(ha):=null; bchar:=hyf_bchar;
 if is_char_node(ha) then
   if font(ha)<>hf then goto found2
-  else begin init_list:=ha; init_lig:=false; hu[0]:=qo(character(ha));
-    end
-else if type(ha)=ligature_node then
-  if font(ha)<>hf then goto found2
-  else begin init_list:=lig_ptr(ha); init_lig:=true; init_lft:=(subtype(ha)>1);
-    hu[0]:=qo(character(ha));
-    if init_list=null then if init_lft then
-      begin hu[0]:=65536; init_lig:=false;
-      end; {in this case a ligature will be reconstructed from scratch}
-    ext_free_node(ha,glyph_node_size);
+  else begin if is_lig_node(ha) then begin 
+      init_list:=lig_ptr(ha); init_lig:=true; init_lft:=(subtype(ha)>1);
+      hu[0]:=qo(character(ha));
+      if init_list=null then if init_lft then
+        begin hu[0]:=65536; init_lig:=false;
+        end; {in this case a ligature will be reconstructed from scratch}
+      ext_free_node(ha,glyph_node_size);
+      end
+    else begin 
+      init_list:=ha; init_lig:=false; hu[0]:=qo(character(ha)); 
+      end
     end
 else begin {no punctuation found; look for left boundary}
-  if not is_char_node(r) then if type(r)=ligature_node then
-   if subtype(r)>1 then goto found2;
+  if is_char_node(r) and is_lig_node(r) then
+    if subtype(r)>2 then goto found2;
   j:=1; s:=ha; init_list:=null; goto common_ending;
   end;
 s:=cur_p; {we have |cur_p<>ha| because |type(cur_p)=glue_node|}
@@ -27311,7 +27212,7 @@ else begin
     delete_attribute_ref(node_attr(p));
     node_attr(p):=hattr; add_node_attr_ref(hattr);
     if lft_hit then
-      begin subtype(p):=2; lft_hit:=false;
+      begin subtype(p):=3; lft_hit:=false;
       end;
     if # then if lig_stack=null then
       begin incr(subtype(p)); rt_hit:=false;
@@ -29722,7 +29623,7 @@ nodes inside of other discretionaries.
 @d pack_lig(#)== {the parameter is either |rt_hit| or |false|}
   begin main_p:=new_ligature(main_f,cur_l,vlink(cur_q));
   if lft_hit then
-    begin subtype(main_p):=2; lft_hit:=false;
+    begin subtype(main_p):=3; lft_hit:=false;
     end;
   if # then if lig_stack=null then
     begin incr(subtype(main_p)); rt_hit:=false;
@@ -31136,7 +31037,6 @@ var p:pointer; {|char_node| at the tail of the current list}
 @!f:internal_font_number; {the font in the |char_node|}
 begin if tail<>head then
   begin if is_char_node(tail) then p:=tail
-  else if type(tail)=ligature_node then p:=tail
   else return;
   f:=font(p);
   tail_append(new_kern(char_italic(f,character(p))));
@@ -31225,8 +31125,8 @@ var p,@!q:pointer; {for link manipulation}
 @!n:integer; {length of discretionary list}
 begin unsave;
 @<Prune the current list, if necessary, until it contains only
-  |char_node|, |kern_node|, |hlist_node|, |vlist_node|, |rule_node|,
-  and |ligature_node| items; set |n| to the length of the list,
+  |char_node|, |kern_node|, |hlist_node|, |vlist_node| and 
+  |rule_node| items; set |n| to the length of the list,
   and set |q| to the list's tail@>;
 p:=vlink(head); pop_nest;
 case saved(-1) of
@@ -31265,7 +31165,7 @@ end
 q:=head; p:=vlink(q); n:=0;
 while p<>null do
   begin if not is_char_node(p) then if type(p)>rule_node then
-    if type(p)<>kern_node then if type(p)<>ligature_node then
+    if type(p)<>kern_node then 
       begin print_err("Improper discretionary list");
 @.Improper discretionary list@>
       help1("Discretionary lists must contain only boxes and kerns.");@/
@@ -31610,7 +31510,6 @@ reswitch: if is_char_node(p) then
 case type(p) of
 hlist_node,vlist_node,rule_node: begin d:=width(p); goto found;
   end;
-ligature_node:@<Make node |p| look like a |char_node|...@>;
 margin_kern_node: d:=width(p);
 kern_node: d:=width(p);
 math_node: d:=surround(p);

@@ -114,23 +114,23 @@ typedef enum {
 #define split_top_ptr(a) vlink((a)+5)
 
 typedef enum {
-  hlist_node = 0, //
-  vlist_node = 1, //
-  rule_node,      //
-  ins_node,       //
-  mark_node,      //
-  adjust_node,    //
-  ligature_node,  //
-  disc_node,      // 7
+  hlist_node = 0, 
+  vlist_node = 1, 
+  rule_node,      
+  ins_node,       
+  mark_node,      
+  adjust_node,    
+  /* 6 used to be ligatures */
+  disc_node=7,     
   whatsit_node,
-  math_node,      //
-  glue_node,      //
-  kern_node,      //
-  penalty_node,   // 12
-  unset_node,     //
+  math_node,      
+  glue_node,      
+  kern_node,      
+  penalty_node,   
+  unset_node,   /* 13 */
   right_noad = 31,
   action_node = 39,
-  margin_kern_node = 40, //
+  margin_kern_node = 40,
   glyph_node = 41,
   attribute_node = 42,
   glue_spec_node = 43,
