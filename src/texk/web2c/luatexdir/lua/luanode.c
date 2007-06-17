@@ -15,7 +15,7 @@ char * node_names[] = {
   "ins", 
   "mark", 
   "adjust",
-  "ligature", 
+  "!",  /* used to be ligature */
   "disc", 
   "whatsit",
   "math", 
@@ -339,7 +339,6 @@ lua_node_new(int i, int j) {
     n = get_node(adjust_node_size); 
     adjust_ptr(n)=null;
     break;
-  case ligature_node:          
   case glyph_node:          
     n = get_node(glyph_node_size); 
     lig_ptr(n) = null; 
@@ -637,7 +636,7 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
   r = vlink(head_node);
   glyph_count = 0;
   while (r!=null) {
-    if (type(r)==glyph_node || type(r)==ligature_node) 
+    if (type(r)==glyph_node) 
       glyph_count++;
     r=vlink(r);
   }
@@ -690,7 +689,7 @@ lua_hpack_filter (halfword head_node, scaled size, int pack_type, int extrainfo)
   r =head_node;
   glyph_count = 0;
   while (r!=null) {
-    if (type(r)==glyph_node || type(r)==ligature_node) 
+    if (type(r)==glyph_node) 
       glyph_count++;
     r=vlink(r);
   }
