@@ -32,6 +32,7 @@ int get_node_type_id (lua_State *L, int n) {
   return i;
 }
 
+
 static 
 int get_valid_node_type_id (lua_State *L, int n) {
   int i;
@@ -63,12 +64,22 @@ int get_node_subtype_id (lua_State *L, int n) {
     i = lua_tonumber(L,n);
     /* do some test here as well !*/
   }
+  return i;
+}
+
+static 
+int get_valid_node_subtype_id (lua_State *L, int n) {
+  int i;
+  i = get_node_subtype_id(L,n);
   if (i==-1) {
     lua_pushstring(L, "Invalid whatsit type");
     lua_error(L);
+    /* doesnt return */
   }
   return i;
 }
+
+
 
 /* Creates a userdata object for a number found at the stack top, 
   if it is representing a node (i.e. an pointer into |varmem|). 
@@ -111,6 +122,19 @@ lua_nodelib_id (lua_State *L) {
   return 1;
 }
 
+
+static int
+lua_nodelib_subtype (lua_State *L) {
+  integer i;
+  i = get_node_subtype_id(L,1);
+  if (i>=0) {
+    lua_pushnumber(L,i);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
 /* converts id numbers to type names */
 
 static int
@@ -136,7 +160,7 @@ lua_nodelib_new(lua_State *L) {
 
   if (i==whatsit_node) {
     j = -1;
-    if (lua_gettop(L)>1) {  j = get_node_subtype_id(L,2);  }
+    if (lua_gettop(L)>1) {  j = get_valid_node_subtype_id(L,2);  }
     if (j<0) {
       lua_pushstring(L, "Creating a whatsit requires the subtype number as a second argument");
       lua_error(L);
@@ -214,10 +238,10 @@ lua_nodelib_copy(lua_State *L) {
    "id", and "subtype" */
 
 /* ordinary nodes */
-static char * node_fields_list        [] = { "attr", "width", "depth", "height", "shift", "list", 
-					     "glue_order", "glue_sign", "glue_set" , "dir" ,  NULL };
+static char * node_fields_list        [] = { "attr", "width", "depth", "height", "dir", "shift", 
+					     "glue_order", "glue_sign", "glue_set" , "list",  NULL };
 static char * node_fields_rule        [] = { "attr", "width", "depth", "height", "dir", NULL };
-static char * node_fields_insert      [] = { "attr", "cost",  "depth", "height", "top_skip", "insert", NULL };
+static char * node_fields_insert      [] = { "attr", "cost",  "depth", "height", "top_skip", "list", NULL };
 static char * node_fields_mark        [] = { "attr", "class", "mark", NULL }; 
 static char * node_fields_adjust      [] = { "attr", "list", NULL }; 
 static char * node_fields_disc        [] = { "attr", "pre", "post", "replace", NULL };
@@ -225,8 +249,8 @@ static char * node_fields_math        [] = { "attr", "surround", NULL };
 static char * node_fields_glue        [] = { "attr", "spec", "leader", NULL }; 
 static char * node_fields_kern        [] = { "attr", "width", NULL };
 static char * node_fields_penalty     [] = { "attr", "penalty", NULL };
-static char * node_fields_unset       [] = { "attr", "width", "depth", "height", "shrink", "list", 
-					     "glue_order", "glue_sign", "stretch" , "dir" , "span",  NULL };
+static char * node_fields_unset       [] = { "attr", "width", "depth", "height", "dir", "shrink",
+					     "glue_order", "glue_sign", "stretch" , "span",  "list",  NULL };
 static char * node_fields_margin_kern [] = { "attr", "width", "glyph", NULL };
 static char * node_fields_glyph       [] = { "attr", "char", "font", "components", NULL };
 
@@ -465,7 +489,7 @@ lua_nodelib_fields (lua_State *L) {
   int t = get_valid_node_type_id(L,1);
   char *** fields = node_fields;
   if (t==whatsit_node ) {
-    t = get_node_subtype_id(L,2);
+    t = get_valid_node_subtype_id(L,2);
     fields = node_fields_whatsits;
   }
   lua_checkstack(L,2);
@@ -1064,12 +1088,12 @@ lua_nodelib_getfield  (lua_State *L) {
       case  4: lua_pushnumber(L,width(n));	      break;
       case  5: lua_pushnumber(L,depth(n));	      break;
       case  6: lua_pushnumber(L,height(n));	      break;
-      case  7: lua_pushnumber(L,shift_amount(n));     break;
-      case  8: nodelib_pushlist(L,list_ptr(n));       break;
+      case  7: lua_pushnumber(L,box_dir(n));          break;
+      case  8: lua_pushnumber(L,shift_amount(n));     break;
       case  9: lua_pushnumber(L,glue_order(n));       break;
       case 10: lua_pushnumber(L,glue_sign(n));        break;
       case 11: lua_pushnumber(L,(double)glue_set(n)); break;
-      case 12: lua_pushnumber(L,box_dir(n));          break;
+      case 12: nodelib_pushlist(L,list_ptr(n));       break;
       default: lua_pushnil(L);
       }
       break;
@@ -1080,13 +1104,13 @@ lua_nodelib_getfield  (lua_State *L) {
       case  4: lua_pushnumber(L,width(n));	      break;
       case  5: lua_pushnumber(L,depth(n));	      break;
       case  6: lua_pushnumber(L,height(n));	      break;
-      case  7: lua_pushnumber(L,glue_shrink(n));      break;
-      case  8: nodelib_pushlist(L,list_ptr(n));       break;
+      case  7: lua_pushnumber(L,box_dir(n));          break;
+      case  8: lua_pushnumber(L,glue_shrink(n));      break;
       case  9: lua_pushnumber(L,glue_order(n));       break;
       case 10: lua_pushnumber(L,glue_sign(n));        break;
       case 11: lua_pushnumber(L,glue_stretch(n));     break;
-      case 12: lua_pushnumber(L,box_dir(n));          break;
-      case 13: lua_pushnumber(L,span_count(n));	      break;
+      case 12: lua_pushnumber(L,span_count(n));	      break;
+      case 13: nodelib_pushlist(L,list_ptr(n));       break;
       default: lua_pushnil(L);
       }
       break;
@@ -1527,12 +1551,12 @@ lua_nodelib_setfield  (lua_State *L) {
       case  4: width(n) = lua_tointeger(L,3);	        break;
       case  5: depth(n) = lua_tointeger(L,3);	        break;
       case  6: height(n) = lua_tointeger(L,3);	        break;
-      case  7: shift_amount(n) = lua_tointeger(L,3);    break;
-      case  8: list_ptr(n) = nodelib_getlist(L,3);      break;
+      case  7: box_dir(n) = lua_tointeger(L,3);         break;
+      case  8: shift_amount(n) = lua_tointeger(L,3);    break;
       case  9: glue_order(n) = lua_tointeger(L,3);      break;
       case 10: glue_sign(n) = lua_tointeger(L,3);       break;
       case 11: glue_set(n) = (double)lua_tonumber(L,3); break;
-      case 12: box_dir(n) = lua_tointeger(L,3);         break;
+      case 12: list_ptr(n) = nodelib_getlist(L,3);      break;
       default: return nodelib_cantset(L,field,n);
       }
       break;
@@ -1543,13 +1567,13 @@ lua_nodelib_setfield  (lua_State *L) {
       case  4: width(n) = lua_tointeger(L,3);	        break;
       case  5: depth(n) = lua_tointeger(L,3);	        break;
       case  6: height(n) = lua_tointeger(L,3);	        break;
-      case  7: glue_shrink(n) = lua_tointeger(L,3);     break;
-      case  8: list_ptr(n) = nodelib_getlist(L,3);      break;
+      case  7: box_dir(n) = lua_tointeger(L,3);         break;
+      case  8: glue_shrink(n) = lua_tointeger(L,3);     break;
       case  9: glue_order(n) = lua_tointeger(L,3);      break;
       case 10: glue_sign(n) = lua_tointeger(L,3);       break;
       case 11: glue_stretch(n) = lua_tointeger(L,3);    break;
-      case 12: box_dir(n) = lua_tointeger(L,3);         break;
-      case 13: span_count(n) = lua_tointeger(L,3);	break;
+      case 12: span_count(n) = lua_tointeger(L,3);	break;
+      case 13: list_ptr(n) = nodelib_getlist(L,3);      break;
       default: return nodelib_cantset(L,field,n);
       }
       break;
@@ -1725,6 +1749,7 @@ lua_nodelib_print  (lua_State *L) {
 
 static const struct luaL_reg nodelib_f [] = {
   {"id",            lua_nodelib_id},
+  {"subtype",       lua_nodelib_subtype},
   {"type",          lua_nodelib_type},
   {"new",           lua_nodelib_new},
   {"length",        lua_nodelib_length},
