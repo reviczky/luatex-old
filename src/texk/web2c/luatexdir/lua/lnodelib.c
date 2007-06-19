@@ -1746,6 +1746,15 @@ lua_nodelib_print  (lua_State *L) {
 }
 
 
+static int
+lua_nodelib_equal  (lua_State *L) {
+  halfword n, m;
+  n = *(check_isnode(L,1));
+  m = *(check_isnode(L,2));
+  lua_pushboolean(L,(n==m));
+  return 1;
+}
+
 
 static const struct luaL_reg nodelib_f [] = {
   {"id",            lua_nodelib_id},
@@ -1774,6 +1783,7 @@ static const struct luaL_reg nodelib_m [] = {
   {"__index",    lua_nodelib_getfield},
   {"__newindex", lua_nodelib_setfield},
   {"__tostring", lua_nodelib_print},
+  {"__eq",       lua_nodelib_equal},
   {NULL, NULL}  /* sentinel */
 };
 
