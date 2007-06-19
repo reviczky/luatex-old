@@ -1,15 +1,6 @@
-% 
+% engine=luatex
+
 %\pdfcompresslevel0
- 
-%\newcount\crashcounter
-%\appendtoks
-%\ifnum\crashcounter=85 \stoptext \fi
-%\global\advance\crashcounter\plusone
-%[\the\crashcounter]
-% \ctxlua{%
-%    texio.write_nl("PAR NUMBER: \the\crashcounter")
-%    for _,v in pairs(statistics.list()) do texio.write_nl (_ .. "=" .. v) end
-%}\to\everypar
 
 \environment luatexref-env
 
@@ -22,22 +13,14 @@
 \def\todo#1{{\bf\red <TODO: #1>}}
 
 \starttext
-\TitlePage{Snapshot 2007-04-26}
 
-\ctxlua{
-  callbacks.push('hpack_filter')
-  callbacks.push('vpack_filter')
-  callbacks.push('pre_linebreak_filter')
-  callbacks.push('buildpage_filter')
-}
-%\appendtoks \newlinechar13 \to\everyMPgraphic
+\TitlePage{Snapshot 2007-06-19}
 
 \title{Contents}
 
 \placecontent[criterium=text,level=subsection]
 
 \chapter{Introduction}
-
 
 \startframedtext[framecolor=red,width=\hsize]
 \red 
@@ -71,7 +54,7 @@ need arises, anything can (and will) be changed without prior notice.
 \item \PDFTEX\ version 1.40.3
 \item \ALEPH\ RC4 (from the \TEXLIVE\ repository)
 \item Functionality of \ETEX\ 2.2
-\item Lua 5.1.1
+\item Lua 5.1.2
 \item Dedicated lua libraries
 \item Various \TeX\ extensions
 \item The (OpenType) Font Parser from FontForge 2006.12.20
@@ -116,7 +99,7 @@ processed by older \TEX-based engines.
 
 As far as the core engine is concerned, all input and output to text
 files is UTF-8 encoded. Input files can be preprocessed using the
-\callback{reader} callback. This will be explained in a later chapter.
+\luacallback{reader} callback. This will be explained in a later chapter.
 
 Output in byte-sized chunks can be achieved by using characters in the
 private use block that starts at index 1.113.856 (\hex10FF00). When
@@ -186,16 +169,41 @@ affected commands are:
 \stoptyping
 \stopcolumns
 
+\section{Attribute registers}
+
+Attributes are a completely new concept to \LUATEX. Syntactically,
+they behave a lot like counters: attributes obey \TEX's nesting stack
+and can be used after \type{\the} etc. just like the normal
+\type{\count} registers.
+
+\startsyntax
+  \attribute <16-bit number> <optional equals> <31-bit number>\crlf
+  \attributedef <csname> <optional equals> <16-bit number> 
+\stopsyntax
+
+However, there are some differences as well. Conceptually, an
+attribute is either `set' or `unset'. Set attributes can only have
+values of 0 or more, otherwise they are considered unset and
+automatically remapped to $-1$. All attributes start out in the
+`unset' state (in initex).
+
+Attributes can be used as extra counter values, but their usefulness
+comes from the fact that the numbers and values of all `set'
+attributes are attached to all nodes created in their scope. These can
+then be queried from any Lua code that deals with node
+processing. Further information is given in the chapter~\in{on}[nodes].
+
+
 \section{Lua related primitives}
 
 In order to merge lua code with \TEX\ input, a few new primitives are
 needed. \LUATEX\ has support for 65536 separate lua interpreter
 states. States are automatically created based on the integer argument
-to the primitives \primitive{directlua} and \primitive{latelua}.
+to the primitives \texprimitive{directlua} and \texprimitive{latelua}.
 
-\subsection{\primitive{directlua}}
+\subsection{\texprimitive{directlua}}
 
-The primitive \primitive{directlua} is used to execute lua code.
+The primitive \texprimitive{directlua} is used to execute lua code immediately.
 The syntax is
 \startsyntax
   \directlua <16-bit number> <general text>
@@ -207,10 +215,10 @@ yet, then it will be initialized automatically.
 
 This command is expandable. 
 
-\subsection{\primitive{latelua}}
+\subsection{\texprimitive{latelua}}
 
-\primitive{latelua} stores lua code in a whatsit that will be processed 
-inside the output routine. It's intended use is is very similar to
+\texprimitive{latelua} stores lua code in a whatsit that will be processed 
+inside the output routine. It's intended use is very similar to
 \type{\pdfliteral}.
 
 Within the lua code, you should use \type{pdf.print} to print stuff
@@ -220,7 +228,7 @@ directly to the pdffile.
   \latelua <16-bit number> <general text>
 \stopsyntax
 
-\subsection{\primitive{luaescapestring}}
+\subsection{\texprimitive{luaescapestring}}
 
 This primitive converts a \TEX\ token string so that it can be safely
 used as the contents of a \LUA\ string: embedded backslashes, double
@@ -231,7 +239,7 @@ consisting of a backslash with catcode 12.
 \stopsyntax
 
 
-\subsection{\primitive{closelua}} 
+\subsection{\texprimitive{closelua}} 
 
 This primitive allows you to close a lua state, freeing all of its
 used memory.
@@ -252,7 +260,7 @@ calls)
 
 \section{New \ETEX\ primitives}
 
-\subsection{\primitive{clearmarks}}
+\subsection{\texprimitive{clearmarks}}
 
 This primitive clears a marks class completely, resetting all three
 connected mark texts to empty.
@@ -260,27 +268,28 @@ connected mark texts to empty.
       \clearmarks <16-bit number>
 \stopsyntax
 
-\subsection{\primitive{noligkerns}}
+\subsection{\texprimitive{noligs} and \texprimitive{nokerns}}
 
-This primitive prohibits ligature and kerning insertion at the time
+These primitives prohibit ligature and kerning insertion at the time
 when the initial node list is built by \LUATEX's main control loop
 (It is a temporary trick that will be removed soon).
 \startsyntax
-      \noligkerns <integer>
+      \noligs <integer>
+      \nokerns <integer>
 \stopsyntax
 
 
-\subsection{\primitive{formatname}}
+\subsection{\texprimitive{formatname}}
 
-\primitive{formatname}'s syntax is identical to \type{\jobname}. 
+\texprimitive{formatname}'s syntax is identical to \type{\jobname}. 
 
 In initex, the expansion is empty. Otherwise, the expansion is the
 value that \type{\jobname} had during the initex run that dumped the
 currently loaded format.
 
-\subsection{\primitive{scantextokens}}
+\subsection{\texprimitive{scantextokens}}
 
-The syntax of \primitive{scantextokens} is identical to \type{\scantokens}. 
+The syntax of \texprimitive{scantextokens} is identical to \type{\scantokens}. 
 
 This is a slightly adapted version of \ETEX's \type{\scantokens}. The 
 differences are:
@@ -311,30 +320,30 @@ The contents of each catcode table is independent of any other
 catcode tables, and their contents is stored and retrieved from the
 format file. 
 
-\subsubsection{\primitive{catcodetable}}
+\subsubsection{\texprimitive{catcodetable}}
 \startsyntax
   \catcodetable <28-bit number>
 \stopsyntax
 
-The \primitive{catcodetable} switches to a different catcode table.
+The \texprimitive{catcodetable} switches to a different catcode table.
 Such a table has to be previously created using one of the two
 primitives below, or it has to be zero (table zero is initialized by
 initex)
 
-\subsubsection{\primitive{initcatcodetable}}
+\subsubsection{\texprimitive{initcatcodetable}}
 \startsyntax
   \initcatcodetable <28-bit number>
 \stopsyntax
 
-The \primitive{initcatcodetable} creates a new table with catcodes
+The \texprimitive{initcatcodetable} creates a new table with catcodes
 identical to those defined by initex:
 
 \starttable[|l|l|l|]
 \NC \type{^^M}~(<return>) \NC \type{car_ret}     \NC5 \NC\NR
 \NC \type{ }~(space)      \NC \type{spacer}      \NC10\NC\NR
-\NC \type{\\}             \NC \type{escape}      \NC0 \NC\NR
+\NC {\tt\textbackslash }  \NC \type{escape}      \NC0 \NC\NR
 \NC \type{%}              \NC \type{comment}     \NC14\NC\NR
-\NC \type{^^?}~(<delete>) \NC \type{invalid_char}\NC15\NC\NR
+\NC \type{^^?}~(<delete>) \NC \type{invalid\_char}\NC15\NC\NR
 \NC \type{^^@}~(<null>)   \NC \type{ignore}      \NC9 \NC\NR
 \NC \type{a}--\type{z}    \NC \type{letter}      \NC11\NC\NR
 \NC \type{A}--\type{Z}    \NC \type{letter}      \NC11\NC\NR
@@ -345,12 +354,12 @@ The new catcode table is allocated globally: it will not go away after
 the current group has ended. If the supplied number is the currently
 active table, an error is raised.
 
-\subsubsection{\primitive{savecatcodetable}}
+\subsubsection{\texprimitive{savecatcodetable}}
 \startsyntax
   \savecatcodetable <28-bit number>
 \stopsyntax
 
-\primitive{savecatcodetable} copies the current set of catcodes to a
+\texprimitive{savecatcodetable} copies the current set of catcodes to a
 new table with the requested number. The definitions in this new table
 are all treated as if they were made in the outermost level.
 
@@ -377,12 +386,12 @@ In a number of cases, luatex behaves like it is a lua interpreter only.
 
 \startitemize
 \item If a \type{--luaonly} option is given
-\item If the executable is named \type{luatexlua}
+\item If the executable is named \type{texlua} (or \type{luatexlua})
 \item if the non-option (file) on the command-line has the extension 
 	\type{lua} or \type{luc}.
 \stopitemize
 
-On this mode, it will set Lua's \type{arg[0]} to the found script
+In this mode, it will set Lua's \type{arg[0]} to the found script
 name, pushing preceding options in negative values and the rest of the
 commandline in the positive values, just like the `\type{lua}'
 interpreter.
@@ -421,7 +430,7 @@ description of the \type{texconfig} table later on in this document).
 
 Commandline processing happens very early on. So early, in fact, that
 none of \TEX's initializations have taken place yet. For that reason,
-the \type{tex}, \type{token} and \type{pdf} tables are off-limits
+the \type{tex},\type{token}, \type{node} and \type{pdf} tables are off-limits
 during the execution of the startup file (they are nilled). Special
 care is taken that \type{texio.write} and \type{texio.write_nl}
 function properly, so that you can at least report your actions to the
@@ -430,8 +439,9 @@ does not even know it's \type{\jobname} yet at this point).
 
 The file is loaded into Lua state 0, and everything you do will remain
 visible during the rest of the run, with the exception of the
-\type{tex} and \type{pdf} tables: those will be restored to their
-normal meaning right after the execution of the script. 
+\type{tex}, \type{token}, \type{node} and \type{pdf} tables: those 
+will be restored to their normal meaning right after the execution 
+of the script.
 
 We recommend you use the startup file only for your own
 \TEX-independant initializations (if you need any), to parse the
@@ -488,14 +498,12 @@ Five modules that are normally external are statically linked in with
 
 The \type{read("*line")} function from the io library has been
 adjusted so that it is line-ending neutral: any of \type{LF}, \type
-{CR} or type{CR+LF} are accepted.
+{CR} or \type{CR+LF} are accepted.
 
 The \type{tostring()} printer for numbers has been changed so that it
 returns `0' instead of something like `2e-5' (which confused \TEX\
 enormously) when the value is so small that \TEX\ cannot distinguish
 it from zero.
-
-The (currently three) known bugs in Lua 5.1.1 have been patched.
 
 Dynamic loading of \type{.so} and \type{.dll} files is disabled on
 all platforms.
@@ -505,13 +513,19 @@ all platforms.
 string field in the attributes table (\type{permissions}).
 
 The \type{string} library has six extra iterators that return strings
-piecemeal: "utfvalues" (returns an integer value in the unicode
-range), "utfcharacters" (returns a string with a single UTF-8 token in
-it), "characters" (a string of length one), "characterpairs" (two
-strings of length one), "bytes" (a single byte value), and "bytepairs"
-(two byte values).  The "bytepairs" will produce nil instead of a
+piecemeal: 
+\startitemize
+\item \type{string.utfvalues(s)} (returns an integer value in the
+unicode range)
+\item \type{string.utfcharacters(s)} (returns a string with a single
+UTF-8 token in it)
+\item \type{string.characters(s)} (a string of length one)
+\item \type{string.characterpairs(s)} (two strings of length one) will
+produce an empty second string in the string length was odd.
+\item \type{string.bytes(s)} (a single byte value) 
+\item \item{string.bytepairs(s)} (two byte values) Will produce nil instead of a
 number as its second return value if the string length was odd.
-"characterpairs" will produce an empty second string in that case.
+\stopitemize
 
 The \type{os} library has a few extra functions and variables:
 
@@ -519,7 +533,7 @@ The \type{os} library has a few extra functions and variables:
 \item \type{os.exec('command')} is a non-returning version of \type{os.execute}. 
   The advantage of this command is that it cleans out the current
   process before starting the new one, making it especially useful for
-  use in \type{luatexlua}. 
+  use in \type{texlua}. 
 
 \item \type{os.setenv('key','value')}
   This sets a variable in the environment. Passing `nil' instead of a
@@ -543,7 +557,7 @@ The \lualib{tex} table contains a large list of virtual internal \TEX\
 parameters that are partially writable.
 
 The designation `virtual' means that these items are not properly
-defined in Lua, but are only frontends that are handled by a metatable
+defined in Lua, but are only front\-ends that are handled by a metatable
 that operates on the actual \TEX\ values. As a result, most of the lua
 table operators (like \type{pairs} and \type{#}) do not work on such
 items.
@@ -841,19 +855,21 @@ This list looks haphazard, but it really is not. These are all the
 cases of the `convert' internal command that do not require an
 argument. 
 
-\subsection{Count, dimension and token registers}
+\subsection{attribute, count, dimension and token registers}
 
-\TeX's counters (\type{\count}), dimensions (\type{\dimen}) and token
-(\type{\toks}) registers can be accessed and written to using three
-virtual sub-tables of the \type{tex} table:
+ \TeX's attributes (\type{\attribute}), counters (\type{\count}),
+ dimensions (\type{\dimen}) and token (\type{\toks}) registers can be
+ accessed and written to using four virtual sub-tables of the
+ \type{tex} table:
 
 \starttyping
+    tex.attribute
     tex.count
     tex.dimen
     tex.toks
 \stoptyping
 
-It is possible to use the names of relevant \type{\countdef},
+It is possible to use the names of relevant \type{\attributedef}, \type{\countdef},
 \type{\dimendef}, or \type{\toksdef} control sequences as indices 
 to these tables:
 
@@ -863,15 +879,15 @@ to these tables:
 \stoptyping
 
 In this case, luatex looks up the value for you on the fly. You have
-to use a valid \type{\countdef} (or \type{\dimendef}, or
-\type{\toksdef}), anything else will generate an error 
-(the goal is to eventually also allow \type{<chardef tokens>} and
-even macros that expand into a number)
+to use a valid \type{\countdef} (or \type{\attributedef}, or
+\type{\dimendef}, or \type{\toksdef}), anything else will generate an error 
+(the intent is to eventually also allow \type{<chardef tokens>} and even
+macros that expand into a number)
 
-The count registers accept and return lua numbers.
+The attribute and count registers accept and return lua numbers.
 
 The dimension registers accept lua numbers (in scaled points) or
-strings (with an included absolute dimension. "em" and "ex" and "px"
+strings (with an included absolute dimension; "em" and "ex" and "px"
 are forbidden). The result is always a number in scaled points.
 
 The token registers accept and return lua strings. Lua strings are
@@ -899,7 +915,7 @@ functions defined:
   string s = tex.gettoks (string s)
 \stopfunctioncall
 
-\subsection{Box register size information}
+\subsection{Box registers}
 
 The current dimensions of \type{\box} registers can be read and
 altered using three other virtual sub-tables :
@@ -916,23 +932,45 @@ The box size registers accept lua numbers (in scaled points)
 or strings (with included dimension). The result is always a number
 in scaled points.
 
-
 As an alternative to array addressing, there are also accessor
 functions defined:
 
 \startfunctioncall
-  tex.setboxwd(number n, string s)
   tex.setboxwd(number n, number n)
   number n = tex.getboxwd(number n)
 
-  tex.setboxht(number n, string s)
   tex.setboxht(number n, number n)
   number n = tex.getboxht(number n)
 
-  tex.setboxdp(number n, string s)
   tex.setboxdp(number n, number n)
   number n = tex.getboxdp(number n)
 \stopfunctioncall
+
+It is also possible to set and query actual boxes, using the node
+interface as defined in the \lualib{node} library:
+
+\starttyping
+    tex.box
+\stoptyping
+for array access, or 
+\starttyping
+    tex.setbox(number n, node s)
+    node n = tex.getbox(number n)
+\stoptyping
+for function-based access
+
+Be warned that an assignment like
+\starttyping
+    tex.box[0] = tex.box[2]
+\stoptyping
+does not copy the node list, it just duplicates a node pointer.  If
+\type{\box2} will be cleared by \TeX\ commands later on, the contents
+of \type{\box0} becomes invalid as well. To prevent this from
+happening, always use \type{node.copy_list()} unless you are 
+assigning to a temporary variable:
+\starttyping
+    tex.box[0] = node.copy_list(tex.box[2])
+\stoptyping
 
 
 \subsection{Print functions}
@@ -948,7 +986,7 @@ The total amount of returnable text from a \type{\directlua} command
 is only limited by available system RAM. However, each separate
 printed string has to fit completely in \TEX's input buffer.
 
-\subsubsection{\function{tex.print}}
+\subsubsection{\luafunction{tex.print}}
 
 \startfunctioncall
    tex.print(<string s>, ...)
@@ -966,7 +1004,7 @@ The very last string of the very last \type{tex.print()} command in a
 \type{\directlua} will not have the \type{\endlinechar} appended, all 
 others do.
 
-\subsubsection{\function{tex.sprint}}
+\subsubsection{\luafunction{tex.sprint}}
 
 \startfunctioncall
    tex.sprint(<string s>, ...)
@@ -983,7 +1021,7 @@ that makes it suitable for use as a partial line input mechanism:
 \item trailing spaces are not removed
 \stopitemize
 
-\subsubsection{\function{tex.write}}
+\subsubsection{\luafunction{tex.write}}
 
 \startfunctioncall
    tex.write(<string s>, ...)
@@ -1019,7 +1057,7 @@ table consists of three numeric entries:
            `equivalence table'.\NC \LR
 \stoptabulate
 
-\subsection{\function{token.get_next}}
+\subsection{\luafunction{token.get_next}}
 
 \startfunctioncall
   token t = token.get_next()
@@ -1028,7 +1066,7 @@ table consists of three numeric entries:
 This fetches the next input token from the current input source,
 without expansion.
 
-\subsection{\function{token.is_expandable}}
+\subsection{\luafunction{token.is_expandable}}
 
 \startfunctioncall
   boolean b = token.is_expandable(token t)
@@ -1036,7 +1074,7 @@ without expansion.
 
 This tests if the token \type{t} could be expanded.
 
-\subsection{\function{token.expand}}
+\subsection{\luafunction{token.expand}}
 
 \startfunctioncall
   token.expand()
@@ -1046,7 +1084,7 @@ If a token is expandable, this will expand one level of it, so that
 the first token of the expansion will now be the next token to be read
 by \type{tex.get_next()}.
 
-\subsection{\function{token.is_activechar}}
+\subsection{\luafunction{token.is_activechar}}
 
 \startfunctioncall
   boolean b = token.is_activechar(token t)
@@ -1057,7 +1095,7 @@ some token is the result of an active character turned out to be very
 hard otherwise.
 
 
-\subsection{\function{token.create}}
+\subsection{\luafunction{token.create}}
 
 \startfunctioncall
   token t = token.create(string csname)
@@ -1082,7 +1120,7 @@ will result in a token representing an `Undefined control sequence'
 with a near||random name. It is {\it not\/} possible to define brand
 new control sequences using \type{token.create}!
 
-\subsection{\function{token.command_name}}
+\subsection{\luafunction{token.command_name}}
 
 \startfunctioncall
   string commandname = token.command_name(token t)
@@ -1093,7 +1131,7 @@ in \LUATEX. There is no direct connection between these names and
 primitives. For instance, all \type{\ifxxx} tests are grouped under
 'if_fest', and the `command modifier' defines which test is to be run.
 
-\subsection{\function{token.command_id}}
+\subsection{\luafunction{token.command_id}}
 
 \startfunctioncall
   number i = token.command_name(string commandname)
@@ -1103,7 +1141,7 @@ This returns a number that is the inverse operation of the previous
 command, to be used as the first item in a token table.
 
 
-\subsection{\function{token.csname_name}}
+\subsection{\luafunction{token.csname_name}}
 
 \startfunctioncall
   string csname = token.csname_name(token t)
@@ -1114,7 +1152,7 @@ the token in \LUATEX. It returns the string value of the command used
 to create the current token, or an empty string if there is no
 associated control sequence.
 
-\subsection{\function{token.csname_id}}
+\subsection{\luafunction{token.csname_id}}
 
 \startfunctioncall
   number i = token.csname_id(string csname)
@@ -1123,6 +1161,257 @@ associated control sequence.
 This returns a number that is the inverse operation of the previous
 command, to be used as the third item in a token table.
 
+\section{The \lualib{node} library}
+
+The \lualib{node} library contains functions that facilitate dealing
+with (lists of) nodes and their values. 
+
+\LUATEX\ nodes are represented in Lua as userdata with
+the metadata type \type{luatex.node}. The various fields within 
+a node can be accessed using fields that are indexed by strings. 
+
+Each node has at least the three fields \type{next}, \type{id}, and
+\type{subtype}:
+\startitemize[intro]
+\item The \type{next} field returns the userdata 
+object for the next node in a linked list of nodes, or 
+nil, if there is no next node.
+
+\item The \type{id} indicates \TEX's `node type'. The field \type{id} 
+has a numeric value for efficiency reasons, but some of the library
+functions also accept a string value instead of \type{id}.
+
+\item The \type{subtype} is another number. It often gives further information 
+about a node of a particular \type{id}, but it is most important when dealing 
+with `whatsits', because they are differentiated solely based on their 
+\type{subtype}.
+\stopitemize
+
+The other available fields depend on the \type{id} (and for `whatsits', the
+\type{subtype}) of the node. Further details on the various fields and their
+meanings are given in the \in{chapter}[nodes].
+
+\TEX's math nodes are not yet supported, Sso, there is not yet an interface 
+to the internals of the math lists, and it is not possible to create
+them from lua. Support for \type{unset} (alignment) nodes is partial:
+they can be queried and modified from lua code, but not created.
+
+
+\subsection{Node handling functions}
+
+\subsubsection{\luafunction{node.types}}
+
+\startfunctioncall
+  table t = node.types()
+\stopfunctioncall
+
+This function returns an array that maps node id numbers to node type
+strings, providing an overview of the possible top-level \type{id}
+types. 
+
+\subsubsection{\luafunction{node.whatsits}}
+
+\startfunctioncall
+  table t = node.whatsits()
+\stopfunctioncall
+ 
+\TEX's `whatsits' all have the same \type{id}. The various subtypes
+are defined by their \type{subtype}. The function is much like 
+\type{node.id}, except that it provides an array of \type{subtype} 
+mappings.
+
+\subsubsection{\luafunction{node.id}}
+
+\startfunctioncall
+  number id = node.id(string type)
+\stopfunctioncall
+
+This converts a single type name to it's internal numeric
+representation.
+
+\subsubsection{\luafunction{node.subtype}}
+
+\startfunctioncall
+  number subtype = node.subtype(string type)
+\stopfunctioncall
+
+This converts a single whatsit name to it's internal numeric
+representation (\type{subtype}).
+
+\subsubsection{\luafunction{node.type}}
+
+\startfunctioncall
+  string type = node.type(number id)
+\stopfunctioncall
+
+This converts a internal numeric representation to an external string
+representation.
+
+\subsubsection{\luafunction{node.fields}}
+
+\startfunctioncall
+  table t = node.fields(string type)
+  table t = node.fields(string type, string subtype)
+\stopfunctioncall
+
+This function returns an array of valid field names for a particular
+type of node. If you want to the the valid fields for a `whatsit',
+then you have to supply the second argument also. Otherwise, the
+second argument will be silently ignored.
+
+This function accepts numeric \type{id} and \type{subtype} values as
+well.
+
+\subsubsection{\luafunction{node.new}}
+
+\startfunctioncall
+  node n = node.new(string type)
+  node n = node.new(string type, string subtype)
+\stopfunctioncall
+
+Creates a new node. All fields are initialized to either zero or null
+(depending on wether the field is a number or a pointer), except for
+\type{id} and \type{subtype} (if supplied). If you need a new whatsit,
+then the second argument is required.
+
+This function accepts numeric \type{id} and \type{subtype} values as
+well.
+
+\subsubsection{\luafunction{node.free}}
+
+\startfunctioncall
+  node.free(node n)
+\stopfunctioncall
+
+Removes the node \type{m} from \TEX's memory. Be careful: no checks 
+are done on whether this node is still pointed to from a register or some
+\type{next} field: it is up to you to make sure that the internal data 
+structures remain correct.
+
+\subsubsection{\luafunction{node.flush_list}}
+
+\startfunctioncall
+  node.flush_list(node n)
+\stopfunctioncall
+
+Removes the node list \type{m} and the complete node list following
+\type{m} from \TEX's memory. Be careful: no checks are done on whether
+any of these nodes is still pointed to from a register or some
+\type{next} field: it is up to you to make sure that the internal data 
+structures remain correct.
+
+\subsubsection{\luafunction{node.copy}}
+
+\startfunctioncall
+  node m = node.copy(node n)
+\stopfunctioncall
+
+Creates a deep copy of node \type{n}. Only the \type{next} field is
+not copied.
+
+\subsubsection{\luafunction{node.copy_list}}
+
+\startfunctioncall
+  node m = node.copy_list(node n)
+\stopfunctioncall
+
+Creates a deep copy of the node list that starts at \type{n}. 
+
+\subsubsection{\luafunction{node.slide}}
+
+\startfunctioncall
+  node m = node.slide(node n)
+\stopfunctioncall
+
+Returns the last node of the node list that starts at \type{n}.
+
+\subsubsection{\luafunction{node.length}}
+
+\startfunctioncall
+  number i = node.length(node n)
+  number i = node.length(node n, node m)
+\stopfunctioncall
+
+Returns the number of nodes contained in the node list that starts at
+\type{n}. If \type{m} is also supplied it stops at \type{m} instead of
+at the end of the list. The node \type{m} is not counted.
+
+
+\subsubsection{\luafunction{node.count}}
+
+\startfunctioncall
+  number i = node.count(string type, node n)
+  number i = node.count(string type, node n, node m)
+\stopfunctioncall
+
+Returns the number of nodes contained in the node list that starts at
+\type{n} that have an \type{id} matching \type{type}. 
+If \type{m} is also supplied, counting stops at \type{m} instead of 
+at the end of the list. The node \type{m} is not counted.
+
+\subsubsection{\luafunction{node.traverse}}
+
+\startfunctioncall
+  node t = node.traverse(node n)
+  node t = node.traverse(node n, node m)
+\stopfunctioncall
+
+This is an iterator that loops over the node list that starts at \type{n}.
+If \type{m} is also supplied, the iterator stops at \type{m} instead
+of at the end of the list. The node \type{m} is not processed.
+
+\subsubsection{\luafunction{node.traverse_id}}
+
+\startfunctioncall
+  node t = node.traverse_id(string type, node n, node m)
+  node t = node.traverse_id(string type, node n)
+\stopfunctioncall
+
+This is an iterator that loops over all the nodes in the list that
+starts at \type{n} that have an \type{id} matching \type{tpe}.  If
+\type{m} is also supplied, the iterator stops at \type{m} instead of
+at the end of the list. The node \type{m} is not processed.
+
+
+\subsection{Attribute handling}
+
+Attributes appear as linked list of userdata objects in the
+\type{attr} field of individual nodes. They can be handled 
+individually, but it much safer and more efficient to use the
+dedicated functions associated with them.
+
+\subsubsection{\luafunction{node.has_attribute}}
+
+\startfunctioncall
+  number v = node.has_attribute(node n, number id)
+  number v = node.has_attribute(node n, number id, number val)
+\stopfunctioncall
+
+Tests if a node has the attribute with number \type{id} set. If
+\type{val} is also supplied, also tests if the value matches \type{val}. 
+It returns the value, or, if no match is found, nil. 
+
+\subsubsection{\luafunction{node.set_attribute}}
+
+\startfunctioncall
+  node.set_attribute(node n, number id, number val)
+\stopfunctioncall
+
+Sets the attribute with number \type{id} to the value
+\type{val}. Duplicate assignments are ignored.
+
+\subsubsection{\luafunction{node.unset_attribute}}
+
+\startfunctioncall
+  node.unset_attribute(node n, number id, number val)
+  node.unset_attribute(node n, number id)
+\stopfunctioncall
+
+Unsets the attribute with number \type{id}. If \type{val} is also supplied,
+it will only perform this operation if the value matches \type{val}. 
+Missing attributes or attribute||value pairs are ignored.
+
+
 
 \section{The \lualib{texio} library}
 
@@ -1130,7 +1419,7 @@ This library takes care of the low-level I/O interface.
 
 \subsection{Printing functions}
 
-\subsubsection{\function{texio.write}}
+\subsubsection{\luafunction{texio.write}}
 
 \startfunctioncall
   texio.write(string target, string s)
@@ -1145,14 +1434,14 @@ otherwise  it writes to the log and the terminal.
 The optional \type{target} can be one of three possibilities:
 `term', `log' or `term and log'.
 
-\subsubsection{\function{tex.write_nl}}
+\subsubsection{\luafunction{tex.write_nl}}
 
 \startfunctioncall
   texio.write_nl(string target, string s)
   texio.write_nl(string s)
 \stopfunctioncall
 
-Like \function{texio.write}, but make sure that the string s will
+Like \luafunction{texio.write}, but make sure that the string s will
 appear at the beginning of a line. You can use an empty string if you
 only want to move to the next line.
 
@@ -1182,7 +1471,7 @@ that can be used from within a \type{\latelua} argument. This function
 is not to be used inside \type{\directlua} unless you know {\it
 exactly} what you are doing.
 
-\subsubsubject{\function{pdf.print}}
+\subsubsubject{\luafunction{pdf.print}}
 
 \startfunctioncall
    pdf.print(<string s>)
@@ -1231,7 +1520,7 @@ If the callback is not set, \type{callback.find} returns \type{nil}.
 \subsection{File discovery callbacks}
 
 
-\subsubsection{\callback{find_read_file} and \callback{find_write_file}}
+\subsubsection{\luacallback{find_read_file} and \luacallback{find_write_file}}
 
 You callback function should have the following conventions:
 
@@ -1267,7 +1556,7 @@ since these depend on the jobname.
 Return \type{nil} if the file cannot be found.
 \stopitemize
 
-\subsubsection{\callback{find_font_file}}
+\subsubsection{\luacallback{find_font_file}}
 
 You callback function should have the following conventions:
 
@@ -1279,7 +1568,7 @@ The  \type{asked_name} is an OTF or TFM font metrics file.
 
 Return \type{nil} if the file cannot be found.
 
-\subsubsection{\callback{find_output_file}}
+\subsubsection{\luacallback{find_output_file}}
 
 You callback function should have the following conventions:
 
@@ -1289,7 +1578,7 @@ You callback function should have the following conventions:
 
 The  \type{asked_name} is the PDF or DVI file for writing.
 
-\subsubsection{\callback{find_format_file}}
+\subsubsection{\luacallback{find_format_file}}
 
 You callback function should have the following conventions:
 
@@ -1301,32 +1590,32 @@ The \type{asked_name} is a format file for reading (the format file
 for writing is always opened in the current directory).
 
 
-\subsubsection{\callback{find_vf_file}}
+\subsubsection{\luacallback{find_vf_file}}
 
-Like \callback{find_font_file}, but for virtual fonts. This applies to
+Like \luacallback{find_font_file}, but for virtual fonts. This applies to
 both Aleph's \type{ovf} files and traditional Knuthian \type{vf} files.
 
-\subsubsection{\callback{find_ocp_file}}
+\subsubsection{\luacallback{find_ocp_file}}
 
-Like \callback{find_font_file}, but for ocp files.
+Like \luacallback{find_font_file}, but for ocp files.
 
-\subsubsection{\callback{find_map_file}}
+\subsubsection{\luacallback{find_map_file}}
 
-Like \callback{find_font_file}, but for map files.
+Like \luacallback{find_font_file}, but for map files.
 
-\subsubsection{\callback{find_enc_file}}
+\subsubsection{\luacallback{find_enc_file}}
 
-Like \callback{find_font_file}, but for enc files.
-
-
-\subsubsection{\callback{find_sfd_file}}
-
-Like \callback{find_font_file}, but for subfont definition files.
+Like \luacallback{find_font_file}, but for enc files.
 
 
-\subsubsection{\callback{find_pk_file}}
+\subsubsection{\luacallback{find_sfd_file}}
 
-Like \callback{find_font_file}, but for pk bitmap files. The argument
+Like \luacallback{find_font_file}, but for subfont definition files.
+
+
+\subsubsection{\luacallback{find_pk_file}}
+
+Like \luacallback{find_font_file}, but for pk bitmap files. The argument
 \type{<name>} is a bit special in this case. It's form is
 
 \starttyping
@@ -1336,15 +1625,15 @@ Like \callback{find_font_file}, but for pk bitmap files. The argument
 So you may be asked for \type{600dpi/manfnt.720pk}.  It is up to you
 to find a `reasonable' bitmap file to go with that specification.
 
-\subsubsection{\callback{find_data_file}}
+\subsubsection{\luacallback{find_data_file}}
 
-Like \callback{find_font_file}, but for embedded files (\type{\pdfobj file "..."}).
+Like \luacallback{find_font_file}, but for embedded files (\type{\pdfobj file "..."}).
 
-\subsubsection{\callback{find_opentype_file}}
+\subsubsection{\luacallback{find_opentype_file}}
 
-Like \callback{find_font_file}, but for opentype font files.
+Like \luacallback{find_font_file}, but for opentype font files.
 
-\subsubsection{\callback{find_truetype_file} and \callback{find_type1_file}}
+\subsubsection{\luacallback{find_truetype_file} and \luacallback{find_type1_file}}
 
 You callback function should have the following conventions:
 
@@ -1355,12 +1644,12 @@ You callback function should have the following conventions:
 The \type{asked_name} is a font file. This callback is called while
 \LUATEX\ is building its internal list of needed font files, so the
 actual timing may surprise you. Your return value is later fed back
-into the matching \callback{read_file} callback.
+into the matching \luacallback{read_file} callback.
 
 Strangely enough, \type{find_type1_file} is also used for OpenType
 (otf) fonts.
 
-\subsubsection{\callback{find_image_file}}
+\subsubsection{\luacallback{find_image_file}}
 
 You callback function should have the following conventions:
 
@@ -1375,7 +1664,7 @@ is considered the name of a valid file by your operating system.
 
 \subsection{File reading callbacks}
 
-\subsubsection{\callback{open_read_file}}
+\subsubsection{\luacallback{open_read_file}}
 
 You callback function should have the following conventions:
 
@@ -1387,7 +1676,7 @@ Argument:
 \startitemize
 \sym{file_name}
 
-the filename returned by a previous \callback{find_read_file} or the return
+the filename returned by a previous \luacallback{find_read_file} or the return
 value of \type{kpse_find_file()} if there was no such callback defined.
 \stopitemize
 
@@ -1397,8 +1686,8 @@ Return value:
 
 this is a table containing at least one required and one optional
 callback functions for this file. The required field is
-`\callback{reader}' and the associated function will be called once
-for each new line to be read, the optional one is `\callback{close}'
+`\luacallback{reader}' and the associated function will be called once
+for each new line to be read, the optional one is `\luacallback{close}'
 that will be called once when \LUATEX\ is done with the file. 
 
 \LUATEX\ never looks at the rest of the table, so you can use it to 
@@ -1406,7 +1695,7 @@ store your private per-file data. Both the callback functions will
 receive the table as their only argument.
 \stopitemize
 
-\subsubsubsection{\callback{reader}}
+\subsubsubsection{\luacallback{reader}}
 
 \LUATEX\ will run this function whenever it needs a new input line 
 from the file.
@@ -1419,9 +1708,9 @@ from the file.
 
 Your function should return either a string or `nil'. The value `nil'
 signals that the end of file has occurred, and will make \TEX\ call
-the optional `\callback{close}' function next.
+the optional `\luacallback{close}' function next.
 
-\subsubsubsection{\callback{close}}
+\subsubsubsection{\luacallback{close}}
 
 \LUATEX\ will optionally run this function when it needs to close the file.
 
@@ -1433,7 +1722,7 @@ the optional `\callback{close}' function next.
 
 Your function should not return any value.
 
-\subsubsection{\callback{read_font_file}}
+\subsubsection{\luacallback{read_font_file}}
 
 This function is called when \TEX\ needs to read a \type{ofm} or
 \type{tfm} file.
@@ -1462,59 +1751,59 @@ the length of the \type{data}, in bytes.
 return an empty string and zero if the file was found but there was a
 reading problem.
 
-\subsubsection{\callback{read_vf_file}}
+\subsubsection{\luacallback{read_vf_file}}
 
-Like \callback{read_font_file}, but for virtual fonts.
+Like \luacallback{read_font_file}, but for virtual fonts.
 
-\subsubsection{\callback{read_ocp_file}}
+\subsubsection{\luacallback{read_ocp_file}}
 
-Like \callback{read_font_file}, but for ocp files.
+Like \luacallback{read_font_file}, but for ocp files.
 
-\subsubsection{\callback{read_map_file}}
+\subsubsection{\luacallback{read_map_file}}
 
-Like \callback{read_font_file}, but for map files.
+Like \luacallback{read_font_file}, but for map files.
 
-\subsubsection{\callback{read_enc_file}}
+\subsubsection{\luacallback{read_enc_file}}
 
-Like \callback{read_font_file}, but for enc files.
-
-
-\subsubsection{\callback{read_sfd_file}}
-
-Like \callback{read_font_file}, but for subfont definition files.
+Like \luacallback{read_font_file}, but for enc files.
 
 
-\subsubsection{\callback{read_pk_file}}
+\subsubsection{\luacallback{read_sfd_file}}
 
-Like \callback{read_font_file}, but for pk bitmap files.
-
-\subsubsection{\callback{read_data_file}}
-
-Like \callback{read_font_file}, but for embedded files (\type{\pdfobj file "..."}).
+Like \luacallback{read_font_file}, but for subfont definition files.
 
 
-\subsubsection{\callback{read_truetype_file}}
+\subsubsection{\luacallback{read_pk_file}}
 
-Like \callback{read_font_file}, but for truetype font files. The
-\type{name} is a path name as returned by \callback{find_truetype_file} 
+Like \luacallback{read_font_file}, but for pk bitmap files.
+
+\subsubsection{\luacallback{read_data_file}}
+
+Like \luacallback{read_font_file}, but for embedded files (\type{\pdfobj file "..."}).
+
+
+\subsubsection{\luacallback{read_truetype_file}}
+
+Like \luacallback{read_font_file}, but for truetype font files. The
+\type{name} is a path name as returned by \luacallback{find_truetype_file} 
 or \type{kpse_find_file}.
 
-\subsubsection{\callback{read_type1_file}}
+\subsubsection{\luacallback{read_type1_file}}
 
-Like \callback{read_font_file}, but for type1 font files. The
-\type{name} is a path name as returned by \callback{find_type1_file} 
+Like \luacallback{read_font_file}, but for type1 font files. The
+\type{name} is a path name as returned by \luacallback{find_type1_file} 
 or \type{kpse_find_file}.
 
-\subsubsection{\callback{read_opentype_file}}
+\subsubsection{\luacallback{read_opentype_file}}
 
-Like \callback{read_font_file}, but for opentype font files. The
-\type{name} is a path name as returned by \callback{find_type1_file} 
+Like \luacallback{read_font_file}, but for opentype font files. The
+\type{name} is a path name as returned by \luacallback{find_type1_file} 
 or \type{kpse_find_file}.
 
 
 \subsection{Data processing callbacks}
 
-\subsubsection{\callback{process_input_buffer}}
+\subsubsection{\luacallback{process_input_buffer}}
 
 
 This callback allows you to change the contents of the line input
@@ -1531,7 +1820,7 @@ never happened. You can gain a small amount of processing time from
 that.
 
 
-\subsubsection{\callback{token_filter}}
+\subsubsection{\luacallback{token_filter}}
 
 This callback allows you to change the fetch and preprocess any
 lexical token that enters \LUATEX, before \LUATEX\ executes or expands
@@ -1551,7 +1840,7 @@ something else like nil or an empty table.
 If your lua function does not return a table representing a valid
 token, it will be immediately called again, until it eventually does
 return a useful token or tokenlist (or until you reset the callback
-value to nil). See the description of \callback{token} for some
+value to nil). See the description of \luacallback{token} for some
 handy functions to be used in conjunction with this callback.
 
 If your function returns a single usable token, then that token will
@@ -1563,7 +1852,9 @@ the returned token(s) will not be fed back into the callback function.
 
 \subsection{Node list processing callbacks}
 
-\subsubsection{\callback{buildpage_filter}}
+The description of nodes and node lists is in the~\in{chapter}[nodes].
+
+\subsubsection{\luacallback{buildpage_filter}}
 
 This callback is called whenever \LUATEX\ is ready to move stuff to
 the main vertical list. You can use this callback to do specialized
@@ -1571,112 +1862,112 @@ manipulation of the page building stage like imposition or column
 balancing.
 
 \startfunctioncall
-     function (table <nodelist>)
-        return table <nodelist>
+     function (node <head>)
+         return true | false | node <newhead> 
      end
 \stopfunctioncall
 
-A \type{nodelist} is a list of hashes, each representing a single node
-in the list. The node format is another list, and it varies depending
-on the node type. Regardless of that, the first three items always
-have the same semantics:
+As for all the callbacks that deal with nodes, the return value can be
+one of three things:
+\startitemize
+\item \type{boolean true} signals succesful processing
+\item \type{node} signals that the `head' node should be
+replaced by this node
+\item \type{boolean false} signals that the `head' node list should be
+ignored and flushed from memory
+\stopitemize
 
-\starttabulate[|l|l|l|]
-\NC ~ \NC type    \NC  Explanation \NC\FR
-\NC 1 \NC string  \NC  The node's \type{type}, as a string\NC\NR
-\NC 2 \NC number  \NC  The node \type{subtype} identifier\NC\NR
-\NC 3 \NC boolean \NC  A true/false value you can use as you feel fit\NC\NR
-\stoptabulate
-
-The first entry is a controlled list of keywords. The complete list
-is: "hlist", "vlist", "rule", "ins", "mark", "adjust", "ligature",
-"disc", "whatsit", "math", "glue", "kern", "penalty", "unset",
-"glyph", "margin_kern" (these can happen in horizontal and vertical
-lists), as well as: "style", "choice", "ord", "op", "bin", "rel",
-"open", "close", "punct", "inner", "radical", "fraction", "under",
-"over", "accent", "vcenter", "left", "right" (those only happen in
-math lists).
-
-At the moment, the node representation is rather cryptic. A helper
-routine to convert this compact representation of a node to and from a
-dictionary-style table is planned, but not ready yet.
-
-\subsubsection{\callback{pre_linebreak_filter}}
+\subsubsection{\luacallback{pre_linebreak_filter}}
 
 This callback is called just before \LUATEX\ starts converting a list
-of nodes into a stack of \type{\hbox}es. The skip removal and
-insertion of \type{\parfillskip} has not happend yet.
+of nodes into a stack of \type{\hbox}es. The removal of any final skip
+and the subsequent insertion of \type{\parfillskip} has not happened
+yet at that moment.
 
 \startfunctioncall
-     function (table <nodelist>, string <groupcode>)
-        return table <nodelist>
+     function (node <head>, string <groupcode>, int <glyph_count>)
+          return true | false | node <newhead> 
      end
 \stopfunctioncall
 
 The string called \type{groupcode} identifies the nodelist's context
 within \TEX's processing. The range of possibilities is given in the
 table below, but not all of those can actually appear in
-\callback{pre_linebreak_filter}, some are for the
-\callback{Xpack_filter} callbacks that will be explained in the next
+\luacallback{pre_linebreak_filter}, some are for the
+\luacallback{Xpack_filter} callbacks that will be explained in the next
 two paragraphs.
 
-\starttabulate[|l|l|]
-\NC Value     \NC                  Explanation \NC\FR
-\NC \NC       \NC\NR
-\NC hbox\NC       \NC\NR
-\NC adjusted_hbox\NC       \NC\NR
-\NC vbox\NC       \NC\NR
-\NC vtop\NC       \NC\NR
-\NC align\NC       \NC\NR
-\NC output\NC       \NC\NR
-\NC math\NC       \NC\NR
-\NC disc\NC       \NC\NR
-\NC insert\NC       \NC\NR
-\NC vcenter\NC       \NC\NR
-\NC local_box\NC       \NC\NR
-\NC split_off\NC       \NC\NR
-\NC split_keep\NC       \NC\NR
-\NC preamble\NC       \NC\NR
-\NC align_set\NC       \NC\NR
-\NC fin_row\NC       \NC\NR
-
+\starttabulate[|l|p|]
+\NC Value     \NC     Explanation \NC\FR
+\NC              \NC       \NC\NR
+\NC hbox         \NC  \type{\hbox} in horizontal mode \NC\NR
+\NC adjusted_hbox\NC  \type{\hbox} in vertical mode \NC\NR
+\NC vbox         \NC  \type{\vbox} \NC\NR
+\NC vtop         \NC  \type{\vtop} \NC\NR
+\NC align        \NC  \type{\halign} or \type{\valign} \NC\NR
+\NC disc         \NC  discretionaries  \NC\NR
+\NC insert       \NC  packaging an insert  \NC\NR
+\NC vcenter      \NC  \type{\vcenter}      \NC\NR
+\NC local_box    \NC  \type{\localleftbox} or \type{\localrightbox} \NC\NR
+\NC split_off    \NC  top of a \type{\vsplit}     \NC\NR
+\NC split_keep   \NC  remainder of a \type{\vsplit} \NC\NR
+\NC preamble     \NC  alignment preamble     \NC\NR
+\NC align_set    \NC  alignment cell     \NC\NR
+\NC fin_row      \NC  alignment row     \NC\NR
 \stoptabulate
 
-\subsubsection{\callback{hpack_filter}}
+\subsubsection{\luacallback{hpack_filter}}
 
 This callback is called when \TEX\ is ready to start boxing some
 horizontal mode material. Math items are ignored at the moment.
 
 \startfunctioncall
-     function (table <nodelist>, number <size>, string <packtype>,
-     string <groupcode>) return table <nodelist> end
+     function (node <head>, number <size>, string <packtype>,
+               string <groupcode>, number <glyphcount>) 
+        return true | false | node <newhead> 
+     end
 \stopfunctioncall
 
 The \type{packtype} is either `additional' or `exactly'. If
 `additional', then the \type{size} is a \type{\hbox spread ...}
-argument. If `exacty', then the \type{size} is a \type{\hbox to ...}.
+argument. If `exactly', then the \type{size} is a \type{\hbox to ...}.
 In both cases, the number is in scaled points.
 
-\subsubsection{\callback{vpack_filter}}
+\subsubsection{\luacallback{vpack_filter}}
 
 This callback is called when \TEX\ is ready to start boxing some
-vertical mode material. Math items are ignored at the moment.
+vertical mode material. Math displays are ignored at the moment.
 
-This function is very similar to the \callback{hpack_filter}. Besides
+This function is very similar to the \luacallback{hpack_filter}. Besides
 the fact that it is called at different moments, there is an extra
-variable that matches \TEX's \type{\maxdepth} setting.
+variable that matches \TEX's \type{\maxdepth} setting, but there is
+no glyph count.
 
 \startfunctioncall
-     function (table <nodelist>, number <size>, string <packtype>, 
-                                 number <maxdepth>, string <groupcode>)
-        return table <nodelist>
+     function (node <head>, number <size>, string <packtype>, 
+               number <maxdepth>, string <groupcode>)
+        return true | false | node <newhead> 
      end
 \stopfunctioncall
 
 
+\subsubsection{\luacallback{pre_output_filter}}
+
+This callback is called when \TEX\ is ready to start boxing the
+box 255 for \type{\output}.
+
+\startfunctioncall
+     function (node <head>, number <size>, string <packtype>, 
+               number <maxdepth>, string <groupcode>)
+        return true | false | node <newhead> 
+     end
+\stopfunctioncall
+
+
+
 \subsection{Information reporting callbacks}
 
-\subsubsection{\callback{start_run}}
+\subsubsection{\luacallback{start_run}}
 
 \startfunctioncall
   function ()
@@ -1684,7 +1975,7 @@ variable that matches \TEX's \type{\maxdepth} setting.
 
 Replaces the code that prints \LUATEX's banner
 
-\subsubsection{\callback{stop_run}}
+\subsubsection{\luacallback{stop_run}}
 
 \startfunctioncall
   function ()
@@ -1693,7 +1984,7 @@ Replaces the code that prints \LUATEX's banner
 Replaces the code that prints \LUATEX's statistics and `Output written
 to' messages.
 
-\subsubsection{\callback{start_page_number}}
+\subsubsection{\luacallback{start_page_number}}
 
 \startfunctioncall
   function ()
@@ -1704,7 +1995,7 @@ begin of \type{\shipout}. This callback will also override the
 printing of box information that normally takes place when
 \type{\tracingoutput} is positive.
 
-\subsubsection{\callback{stop_page_number}}
+\subsubsection{\luacallback{stop_page_number}}
 
 \startfunctioncall
   function ()
@@ -1712,7 +2003,7 @@ printing of box information that normally takes place when
 
 Replaces the code that prints the \type{]} at the end of \type{\shipout}
 
-\subsubsection{\callback{show_error_hook}}
+\subsubsection{\luacallback{show_error_hook}}
        
 \startfunctioncall
      function ()
@@ -1750,7 +2041,7 @@ routines, but that needs lots of adjustments in the web source because
 
 \subsection{Font-related callbacks}
 
-\subsubsection{\callback{define_font}}
+\subsubsection{\luacallback{define_font}}
 
 \startfunctioncall
      function (string <name>, number <size>, number <id>)
@@ -1814,7 +2105,7 @@ The associated function calls are
 
 \section{The \lualib{kpse} library}
 
-\subsection{\function{kpse.find_file}}
+\subsection{\luafunction{kpse.find_file}}
 
 The most important function in the library is find_file:
 
@@ -1823,6 +2114,7 @@ The most important function in the library is find_file:
  string f = kpse.find_file(string filename, string ftype)
  string f = kpse.find_file(string filename, boolean mustexist)
  string f = kpse.find_file(string filename, string ftype, boolean mustexist)
+ string f = kpse.find_file(string filename, string ftype, number dpi)
 \stopfunctioncall
 
 
@@ -1900,17 +2192,58 @@ The default type is \type{"tex"}.
 is similar to kpsewhich's '-must-exist', and the default is `false'.
 If you specify `true' (or a non-zero integer), then the kpse library
 will search the disk as well as the ls-R databases.
+
+\sym{dpi} 
+
+This is used for the size argument of the formats `pk', `gf', and `bitmap font'.
 \stopitemize
 
-\subsection{\function{kpse.expand_path}}
 
-Like kpsewhich's  `-expand-path':
+\subsection{\luafunction{kpse.set_program_name}}
+
+Sets the kpathsea executable (and optionally program) name 
+
+\startfunctioncall
+     kpse.set_program_name(string name)
+     kpse.set_program_name(string name, string progname)
+\stopfunctioncall
+
+The second argument controls the use of the `dotted' values in the
+\type{texmf.cnf} configuration file, and defaults to the first argument.
+
+\subsection{\luafunction{kpse.init_prog}}
+
+Extra initialization for programs that need to generate bitmap fonts.
+
+\startfunctioncall
+     kpse.init_prog(string prefix, number base_dpi, string mfmode)
+     kpse.init_prog(string prefix, number base_dpi, string mfmode, string fallback)
+\stopfunctioncall
+
+
+\subsection{\luafunction{kpse.readable_file}}
+
+Test is a (absolute) file name is a readable file
+
+\startfunctioncall
+     string f = kpse.readable_file(string name)
+\stopfunctioncall
+
+The return value is the actual absolute filename you should use,
+because the disk name is not always the same as the requested name,
+due to aliases and system-specific handling under e.g. MS-DOS.
+
+Returns nil if the file does not exist or is not readable.
+
+\subsection{\luafunction{kpse.expand_path}}
+
+Like kpsewhich's `-expand-path':
 
 \startfunctioncall
      string r = kpse.expand_path(string s)
 \stopfunctioncall
 
-\subsection{\function{kpse.expand_var}}
+\subsection{\luafunction{kpse.expand_var}}
 
 Like kpsewhich's  `-expand-var':
 
@@ -1919,13 +2252,23 @@ Like kpsewhich's  `-expand-var':
 \stopfunctioncall
 
 
-\subsection{\function{kpse.expand_braces}}
+\subsection{\luafunction{kpse.expand_braces}}
 
 Like kpsewhich's  `-expand-braces':
 
 \startfunctioncall
      string r = kpse.expand_braces(string s)
 \stopfunctioncall
+
+
+\subsection{\luafunction{kpse.var_value}}
+
+Like kpsewhich's  `-var-value':
+
+\startfunctioncall
+     string r = kpse.var_value(string s)
+\stopfunctioncall
+
 
 \section{The \lualib{status} library}
 
@@ -1968,11 +2311,10 @@ The current list is:
 \NC max_strings\NC               maximum allowed strings      \NC \AR
 \NC pool_ptr\NC                  string pool index      \NC \AR
 \NC init_pool_ptr\NC             initex string pool index      \NC \AR
-\NC pool_size\NC                 maximum allowed string characters      \NC \AR
-\NC lo_mem_max\NC                current top of multi-word memory      \NC \AR
-\NC mem_min\NC                   bottom index of memory array     \NC \AR
-\NC mem_end\NC                   top index of memory array      \NC \AR
-\NC hi_mem_min\NC                current bottom of one-word memory      \NC \AR
+\NC pool_size\NC                 maximum allowed string characters \NC \AR
+\NC var_mem_max\NC               number of allocated words for nodes\NC \AR
+\NC fix_mem_max\NC               number of allocated words for tokens\NC \AR
+\NC fix_mem_end\NC               maximum number of used tokens\NC \AR
 \NC cs_count\NC                  number of control sequences      \NC \AR
 \NC hash_size\NC                 size of hash       \NC \AR
 \NC hash_extra\NC                extra allowed hash  \NC \AR
@@ -2019,10 +2361,6 @@ the executable after loading and executing the startup file.
 
 \starttabulate[|l|l|l|p|]
 \NC key      \NC type     \NC default \NC explanation \NC\FR
-\NC mem_bot \NC 	        number\NC  0\NC cf. web2c docs \NC \AR     
-\NC main_memory \NC        number\NC  250000\NC cf. web2c docs \NC \AR
-\NC extra_mem_top \NC      number\NC  0\NC cf. web2c docs \NC \AR     
-\NC extra_mem_bot \NC      number\NC  0\NC cf. web2c docs \NC \AR     
 \NC pool_size \NC 	        number\NC  100000\NC cf. web2c docs \NC \AR
 \NC string_vacancies \NC   number\NC  75000\NC cf. web2c docs \NC \AR 
 \NC pool_free \NC 	        number\NC  5000\NC cf. web2c docs \NC \AR  
@@ -3023,8 +3361,8 @@ allowed commands and their arguments are:
 \starttabulate[|l|l|l|l|p|]
 \NC command name      \NC arguments \NC arg type  \NC description \NC\FR
 \NC font              \NC 1         \NC number    \NC select a new font from the local 'fonts' table\NC\NR
-\NC char              \NC 1         \NC number    \NC typeset this character number from the current 
-                                                      font, and move right\NC\NR
+\NC char              \NC 1         \NC number    \NC typeset this character number from the current \NC\NR
+\NC node              \NC 1         \NC node      \NC output this node (list), and move right\NC\NR
 \NC slot              \NC 2         \NC number    \NC a shortcut for a font, char set\NC\NR
 \NC push              \NC 0         \NC --        \NC save current position\NC\NR
 \NC nop               \NC 0         \NC --        \NC do nothing \NC\NR
@@ -3109,6 +3447,644 @@ Finally, here is a plain \TEX\ input file with a demonstration:
 % end of virtual-demo.tex
 \stoptyping
 
+\chapter[nodes]{Nodes}
+
+\section{Lua node representation}
+
+\TeX's nodes are represented in Lua as userdata object with a variable
+set of fields.  
+
+The current return value of \type{node.types()} is: \ctxlua {for _,v
+in pairs(node.types()) do tex.print('\\type{' .. v .. '} (' .. _
+.. '), ') end } but as already mentioned, the math and alignment nodes
+in this list are not supported at the moment. The useful list
+is described in the next sections.
+
+\subsection{Auxiliary items}
+
+A few node-typed userdata objects do not occur in the `normal' list of
+nodes, but can be pointed to from within that list. They are not quite
+really nodes, but it is easier for the library routines to treat them
+as if they were.
+
+\subsubsection{glue_spec items}
+
+Skips are about the only type of data objects in traditional \TEX\
+that are not a simple value. The structure that represents the glue
+components of a skip is called a `glue_spec', and it has the following
+accessible fields:
+
+\starttabulate[|l|l|l|]
+\NC field              \NC type    \NC  Explanation \NC\FR
+\NC width          \NC number  \NC \NC\NR
+\NC stretch        \NC number  \NC \NC\NR
+\NC stretch_order  \NC number  \NC \NC\NR
+\NC shrink         \NC number  \NC \NC\NR
+\NC shrink_order   \NC number  \NC \NC\NR
+%\NC ref_count      \NC number  \NC reference count\NC\NR
+\stoptabulate
+
+These objects are reference counted, so there is actually an extra
+field named `ref_count' as well, but that will become completely
+hidden in the near future.
+
+\subsubsection{attribute\_list items}
+
+The newly introduced attribute registers are also non-trivial, because
+the value that is attached to a node is essentially a sparse array of
+key||value pairs. 
+
+It is generally easiest to deal with attributes by using the dedicated
+functions in the \type{node} library, but for completeness, here is
+the low-level interface:
+
+\starttabulate[|l|l|l|]
+\NC field              \NC type \NC  Explanation \NC\FR
+\NC next          \NC node  \NC pointer to the first attribute\NC\NR
+\stoptabulate
+
+There are no extra fields, this kind of item is only used as a head
+pointer for attribute items, making them easier to handle.
+
+A normal node's \type{attr}ibute field will point to a field of this
+type, and the \type{next} field in that field will then point to the
+first defined `attribute' item, whose `next' will point to the second
+`attribute' item, etc.
+
+\subsubsection{attribute item}
+
+Valid fields: 
+
+\starttabulate[|l|l|l|]
+\NC field              \NC type    \NC Explanation \NC\FR
+\NC next           \NC node    \NC pointer to the next attribute\NC\NR
+\NC number         \NC number  \NC the LHS\NC\NR
+\NC value          \NC number  \NC the RHS\NC\NR
+\stoptabulate
+
+\subsection{Main text nodes}
+
+These are the nodes that comprise actual typesetting commands.
+
+A few fields are present in all nodes regardless of their type, these are:
+
+\starttabulate[|l|l|l|]
+\NC field       \NC type    \NC  Explanation \NC\FR
+\NC next    \NC node    \NC  The next node in a list, or nil\NC\NR
+\NC id      \NC number  \NC  The node's type (\type{id}) number \NC\NR
+\NC subtype \NC number  \NC  The node \type{subtype} identifier\NC\NR
+\stoptabulate
+
+The subtype is sometimes just a stub entry. Almost all nodes also have
+an `attr' field. In the following tables \type{next} and \type{id} are
+not explicitly mentioned.
+
+\def\showfields#1%
+  {\ctxlua{ for _,a in pairs(node.fields('#1')) do
+            if not (a == 'id' or a == 'subtype' or a =='next' or a=='prev') then
+            tex.print('\\type{'.. a .. '}')  end end }}
+
+\subsubsection{hlist nodes}
+
+Valid fields: \showfields{hlist}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  unused\NC\NR
+\NC attr       \NC node    \NC  The head of the associated attribute list \NC\NR
+\NC width      \NC number  \NC  \NC\NR
+\NC height     \NC number  \NC  \NC\NR
+\NC depth      \NC number  \NC  \NC\NR
+\NC shift      \NC number  \NC  a displacement perpendicular to the
+                                character progression direction \NC\NR
+\NC glue_order \NC number  \NC  a number in the range 0--4, indicating
+                                the glue order\NC\NR
+\NC glue_set   \NC number  \NC  the calculated glue ratio\NC\NR
+\NC glue_sign  \NC number  \NC  \NC\NR
+\NC list       \NC node    \NC  the body of this list\NC\NR
+\NC dir        \NC number  \NC  the direction of this box\NC\NR
+\stoptabulate
+
+\subsubsection{vlist nodes}
+
+Valid fields: As for hlist, except that `shift' is a displacement
+perpendicular to the line progression direction.
+
+\subsubsection{rule nodes}
+
+Valid fields: \showfields{rule}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  unused\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC width      \NC number  \NC  Rule size. The special value $-1073741824$
+                                is used for `running' glue dimensions\NC\NR
+\NC height     \NC number  \NC  ' '\NC\NR
+\NC depth      \NC number  \NC  ' '\NC\NR
+\NC dir        \NC number  \NC  the direction of this rule\NC\NR
+\stoptabulate
+
+\subsubsection{ins nodes}
+
+Valid fields: \showfields{ins}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  the insertion class\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC cost       \NC number  \NC  The penalty associated with this insert\NC\NR
+\NC height     \NC number  \NC  \NC\NR
+\NC depth      \NC number  \NC  \NC\NR
+\NC list       \NC node    \NC  the body of this insert\NC\NR
+\NC top_skip   \NC node    \NC a pointer to the \type{\splittopskip} glue spec\NC\NR
+\stoptabulate
+
+\subsubsection{mark nodes}
+
+Valid fields: \showfields{mark}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  unused\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC class      \NC number  \NC  the mark class\NC\NR
+\NC mark       \NC table   \NC  a table representing a token list\NC\NR
+\stoptabulate
+
+\subsubsection{adjust nodes}
+
+Valid fields: \showfields{adjust}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  1 = `pre'\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC list       \NC node    \NC  adjusted material\NC\NR
+\stoptabulate
+
+\subsubsection{disc nodes}
+
+Valid fields: \showfields{disc}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  unused\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC pre        \NC node    \NC  pointer to the pre-break text\NC\NR
+\NC post       \NC node    \NC  pointer to the post-break text\NC\NR
+\NC replace    \NC number  \NC  the number of nodes to skip if this
+                                discretionary is chosen as a breakpoint\NC\NR
+\stoptabulate
+
+\subsubsection{math nodes}
+
+Valid fields: \showfields{math}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  0 = `on', 1 = `off'\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC surround   \NC number  \NC  width of the \type{\mathsurround} kern\NC\NR
+\stoptabulate
+
+\subsubsection{glue nodes}
+
+Valid fields: \showfields{glue}
+
+\starttabulate[|l|l|p|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  0 = \type{\skip},
+                                1--18 = internal glue parameters,
+                                100 = \type{\leaders},
+                                101 = \type{\cleaders}, 
+                                102 = \type{\xleaders}  \NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC spec       \NC node    \NC  pointer to a glue\_spec item \NC\NR
+\NC leader     \NC node    \NC  pointer to a box or rule for leaders\NC\NR
+\stoptabulate
+
+\subsubsection{kern nodes}
+
+Valid fields: \showfields{kern}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  0 = from font, 
+                                1 = from \type{\kern} or \type{\/}, 
+                                2 = from \type{\accent}\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC width      \NC number  \NC  \NC\NR
+\stoptabulate
+
+
+\subsubsection{penalty nodes}
+
+Valid fields: \showfields{penalty}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  not used\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC penalty    \NC number  \NC  \NC\NR
+\stoptabulate
+
+\subsubsection{glyph nodes}
+
+Valid fields: \showfields{glyph}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  0 = normal,
+	                            1 = ligature,
+                                2 = leftboundary ligature,
+                                3 = rightboundary ligature\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC char       \NC number  \NC \NC\NR
+\NC font       \NC number  \NC \NC\NR
+\NC components \NC node    \NC pointer to ligature components\NC\NR
+\stoptabulate
+
+\subsubsection{margin\_kern nodes}
+
+Valid fields: \showfields{margin_kern}
+
+\starttabulate[|l|l|l|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC subtype    \NC number  \NC  0 = left side,
+                                1 = right side\NC\NR
+\NC attr       \NC node    \NC  \NC\NR
+\NC width      \NC number  \NC  \NC\NR
+\NC glyph      \NC node    \NC  \NC\NR
+\stoptabulate
+
+
+\subsection{whatsit nodes}
+
+Whatsit nodes come in many subtypes, that you can ask for my running
+\type{node.whatsits()}: \ctxlua {for _,v in pairs(node.whatsits()) do
+tex.print('\\type{' .. v .. '} (' .. _ .. '), ') end }
+
+\subsubsection{open nodes}
+
+Valid fields: \showfields{whatsit','open}
+
+\starttabulate[|l|l|l|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC stream    \NC number  \NC \TEX's stream id number\NC\NR
+\NC name      \NC string  \NC file name \NC\NR
+\NC ext       \NC string  \NC file extension \NC\NR
+\NC area      \NC string  \NC file area \NC\NR
+\stoptabulate
+
+\subsubsection{write nodes}
+
+Valid fields: \showfields{whatsit','write}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC stream    \NC number  \NC \TEX's stream id number\NC\NR
+\NC data      \NC table   \NC a table representing the token list to be written\NC\NR
+\stoptabulate
+
+\subsubsection{close nodes}
+
+Valid fields: \showfields{whatsit','close}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC stream    \NC number  \NC \TEX's stream id number\NC\NR
+\stoptabulate
+
+\subsection{special nodes}
+
+Valid fields: \showfields{whatsit','special}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC data      \NC string  \NC The \type{\special} information\NC\NR 
+\stoptabulate
+
+\subsection{language nodes}
+
+Valid fields: \showfields{whatsit','language}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC lang      \NC number  \NC language id number\NC\NR 
+\NC left      \NC number  \NC value of \type{\lefthyphenmin}\NC\NR 
+\NC right     \NC number  \NC value of \type{\righthyphenmin}\NC\NR 
+\stoptabulate
+
+
+\subsection{local_par nodes}
+
+Valid fields: \showfields{whatsit','local_par}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC pen_inter \NC number  \NC interline penalty\NC\NR 
+\NC pen_broken\NC number  \NC broken penalty\NC\NR 
+\NC dir       \NC number  \NC the direction of this par\NC\NR 
+\NC box_left  \NC node      \NC the \type{\localleftbox}\NC\NR 
+\NC box_left_width\NC number\NC width of the \type{\localleftbox}\NC\NR 
+\NC box_right  \NC node      \NC the \type{\localrightbox}\NC\NR 
+\NC box_right_width\NC number\NC width of the \type{\localrightbox}\NC\NR 
+\stoptabulate
+
+\subsection{dir nodes}
+
+Valid fields: \showfields{whatsit','dir}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC dir       \NC number  \NC the direction\NC\NR 
+\NC level     \NC number  \NC nesting level of this direction whatsit\NC\NR 
+\NC dvi_ptr   \NC number  \NC a saved dvi buffer byte offset\NC\NR 
+\NC dir_h     \NC number  \NC a saved dvi position\NC\NR 
+\stoptabulate
+
+
+\subsection{pdf_literal nodes}
+
+Valid fields: \showfields{whatsit','pdf_literal}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC mode      \NC number  \NC  The `mode' setting of this literal\NC\NR
+\NC data      \NC string  \NC The \type{\pdfliteral} information\NC\NR 
+\stoptabulate
+
+\subsection{pdf_refobj nodes}
+
+Valid fields: \showfields{whatsit','pdf_refobj}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC objnum    \NC number  \NC the referenced PDF object number\NC\NR
+\stoptabulate
+
+\subsection{pdf_refxform nodes}
+
+Valid fields: \showfields{whatsit','pdf_refxform}
+
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC width     \NC number  \NC \NC \NR
+\NC height    \NC number  \NC \NC \NR
+\NC depth     \NC number  \NC \NC \NR
+\NC objnum    \NC number  \NC the referenced PDF object number\NC\NR
+\stoptabulate
+
+\subsection{pdf_refximage nodes}
+
+Valid fields: \showfields{whatsit','pdf_refximage}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC width     \NC number  \NC \NC \NR
+\NC height    \NC number  \NC \NC \NR
+\NC depth     \NC number  \NC \NC \NR
+\NC objnum    \NC number  \NC the referenced PDF object number\NC\NR
+\stoptabulate
+
+\subsection{pdf_annot nodes}
+
+Valid fields: \showfields{whatsit','pdf_annot}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC width     \NC number  \NC \NC \NR
+\NC height    \NC number  \NC \NC \NR
+\NC depth     \NC number  \NC \NC \NR
+\NC objnum    \NC number  \NC the referenced PDF object number\NC\NR
+\NC data      \NC string  \NC the annotation data\NC\NR
+\stoptabulate
+
+
+\subsection{pdf_start_link nodes}
+
+Valid fields: \showfields{whatsit','pdf_start_link}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC width     \NC number  \NC \NC \NR
+\NC height    \NC number  \NC \NC \NR
+\NC depth     \NC number  \NC \NC \NR
+\NC objnum    \NC number  \NC the referenced PDF object number\NC\NR
+\NC link_attr \NC table   \NC the link attribute token list\NC\NR
+\NC action    \NC node    \NC the action to perform\NC\NR
+\stoptabulate
+
+\subsubsection{action items}
+
+Valid fields: \showfields{action}
+
+These are a special kind of item that only appears inside
+pdf start link objects. 
+
+\subsection{pdf_end_link nodes}
+
+Valid fields: \showfields{whatsit','pdf_end_link}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\stoptabulate
+
+\subsection{pdf_dest nodes}
+
+Valid fields: \showfields{whatsit','pdf_dest}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC width     \NC number  \NC \NC \NR
+\NC height    \NC number  \NC \NC \NR
+\NC depth     \NC number  \NC \NC \NR
+\NC named_id  \NC number  \NC is the dest_id a string value?\NC\NR
+\NC dest_id   \NC number or string \NC the destination id\NC\NR
+\NC dest_type \NC number\NC type of destination\NC\NR
+\NC xyz_zoom  \NC number\NC \NC\NR
+\NC objnum    \NC number  \NC the PDF object number\NC\NR
+\stoptabulate
+
+\subsection{pdf_thread nodes}
+
+Valid fields: \showfields{whatsit','pdf_thread}
+
+\starttabulate[|l|l|p|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC attr       \NC node    \NC  \NC\NR
+\NC width      \NC number  \NC \NC \NR
+\NC height     \NC number  \NC \NC \NR
+\NC depth      \NC number  \NC \NC \NR
+\NC named_id   \NC number  \NC is the tread_id a string value?\NC\NR
+\NC tread_id   \NC number or string \NC the thread id\NC\NR
+\NC thread_attr\NC number           \NC extra thread information\NC\NR
+\stoptabulate
+
+
+\subsection{pdf_start_thread nodes}
+
+Valid fields: \showfields{whatsit','pdf_start_thread}
+
+\starttabulate[|l|l|p|]
+\NC field          \NC type    \NC  Explanation \NC\FR
+\NC attr       \NC node    \NC  \NC\NR
+\NC width      \NC number  \NC \NC \NR
+\NC height     \NC number  \NC \NC \NR
+\NC depth      \NC number  \NC \NC \NR
+\NC named_id   \NC number  \NC is the tread_id a string value?\NC\NR
+\NC tread_id   \NC number or string \NC the thread id\NC\NR
+\NC thread_attr\NC number           \NC extra thread information\NC\NR
+\stoptabulate
+
+\subsection{pdf_end_thread nodes}
+
+Valid fields: \showfields{whatsit','pdf_end_thread}
+
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\stoptabulate
+
+\subsection{pdf_save_pos nodes}
+
+Valid fields: \showfields{whatsit','pdf_save_pos}
+
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\stoptabulate
+
+\subsection{pdf_snap_ref_point nodes}
+
+Valid fields: \showfields{whatsit','pdf_snap_ref_point}
+
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\stoptabulate
+
+\subsection{pdf_snapy nodes}
+
+Valid fields: \showfields{whatsit','pdf_snapy}
+
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC final_skip \NC number \NC \NC\NR
+\NC spec      \NC node \NC pointer to a glue spec\NC\NR
+\stoptabulate
+
+\subsection{pdf_snapy_comp nodes}
+
+Valid fields: \showfields{whatsit','pdf_snapy_comp}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC comp_ratio \NC number \NC \NC\NR
+\stoptabulate
+
+\subsection{late_lua nodes}
+
+Valid fields: \showfields{whatsit','late_lua}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC reg       \NC number  \NC Lua state id number \NC\NR
+\NC data      \NC string  \NC data to execute\NC\NR
+\stoptabulate
+
+\subsection{close_lua nodes}
+
+Valid fields: \showfields{whatsit','close_lua}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC reg    \NC number  \NC Lua state id number\NC\NR
+\stoptabulate
+
+\subsection{pdf_colorstack  nodes}
+
+Valid fields: \showfields{whatsit','pdf_colorstack}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC stack    \NC number  \NC colorstack id number\NC\NR
+\NC cmd      \NC number  \NC command to execute\NC\NR
+\NC data     \NC string  \NC data\NC\NR
+\stoptabulate
+
+\subsection{pdf_setmatrix nodes}
+
+Valid fields: \showfields{whatsit','pdf_setmatrix}
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC data     \NC string  \NC data\NC\NR
+\stoptabulate
+
+
+\subsection{pdf_save nodes}
+
+Valid fields: \showfields{whatsit','pdf_save}
+
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\stoptabulate
+
+\subsection{pdf_restore nodes}
+
+Valid fields: \showfields{whatsit','pdf_restore}
+
+
+\starttabulate[|l|l|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\stoptabulate
+
+\subsection{user_defined nodes}
+
+Valid fields: \showfields{whatsit','user_defined}
+
+
+\starttabulate[|l|p|p|]
+\NC field         \NC type    \NC  Explanation \NC\FR
+\NC attr      \NC node    \NC  \NC\NR
+\NC user_id  \NC number  \NC id number\NC\NR
+\NC type     \NC number  \NC type of the value\NC\NR
+\NC value    \NC number, string, node,  or table \NC \NC\NR
+\stoptabulate
+
+
+
 \chapter{Modifications}
 
 Besides the expected changes caused by new functionality, there are a
@@ -3184,6 +4160,9 @@ simply typeset.
 \item The definitions for new didot and new cicero are patched.
 
 \item The \type{\pdfprimitive} is bugfixed.
+
+\item The \type{\pdftexversion} is set to 200.
+
 \stopitemize
 
 \section{Changes from \ALEPH\ RC4}
@@ -3266,11 +4245,12 @@ in non||lua mode:
   \type{openout} do not happen (however, it is easy for a Lua script
   to do this itself by overloading \type{io.open}).
 
+
 \stopitemize
 
 \chapter{Implementation notes}
 
-\subsection{Primitives overlap}
+\section{Primitives overlap}
 
 The primitives
 \starttyping
@@ -3283,7 +4263,37 @@ The primitives
 \stoptyping
 are all aliases of each other.
 
-\subsection{Sparse arrays}
+\section{Memory allocation}
+
+The single internal memory heap that traditional \TEX\ used for tokens
+and nodes is split into two wholly separate arrays. Each of those can
+grow dynamically as needed.
+
+The \type{texmf.cnf} settings related to main memory are no longer
+used (these are: \type{main_memory}, \type{mem_bot},
+\type{extra_mem_top} and \type{extra_mem_bot}). `Out of main memory' errors can still occur, 
+but the limiting factor is now solely the amount of RAM in your
+system.
+
+Also, the memory (de)allocation routines for nodes are completely
+rewritten. The relevant code now lives in the C file \type{luanode.c},
+and now normally uses a dozen or so avail lists instead of a
+doubly-linked model. At this moment, speed is still a little
+suboptimal because separate helper structures are maintained for
+debugging checks.
+
+Because of the split in two arrays and the resulting differences in
+the data structures, some of the pascal web macros have been split.
+For instance, there are now \type{vlink} and \type{vinfo} as well as
+\type{link} and \type{info}. All access to the variable memory array 
+is now hidden behind a macro called \type{vmem}. 
+
+The implementation of the growth of two arrays (via reallocation)
+introduces a potential pitfall: the memory arrays should never be used
+as the left hand side of a statement that can modify the array in
+question.
+ 
+\section{Sparse arrays}
 
 The \type{\mathcode}, \type{\delcode}, \type{\catcode},
 \type{\sfcode}, \type{\lccode} and \type{\uccode} tables are now
@@ -3305,7 +4315,7 @@ the gory details.
 Also, the glyph ids within a font are now managed by means
 of a sparse array and glyph ids can go up to index $2^{21}-1$. 
 
-\subsection{Simple single-character csnames}
+\section{Simple single-character csnames}
 
 Single-character commands are no longer treated aspecially in the
 internals, they are stored in the hash just like the multiletter
@@ -3315,16 +4325,14 @@ The code that displays control sequences explicitly checks if
 the length is one when it has to decide whether or not to add a
 trailing space.
 
-\subsection{Compressed format}
+\section{Compressed format}
 
-The format is passed through zlib, allowing it to shrink to roughly a
-third of the size it would have had in uncompressed form. This takes a
+The format is passed through zlib, allowing it to shrink to roughly 
+half of the size it would have had in uncompressed form. This takes a
 bit more CPU cycles but much less disk I/O, so it should still be
 faster. 
 
-The chosen compression factor is fairly low, equivalent to \type{gzip -3}.
-
-\subsection{Binary file reading}
+\section{Binary file reading}
 
 All of the internal code is changed in such a way that if one of the
 \type{read_xxx_file} callbacks is not set, then the file is read by
@@ -3352,6 +4360,9 @@ directions. And also, the \type{\textdir} command is broken.
 \item There is interference between rules and \type{\pdfliteral}. This
 is also likely related to the Bidi algorithm.
 
+\item The TFM loader sometimes stores a full path instead of only a
+name, this prevents VF loading from working properly.
+
 \item Letter spacing (\type{\letterspacefont}) is currently non-functional 
 due to massive changes in the virtual font handling. This
 functionality may actually be removed completely in the future,
@@ -3366,6 +4377,12 @@ because it is straightforward to set up letterspacing using the Lua
 \type{\directlua} is used in an OTP file (in the output of an 
 \type{expression} rule).
 
+\item Handling of attributes in math mode is not complete. The data
+structures in math mode are quite different from those in text mode,
+so this will take some extra effort to implement correctly.
+
+% \item The five- and six character forms of \type{^^^^} are buggy.
+
 \stopitemize
 
 \chapter{TODO}
@@ -3375,12 +4392,16 @@ more specific small feature requests .
 
 \startitemize
 
+
 \item Implement the \TEX\ primitive \type{\dimension}, cf. \type{\number}
 
 \item Change the lua table type{tex.dimen} to accept and return float
 values instead of strings
 
 \item Do something about \type{\withoutpt} and/or a new register type \type{\real}?
+
+\item Create callback for the automaticl creation of missing
+characters in fonts
 
 \item Implement the \TEX\ primitive \type{\htdp}?
 
@@ -3391,15 +4412,16 @@ the natural width of the included items into account.
 
 \item Make the number of the output box configurable.
 
+\item Switch to FontForge 2.0
+
+\item Complete the attributes in math and switch the nodes to a double-linked list.
+
+\item Move the `raw bytes' outside of the legal Unicode range, to
+prevent collisiosn.
+
+
 \stopitemize
 
 
 \stoptext
 
-+ Fix extensible character handling 
-+ Fix for contextual lookup tags in otf
-+ TTF language names added
-+ Nicer VF error
-+ Font subset prefix calculation fix
-+ Various patches from David
-+ Solaris 9 patches from Arthur
