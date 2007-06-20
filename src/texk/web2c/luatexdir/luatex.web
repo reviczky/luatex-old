@@ -81,6 +81,9 @@
 \def\pdfTeX{pdf\TeX}
 \def\pdfeTeX{pdf\eTeX}
 \def\PDF{PDF}
+\def\Aleph{Aleph}
+\def\eTeX{e\TeX}
+\def\LuaTeX{Lua\TeX}
 \def\ph{\hbox{Pascal-H}}
 \def\pct!{{\char`\%}} % percent sign in ordinary text
 \def\grp{\.{\char'173...\char'175}}
@@ -238,10 +241,10 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-2.00.0' {current \pdfTeX\ version}
 @#
-@d luatex_version_string=='-snapshot' {current \luaTeX\ version}
+@d luatex_version_string=='-snapshot' {current \LuaTeX\ version}
 @#
 @d luaTeX_banner=='This is luaTeX, Version 3.141592',luatex_version_string,extra_version_info
-   {printed when \luaTeX\ starts}
+   {printed when \LuaTeX\ starts}
 @#
 @d TeX_banner=='This is TeX, Version 3.141592' {printed when \TeX\ starts}
 @#
@@ -547,7 +550,7 @@ if max_print_line<60 then bad:=2;
 if dvi_buf_size mod 8<>0 then bad:=3;
 if hash_prime>hash_size then bad:=5;
 if max_in_open>=128 then bad:=6;
-{if null_list<256 then bad:=7;} {we will want |null_list>255|}
+{ |if null_list<256 then bad:=7;| } {we will want |null_list>255|}
 
 @ Labels are given symbolic names by the following definitions, so that
 occasional |goto| statements will be meaningful. We insert the label
@@ -2304,7 +2307,27 @@ procedure dohelp5 (@!a,b,c,d,e:str_number);
 begin
   help5(a)(b)(c)(d)(e);
 end;
-
+@#
+procedure dohelp4 (@!a,b,c,d:str_number);
+begin
+  help4(a)(b)(c)(d);
+end;
+@#
+procedure dohelp3 (@!a,b,c:str_number);
+begin
+  help3(a)(b)(c);
+end;
+@#
+procedure dohelp2 (@!a,b:str_number);
+begin
+  help2(a)(b);
+end;
+@#
+procedure dohelp1 (@!a:str_number);
+begin
+  help1(a);
+end;
+@#
 procedure do_print_err (s:str_number);
 begin
   print_err(s);
@@ -3936,7 +3959,7 @@ discussion of extensions until the end of this program.
 
 @ A |math_node|, which occurs only in horizontal lists, appears before and
 after mathematical formulas. The |subtype| field is |before| before the
-formula and |after| after it. There is a |surround field, which represents
+formula and |after| after it. There is a |surround| field, which represents
 the amount of surrounding space inserted by \.{\\mathsurround}.
 
 @d math_node=9 {|type| of a math node}
@@ -4545,7 +4568,7 @@ else  begin @<Display the value of |glue_set(p)|@>;
     end;
   print(", direction "); print_dir(box_dir(p));
   end;
-{pdfassert(list_ptr(p)<>0);}
+{|pdfassert(list_ptr(p)<>0);|}
 node_list_display(list_ptr(p)); {recursive call}
 end
 
@@ -4753,7 +4776,7 @@ while p<>null do
       ext_free_node(p,glyph_node_size); 
       end;
     hlist_node,vlist_node,unset_node: begin 
-	  {if list_ptr(p)<>null then pdfassert(list_ptr(p)>0);}
+	  {|if list_ptr(p)<>null then pdfassert(list_ptr(p)>0);|}
       flush_node_list(list_ptr(p));
       ext_free_node(p,box_node_size);
       end;
@@ -4857,10 +4880,10 @@ glyph_node: begin r:=get_node(glyph_node_size);
 hlist_node,vlist_node,unset_node: begin r:=get_node(box_node_size);
   width(r):=width(p);  height(r):=height(p); depth(r):=depth(p);
   shift_amount(r):=shift_amount(p); 
-  {pdfassert(list_ptr(p)<>0);}
+  {|pdfassert(list_ptr(p)<>0);|}
   s:=copy_node_list(list_ptr(p));
   list_ptr(r):=s;
-  {pdfassert(list_ptr(r)<>0);}
+  {|pdfassert(list_ptr(r)<>0);|}
   glue_order(r):=glue_order(p); glue_sign(r):=glue_sign(p);
   glue_set(r):=glue_set(p); box_dir(r):=box_dir(p);
   node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
@@ -7438,30 +7461,6 @@ primitive'. (Primitives consisting of a single nonalphabetic character,
 @!like `\.{\\/}', are listed under `Single-character primitives'.)
 @!@^Single-character primitives@>
 
-Meanwhile, this is a convenient place to catch up on something we were unable
-to do before the hash table was defined:
-
-@<Print the font identifier for |font(p)|@>=
-begin
-    print_esc(font_id_text(font(p)));
-    if pdf_tracing_fonts > 0 then begin
-        print(" (");
-        print_font_name(font(p));
-        if font_size(font(p)) <> font_dsize(font(p)) then begin
-            print("@@");
-            print_scaled(font_size(font(p)));
-            print("pt");
-        end;
-        print(")");
-    end else
-        if pdf_font_expand_ratio[font(p)] <> 0 then begin
-            print(" (");
-            if pdf_font_expand_ratio[font(p)] > 0 then
-                print("+");
-            print_int(pdf_font_expand_ratio[font(p)]);
-            print(")");
-        end;
-end
 
 @* \[19] Saving and restoring equivalents.
 The nested structure provided by `$\.{\char'173}\ldots\.{\char'175}$' groups
@@ -7801,20 +7800,6 @@ end_diagnostic(false);
 end;
 tats
 
-@ When looking for possible pointers to a memory location, it is helpful
-to look for references from |eqtb| that might be waiting on the
-save stack. Of course, we might find spurious pointers too; but this
-routine is merely an aid when debugging, and at such times we are
-grateful for any scraps of information, even if they prove to be irrelevant.
-@^dirty \PASCAL@>
-
-@<Search |save_stack| for equivalents that point to |p|@>=
-if save_ptr>0 then for q:=0 to save_ptr-1 do
-  begin if equiv_field(save_stack[q])=p then
-    begin print_nl("SAVE("); print_int(q); print_char(")");
-    end;
-  end
-
 @ Most of the parameters kept in |eqtb| can be changed freely, but there's
 an exception:  The magnification should not be used with two different
 values during any \TeX\ job, since a single magnification is applied to an
@@ -7868,7 +7853,7 @@ The following definitions take care of these token-oriented constants
 and a few others.
 
 @d cs_token_flag==@"1FFFFFFF {amount added to the |eqtb| location in a
-  token that stands for a control sequence; is a multiple of~2^{21}, less~1}
+  token that stands for a control sequence; is a multiple of~$2^{21}$, less~1}
 @d left_brace_token=@"200000   {$2^{21}\cdot|left_brace|$}
 @d left_brace_limit=@"400000   {$2^{21}\cdot(|left_brace|+1)$}
 @d right_brace_token=@"400000  {$2^{21}\cdot|right_brace|$}
@@ -9926,7 +9911,7 @@ in |fire_up| and |vsplit| do not have to traverse the full range
 @d bot_mark(#)==bot_marks_array[#]
 @d split_first_mark(#)==split_first_marks_array[#]
 @d split_bot_mark(#)==split_bot_marks_array[#]
-@x
+@#
 @d delete_top_mark(#)==begin if top_mark(#)<>null then 
       delete_token_ref(top_mark(#)); top_mark(#):=null; end
 @d delete_bot_mark(#)==begin if bot_mark(#)<>null then
@@ -11137,7 +11122,7 @@ if (cur_val<0)or(cur_val>@"7FFFFFF) then
     ("I changed this one to zero."); int_error(cur_val); cur_val:=0;
   end;
 end;
-@z
+
 
 @ @<Declare procedures that scan restricted classes of integers@>=
 procedure scan_twenty_seven_bit_int;
@@ -11546,7 +11531,7 @@ The new Cicero follows the new Didot point; $\rm 1\,nc=12\,nd$.  These
 would lead to the ratios $21681/20320$ and $65043/5080$, respectively.
 The closest approximations supported by the algorithm would be
 $11183/10481$ and $1370/107$.  In order to maintain the
-relation $\rm 1\,nc=12\nd$, we pick the ratio $685/642$ for $\rm nd$,
+relation $\rm 1\,nc=12\,nd$, we pick the ratio $685/642$ for $\rm nd$,
 however.
 
 @d set_conversion_end(#)== denom:=#; end
@@ -12138,6 +12123,7 @@ pdf_ximage_bbox_code: begin
     j := cur_val;
     if (j < 1) or (j > 4) then
         pdf_error("pdfximagebbox", "invalid parameter");
+@<Cases of `Scan the argument for command |c|'@>;
 end;
 end {there are no other cases}
 
@@ -16996,7 +16982,7 @@ begin
       c := chari mod 256;
     end else begin
       c := cc;
-      {c := char_index(f, cc);}
+      {|c := char_index(f, cc);|}
     end;
     begin
       if (c <= 32) or (c = 92) or (c = 40) or (c = 41) or (c > 127) then begin
@@ -18590,7 +18576,7 @@ begin
     else begin
         for k := 1 to max_font_id do
             if cmp_font_name(k, s) then begin
-	            flush_string; {font_name}
+	            flush_string; {|font_name|}
                 flush_str(s);
                 tfm_lookup := k;
                 return;
@@ -19017,7 +19003,7 @@ saving_h:=cur_h; saving_v:=cur_v;
 incr(cur_s);
 base_line:=cur_v;
 left_edge:=cur_h;
-{writeln(''); writeln('hlist_out: left edge: ', cur_h:1 , '');}
+{|writeln(''); writeln('hlist_out: left edge: ', cur_h:1 , '');|}
 prev_p:=this_box+list_offset;
 @<Create link annotations for the current hbox if needed@>;
 while p<>null do
@@ -19060,7 +19046,7 @@ end
 reswitch: if is_char_node(p) then 
   begin
   repeat f:=font(p); c:=character(p);
-  {writeln('hlist_out: a char node ', c:1 , '');}
+  {|writeln('hlist_out: a char node ', c:1 , '');|}
   if is_valid_char(c) then begin
   if is_rotated(dvi_direction) then begin
     c_ht:=char_width(f,c) div 2;
@@ -19306,7 +19292,7 @@ if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
     pdf_dvicmd_up(rule_wd);
     end;
   end;
-  {cur_h:=cur_h+rule_wd; }{dir__RT is corrected elsewhere}
+  {|cur_h:=cur_h+rule_wd;|}{|dir__RT| is corrected elsewhere}
   cur_v:=base_line;
   end
 
@@ -19428,7 +19414,7 @@ this_box:=temp_ptr; g_order:=glue_order(this_box);
 g_sign:=glue_sign(this_box); p:=list_ptr(this_box);
 {pdfassert(p<>0);}
 saving_v:=cur_v; saving_h:=cur_h;
-{writeln(''); writeln('vlist_out: left edge: ', cur_h:1 , '');}
+{|writeln(''); writeln('vlist_out: left edge: ', cur_h:1 , '');|}
 save_direction:=dvi_direction;
 dvi_direction:=box_dir(this_box);
 incr(cur_s);
@@ -20209,7 +20195,7 @@ while k <> null do begin
     i := obj_annot_ptr(info(k));
     {nodes with |info = max_halfword| were created by |append_link| and
      must be flushed here, as they are not linked in any list}
-    if info(i) = max_halfword then
+    if vinfo(i) = max_halfword then
         flush_whatsit_node(i, pdf_start_link_node);
     k := link(k);
 end
@@ -21385,7 +21371,7 @@ begin
 end;
 
 function hpack(@!p:pointer;@!w:scaled;@!m:small_number):pointer;
-label reswitch, common_ending, exit;
+label reswitch,common_ending,exit;
 var r:pointer; {the box node that will be returned}
 @!q:pointer; {trails behind |p|}
 @!h,@!d,@!x:scaled; {height, depth, and natural width}
@@ -21432,11 +21418,19 @@ if (m = cal_expand_ratio) and (font_expand_ratio <> 0) then begin
     font_expand_ratio := fix_int(font_expand_ratio, -1000, 1000);
     q := list_ptr(r);
     ext_free_node(r, box_node_size);
-    r := hpack(q, w, subst_ex_font);
+    r:=hpack(q, w, subst_ex_font);
 end;
 @<DIR: Reset |dir_ptr|@>;
 hpack:=r;
 end;
+
+function hpack_extra(@!p:pointer;@!w:scaled;@!m:small_number):pointer;
+var r:pointer;
+begin
+  r:=hpack(p,w,m);
+  hpack_extra:=r;
+end;
+
 
 function filtered_hpack(@!p:pointer;@!w:scaled;@!m:small_number;@!grp:integer):pointer;
 var q:pointer;
@@ -21464,8 +21458,8 @@ if p<>null then
   hlist_node,vlist_node,rule_node,unset_node:
     @<Incorporate box dimensions into the dimensions of
       the hbox that will contain~it@>;
-  ins_node,mark_node,adjust_node: if adjust_tail<>null then
-    @<Transfer node |p| to the adjustment list@>;
+  ins_node,mark_node,adjust_node: begin if adjust_tail<>null then
+    @<Transfer node |p| to the adjustment list@>; end;
   whatsit_node:@<Incorporate a whatsit node into an hbox@>;
   glue_node:@<Incorporate glue into the horizontal totals@>;
     margin_kern_node: begin
@@ -27573,13 +27567,6 @@ done:
 s:=hyph_list[h];
 while s<>null do
   begin hyf[info(s)]:=1; s:=link(s);
-  end
-
-@ @<Search |hyph_list| for pointers to |p|@>=
-for q:=0 to hyph_size do
-  begin if hyph_list[q]=p then
-    begin print_nl("HYPH("); print_int(q); print_char(")");
-    end;
   end
 
 @ We have now completed the hyphenation routine, so the |line_break| procedure
@@ -37704,8 +37691,8 @@ if dir_dir(p)>=0 then
   then begin
     dir_dvi_ptr(dir_ptr):=dvi_ptr;
     dir_dvi_h(dir_ptr):=cur_h;
-    {pdf_dvicmd_right(0);}
-    {cur_h:=0;}
+    {|pdf_dvicmd_right(0);|}
+    {|cur_h:=0;|}
     end
   else begin
     dir_dvi_ptr(dir_ptr):=dvi_ptr;
@@ -37718,7 +37705,7 @@ else begin
   dvi_dir_ptr:=dir_dvi_ptr(dir_ptr);
   pop_dir_node;
   dvi_direction:=dir_dir(dir_ptr);
-  {pdf_dvicmd_right(cur_h-dvi_dir_h);}
+  {|pdf_dvicmd_right(cur_h-dvi_dir_h);|}
    cur_h:=dvi_dir_h+cur_h;
   end
 end
@@ -38588,7 +38575,7 @@ an \eTeX\ state variable named \.{\\...state}; the feature is enabled,
 resp.\ disabled by assigning a positive, resp.\ non-positive value to
 that integer.
 
-@#
+
 @d Aleph_version_code=Aleph_int {code for \.{\\Alephversion}}
 @d Omega_version_code=Aleph_int+1 {code for \.{\\Omegaversion}}
 @d Aleph_minor_version_code=Aleph_int+2 {code for \.{\\Alephminorversion}}
