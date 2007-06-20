@@ -35,30 +35,6 @@ $Id$
 
 #define print_err(s) { do_print_err(maketexstring(s)); flush_str(last_tex_string); }
 
-void do_error(char *msg, char **hlp) {
-  strnumber msgmsg = 0,aa = 0,bb = 0,cc = 0,dd = 0,ee = 0;
-  int k = 0;
-  while (hlp[k]!=NULL)
-    k++;
-  if (k>0)    aa =maketexstring(hlp[0]);
-  if (k>1)    bb =maketexstring(hlp[1]);
-  if (k>2)    cc =maketexstring(hlp[2]);
-  if (k>3)    dd =maketexstring(hlp[3]);
-  if (k>4)    ee =maketexstring(hlp[4]);
-
-  print_string(msg);
-  switch (k) {
-  case 5:   dohelp5(aa,bb,cc,dd,ee); break;
-  }
-  error();
-
-  if (ee)    flush_str(ee);
-  if (dd)    flush_str(dd);
-  if (cc)    flush_str(cc);
-  if (bb)    flush_str(bb);
-  if (aa)    flush_str(aa);
-}
-
 static void
 start_font_error_message (pointer u, strnumber nom, strnumber aire, scaled s) {
   print_err("Font "); 
@@ -179,7 +155,7 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
 		    "e.g., type `I\font<same font id>=<substitute font name>'.",
 		    NULL } ;
     start_font_error_message(u, nom, aire, s);
-    do_error(" not loadable: Metric (TFM/OFM) file not found or bad",help);
+    tex_error(" not loadable: Metric (TFM/OFM) file not found or bad",help);
     return 0;
   }
 }
