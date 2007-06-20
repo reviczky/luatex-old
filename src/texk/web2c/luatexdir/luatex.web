@@ -4928,6 +4928,11 @@ attribute_node: begin r:=get_node(attribute_node_size);
   attribute_id(r):=attribute_id(p);
   attribute_value(r):=attribute_value(p);
   end;
+glue_spec_node: begin r:=get_node(glue_spec_size);  
+  glue_ref_count(r):=null;
+  width(r):=width(p); stretch(r):=stretch(p); shrink(r):=shrink(p);
+  stretch_order(r):=stretch_order(p); shrink_order(r):=shrink_order(p);
+  end;
 othercases confusion("copying")
 @:this can't happen copying}{\quad copying@>
 endcases
