@@ -291,6 +291,38 @@ void pdftex_warn (const char *fmt, ...)
     print_ln ();
 }
 
+
+void tex_error(char *msg, char **hlp) {
+  strnumber aa = 0,bb = 0,cc = 0,dd = 0,ee = 0;
+  int k = 0;
+  while (hlp[k]!=NULL)
+    k++;
+  if (k>0)    aa =maketexstring(hlp[0]);
+  if (k>1)    bb =maketexstring(hlp[1]);
+  if (k>2)    cc =maketexstring(hlp[2]);
+  if (k>3)    dd =maketexstring(hlp[3]);
+  if (k>4)    ee =maketexstring(hlp[4]);
+
+  do_print_err(maketexstring(msg)); 
+  flush_str(last_tex_string);
+
+  switch (k) {
+  case 1:   dohelp1(aa); break;
+  case 2:   dohelp2(aa,bb); break;
+  case 3:   dohelp3(aa,bb,cc); break;
+  case 4:   dohelp4(aa,bb,cc,dd); break;
+  case 5:   dohelp5(aa,bb,cc,dd,ee); break;
+  }
+  error();
+
+  if (ee)    flush_str(ee);
+  if (dd)    flush_str(dd);
+  if (cc)    flush_str(cc);
+  if (bb)    flush_str(bb);
+  if (aa)    flush_str(aa);
+}
+
+
 void garbage_warning (void)
 {
     pdftex_warn ("dangling objects discarded, no output file produced.");
