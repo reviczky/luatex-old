@@ -442,45 +442,19 @@ int setbox (lua_State *L) {
   int ok = 0;
   k = (int)luaL_checkinteger(L,-2);
   check_index_range(k);
-  if (lua_istable(L,-1)) {
-	if (lua_objlen(L,-1)==1) {
-	  lua_rawgeti(L,-1,1);
-	  if (lua_istable(L,-1)) {
-		lua_rawgeti(L,-1,1);
-		if (lua_isstring(L,-1)) {
-		  s = (char *)lua_tostring(L,-1);
-		  if (strcmp(s,"hlist")==0||
-			  strcmp(s,"vlist")==0) {
-			ok = 1;
-		  }
-		}
-		lua_pop(L,1);
-	  }
-	  lua_pop(L,1);
-	}
-	if (ok) {
-	  i = get_tex_box_register(k);
-	  j = nodelist_from_lua(L);
-	  if(set_tex_box_register(k,j)) {
-		lua_pushstring(L, "incorrect value");
-		lua_error(L);
-	  }
-	} else {
-	  lua_pushstring(L, "incorrect return value");
-	  lua_error(L);
-	}
-  } else if (lua_isboolean(L,-1)) {
-	j = lua_toboolean(L,-1);
-	if (j==0) { /* false */
-	  i = get_tex_box_register(k);
-	  if(set_tex_box_register(k,null)) {
-		lua_pushstring(L, "werid error");
-		lua_error(L);
-	  }
-	} /* true == do nothing */
+  i = get_tex_box_register(k);
+  if (lua_isboolean(L,-1)) {
+    j = lua_toboolean(L,-1);
+    if (j==0)
+      j == null;
+    else 
+      return 0;
   } else {
-	lua_pushstring(L, "incorrect return value");
-	lua_error(L);
+    j = nodelist_from_lua(L);
+  }
+  if(set_tex_box_register(k,j)) {
+    lua_pushstring(L, "incorrect value");
+    lua_error(L);
   }
   return 0;
 }
@@ -730,6 +704,61 @@ language_load_dict (lua_State *L) {
   return 1;
 }
 
+#define infinity 2147483647
+
+#define test_integer(m,n)						\
+  if (m>(double)infinity || m<-(double)infinity ) {			\
+    if (m>0.0) n = infinity; else n = -infinity;				\
+    char *help[] = {"I can only go up to 2147483647='17777777777=""7FFFFFFF,", \
+		    "so I'm using that number instead of yours.",   NULL } ; \
+    tex_error("Number too big",help);  } 
+
+
+static int
+tex_roundnumber (lua_State *L) {
+  double m = lua_tonumber(L, 1)+0.5;
+  double n = floor(m);
+  test_integer(m,n);
+  lua_pushnumber(L, (integer)n);
+  return 1;
+}
+
+static int
+tex_scaletable (lua_State *L) {
+  double n, m;
+  double delta = luaL_checknumber(L, 2);
+  
+  if (lua_istable(L,1)) {
+    lua_newtable(L); /* the new table is at index 3 */
+    lua_pushnil(L);
+    while (lua_next(L,1)!= 0 ) {
+      /* numeric value */
+      if (lua_isnumber(L,-1)) {
+        m = (double)(luaL_checknumber(L,-1)*delta) + 0.5;
+        n = floor(m);
+	test_integer(m,n);
+	lua_pushvalue(L,-2);
+	lua_pushnumber(L,(integer)n);
+      } else {
+	lua_pushvalue(L,-2);
+	lua_pushvalue(L,-2);
+      }
+      lua_rawset(L,3);
+
+      lua_pop(L, 1);
+    }
+  } else if (lua_isnumber(L,1)) {
+    m = (double)(luaL_checknumber(L,1)*delta) + 0.5;
+    n = floor(m);
+    test_integer(m,n);
+    lua_pushnumber(L,(integer)n);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+
 
 static const struct luaL_reg texlib [] = {
   {"write",    luacwrite},
@@ -752,6 +781,8 @@ static const struct luaL_reg texlib [] = {
   {"setboxdp",  setboxdp},
   {"getboxdp",  getboxdp},
   {"load_dict", language_load_dict},
+  {"round",     tex_roundnumber},
+  {"scale",     tex_scaletable},
   {NULL, NULL}  /* sentinel */
 };
 
