@@ -26,7 +26,7 @@ int get_node_type_id (lua_State *L, int n) {
     if (node_names[i]==NULL)
       i=-1;
   } else if (lua_isnumber(L,n)) {
-    i = lua_tonumber(L,n);
+    i = lua_tointeger(L,n);
     /* do some test here as well !*/
   }
   return i;
@@ -61,7 +61,7 @@ int get_node_subtype_id (lua_State *L, int n) {
     if (whatsit_node_names[i]==NULL)
       i=-1;
   } else if (lua_isnumber(L,n)) {
-    i = lua_tonumber(L,n);
+    i = lua_tointeger(L,n);
     /* do some test here as well !*/
   }
   return i;
@@ -229,6 +229,33 @@ lua_nodelib_copy(lua_State *L) {
   m = copy_node_list(*n);
   vlink(*n) = p;
   lua_pushnumber(L,m);
+  lua_nodelib_push(L);
+  return 1;
+}
+
+
+/* build a hbox */
+
+static int
+lua_nodelib_hpack(lua_State *L) {
+  halfword n, p;
+  char *s;
+  integer w  = 0;
+  int m = 1;
+  n = *(check_isnode(L,1));
+  if (lua_gettop(L)>1) {
+    w = lua_tointeger(L,2);
+    if (lua_gettop(L)>2 && lua_type(L,3)==LUA_TSTRING) {
+      s = (char *)lua_tostring(L,3);
+      if (strcmp(s,"additional")==0) {
+	m = 1;
+      } else {
+	m = lua_tonumber(L,3);
+      }
+    }
+  }
+  p = hpack_extra(n,w,m);
+  lua_pushnumber(L,p);
   lua_nodelib_push(L);
   return 1;
 }
@@ -443,15 +470,36 @@ get_node_field_id (lua_State *L, int n, int node ) {
 	i=-2;
     }
   } else if (lua_isnumber(L,n)) {
-    i = lua_tonumber(L,n);
+    i = lua_tointeger(L,n);
     /* do some test here as well !*/
   }
+  return i;
+}
+
+
+static int
+get_valid_node_field_id (lua_State *L, int n, int node ) {
+
+  int i = get_node_field_id(L,n,node);
   if (i==-2) {
-    lua_pushfstring(L, "Invalid field type %s for node type %s (%d)" , s , node_names[type(node)],subtype(node));
+    lua_pushfstring(L, "Invalid field id %d for node type %s (%d)" , i , node_names[type(node)],subtype(node));
     lua_error(L);
   }
   return i;
 }
+
+static int
+lua_nodelib_has_field (lua_State *L) {
+  int i;
+  if (lua_isnil(L,1)) {
+    lua_pushboolean(L,0);
+  } else {
+    i = get_node_field_id(L,2,*(check_isnode(L,1)));
+    lua_pushboolean(L,(i!=-2));
+  }
+  return 1;
+}
+
 
 /* fetch the list of valid node types */
 
@@ -547,7 +595,7 @@ lua_nodelib_has_attribute (lua_State *L) {
   t=node_attr(*n);
   if (t!=null && type(t)==attribute_list_node)  {
     t = vlink(t);
-    i = lua_tonumber(L,2);
+    i = lua_tointeger(L,2);
     m = luaL_optinteger(L,3,-1);
     while (t!=null) {
       if (attribute_id(t)==i) {
@@ -571,8 +619,8 @@ lua_nodelib_set_attribute (lua_State *L) {
   halfword head,p,t;
   int i, val;
   if (lua_gettop(L)==3) {
-    i = lua_tonumber(L,2);
-    val = lua_tonumber(L,3);
+    i = lua_tointeger(L,2);
+    val = lua_tointeger(L,3);
     n = check_isnode(L,1);
     /* TODO: check that nodes with type n can have node attributes ! */
     head = node_attr(*n);
@@ -641,11 +689,13 @@ lua_nodelib_unset_attribute (lua_State *L) {
     /* TODO: check for nodes, as in set_attribute */
     head=node_attr(*n);
     if (head==null) {
-      return 0; /* done. nothing to erase */
+      lua_pushnil(L);
+      return 1; /* done. nothing to erase */
     } else if (vlink(head)==null) {
       free_node(head,attribute_list_node_size);
       node_attr(*n)=null;
-      return 0; /* done. nothing to erase */
+      lua_pushnil(L);
+      return 1; /* done. nothing to erase */
     }
     /* check if even present */
     t = vlink(head);
@@ -659,7 +709,8 @@ lua_nodelib_unset_attribute (lua_State *L) {
       t = vlink(t);
     }
     if (!seen) {
-      return 0; /* done. nothing to erase */
+      lua_pushnil(L);
+      return 1; /* done. nothing to erase */
     }
     head = copy_node_list(head); /* attr_list_ref = 0 */
     attr_list_ref(head) = 1; /* used once */
@@ -671,6 +722,8 @@ lua_nodelib_unset_attribute (lua_State *L) {
     while (vlink(t)!=null) {
       if (attribute_id(vlink(t))==i) {
 	if (val==-1 || attribute_value(vlink(t))==val) {
+	  /* for retval */
+	  lua_pushnumber(L,attribute_value(vlink(t)));
 	  /* destroy this node, reuse seen */
 	  seen = vlink(vlink(t));
 	  free_node(vlink(t),attribute_node_size);
@@ -680,8 +733,9 @@ lua_nodelib_unset_attribute (lua_State *L) {
 	    free_node(head,attribute_list_node_size);
 	    node_attr(*n)=null;
 	  }
-	  return 0;
+	  return 1;
 	}
+	break;
       }
       t = vlink(t);
     }
@@ -689,7 +743,8 @@ lua_nodelib_unset_attribute (lua_State *L) {
     lua_pushstring(L,"incorrect number of arguments");
     lua_error(L);
   }
-  return 0; /* never reached */
+  lua_pushnil(L);
+  return 1;
 }
 
 
@@ -705,8 +760,8 @@ static int nodelib_aux_next (lua_State *L) {
   halfword t; /* traverser */
   halfword m; /* match */
   int i; /* id */
-  m = lua_tonumber(L,lua_upvalueindex(1));
-  i = lua_tonumber(L,lua_upvalueindex(2));
+  m = lua_tointeger(L,lua_upvalueindex(1));
+  i = lua_tointeger(L,lua_upvalueindex(2));
   if (lua_isnil(L,2)) { /* first call */
     n = check_isnode(L,1);
     t = *n;
@@ -770,7 +825,7 @@ static int lua_nodelib_traverse_filtered (lua_State *L) {
   halfword n;
   halfword m = null;
   int i = -1;
-  i = lua_tonumber(L,1);
+  i = lua_tointeger(L,1);
   if (lua_isnil(L,2)) {
     lua_pushcclosure(L, nodelib_aux_nil, 0);
     return 1;
@@ -814,7 +869,7 @@ static int lua_nodelib_count (lua_State *L) {
   halfword n;
   halfword m = null;
   int i = -1;
-  i = lua_tonumber(L,1);
+  i = lua_tointeger(L,1);
   if (lua_isnil(L,2)) {
     lua_pushnumber(L,0);
     return 1;
@@ -1067,7 +1122,7 @@ lua_nodelib_getfield  (lua_State *L) {
     return 1; /* a nil */
   n_ptr = check_isnode(L,1);
   n = *n_ptr;
-  field = get_node_field_id(L,2, n);
+  field = get_valid_node_field_id(L,2, n);
   if (field<-1)
     return;
   if (field==0) {
@@ -1534,7 +1589,7 @@ lua_nodelib_setfield  (lua_State *L) {
   int field;
   n_ptr = check_isnode(L,1);
   n = *n_ptr;
-  field = get_node_field_id(L,2,n);
+  field = get_valid_node_field_id(L,2,n);
   if (field<-1)
     return 0;
   if (field==0) {
@@ -1769,10 +1824,12 @@ static const struct luaL_reg nodelib_f [] = {
   {"types",         lua_nodelib_types},
   {"whatsits",      lua_nodelib_whatsits},
   {"fields",        lua_nodelib_fields},
+  {"has_field",     lua_nodelib_has_field},
   {"free",          lua_nodelib_free},
   {"flush_list",    lua_nodelib_flush_list},
   {"copy",          lua_nodelib_copy},
   {"copy_list",     lua_nodelib_copy_list},
+  {"hpack",         lua_nodelib_hpack},
   {"has_attribute", lua_nodelib_has_attribute},
   {"set_attribute", lua_nodelib_set_attribute},
   {"unset_attribute", lua_nodelib_unset_attribute},
