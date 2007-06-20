@@ -1,14 +1,41 @@
+% engine=luatex
+
+\startenvironment luatexref-env
+
 \usemodule[abr-02]
 
-\def\XeT{XeT}
+% \tex    : tex command
+% \lua    : native lua code
+% \luatex : lua lib, function, value defined in luatex
 
-\logo [TEXXET]      {\TeX\XeT}
+\catcode`\_=12 % we will make a nice attribute for this kind of break stuff
 
-\unexpanded\def\lualib#1{{\ss #1}}
+\setuptolerance[stretch,tolerant]
 
-\let\luacallback\type
-\let\texprimitive\tex
-\let\luafunction\type
+\setuptype[lines=hyphenated] \setuptyping[lines=hyphenated]
+
+\let\lua    \type
+\let\luatex \type
+
+\def\|{\string|}
+\def\>{\string>}
+
+\def\showfields#1{\ctxlua
+    {   do
+            local t = string.split('#1',',')
+            local r = { }
+            for _,a in pairs(node.fields(t[1],t[2])) do
+                if not (a == 'id' or a == 'subtype' or a =='next' or a=='prev') then
+                    table.insert(r,'\\type{'.. a .. '}')
+                end
+            end
+            tex.sprint(table.concat(r, ', '))
+        end
+    }%
+}
+
+\def\todo#1%
+  {\dontleavehmode{\bf\red <TODO: #1>}}
 
 \setuplayout
   [height=middle,
@@ -104,7 +131,7 @@
 \startuseMPgraphic{luanumber}
     \includeMPgraphic{lualogo}
 %     luaextraangle := \realfolio*360/\lastpage ;
-    luaextraangle := (\realfolio-2)*360/(\lastpage-2) ;
+    luaextraangle := 10 * ( (\realfolio-2)*36/(\lastpage-2) ) ;
     picture p ; p := lualogo ;
     setbounds p to boundingbox fullcircle ;
     draw p ysized 1cm ;
@@ -138,7 +165,7 @@
     [page]
     [preset=rightbottom,offset=1cm,x=2.5cm]
     [frame=off,height=1cm,offset=overlay]
-    {LuaTEX Reference}
+    {\getmarking[chapter]}% Lua\TeX\ Reference Manual}
 \stopsetups
 
 \startsetups pagenumber:left
@@ -146,7 +173,7 @@
     [page]
     [preset=leftbottom,offset=1cm,x=2.5cm]
     [frame=off,height=1cm,offset=overlay]
-    {LuaTEX Reference}
+    {\getmarking[chapter]}
   \setlayerframed
     [page]
     [preset=leftbottom,offset=1cm,x=1.5cm]
@@ -159,81 +186,115 @@
     {\useMPgraphic{luanumber}}
 \stopsetups
 
-\setupbackgrounds
-  [leftpage]
-  [setups=pagenumber:left]
+\startsetups [titlepage]
 
-\setupbackgrounds
-  [rightpage]
-  [setups=pagenumber:right]
+    \startstandardmakeup
 
-\def\TitlePage#1{%
-\startstandardmakeup % \startTEXpage
+        \switchtobodyfont[mainfacemedium]
+        \definedfont[Bold at .08\paperheight] \setupinterlinespace
 
-    \switchtobodyfont[mainfacemedium]
-    \definedfont[Bold at .08\paperheight] \setupinterlinespace
+        \setlayer[page]{\useMPgraphic{luapage}}
 
-    \setlayer[page]{\useMPgraphic{luapage}}
+        \setlayerframed
+          [page]
+          [preset=middletop,
+           voffset=.05\paperheight]
+          [align=middle,
+           foregroundcolor=blue,
+           frame=off]
+          {Lua\TeX\\Reference}
 
-    \setlayerframed
-      [page]
-      [preset=middletop,
-       voffset=.05\paperheight]
-      [align=middle,
-       foregroundcolor=blue,
-       frame=off]
-      {Lua\TeX\\Reference}
+        \definedfont[Bold at 24pt] \setupinterlinespace
 
-    \definedfont[Bold at 24pt] \setupinterlinespace
+        \setlayerframed
+          [page]
+          [preset=middletop,
+           voffset=.35\paperheight]
+          [align=middle,
+           foregroundcolor=blue,
+           frame=off]
+          {\doifsomething{\getvariable{document}{snapshot}}{snapshot \getvariable{document}{snapshot}}}
 
-    \setlayerframed
-      [page]
-      [preset=middletop,
-       voffset=.35\paperheight]
-      [align=middle,
-       foregroundcolor=blue,
-       frame=off]
-      {#1}
+    \stopstandardmakeup
 
-\stopstandardmakeup % \stopTEXpage
-}
+    \startstandardmakeup
+
+        \raggedleft
+
+        \definedfont[Bold at 48pt] \setupinterlinespace
+
+        \start \blue Lua\TeX \endgraf Reference \endgraf Manual \stop
+
+        \blank
+
+        \definedfont[Bold at 24pt] \setupinterlinespace
+
+        \blank
+
+        \vfill
+
+        \definedfont[Bold at 12pt] \setupinterlinespace
+
+        copyright: Lua\TeX\ development team \endgraf
+        more info: www.luatex.org \endgraf
+        version: \currentdate \doifsomething{\getvariable{document}{snapshot}}{(snapshot \getvariable{document}{snapshot})} \endgraf
+
+    \stopstandardmakeup
+
+    \setupbackgrounds
+      [leftpage]
+      [setups=pagenumber:left]
+
+    \setupbackgrounds
+      [rightpage]
+      [setups=pagenumber:right]
+
+\stopsetups
 
 \def\nonterminal#1>{\mathematics{\langle\hbox{{\rm #1}}\rangle}}
 
-\ifx\directlua\undefined 
+\ifx\directlua\undefined
+
   \definetyping[syntax]
   \definetype[syntax]
+
 \else
 
-\newcatcodetable\syntaxcodetable
-\def\makesyntaxcodetable
-  {\begingroup
-   \catcode`\<=13 \catcode`\|=12
-   \catcode`\!=0 \catcode`\\=12 
-   \savecatcodetable\syntaxcodetable
-   \endgroup}
+    % taco's brainwave -)
 
-\makesyntaxcodetable
+    \newcatcodetable\syntaxcodetable
 
-\def\startsyntax {\begingroup\catcodetable\syntaxcodetable  \dostartsyntax}
-\def\syntax      {\begingroup\catcodetable\syntaxcodetable  \dosyntax}
+    \def\makesyntaxcodetable
+      {\begingroup
+       \catcode`\<=13 \catcode`\|=12
+       \catcode`\!= 0 \catcode`\\=12
+       \savecatcodetable\syntaxcodetable
+       \endgroup}
 
-\def\syntaxenvbody#1%
-  {\par
-   \tt 
-   \startnarrower
-   {\blue #1}%
-   \stopnarrower
-   \par}
+    \makesyntaxcodetable
 
-\def\syntaxbody#1%
-  {{\blue \tt #1}}
+    \def\startsyntax {\begingroup\catcodetable\syntaxcodetable  \dostartsyntax}
+    \def\syntax      {\begingroup\catcodetable\syntaxcodetable  \dosyntax}
 
-\catcodetable\syntaxcodetable
-!def!dostartsyntax#1\stopsyntax{!let<!nonterminal!syntaxenvbody{#1}!endgroup}
-!def!dosyntax#1{!let<!nonterminal!syntaxbody{#1}!endgroup}
-!catcodetable!texcatcodes
+    \def\syntaxenvbody#1%
+      {\par
+       \tt
+       \startnarrower
+       {\blue #1}%
+       \stopnarrower
+       \par}
+
+    \def\syntaxbody#1%
+      {{\blue \tt #1}}
+
+    \bgroup \catcodetable\syntaxcodetable
+
+    !gdef!dostartsyntax#1\stopsyntax{!let<!nonterminal!syntaxenvbody{#1}!endgroup}
+    !gdef!dosyntax     #1{!let<!nonterminal!syntaxbody{#1}!endgroup}
+
+    !egroup
 
 \fi
-\endinput
+
+\stopenvironment
 
