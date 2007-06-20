@@ -1074,6 +1074,31 @@ information:
 \item There is no \tex{endlinechar} appended.
 \stopitemize
 
+\subsection{Helper functions}
+
+\subsubsection{\luatex{tex.round}}
+
+\startfunctioncall
+number n =  tex.round(number o)
+\stopfunctioncall
+
+Rounds lua number \type{o}, and returns a number that is in the range
+of a valid \TEX\ register value. If the number starts out of range, it
+generates a `Number to big' error as well.
+
+\subsubsection{\luatex{tex.scale}}
+
+\startfunctioncall
+number n =  tex.scale(number o, number delta)
+table n  =  tex.scale(table o, number delta)
+\stopfunctioncall
+
+Multiplies the lua numbers \type{o} and \type{delta}, and returns a
+rounded number that is in the range of a valid \TEX\ register value.
+In the table version, it creates a copy of the table with all numeric
+top||level values scaled in that manner. If the mutiplied number(s) are
+of range, it generates `Number to big' error(s) as well.
+
 \section{The \luatex{token} library}
 
 The \luatex{token} table contains interface functions to \TEX's
@@ -1291,12 +1316,22 @@ table t = node.fields(string type, string subtype)
 \stopfunctioncall
 
 This function returns an array of valid field names for a particular
-type of node. If you want to the the valid fields for a \quote{whatsit},
+type of node. If you want to get the valid fields for a \quote{whatsit},
 then you have to supply the second argument also. Otherwise, the
 second argument will be silently ignored.
 
 This function accepts numeric \type{id} and \type{subtype} values as
 well.
+
+\subsubsection{\luatex{node.has_field}}
+
+\startfunctioncall
+boolean t = node.has_field(node n, string field)
+\stopfunctioncall
+
+This function returns a boolean that is only true if \type{n} is
+actually a node, and it has the field. 
+
 
 \subsubsection{\luatex{node.new}}
 
@@ -1352,6 +1387,20 @@ node m = node.copy_list(node n)
 \stopfunctioncall
 
 Creates a deep copy of the node list that starts at \type{n}.
+
+\subsubsection{\luatex{node.hpack}}
+
+\startfunctioncall
+node h = node.hpack(node n)
+node h = node.hpack(node n, number w, string info)
+\stopfunctioncall
+
+This function creates a new hlist by packagin the list that with node
+\type{n} into a horizontal box. With only a single argument, this box 
+is created using the natural width of it's components. In the three
+argument form, \type{info} must be either \type{additional} or
+\type{exactly}, and \type{w} is the additional (\type{\hbox spread})
+or exact (\type{\hbox to}) width to be used.
 
 \subsubsection{\luatex{node.slide}}
 
@@ -1437,13 +1486,16 @@ Sets the attribute with number \type{id} to the value
 \subsubsection{\luatex{node.unset_attribute}}
 
 \startfunctioncall
-node.unset_attribute(node n, number id, number val)
-node.unset_attribute(node n, number id)
+number v = node.unset_attribute(node n, number id, number val)
+number v = node.unset_attribute(node n, number id)
 \stopfunctioncall
 
 Unsets the attribute with number \type{id}. If \type{val} is also supplied,
 it will only perform this operation if the value matches \type{val}.
 Missing attributes or attribute|-|value pairs are ignored.
+
+If the attribute was actually deleted, returns its old
+value. Otherwise, returns nil.
 
 \section{The \luatex{texio} library}
 
