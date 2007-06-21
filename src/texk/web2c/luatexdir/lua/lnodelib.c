@@ -274,7 +274,7 @@ static char * node_fields_adjust      [] = { "attr", "list", NULL };
 static char * node_fields_disc        [] = { "attr", "pre", "post", "replace", NULL };
 static char * node_fields_math        [] = { "attr", "surround", NULL }; 
 static char * node_fields_glue        [] = { "attr", "spec", "leader", NULL }; 
-static char * node_fields_kern        [] = { "attr", "width", NULL };
+static char * node_fields_kern        [] = { "attr", "kern", NULL };
 static char * node_fields_penalty     [] = { "attr", "penalty", NULL };
 static char * node_fields_unset       [] = { "attr", "width", "depth", "height", "dir", "shrink",
 					     "glue_order", "glue_sign", "stretch" , "span",  "list",  NULL };
