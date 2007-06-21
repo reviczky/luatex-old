@@ -35,17 +35,19 @@ $Id$
 
 #define print_err(s) { do_print_err(maketexstring(s)); flush_str(last_tex_string); }
 
-static void
-start_font_error_message (pointer u, strnumber nom, strnumber aire, scaled s) {
-  print_err("Font "); 
-  sprint_cs(u);
-  print_string("="); 
-  print_file_name(nom,aire,get_nullstr());
+static char *
+font_error_message (pointer u, char *nom, scaled s) {
+  char *str = xmalloc(256);
+  char *c = makecstring(zget_cs_text(u));
+  char *extra =  "Metric (TFM/OFM) file not found or bad";
   if (s>=0 ) {
-    print_string(" at "); print_scaled(s); print_string("pt");
+    snprintf(str,255,"Font \\%s=%s at %gpt not loadable: %s", c, nom, (double)s/65536, extra);
   } else if (s!=-1000) {
-    print_string(" scaled "); print_int(-s);
+    snprintf(str,255,"Font \\%s=%s scaled %d not loadable: %s", c, nom, -s, extra);
+  } else {
+    snprintf(str,255,"Font \\%s=%s not loadable: %s", c, nom, extra);
   }
+  return str;
 }
 
 static int
@@ -140,6 +142,7 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
                integer natural_dir) {
   integer f;
   char *cnom, *caire = NULL;
+  char *msg;
   cnom  = xstrdup(makecstring(nom));
   if (aire != 0) 
     caire = xstrdup(makecstring(aire));
@@ -154,8 +157,9 @@ read_font_info(pointer u,  strnumber nom, strnumber aire, scaled s,
 		    "You might try inserting a different font spec;",
 		    "e.g., type `I\font<same font id>=<substitute font name>'.",
 		    NULL } ;
-    start_font_error_message(u, nom, aire, s);
-    tex_error(" not loadable: Metric (TFM/OFM) file not found or bad",help);
+    msg = font_error_message(u, cnom, s);
+    tex_error(msg,help);
+	free(msg);
     return 0;
   }
 }
