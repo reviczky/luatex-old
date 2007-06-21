@@ -664,8 +664,10 @@ lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail
   if (ret!=null) {
     while (vlink(ret)!=null)
       ret=vlink(ret); 
+    *tail_node=ret;
+  } else {
+    *tail_node=head_node;
   }
-  *tail_node=ret;
   return ;
 }
 
