@@ -479,10 +479,15 @@ get_node_field_id (lua_State *L, int n, int node ) {
 
 static int
 get_valid_node_field_id (lua_State *L, int n, int node ) {
-
+  char *s;
   int i = get_node_field_id(L,n,node);
   if (i==-2) {
-    lua_pushfstring(L, "Invalid field id %d for node type %s (%d)" , i , node_names[type(node)],subtype(node));
+    if (lua_type(L,n)==LUA_TSTRING) {
+      s = (char *)lua_tostring(L,n); 
+      lua_pushfstring(L, "Invalid field id %s for node type %s (%d)" , s, node_names[type(node)],subtype(node));
+    } else {
+      lua_pushfstring(L, "Invalid field id %d for node type %s (%d)" , i, node_names[type(node)],subtype(node));
+    }
     lua_error(L);
   }
   return i;
@@ -1790,13 +1795,19 @@ lua_nodelib_setfield  (lua_State *L) {
 
 static int
 lua_nodelib_print  (lua_State *L) {
+  char *msg;
+  char a[7] = {' ',' ',' ', 'n', 'i', 'l', 0};
+  char v[7] = {' ',' ',' ', 'n', 'i', 'l', 0};
   halfword *n;
   n = check_isnode(L,1);
-  lua_pushfstring(L,"<node (%d<) %d (>%d): %s>", 
-		  (alink(*n)==null ? -1 : alink(*n)),
-		  *n,
-		  (vlink(*n)==null ? -1 : vlink(*n)),
-		  node_names[type(*n)]);
+  msg = xmalloc(256);
+  if (alink(*n)!=null) 
+    snprintf(a,7,"%6d",alink(*n));
+  if (vlink(*n)!=null) 
+    snprintf(v,7,"%6d",vlink(*n));
+  snprintf(msg,255,"<node %s < %6d > %s : %s>", a, *n, v, node_names[type(*n)]);
+  lua_pushstring(L,msg);
+  free(msg);
   return 1;
 }
 
