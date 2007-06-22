@@ -32,7 +32,7 @@
 
 \setvariables
   [document]
-  [snapshot=2007-06-19]
+  [snapshot=2007-06-22]
 
 \starttext
 
@@ -1253,10 +1253,16 @@ The other available fields depend on the \type{id} (and for \quote{whatsits}, th
 \type{subtype}) of the node. Further details on the various fields and their
 meanings are given in the \in{chapter}[nodes].
 
-\TEX's math nodes are not yet supported, Sso, there is not yet an interface
-to the internals of the math lists, and it is not possible to create
+\TEX's math nodes are not yet supported: there is not yet an interface
+to the internals of the math list and it is not possible to create
 them from \LUA. Support for \type{unset} (alignment) nodes is partial:
 they can be queried and modified from \LUA\ code, but not created.
+
+Nodes can be compared to each other, but: you are actually comparing
+indices into the node memory. This means that equality tests can only
+be trusted under very limited conditions. It will not work correctly
+in any situation where one of the two nodes has been freed and|/|or
+reallocated: in that case, there will be false positives.
 
 \subsection{Node handling functions}
 
@@ -1402,6 +1408,9 @@ argument form, \type{info} must be either \type{additional} or
 \type{exactly}, and \type{w} is the additional (\type{\hbox spread})
 or exact (\type{\hbox to}) width to be used.
 
+Caveat: at this moment, there can be unintended side|-|effects to this
+function, like updating some of the \type{\marks} and \type{\inserts}.
+
 \subsubsection{\luatex{node.slide}}
 
 \startfunctioncall
@@ -1455,6 +1464,51 @@ This is an iterator that loops over all the nodes in the list that
 starts at \type{n} that have an \type{id} matching \type{type}.  If
 \type{m} is also supplied, the iterator stops at \type{m} instead of
 at the end of the list. The node \type{m} is not processed.
+
+
+\subsubsection{\luatex{node.remove}}
+
+\startfunctioncall
+node head, current = node.remove(node head, node current)
+\stopfunctioncall
+
+This function removes the node \type{current} from the list following
+\type{head}. It is your responsibility to make sure it is really part
+of that list. The return values are the new \type{head} and
+\type{current} nodes. The returned \type{current} is the 
+node in the calling argument, and is only passed back as a convenience
+(it's \type{next} field will be cleared). The returned \type{head} is
+more important, because: if the function is called with \type{current}
+equal to \type{head}, it will be changed.
+
+
+\subsubsection{\luatex{node.insert_before}}
+
+\startfunctioncall
+node head, new = node.insert_before(node head, node current, node new)
+\stopfunctioncall
+
+This function inserts the node \type{new} before \type{current} into
+the list following \type{head}. It is your responsibility to make sure
+that \type{current} is really part of that list. The return values are
+the (potentially mutated) \type{head} and the \type{new}, set up to
+be part of the list (with correct \type{next} field). If \type{head}
+is initially \type{nil}, it will become \type{new}.
+
+
+\subsubsection{\luatex{node.insert_after}}
+
+\startfunctioncall
+node head, new = node.insert_after(node head, node current, node new)
+\stopfunctioncall
+
+This function inserts the node \type{new} after \type{current} into
+the list following \type{head}. It is your responsibility to make sure
+that \type{current} is really part of that list. The return values are
+the \type{head} and the \type{new}, set up to be part of the list
+(with correct \type{next} field). If \type{head} is initially
+\type{nil}, it will become \type{new}.
+
 
 \subsection{Attribute handling}
 
