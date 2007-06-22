@@ -247,14 +247,14 @@ lua_nodelib_remove (lua_State *L) {
     if (t==null) {
       set_t_to_prev(head,current);
       if (t==null) { /* error! */
-	lua_pushstring(L,"Attempt to node.remove() a non-existing node");
-	lua_error(L);
+		lua_pushstring(L,"Attempt to node.remove() a non-existing node");
+		lua_error(L);
       }
     }
     /* t is now the previous node */
     vlink(t) = vlink(current);
     if (vlink(current)!=null) {
-      alink(vlink(current)) = alink(t);
+      alink(vlink(current))  = t;
     }
     current  = vlink(current);
   }
@@ -298,8 +298,12 @@ lua_nodelib_insert_before (lua_State *L) {
     current = *(check_isnode(L,2));
   }
   t = alink(current);
-  if (t!=null)
+  if (t!=null) {
+	if (vlink(t)!=current) {
+	  /* TODO the backlink was wrong, should attempt to find a new one */
+	}
     vlink(t) = n;
+  }
   alink(n) = t;
   vlink(n) = current;    
   alink(current) = n;
