@@ -183,7 +183,13 @@ static int
 lua_nodelib_free(lua_State *L) {
   halfword *n;
   halfword p;
-  n = check_isnode(L,-1);
+  if (lua_gettop(L)<1) {
+    lua_pushnil(L);
+    return 1;
+  } else if(lua_isnil(L,1)) {
+    return 1; /* the nil itself */
+  }
+  n = check_isnode(L,1);
   /* this easier than figuring out the correct size */ 
   p = vlink(*n); vlink(*n) = null;
   flush_node_list(*n); 
@@ -196,10 +202,159 @@ lua_nodelib_free(lua_State *L) {
 
 static int
 lua_nodelib_flush_list(lua_State *L) {
-  halfword *n_ptr = check_isnode(L,-1);
+  halfword *n_ptr;
+  if ((lua_gettop(L)<1) || lua_isnil(L,1))
+    return 0;
+  n_ptr = check_isnode(L,1);
   flush_node_list(*n_ptr); 
   return 0;
 }
+
+/* find prev, and fix backlinks */
+
+#define set_t_to_prev(head,current)		\
+  t = head;					\
+  while (vlink(t)!=current && t != null) {	\
+    if (vlink(t)!=null)				\
+      alink(vlink(t)) = t;			\
+    t = vlink(t);				\
+  }
+
+/* remove a node from a list */
+
+
+static int
+lua_nodelib_remove (lua_State *L) {
+  halfword head, current, t;
+  if (lua_gettop(L)<2) {
+    lua_pushstring(L,"Not enough arguments for node.remove()");
+    lua_error(L);
+  }
+  head = *(check_isnode(L,1));
+  if (lua_isnil(L,2)) {
+    return 2; /* the arguments, as they are */
+  }
+  current = *(check_isnode(L,2));
+
+  if (head == current) {
+    if (vlink(current)!=null) {
+      alink(vlink(current)) = alink(head);
+    }
+    head  = vlink(current);
+    current = head;
+  } else {  /* head != current */
+    t = alink(current);
+    if (t==null) {
+      set_t_to_prev(head,current);
+      if (t==null) { /* error! */
+	lua_pushstring(L,"Attempt to node.remove() a non-existing node");
+	lua_error(L);
+      }
+    }
+    /* t is now the previous node */
+    vlink(t) = vlink(current);
+    if (vlink(current)!=null) {
+      alink(vlink(current)) = alink(t);
+    }
+    current  = vlink(current);
+  }
+  lua_pushnumber(L,head);
+  lua_nodelib_push(L);  
+  lua_pushnumber(L,current);
+  lua_nodelib_push(L);  
+  return 2;
+}
+
+/* Insert a node in a list */
+
+static int
+lua_nodelib_insert_before (lua_State *L) {
+  halfword head, current, n, t;
+  if (lua_gettop(L)<3) {
+    lua_pushstring(L,"Not enough arguments for node.insert_before()");
+    lua_error(L);
+  }
+  if (lua_isnil(L,3)) {
+    lua_pop(L,1);
+    return 2;
+  } else {
+    n = *(check_isnode(L,3));
+  }
+  if (lua_isnil(L,1)) { /* no head */
+    vlink(n) = null;
+    alink(n) = null;
+    lua_pushnumber(L,n);
+    lua_nodelib_push(L);    
+    lua_pushvalue(L,-1);
+    return 2;  
+  } else {
+    head = *(check_isnode(L,1));
+  }
+  if (lua_isnil(L,2)) {
+    current = head;
+    while (vlink(current)!=null)  
+      current = vlink(current);
+  } else {
+    current = *(check_isnode(L,2));
+  }
+  t = alink(current);
+  if (t!=null)
+    vlink(t) = n;
+  alink(n) = t;
+  vlink(n) = current;    
+  alink(current) = n;
+  if (head==current) {
+    lua_pushnumber(L,n);
+  } else {
+    lua_pushnumber(L,head);
+  }
+  lua_nodelib_push(L);
+  lua_pushnumber(L,n);
+  lua_nodelib_push(L);    
+  return 2; 
+}
+
+
+static int
+lua_nodelib_insert_after (lua_State *L) {
+  halfword head, current, n, t;
+  if (lua_gettop(L)<3) {
+    lua_pushstring(L,"Not enough arguments for node.insert_after()");
+    lua_error(L);
+  }
+  if (lua_isnil(L,3)) {
+    lua_pop(L,1);
+    return 2;
+  } else {
+    n = *(check_isnode(L,3));
+  }
+  if (lua_isnil(L,1)) { /* no head */
+    vlink(n) = null;
+    alink(n) = null;
+    lua_pushnumber(L,n);
+    lua_nodelib_push(L);    
+    lua_pushvalue(L,-1);
+    return 2;  
+  } else {
+    head = *(check_isnode(L,1));
+  }
+  if (lua_isnil(L,2)) {
+    current = head;
+    while (vlink(current)!=null)  
+      current = vlink(current);
+  } else {
+    current = *(check_isnode(L,2));
+  }
+  vlink(n) = vlink(current);
+  vlink(current) = n;
+  alink(n) = current;
+
+  lua_pop(L,2);
+  lua_pushnumber(L,n);
+  lua_nodelib_push(L);    
+  return 2; 
+}
+
 
 /* Copy a node list */
 
@@ -1805,7 +1960,7 @@ lua_nodelib_print  (lua_State *L) {
     snprintf(a,7,"%6d",alink(*n));
   if (vlink(*n)!=null) 
     snprintf(v,7,"%6d",vlink(*n));
-  snprintf(msg,255,"<node %s < %6d > %s : %s>", a, *n, v, node_names[type(*n)]);
+  snprintf(msg,255,"<node %s < %6d > %s : %s %d>", a, *n, v, node_names[type(*n)], subtype(*n));
   lua_pushstring(L,msg);
   free(msg);
   return 1;
@@ -1838,6 +1993,9 @@ static const struct luaL_reg nodelib_f [] = {
   {"has_field",     lua_nodelib_has_field},
   {"free",          lua_nodelib_free},
   {"flush_list",    lua_nodelib_flush_list},
+  {"remove",        lua_nodelib_remove},
+  {"insert_before", lua_nodelib_insert_before},
+  {"insert_after",  lua_nodelib_insert_after},
   {"copy",          lua_nodelib_copy},
   {"copy_list",     lua_nodelib_copy_list},
   {"hpack",         lua_nodelib_hpack},
