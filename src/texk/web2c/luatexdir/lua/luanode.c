@@ -609,68 +609,13 @@ undump_node_mem (void) {
 }
 
 
-
-void
-lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail_node) {
-  halfword ret,r;  
-  int a;
-  integer callback_id ; 
-  int glyph_count;
-  lua_State *L = Luas[0];
-  callback_id = callback_defined(filterid);
-  if (callback_id==0) {
-    return;
-  }
-  lua_rawgeti(L,LUA_REGISTRYINDEX,callback_callbacks_id);
-  lua_rawgeti(L,-1, callback_id);
-  if (!lua_isfunction(L,-1)) {
-    lua_pop(L,2);
-    return;
-  }
-  r = vlink(head_node);
-  glyph_count = 0;
-  while (r!=null) {
-    if (type(r)==glyph_node) 
-      glyph_count++;
-    r=vlink(r);
-  }
-  nodelist_to_lua(L,vlink(head_node));
-  lua_pushstring(L,group_code_names[extrainfo]);
-  lua_pushnumber(L,glyph_count);
-  if (lua_pcall(L,3,1,0) != 0) { /* no arg, 1 result */
-    fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
-    lua_pop(L,2);
-    error();
-    return;
-  }
-  if (lua_isboolean(L,-1)) {
-    if (lua_toboolean(L,-1)!=1) {
-      flush_node_list(vlink(head_node));
-      vlink(head_node) = null;
-    }
-  } else {
-    a = nodelist_from_lua(L);
-    vlink(head_node)= a;
-  }
-  lua_pop(L,2); /* result and callback container table */
-  ret = vlink(head_node); 
-  if (ret!=null) {
-    while (vlink(ret)!=null)
-      ret=vlink(ret); 
-    *tail_node=ret;
-  } else {
-    *tail_node=head_node;
-  }
-  return ;
-}
-
-/* this is a quick hack */
 void
 lua_node_filter_s (int filterid, char *extrainfo, halfword head_node, halfword *tail_node) {
   halfword ret,r;  
   int a;
   integer callback_id ; 
   int glyph_count;
+  int nargs = 2;
   lua_State *L = Luas[0];
   callback_id = callback_defined(filterid);
   if (callback_id==0) {
@@ -682,17 +627,20 @@ lua_node_filter_s (int filterid, char *extrainfo, halfword head_node, halfword *
     lua_pop(L,2);
     return;
   }
-  r = vlink(head_node);
-  glyph_count = 0;
-  while (r!=null) {
-    if (type(r)==glyph_node) 
-      glyph_count++;
-    r=vlink(r);
+  nodelist_to_lua(L,vlink(head_node)); /* arg 1 */
+  lua_pushstring(L,extrainfo);         /* arg 2 */
+  if (filterid==linebreak_filter_callback) {
+    glyph_count = 0;
+    r = vlink(head_node);
+    while (r!=null) {
+      if (type(r)==glyph_node) 
+	glyph_count++;
+      r=vlink(r);
+    }
+    nargs++;
+    lua_pushnumber(L,glyph_count); /* arg 3 */
   }
-  nodelist_to_lua(L,vlink(head_node));
-  lua_pushstring(L,extrainfo);
-  lua_pushnumber(L,glyph_count);
-  if (lua_pcall(L,3,1,0) != 0) { /* no arg, 1 result */
+  if (lua_pcall(L,nargs,1,0) != 0) { /* no arg, 1 result */
     fprintf(stdout,"error: %s\n",lua_tostring(L,-1));
     lua_pop(L,2);
     error();
@@ -718,6 +666,13 @@ lua_node_filter_s (int filterid, char *extrainfo, halfword head_node, halfword *
   }
   return ;
 }
+
+void
+lua_node_filter (int filterid, int extrainfo, halfword head_node, halfword *tail_node) {
+  lua_node_filter_s(filterid, group_code_names[extrainfo], head_node, tail_node);
+  return ;
+}
+
 
 
 halfword
