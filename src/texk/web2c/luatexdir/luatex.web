@@ -1853,12 +1853,13 @@ routine when it knows that this is safe. (The present implementation
 assumes that it is always safe to print a visible ASCII character.)
 @^system dependencies@>
 
-The highest 256 entries in the 17th unicode plane are used for a
+The first 256 entries above the 17th unicode plane are used for a
 special trick: when \TeX\ has to print items in that range, it will
-instead print the character that results from substracting @"10FF00
+instead print the character that results from substracting @"110000
 from that value. This allows byte-oriented output to things like
-\.{\\specials} and \.{\\pdfliterals}.
-
+\.{\\specials} and \.{\\pdfliterals}. Todo: Perhaps it would be useful 
+to do the same substraction while typesetting.
+ 
 @d print_lc_hex(#)==l:=#;
    if l<10 then print_char(l+"0") else print_char(l-10+"a");
 
@@ -1905,39 +1906,6 @@ result := a;
 not_found: pool_to_unichar := result;
 end ;
 
-function unichar_to_buffer(k,c:integer):integer;
-var d:integer;
-begin
-	d:=1;   
-	 if c <= @"7F then
-        buffer[k]:= c
-     else if c<=@"7FF then begin
-        buffer[k]:=@"C0 + c div @"40;
-        incr(k); incr(d);
-        buffer[k]:=@"80 + c mod @"40;
-        end
-     else if c<=@"FFFF then begin
-        buffer[k]:=@"E0 + c div @"1000;
-        incr(k);  incr(d);
-        buffer[k]:=@"80 + (c mod @"1000) div @"40;
-        incr(k);  incr(d);
-        buffer[k]:=@"80 + (c mod @"1000) mod @"40;
-        end
-     else if c>=@"10FF00 then 
-	    buffer[k] := c-@"10FF00
-     else begin
-        buffer[k]:=@"F0 + c div @"40000;
-        incr(k);  incr(d);
-        buffer[k]:=@"80 + (c mod @"40000) div @"1000;
-        incr(k);  incr(d);
-        buffer[k]:=@"80 + ((c mod @"40000) mod @"1000) div @"40;
-        incr(k);  incr(d);
-        buffer[k]:=@"80 + ((c mod @"40000) mod @"1000) mod @"40;
-        end;
-  unichar_to_buffer:=d;
-end;
-
-
 procedure print(@!s:integer); {prints string |s|}
 label exit;
 var j:pool_pointer; {current character code position}
@@ -1968,8 +1936,8 @@ else if s<string_offset then
       print_char(@"80 + ((s mod @"1000) mod @"40));
       end 
     else begin 
-      if s>=@"10FF00 then 
-	    print_char(s-@"10FF00)
+      if s>=@"110000 then 
+	    print_char(s-@"110000)
       else begin
         print_char(@"F0 + (s div @"40000));
         print_char(@"80 + ((s mod @"40000) div @"1000));
@@ -1981,11 +1949,10 @@ else if s<string_offset then
     end;
 j:=str_start_macro(s);
 while j<str_start_macro(s+1) do
-  begin 
-    if (str_pool[j]=@"F7)and(j<str_start_macro(s+4))and
-       (str_pool[j+1]=@"BF)and(str_pool[j+2]>=@"BC) then begin
+  begin { 0x110000 in utf=8: 0xF4 0x90 0x80 0x80 }
+    if (str_pool[j]=@"F4)and(j<str_start_macro(s+4))and(str_pool[j+1]=@"90) then begin
 	  v := (((7*64+63)*64)+ (str_pool[j+2]-128))*64 +(str_pool[j+3]-128);
-	  print_char(v-@"10FF00); j := j+4;
+	  print_char(v-@"110000); j := j+4;
       end
     else begin
       print_char(str_pool[j]); incr(j);
@@ -24815,7 +24782,7 @@ pop_nest;
 @ It is possible that the user wants to interfere at some point.  
 
 @d check_filter(#)==if (not output_active) and (vlink(head)<>null) then
-lua_node_filter(buildpage_filter_callback,0,head,addressof(tail))
+lua_node_filter_s(buildpage_filter_callback,#,head,addressof(tail))
 
 @ When looking for optimal line breaks, \TeX\ creates a ``break node'' for
 each break that is {\sl feasible}, in the sense that there is a way to end
@@ -30710,7 +30677,8 @@ var p,q,dir_graf_tmp:pointer;
 begin prev_graf:=0;
 if (mode=vmode)or(head<>tail) then begin
   tail_append(new_param_glue(par_skip_code));
-  check_filter('new_graf'); 
+  if nest_ptr=0 then
+    check_filter('new_graf'); 
   end;
 push_nest; mode:=hmode; space_factor:=1000; set_cur_lang; clang:=cur_lang;
 prev_graf:=(norm_min(left_hyphen_min)*@'100+norm_min(right_hyphen_min))
