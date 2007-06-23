@@ -27,6 +27,9 @@
    the end of luatexcoerce.h, as well as from the C sources 
 */
 
+#ifndef TEXFONT_H
+#define TEXFONT_H 1
+
 #include "luatexdir/managed-sa.h"
 
 #define pointer halfword
@@ -57,6 +60,24 @@ typedef struct charinfo {
   char tag ;                 /* list / ext taginfo */
   char used ;                /* char is typeset ? */
 } charinfo;
+
+
+/* this is for speed reasons, it is called from the web source
+   when more than two of the traditional four char values are needed 
+   at the same time. the structure |charinfo_short| is defined in 
+   web */
+
+#ifndef luaTeX
+typedef struct charinfo_short {
+  scaled ci_wd;              /* width */
+  scaled ci_ht;             /* height */
+  scaled ci_dp;              /* depth */
+} charinfo_short;
+#endif
+
+
+extern charinfo_short char_info_short (internal_font_number f, integer c);
+
 
 
 typedef struct texfont {
@@ -428,3 +449,5 @@ extern scaled sqxfw (scaled sq, integer fw);
 
 extern void do_vf_packet (internal_font_number vf_f, integer c);
 extern int vf_packet_bytes (charinfo *co);
+
+#endif

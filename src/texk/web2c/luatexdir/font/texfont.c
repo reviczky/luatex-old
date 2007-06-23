@@ -40,7 +40,6 @@
 #define dxfree(a,b) { xfree(a); a = b ; }
 #define do_realloc(a,b,d)    a = xrealloc(a,(b)*sizeof(d))
 
-
 texfont **font_tables = NULL;
 
 static integer font_arr_max = 0;
@@ -232,6 +231,19 @@ char_info (internal_font_number f, integer c) {
   }
   return &(font_tables[f]->charinfo[0]);
 }
+
+charinfo_short
+char_info_short (internal_font_number f, integer c) {
+  charinfo_short s;
+  charinfo *i;
+  sa_tree_item glyph = 0;
+  i = char_info(f,c);
+  s.ci_wd = i->width;
+  s.ci_dp = i->depth;
+  s.ci_ht = i->height;
+  return s;
+}
+
 
 integer
 char_exists (internal_font_number f, integer c) {

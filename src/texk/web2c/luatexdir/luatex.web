@@ -15469,6 +15469,22 @@ dvi_direction:=save_direction;
 @<DIR: Reset |dir_ptr|@>;
 end;
 
+@ This is a cacheing attempt
+
+@d charinfo_width(#)==#.ci_wd
+@d charinfo_height(#)==#.ci_ht
+@d charinfo_depth(#)==#.ci_dp
+
+@<Types...@>=
+charinfo_short = packed record@;@/
+  @!ci_wd:scaled;
+  @!ci_ht:scaled;
+  @!ci_dp:scaled;
+  end;
+
+@ @<Glob...@>=
+ci:charinfo_short;
+
 @ We ought to give special care to the efficiency of one part of |hlist_out|,
 since it belongs to \TeX's inner loop. When a |char_node| is encountered,
 we save a little time by processing several nodes in succession until
@@ -15479,15 +15495,16 @@ reaching a non-|char_node|. The program uses the fact that |set_char_0=0|.
 reswitch: if is_char_node(p) then
   begin synch_h; synch_v;
   repeat f:=font(p); c:=character(p);
+  ci := char_info_short(f,c);
   if f<>dvi_f then @<Change font |dvi_f| to |f|@>;
   if is_rotated(dvi_direction) then begin
-    c_ht:=char_width(f,c) div 2;
-    c_wd:=char_height(f,c)+char_depth(f,c);
+    c_ht:=charinfo_width(ci) div 2;
+    c_wd:=charinfo_height(ci)+charinfo_depth(ci);
     end
   else begin
-    c_ht:=char_height(f,c);
-    c_dp:=char_depth(f,c);
-    c_wd:=char_width(f,c);
+    c_ht:=charinfo_height(ci);
+    c_dp:=charinfo_depth(ci);
+    c_wd:=charinfo_width(ci);
     end;
   cur_h:=cur_h+c_wd;
   if (font_natural_dir(f)<>-1) then begin
@@ -19006,16 +19023,17 @@ end
 reswitch: if is_char_node(p) then 
   begin
   repeat f:=font(p); c:=character(p);
+  ci := char_info_short (f,c);
   {|writeln('hlist_out: a char node ', c:1 , '');|}
   if is_valid_char(c) then begin
   if is_rotated(dvi_direction) then begin
-    c_ht:=char_width(f,c) div 2;
-    c_wd:=char_height(f,c)+char_depth(f,c);
+    c_ht:=charinfo_width(ci) div 2;
+    c_wd:=charinfo_height(ci)+charinfo_depth(ci);
     end
   else begin
-    c_ht:=char_height(f,c);
-    c_dp:=char_depth(f,c);
-    c_wd:=char_width(f,c);
+    c_ht:=charinfo_height(ci);
+    c_dp:=charinfo_depth(ci);
+    c_wd:=charinfo_width(ci);
     end;
   if (font_natural_dir(f)<>-1) then
     case font_direction(dvi_direction) of
@@ -21525,22 +21543,22 @@ if m >= cal_expand_ratio then begin
         do_subst_font(p, font_expand_ratio);
     endcases;
 end;
-f:=font(p); 
+f:=font(p);
+ci:=char_info_short(f,character(p)); 
 if is_rotated(hpack_dir) then begin
-  x:=x+char_height(f,character(p))+char_depth(f,character(p));@/
-  s:=char_width(f,character(p)) div 2;@+if s>h then h:=s;
-  s:=char_width(f,character(p)) div 2;@+if s>d then d:=s;
+  x:=x+charinfo_height(ci)+charinfo_depth(ci);@/
+  s:=charinfo_width(ci) div 2;@+if s>h then h:=s;@+if s>d then d:=s;
   end
 else if dir_opposite(dir_tertiary[hpack_dir])(dir_tertiary[box_dir(r)])
   then begin
-  x:=x+char_width(f,character(p));@/
-  s:=char_depth(f,character(p));@+if s>h then h:=s;
-  s:=char_height(f,character(p));@+if s>d then d:=s;
+  x:=x+charinfo_width(ci);@/
+  s:=charinfo_depth(ci);@+if s>h then h:=s;
+  s:=charinfo_height(ci);@+if s>d then d:=s;
   end
 else begin
-  x:=x+char_width(f,character(p));@/
-  s:=char_height(f,character(p));@+if s>h then h:=s;
-  s:=char_depth(f,character(p));@+if s>d then d:=s;
+  x:=x+charinfo_width(ci);@/
+  s:=charinfo_height(ci);@+if s>h then h:=s;
+  s:=charinfo_depth(ci);@+if s>d then d:=s;
   end;
 p:=vlink(p);
 end
@@ -22618,8 +22636,9 @@ may deliver a slightly different result than |hpack| would produce.
 function char_box(@!f:internal_font_number;@!c:quarterword):pointer;
 var @!b,@!p:pointer; {the new box and its character node}
 begin 
-b:=new_null_box; width(b):=char_width(f,c)+char_italic(f,c);
-height(b):=char_height(f,c); depth(b):=char_depth(f,c);
+b:=new_null_box; ci:=char_info_short(f,c);
+width(b):=charinfo_width(ci)+char_italic(f,c);
+height(b):=charinfo_height(ci); depth(b):=charinfo_depth(ci);
 p:=new_glyph(f,c); list_ptr(b):=p; char_box:=b;
 end;
 
