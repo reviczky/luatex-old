@@ -50,7 +50,7 @@ terms specified in this license.
  * Copyright (c) 1998 by Scriptics Corporation.
  * All rights reserved.
  *
- * RCS: @(#) $Id: slnudata.c,v 1.1 2005/02/14 13:11:48 krip Exp $
+ * RCS: @(#) $Id: slnudata.c,v 1.1.1.1 2006/04/19 15:03:33 erik Exp $
  */
 
 /*
