@@ -17842,13 +17842,6 @@ whatsit node; |obj_bead_rect| is needed only when the bead rectangle has
 been written out and after that |obj_bead_data| is not needed any more
 so we can use this field for both}
 
-@# {data structure of snap node}
-@d snap_node_size           == 3
-@d snap_glue_ptr(#)         == vlink(# + 2)
-@d final_skip(#)            == vinfo(# + 2) {the amount to skip}
-@# {data structure of snap compensation node}
-@d snapy_comp_ratio(#)       == vinfo(# + 2)
-
 @<Constants...@>=
 @!inf_obj_tab_size = 1000; {min size of the cross-reference table for PDF output}
 @!sup_obj_tab_size = 8388607; {max size of the cross-reference table for PDF output}
@@ -24643,7 +24636,7 @@ aux_save:=aux; p:=vlink(head); q:=tail; pop_nest;
 if mode=mmode then @<Finish an alignment in a display@>
 else  begin aux:=aux_save; vlink(tail):=p;
   if p<>null then tail:=q;
-  if mode=vmode then begin check_filter('add_list'); build_page; end;
+  if mode=vmode then begin check_filter('alignment'); build_page; end;
   end
 
 @* \[38] Breaking paragraphs into lines.
@@ -28187,13 +28180,6 @@ while p<>null do
   hlist_node,vlist_node,rule_node:@<Insert glue for |split_top_skip|
     and set~|p:=null|@>;
   whatsit_node,mark_node,ins_node: begin
-    if (type(p) = whatsit_node) and
-        ((subtype(p) = pdf_snapy_node) or
-         (subtype(p) = pdf_snapy_comp_node)) then
-      begin
-        print("snap node being discarded");
-        goto discard_or_move;
-      end;
     prev_p:=p; p:=vlink(prev_p);
     end;
   glue_node,kern_node,penalty_node: begin
@@ -28833,14 +28819,7 @@ hlist_node,vlist_node,rule_node: if page_contents<box_there then
       ahead of |p|, and |goto continue|@>
   else @<Prepare to move a box or rule node to the current page,
     then |goto contribute|@>;
-whatsit_node: if (page_contents < box_there) and
-                  ((subtype(p) = pdf_snapy_node) or
-                   (subtype(p) = pdf_snapy_comp_node)) then
-              begin
-                  print("snap node being discarded");
-                  goto done1;
-              end
-              else @<Prepare to move whatsit |p| to the current page,
+whatsit_node: @<Prepare to move whatsit |p| to the current page,
                      then |goto contribute|@>;
 glue_node: if page_contents<box_there then goto done1
   else if precedes_break(page_tail) then pi:=0
@@ -30438,7 +30417,7 @@ begin if cur_box<>null then
                 append_list(adjust_head)(adjust_tail);
             adjust_tail := null;
         end;
-    if mode>0 then begin check_filter('cur_box'); build_page; end;
+    if mode>0 then begin check_filter('box'); build_page; end;
     end
   else  begin if abs(mode)=hmode then space_factor:=1000
     else  begin p:=new_noad;
@@ -30678,7 +30657,7 @@ begin prev_graf:=0;
 if (mode=vmode)or(head<>tail) then begin
   tail_append(new_param_glue(par_skip_code));
   if nest_ptr=0 then
-    check_filter('new_graf'); 
+    check_filter('begin_of_par'); 
   end;
 push_nest; mode:=hmode; space_factor:=1000; set_cur_lang; clang:=cur_lang;
 prev_graf:=(norm_min(left_hyphen_min)*@'100+norm_min(right_hyphen_min))
@@ -30823,7 +30802,7 @@ insert_group: begin
     adjust_ptr(tail):=list_ptr(p); delete_glue_ref(q);
     end;
   ext_free_node(p,box_node_size);
-  if nest_ptr=0 then begin check_filter('insert_group'); build_page; end;
+  if nest_ptr=0 then begin check_filter('insert'); build_page; end;
   end;
 output_group: @<Resume the page builder...@>;
 
@@ -30863,7 +30842,7 @@ any_mode(break_penalty): append_penalty;
 @ @<Declare action...@>=
 procedure append_penalty;
 begin scan_int; tail_append(new_penalty(cur_val));
-if mode=vmode then begin check_filter('append_pen'); build_page; end;
+if mode=vmode then begin check_filter('penalty'); build_page; end;
 end;
 
 @ The |remove_item| command removes a penalty, kern, or glue node if it
@@ -31441,7 +31420,7 @@ eq_word_define(dimen_base+pre_display_size_code,w);
 eq_word_define(dimen_base+display_width_code,l);
 eq_word_define(dimen_base+display_indent_code,s);
 if every_display<>null then begin_token_list(every_display,every_display_text);
-if nest_ptr=1 then begin check_filter('to_display_math'); build_page; end;
+if nest_ptr=1 then begin check_filter('before_display'); build_page; end;
 end
 
 @ @<Calculate the natural width, |w|, by which...@>=
@@ -34835,21 +34814,16 @@ stays the same.
 @d pdf_trailer_code            == pdftex_first_extension_code + 23
 @d pdf_font_expand_code        == pdftex_first_extension_code + 24
 @d set_random_seed_code        == pdftex_first_extension_code + 25
-@d pdf_snap_ref_point_node     == pdftex_first_extension_code + 26
-@d pdf_snap_ref_point_node_size==3
-@d pdf_snapy_node              == pdftex_first_extension_code + 27
-@d pdf_snapy_comp_node         == pdftex_first_extension_code + 28
-@d pdf_snapy_comp_node_size==3
-@d pdf_glyph_to_unicode_code   == pdftex_first_extension_code + 29
-@d late_lua_node               == pdftex_first_extension_code + 30
-@d close_lua_node              == pdftex_first_extension_code + 31
-@d save_cat_code_table_code    == pdftex_first_extension_code + 32
-@d init_cat_code_table_code    == pdftex_first_extension_code + 33
-@d pdf_colorstack_node         == pdftex_first_extension_code + 34
-@d pdf_setmatrix_node          == pdftex_first_extension_code + 35
-@d pdf_save_node               == pdftex_first_extension_code + 36
-@d pdf_restore_node            == pdftex_first_extension_code + 37
-@d pdftex_last_extension_code  == pdftex_first_extension_code + 37
+@d pdf_glyph_to_unicode_code   == pdftex_first_extension_code + 26
+@d late_lua_node               == pdftex_first_extension_code + 27
+@d close_lua_node              == pdftex_first_extension_code + 28
+@d save_cat_code_table_code    == pdftex_first_extension_code + 29
+@d init_cat_code_table_code    == pdftex_first_extension_code + 30
+@d pdf_colorstack_node         == pdftex_first_extension_code + 31
+@d pdf_setmatrix_node          == pdftex_first_extension_code + 32
+@d pdf_save_node               == pdftex_first_extension_code + 33
+@d pdf_restore_node            == pdftex_first_extension_code + 34
+@d pdftex_last_extension_code  == pdftex_first_extension_code + 34
 
 @<Put each...@>=
 primitive("openout",extension,open_node);@/
@@ -34913,12 +34887,6 @@ primitive("pdfendthread",extension,pdf_end_thread_node);@/
 @!@:pdf_end_thread_}{\.{\\pdfendthread} primitive@>
 primitive("pdfsavepos",extension,pdf_save_pos_node);@/
 @!@:pdf_save_pos_}{\.{\\pdfsavepos} primitive@>
-primitive("pdfsnaprefpoint",extension,pdf_snap_ref_point_node);@/
-@!@:pdf_snap_ref_point_}{\.{\\pdfsnaprefpoint} primitive@>
-primitive("pdfsnapy",extension,pdf_snapy_node);@/
-@!@:pdf_snapy_}{\.{\\pdfsnapy} primitive@>
-primitive("pdfsnapycomp",extension,pdf_snapy_comp_node);@/
-@!@:pdf_snapy_comp_}{\.{\\pdfsnapycomp} primitive@>
 primitive("pdfinfo",extension,pdf_info_code);@/
 @!@:pdf_info_}{\.{\\pdfinfo} primitive@>
 primitive("pdfcatalog",extension,pdf_catalog_code);@/
@@ -34987,9 +34955,6 @@ extension: case chr_code of
   pdf_refxform_node: print_esc("pdfrefxform");
   pdf_refximage_node: print_esc("pdfrefximage");
   pdf_save_pos_node: print_esc("pdfsavepos");
-  pdf_snap_ref_point_node: print_esc("pdfsnaprefpoint");
-  pdf_snapy_comp_node: print_esc("pdfsnapycomp");
-  pdf_snapy_node: print_esc("pdfsnapy");
   pdf_start_link_node: print_esc("pdfstartlink");
   pdf_start_thread_node: print_esc("pdfstartthread");
   pdf_thread_node: print_esc("pdfthread");
@@ -35046,9 +35011,6 @@ begin case cur_chr of
   pdf_refxform_node: @<Implement \.{\\pdfrefxform}@>;
   pdf_refximage_node: @<Implement \.{\\pdfrefximage}@>;
   pdf_save_pos_node: @<Implement \.{\\pdfsavepos}@>;
-  pdf_snap_ref_point_node: @<Implement \.{\\pdfsnaprefpoint}@>;
-  pdf_snapy_comp_node: @<Implement \.{\\pdfsnapycomp}@>;
-  pdf_snapy_node: @<Implement \.{\\pdfsnapy}@>;
   pdf_start_link_node: @<Implement \.{\\pdfstartlink}@>;
   pdf_start_thread_node: @<Implement \.{\\pdfstartthread}@>;
   pdf_thread_node: @<Implement \.{\\pdfthread}@>;
@@ -36099,48 +36061,6 @@ end
 @ @<Glob...@>=
 @!pdf_last_x_pos: integer;
 @!pdf_last_y_pos: integer;
-@!pdf_snapx_refpos: integer;
-@!pdf_snapy_refpos: integer;
-@!count_do_snapy: integer;
-
-@ @<Set init...@>=
-count_do_snapy := 0;
-
-@ @<Implement \.{\\pdfsnaprefpoint}@>=
-begin
-    check_pdfoutput("\pdfsnaprefpoint", true);
-    new_whatsit(pdf_snap_ref_point_node, pdf_snap_ref_point_node_size);
-end
-
-@ @<Declare procedures needed in |do_ext...@>=
-function new_snap_node(s: small_number): pointer;
-var p: pointer;
-begin
-    scan_glue(glue_val);
-    if width(cur_val) < 0 then
-        pdf_error("ext1", "negative snap glue");
-    p := get_node(snap_node_size);
-    set_type(p,whatsit_node);
-    subtype(p) := s;
-    vlink(p) := null;
-    snap_glue_ptr(p) := cur_val;
-    final_skip(p) := 0;
-    new_snap_node := p;
-end;
-
-@ @<Implement \.{\\pdfsnapy}@>=
-begin
-    check_pdfoutput("\pdfsnapy", true);
-    tail_append(new_snap_node(pdf_snapy_node));
-end
-
-@ @<Implement \.{\\pdfsnapycomp}@>=
-begin
-    check_pdfoutput("\pdfsnapycomp", true);
-    new_whatsit(pdf_snapy_comp_node, pdf_snapy_comp_node_size);
-    scan_int;
-    snapy_comp_ratio(tail) := fix_int(cur_val, 0, 1000);
-end
 
 @ @<Implement \.{\\pdfsavepos}@>=
 begin
@@ -36674,19 +36594,6 @@ pdf_start_thread_node: begin
 end;
 pdf_end_thread_node: print_esc("pdfendthread");
 pdf_save_pos_node: print_esc("pdfsavepos");
-pdf_snap_ref_point_node: print_esc("pdfsnaprefpoint");
-pdf_snapy_node: begin
-    print_esc("pdfsnapy");
-    print_char(" ");
-    print_spec(snap_glue_ptr(p), 0);
-    print_char(" ");
-    print_spec(final_skip(p), 0);
-end;
-pdf_snapy_comp_node: begin
-    print_esc("pdfsnapycomp");
-    print_char(" ");
-    print_int(snapy_comp_ratio(p));
-end;
 user_defined_node: begin
     print_esc("whatsit");
 	print_int(user_node_id(p));
@@ -36824,16 +36731,6 @@ pdf_end_thread_node: begin r := get_node(pdf_end_thread_node_size);
   end;
 pdf_save_pos_node: begin r := get_node(pdf_save_pos_node_size);
   end;
-pdf_snap_ref_point_node: begin r := get_node(pdf_snap_ref_point_node_size);
-  end;
-pdf_snapy_node: begin r := get_node(snap_node_size);
-  final_skip(r) := final_skip(p);
-  snap_glue_ptr(r):=snap_glue_ptr(p);
-  add_glue_ref(snap_glue_ptr(p));
-  end;
-pdf_snapy_comp_node: begin r := get_node(pdf_snapy_comp_node_size);
-  snapy_comp_ratio(r) := snapy_comp_ratio(p);
-  end;
 local_par_node: begin r:=get_node(local_par_size);
   local_pen_inter(r) := local_pen_inter(p);
   local_pen_broken(r) := local_pen_broken(p);
@@ -36934,14 +36831,6 @@ pdf_end_thread_node:
     free_node(p, pdf_end_thread_node_size);
 pdf_save_pos_node:
     free_node(p, pdf_save_pos_node_size);
-pdf_snap_ref_point_node:
-    free_node(p, pdf_snap_ref_point_node_size);
-pdf_snapy_node: begin
-    delete_glue_ref(snap_glue_ptr(p));
-    free_node(p, snap_node_size);
-end;
-pdf_snapy_comp_node:
-    free_node(p, pdf_snapy_comp_node_size);
 local_par_node: 
     free_node(p,local_par_size);
 user_defined_node: begin
@@ -37255,6 +37144,7 @@ var p,q:pointer;
 begin
 p:=get_node(local_par_size); set_type(p,whatsit_node);
 subtype(p):=local_par_node; vlink(p):=null;
+build_attribute_list(p);
 local_pen_inter(p):=local_inter_line_penalty;
 local_pen_broken(p):=local_broken_penalty;
 if local_left_box=null then begin
@@ -38197,150 +38087,6 @@ begin
     pdf_print_ln("Q");
 end;
 
-
-function gap_amount(p: pointer; cur_pos: scaled): scaled; {find the gap between
-the position of the current snap node |p| and the nearest point on the grid}
-var snap_unit, stretch_amount, shrink_amount: scaled;
-    last_pos, next_pos, g, g2: scaled;
-begin
-    snap_unit := width(snap_glue_ptr(p));
-    if stretch_order(snap_glue_ptr(p)) > normal then
-        stretch_amount := max_dimen
-    else
-        stretch_amount := stretch(snap_glue_ptr(p));
-    if shrink_order(snap_glue_ptr(p)) > normal then
-        shrink_amount := max_dimen
-    else
-        shrink_amount := shrink(snap_glue_ptr(p));
-    if subtype(p) = pdf_snapy_node then
-        last_pos := pdf_snapy_refpos +
-            snap_unit * ((cur_pos - pdf_snapy_refpos) div snap_unit)
-    else
-        pdf_error("snapping", "invalid parameter value for gap_amount");
-    next_pos := last_pos + snap_unit;
-    @{
-    print_nl("snap ref pos = "); print_scaled(pdf_snapy_refpos);
-    print_nl("snap glue = "); print_spec(snap_glue_ptr(p), 0);
-    print_nl("gap amount = "); print_scaled(snap_unit);
-    print_nl("stretch amount = "); print_scaled(stretch_amount);
-    print_nl("shrink amount = "); print_scaled(shrink_amount);
-    print_nl("last point = "); print_scaled(last_pos);
-    print_nl("cur point = "); print_scaled(cur_pos);
-    print_nl("next point = "); print_scaled(next_pos);
-    @}
-    g := max_dimen;
-    g2 := max_dimen;
-    gap_amount := 0;
-    if cur_pos - last_pos < shrink_amount then
-        g := cur_pos - last_pos;
-    if (next_pos - cur_pos < stretch_amount) then
-        g2 := next_pos - cur_pos;
-    if (g = max_dimen) and (g2 = max_dimen) then
-        return; {unable to snap}
-    if g2 <= g then
-        gap_amount := g2 {skip forward}
-    else
-        gap_amount := -g; {skip backward}
-end;
-
-function get_vpos(p, q, b: pointer): pointer; {find the vertical position of
-node |q| in the output PDF page; this functions is called when the current node
-is |p| and current position is |cur_v| (global variable); |b| is the parent
-box;}
-var tmp_v: scaled;
-    g_order: glue_ord; {applicable order of infinity for glue}
-    g_sign: normal..shrinking; {selects type of glue}
-    glue_temp: real; {glue value before rounding}
-    cur_glue: real; {glue seen so far}
-    cur_g: scaled; {rounded equivalent of |cur_glue| times the glue ratio}
-    this_box: pointer; {pointer to containing box}
-begin
-    tmp_v := cur_v;
-    this_box := b;
-    cur_g := 0;
-    cur_glue := float_constant(0);
-    g_order := glue_order(this_box);
-    g_sign := glue_sign(this_box);
-    while (p <> q) and (p <> null) do begin
-        if is_char_node(p) then
-            confusion("get_vpos")
-        else begin
-            case type(p) of
-            hlist_node,
-            vlist_node,
-            rule_node:
-                tmp_v := tmp_v + height(p) + depth(p);
-            whatsit_node:
-                if (subtype(p) = pdf_refxform_node) or
-                   (subtype(p) = pdf_refximage_node) then
-                    tmp_v := tmp_v + pdf_height(p) + pdf_depth(p);
-            glue_node: begin
-                @<Move down without outputting leaders@>;
-                tmp_v := tmp_v + rule_ht;
-            end;
-            kern_node:
-                tmp_v := tmp_v + width(p);
-            othercases do_nothing;
-            endcases;
-        end;
-        p := vlink(p);
-    end;
-    get_vpos := tmp_v;
-end;
-
-procedure do_snapy_comp(p, b: pointer); {do snapping compensation in vertical
-direction; searchs for the next snap node and do the compensation if found}
-var q: pointer;
-    tmp_v, g, g2: scaled;
-begin
-    if not (not is_char_node(p) and
-            (type(p) = whatsit_node) and
-            (subtype(p) = pdf_snapy_comp_node))
-    then
-        pdf_error("snapping", "invalid parameter value for do_snapy_comp");
-    q := p;
-    while (q <> null) do begin
-        if not is_char_node(q) and
-           (type(q) = whatsit_node) and
-           (subtype(q) = pdf_snapy_node)
-        then begin
-            tmp_v := get_vpos(p, q, b); {get the position of |q|}
-            g := gap_amount(q, tmp_v); {get the gap to the grid}
-            g2 := round_xn_over_d(g, snapy_comp_ratio(p), 1000); {adjustment for |p|}
-            @{
-            print_nl("do_snapy_comp: tmp_v = "); print_scaled(tmp_v);
-            print_nl("do_snapy_comp: cur_v = "); print_scaled(cur_v);
-            print_nl("do_snapy_comp: g = "); print_scaled(g);
-            print_nl("do_snapy_comp: g2 = "); print_scaled(g2);
-            @}
-            cur_v := cur_v + g2;
-            final_skip(q) := g - g2; {adjustment for |q|}
-            if final_skip(q) = 0 then
-                final_skip(q) := 1; {use |1sp| as the magic value to record
-                                     that |final_skip| has been set here}
-            return;
-        end;
-        q := vlink(q);
-    end;
-end;
-
-procedure do_snapy(p: pointer);
-begin
-    incr(count_do_snapy);
-    @{
-    print_nl("do_snapy: count = "); print_int(count_do_snapy);
-    print_nl("do_snapy: cur_v = "); print_scaled(cur_v);
-    print_nl("do_snapy: final skip = "); print_scaled(final_skip(p));
-    @}
-    if final_skip(p) <> 0 then
-        cur_v := cur_v + final_skip(p)
-    else
-        cur_v := cur_v + gap_amount(p, cur_v);
-    @{
-    print_nl("do_snapy: cur_v after snap = "); print_scaled(cur_v);
-    @}
-end;
-
 @ @<Move down without outputting leaders@>=
 begin g:=glue_ptr(p); rule_ht:=width(g)-cur_g;
 if g_sign<>normal then
@@ -38400,12 +38146,6 @@ pdf_save_pos_node:
     @<Save current position to |pdf_last_x_pos|, |pdf_last_y_pos|@>;
 special_node:
     pdf_special(p);
-pdf_snap_ref_point_node:
-    @<Save current position to |pdf_snapx_refpos|, |pdf_snapy_refpos|@>;
-pdf_snapy_comp_node:
-    do_snapy_comp(p, this_box);
-pdf_snapy_node:
-    do_snapy(p);
 othercases out_what(p);
 endcases
 
@@ -38419,12 +38159,6 @@ begin
         pdf_last_y_pos := cur_page_height - cur_v
     else
         pdf_last_y_pos := pdf_xform_height + pdf_xform_depth - cur_v;
-end
-
-@ @<Save current position to |pdf_snapx_refpos|, |pdf_snapy_refpos|@>=
-begin
-    pdf_snapx_refpos := cur_h;
-    pdf_snapy_refpos := cur_v;
 end
 
 @ @<Output a Image node in a vlist@>=
@@ -38481,10 +38215,6 @@ pdf_save_pos_node:
     @<Save current position to |pdf_last_x_pos|, |pdf_last_y_pos|@>;
 special_node:
     pdf_special(p);
-pdf_snap_ref_point_node:
-    @<Save current position to |pdf_snapx_refpos|, |pdf_snapy_refpos|@>;
-pdf_snapy_comp_node,
-pdf_snapy_node: do_nothing; {snapy nodes do nothing in hlist}
 othercases if subtype(p)<>dir_node then out_what(p)
 else @<(PDF) Output a reflection instruction if the direction has changed@>;
 endcases
