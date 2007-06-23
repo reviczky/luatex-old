@@ -128,6 +128,7 @@ $Id $
 
 @define procedure get_token_lua;
 @define procedure lua_node_filter();
+@define procedure lua_node_filter_s();
 @define function lua_hpack_filter();
 @define function lua_vpack_filter();
 
