@@ -311,4 +311,22 @@ extern halfword tokenlist_from_lua(lua_State *L) ;
 
 extern void nodelist_to_lua (lua_State *L, halfword n);
 extern halfword nodelist_from_lua (lua_State *L) ;
+extern void lua_nodelib_push (lua_State *L) ;
+
+#define zero_glue       0
+#define sfi_glue        zero_glue+glue_spec_size
+#define fil_glue        sfi_glue+glue_spec_size
+#define fill_glue       fil_glue+glue_spec_size
+#define ss_glue         fill_glue+glue_spec_size
+#define fil_neg_glue    ss_glue+glue_spec_size
+#define page_ins_head   fil_neg_glue+glue_spec_size
+#define contrib_head    page_ins_head+temp_node_size
+#define page_head       contrib_head+temp_node_size
+#define temp_head       page_head+temp_node_size
+#define hold_head       temp_head+temp_node_size
+#define adjust_head     hold_head+temp_node_size
+#define pre_adjust_head adjust_head+temp_node_size
+#define active          pre_adjust_head+temp_node_size
+#define align_head      active+temp_node_size
+#define end_span        align_head+temp_node_size
 

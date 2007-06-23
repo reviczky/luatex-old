@@ -646,6 +646,47 @@ gettex (lua_State *L) {
   return 0; // not reached
 }
 
+
+int
+getlist (lua_State *L) {
+  char *str;
+  if (lua_isstring(L,1)) {
+    str = (char *)lua_tostring(L,1);
+    if (strcmp(str,"page_ins_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"contrib_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"page_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"temp_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"hold_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"adjust_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"pre_adjust_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"active")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"align_head")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else if (strcmp(str,"end_span")==0) {
+      lua_pushnumber(L,page_ins_head);  lua_nodelib_push(L);
+    } else {
+      lua_pushnil(L);
+    }
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+int
+setlist (lua_State *L) {
+  return 0;
+}
+
+
 #define STORE_WORD()				\
 if (w>0) {					\
   word[w] = 0;					\
@@ -774,6 +815,8 @@ static const struct luaL_reg texlib [] = {
   {"gettoks",   gettoks},
   {"setbox",    setbox},
   {"getbox",    getbox},
+  {"setlist",   setlist},
+  {"getlist",   getlist},
   {"setboxwd",  setboxwd},
   {"getboxwd",  getboxwd},
   {"setboxht",  setboxht},
@@ -794,6 +837,7 @@ int luaopen_tex (lua_State *L)
   make_table(L,"count","getcount","setcount");
   make_table(L,"toks","gettoks","settoks");
   make_table(L,"box","getbox","setbox");
+  make_table(L,"lists","getlist","setlist");
   make_table(L,"wd","getboxwd","setboxwd");
   make_table(L,"ht","getboxht","setboxht");
   make_table(L,"dp","getboxdp","setboxdp");

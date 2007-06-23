@@ -88,7 +88,7 @@ int get_valid_node_subtype_id (lua_State *L, int n) {
   range. This test could be improved.
 */
 
-static void
+void
 lua_nodelib_push(lua_State *L) {
   halfword n;
   halfword *a;
