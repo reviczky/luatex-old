@@ -90,9 +90,6 @@ char *whatsit_node_names[] = {
   "!" /* "pdf_trailer" */,
   "!" /* "pdf_font_expand" */,
   "!" /* "set_random_seed" */,
-  "pdf_snap_ref_point",
-  "pdf_snapy",
-  "pdf_snapy_comp",
   "!" /* "pdf_glyph_to_unicode" */,
   "late_lua",
   "close_lua",
@@ -252,18 +249,6 @@ lua_node_whatsit_new(int j) {
     break;
   case pdf_save_pos_node:
     p =get_node(pdf_save_pos_node_size);
-    break;
-  case pdf_snap_ref_point_node:
-    p =get_node(pdf_snap_ref_point_node_size);
-    break;
-  case pdf_snapy_node:
-    p =get_node(snap_node_size);
-    final_skip(p) = 0;
-    snap_glue_ptr(p) = null;
-    break;
-  case pdf_snapy_comp_node:
-    p =get_node(snap_node_size);
-    snapy_comp_ratio(p) = 0;
     break;
   case late_lua_node:
     p =get_node(write_node_size);

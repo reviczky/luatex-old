@@ -176,19 +176,16 @@ typedef enum {
   pdf_trailer_code,
   pdf_font_expand_code,
   set_random_seed_code,
-  pdf_snap_ref_point_node,
-  pdf_snapy_node, /* 35 */
-  pdf_snapy_comp_node,
   pdf_glyph_to_unicode_code,
-  late_lua_node,
+  late_lua_node, /* 35 */
   close_lua_node,
-  save_cat_code_table_code, /* 40 */
+  save_cat_code_table_code,
   init_cat_code_table_code,
   pdf_colorstack_node,
-  pdf_setmatrix_node,
+  pdf_setmatrix_node, /* 40 */
   pdf_save_node,
   pdf_restore_node,
-  user_defined_node /* 46 */ } whatsit_types ;
+  user_defined_node /* 43 */ } whatsit_types ;
 
 #define open_node_size 4
 #define write_node_size 3
@@ -263,14 +260,6 @@ typedef enum {
 #define pdf_end_link_node_size 3
 #define pdf_end_thread_node_size 3
 #define pdf_save_pos_node_size 3
-
-#define pdf_snap_ref_point_node_size 3
-#define pdf_snapy_comp_node_size 3
-#define snap_node_size 3
-
-#define snap_glue_ptr(a)    vlink((a) + 2)
-#define final_skip(a)       vinfo((a) + 2)
-#define snapy_comp_ratio(a) vinfo((a) + 2)
 
 #define pdf_colorstack_node_size 4
 #define pdf_setmatrix_node_size 3

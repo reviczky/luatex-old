@@ -539,9 +539,6 @@ static char * node_fields_whatsit_pdf_start_thread   [] = { "attr", "width", "he
 							    "named_id", "thread_id", "thread_attr", NULL };
 static char * node_fields_whatsit_pdf_end_thread     [] = { "attr", NULL };
 static char * node_fields_whatsit_pdf_save_pos       [] = { "attr", NULL };
-static char * node_fields_whatsit_pdf_snap_ref_point [] = { "attr", NULL };
-static char * node_fields_whatsit_pdf_snapy          [] = { "attr", "final_skip", "spec", NULL };
-static char * node_fields_whatsit_pdf_snapy_comp     [] = { "attr", "comp_ratio", NULL };
 static char * node_fields_whatsit_late_lua           [] = { "attr", "reg", "data", NULL };
 static char * node_fields_whatsit_close_lua          [] = { "attr", "reg", NULL };
 static char * node_fields_whatsit_pdf_colorstack     [] = { "attr", "stack", "cmd", "data", NULL };
@@ -580,9 +577,6 @@ static char ** node_fields_whatsits [] = {
   node_fields_whatsit_pdf_save_pos,
   NULL,  NULL,  NULL,  NULL,  NULL, 
   NULL,  NULL,  NULL,  NULL,  NULL,
-  node_fields_whatsit_pdf_snap_ref_point,
-  node_fields_whatsit_pdf_snapy,
-  node_fields_whatsit_pdf_snapy_comp,
   NULL,
   node_fields_whatsit_late_lua,
   node_fields_whatsit_close_lua,
@@ -1208,21 +1202,7 @@ lua_nodelib_getfield_whatsit  (lua_State *L, int n, int field) {
     break;
   case pdf_end_thread_node:     
   case pdf_save_pos_node:       
-  case pdf_snap_ref_point_node: 
     lua_pushnil(L); 
-    break;
-  case pdf_snapy_node:          
-    switch (field) {
-    case  4: lua_pushnumber(L,final_skip(n));	             break;
-    case  5: nodelib_pushspec(L,snap_glue_ptr(n));	     break;
-    default: lua_pushnil(L); 
-    }
-    break;
-  case pdf_snapy_comp_node:     
-    switch (field) {
-    case  4: lua_pushnumber(L,snapy_comp_ratio(n));	     break;
-    default: lua_pushnil(L); 
-    }
     break;
   case late_lua_node:           
     switch (field) {
@@ -1675,21 +1655,7 @@ lua_nodelib_setfield_whatsit(lua_State *L, int n, int field) {
     break;
   case pdf_end_thread_node:     
   case pdf_save_pos_node:       
-  case pdf_snap_ref_point_node: 
     return nodelib_cantset(L,field,n);
-    break;
-  case pdf_snapy_node:          
-    switch (field) {
-    case  4: final_skip(n) = lua_tointeger(L,3);            break;
-    case  5: snap_glue_ptr(n) = nodelib_getspec(L,3);       break;
-    default: return nodelib_cantset(L,field,n);
-    }
-    break;
-  case pdf_snapy_comp_node:     
-    switch (field) {
-    case  4: snapy_comp_ratio(n) = lua_tointeger(L,3);      break;
-    default: return nodelib_cantset(L,field,n);
-    }
     break;
   case late_lua_node:           
     switch (field) {
