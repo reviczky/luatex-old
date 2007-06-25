@@ -126,10 +126,10 @@ As far as the core engine is concerned, all input and output to text
 files is \UTF-8 encoded. Input files can be pre|-|processed using the
 \luatex{reader} callback. This will be explained in a later chapter.
 
-Output in byte|-|sized chunks can be achieved by using characters in the
-private use block that starts at index 1.113.856 (10FF00). When
-the times comes to print a character $c>=1.113.856$, \LUATEX\ will
-actually print the single byte corresponding to $c-1.113.856$.
+Output in byte|-|sized chunks can be achieved by using characters just
+outside of the valid unicode range, starting at the value 1.114.112 
+(\hex110000). When the times comes to print a character $c>=1.114.112$, \LUATEX\ will
+actually print the single byte corresponding to $c-1.114.112$.
 
 Output to the terminal uses \type{^^} notation for the lower control
 range ($c<32$), with the exception of \type{^^I}, \type{^^J} and
@@ -2003,7 +2003,7 @@ manipulation of the page building stage like imposition or column
 balancing.
 
 \startfunctioncall
-function(node <head>)
+function(node <head>, string <extrainfo>)
     return true | false | node <newhead>
 end
 \stopfunctioncall
@@ -2018,6 +2018,23 @@ replaced by this node
 \item \type{boolean false} signals that the \quote{head} node list should be
 ignored and flushed from memory
 \stopitemize
+
+The string \type{extrainfo} gives some additional information about
+what \TEX's state is with respect to the `current page'. The possible
+values are:
+
+\starttabulate[|lT|p|]
+\NC \bf value           \NC \bf explanation                        \NC\NR
+\NC \tt alignment       \NC a (partial) alignment is being added   \NC\NR
+\NC \tt box             \NC a typeset box is being added           \NC\NR
+\NC \tt begin_of_par    \NC the beginning of a new paragraph       \NC\NR
+\NC \tt vmode_par       \NC \tex{par} was found in vertical mode   \NC\NR
+\NC \tt hmode_par       \NC \tex{par} was found in horizontal mode \NC\NR
+\NC \tt insert          \NC an insert is added                     \NC\NR
+\NC \tt penalty         \NC a penalty (in vertical mode)           \NC\NR
+\NC \tt before_display  \NC immediately before a display starts    \NC\NR
+\NC \tt after_display   \NC a display is finished                  \NC\NR
+\stoptabulate
 
 \subsubsection{\luatex{pre_linebreak_filter}}
 
@@ -4274,6 +4291,11 @@ are missing
 
 \startitemize
 
+\item The (experimental) support for snap nodes has been removed, because 
+it much more natural to build this functionality on top of node
+processing and attributes. The associated primitives that are now gone
+are: \tex{pdfsnaprefpoint}, \tex{pdfsnapy}, and \tex{pdfsnapycomp}.
+
 \item A number of \quote{utility functions} is removed:
 
 \startcolumns[n=3]
@@ -4513,21 +4535,17 @@ going to be replaced by a new subsystem soon anyway.
 \PDF\ mode yet: this affects all the top|-|bottom and bottom|-|top writing
 directions. And also, the \tex{textdir} command is broken.
 
-\item There is interference between rules and \tex{pdfliteral}. This
-is also likely related to the bidirectional algorithm.
-
 \item The \TFM\ loader sometimes stores a full path instead of only a
 name, this prevents \VF\ loading from working properly.
 
-\item The Lua setting of \type{false_boundarychar=65536} gives an error.
+\item The Lua setting of \type{false_boundarychar=65536} inside 
+of a returned font metrics table results in an error.
 
 \item Letter spacing (\tex{letterspacefont}) is currently non|-|functional
 due to massive changes in the virtual font handling. This
 functionality may actually be removed completely in the future,
 because it is straightforward to set up letterspacing using the \LUA\
 'define_font' interface.
-
-\item Attempting hyphenation in \INITEX\ (sometimes) creates segfaults.
 
 \item Hyphenation can only deal with the Base Multilingual Plane (BMP)
 
@@ -4573,9 +4591,6 @@ the natural width of the included items into account.
 \item Switch to \FONTFORGE\ 2.0
 
 \item Complete the attributes in math and switch the nodes to a double|-|linked list.
-
-\item Move the \quote{raw bytes} outside of the legal \UNICODE\ range, to
-prevent collisions.
 
 \item Implement csname lookups for \type{tex.box} access.
 
