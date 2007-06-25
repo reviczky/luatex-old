@@ -368,7 +368,8 @@ additional parameter information, which is explained later.
                     xfree(tfm_buffer); xfree(kerns);			\
 		    xfree(widths);  xfree(heights);  xfree(depths);     \
 		    xfree(italics);  xfree(extens);  xfree(lig_kerns);	\
-		    xfree(xligs);  xfree(xkerns);  return 0; }
+		    xfree(xligs);  xfree(xkerns);						\
+			return 0; }
 
 #define tfm_success { xfree(tfm_buffer); xfree(kerns); 			 \
          	      xfree(widths);  xfree(heights);  xfree(depths);    \
@@ -456,7 +457,7 @@ open_tfm_file(char *nom, char *aire, unsigned char **tfm_buf, integer *tfm_siz) 
       ci._height_index=b>>8;						\
       ci._depth_index=b%256;						\
       fget; read_sixteen_unsigned(c);					\
-      ci._italic_index=c>>2;						\
+      ci._italic_index=c>>8;						\
       ci._tag=c%4;							\
       fget; read_sixteen_unsigned(d);					\
       ci._remainder=d;							\
@@ -850,7 +851,10 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
     if (ci._width_index==0)
       continue;
     if (ci._width_index>=nw||ci._height_index>=nh||
-	ci._depth_index>=nd||ci._italic_index>=ni) tfm_abort;
+		ci._depth_index>=nd||ci._italic_index>=ni) {
+	  fprintf(stdout,"hi!");
+	  tfm_abort;
+	}
     d = ci._remainder;
     switch (ci._tag) {
     case lig_tag: if (d>=nl) tfm_abort; break;
