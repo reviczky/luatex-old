@@ -1,5 +1,6 @@
 -- $Id: test_zlib.lua,v 1.3 2004/07/22 19:10:47 tngd Exp $
-zlib = loadlib("./lzlib.so", "luaopen_zlib")()
+-- zlib = loadlib("./lzlib.so", "luaopen_zlib")()
+
 
 local function line(header, c)
     header = header or ''

@@ -34,6 +34,8 @@ extern int luaopen_zip (lua_State *L);
 extern int luaopen_lfs (lua_State *L);
 extern int luaopen_lpeg (lua_State *L);
 extern int luaopen_md5 (lua_State *L);
+extern int luaopen_zlib (lua_State *L);
+extern int luaopen_gzip (lua_State *L);
 
 extern void initfilecallbackids    (int max);
 extern void setinputfilecallbackid (int n, int i) ;

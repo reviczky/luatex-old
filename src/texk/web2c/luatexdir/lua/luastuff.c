@@ -314,6 +314,11 @@ luainterpreter (int n) {
   lua_pushstring(L, "lfs");
   lua_call(L, 1, 0);
 
+  /* zlib. slightly odd calling convention */
+  luaopen_zlib(L);
+  lua_setglobal(L,"zlib");
+  luaopen_gzip(L);
+
   luaopen_pdf(L);
   luaopen_tex(L);
   luaopen_token(L);
