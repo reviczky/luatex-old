@@ -168,15 +168,23 @@ $(LUAMDVDEP): $(LUAMDVDIR)/md5lib.c $(LUAMDVDIR)/md5.h $(LUAMDVDIR)/md5.c
 	mkdir -p $(LUAMDVDIR) && cd $(LUAMDVDIR) && cp -f $(LUAMDVSRCDIR)/* . && $(CC) -I$(LIBLUADIR) -g -o md5.o -c md5.c && $(CC) -I$(LIBLUADIR) -g -o md5lib.o -c md5lib.c
 
 
+# luazlib
+LUAZLIBDIR=../../libs/luazlib
+LUAZLIBSRCDIR=$(srcdir)/$(LUAZLIBDIR)
+LUAZLIBDEP=$(LUAZLIBDIR)/lgzip.o $(LUAZLIBDIR)/lzlib.o
+$(LUAZLIBDEP): $(LUAZLIBDIR)/lgzip.c $(LUAZLIBDIR)/lzlib.c
+	mkdir -p $(LUAZLIBDIR) && cd $(LUAZLIBDIR) && cp -f $(LUAZLIBSRCDIR)/* . && $(CC) -I$(LIBLUADIR) -g -o lgzip.o -c lgzip.c && $(CC) -I$(LIBLUADIR) -g -o lzlib.o -c lzlib.c
+
+
 # Convenience variables.
 
 luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) \
              $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP) $(LUAFSDEP) \
-             $(LUAPEGDEP) $(LUAMDVDEP)
+             $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP)
 
 luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) \
                 $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP)  $(LUAFSDEP) \
-                $(LUAPEGDEP) $(LUAMDVDEP) $(makecpool)
+                $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP) $(makecpool)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 
