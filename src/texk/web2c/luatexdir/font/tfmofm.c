@@ -851,10 +851,7 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
     if (ci._width_index==0)
       continue;
     if (ci._width_index>=nw||ci._height_index>=nh||
-		ci._depth_index>=nd||ci._italic_index>=ni) {
-	  fprintf(stdout,"hi!");
-	  tfm_abort;
-	}
+		ci._depth_index>=nd||ci._italic_index>=ni) tfm_abort;
     d = ci._remainder;
     switch (ci._tag) {
     case lig_tag: if (d>=nl) tfm_abort; break;
