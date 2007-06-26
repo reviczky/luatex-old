@@ -109,7 +109,7 @@ SLNUNICODEDIR=../../libs/slnunicode
 SLNUNICODESRCDIR=$(srcdir)/$(SLNUNICODEDIR)
 SLNUNICODEDEP=$(SLNUNICODEDIR)/slnunico.o
 $(SLNUNICODEDEP): $(SLNUNICODEDIR)/slnunico.c $(SLNUNICODEDIR)/slnudata.c
-	mkdir -p $(SLNUNICODEDIR) && cd $(SLNUNICODEDIR) && cp -f $(SLNUNICODESRCDIR)/* . && $(CC) -I$(LIBLUADIR) -o slnunico.o -c slnunico.c
+	mkdir -p $(SLNUNICODEDIR) && cd $(SLNUNICODEDIR) && cp -f $(SLNUNICODESRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -o slnunico.o -c slnunico.c
 
 # zziplib
 
@@ -139,7 +139,7 @@ LUAZIPINC=-I../../lua51 -I../../zziplib
 
 $(LUAZIPDEP): $(LUAZIPDIR)/src/luazip.c
 	mkdir -p $(LUAZIPDIR) && cd $(LUAZIPDIR) && cp -R $(LUAZIPSRCDIR)/* . && \
-    cd src && $(CC) $(LUAZIPINC) -g -o luazip.o -c luazip.c
+    cd src && $(CC) $(CFLAGS) $(LUAZIPINC) -g -o luazip.o -c luazip.c
 
 # luafilesystem
 
@@ -150,14 +150,14 @@ LUAFSINC=-I../../lua51
 
 $(LUAFSDEP): $(LUAFSDIR)/src/lfs.c $(LUAFSDIR)/src/lfs.h
 	mkdir -p $(LUAFSDIR) && cd $(LUAFSDIR) && cp -R $(LUAFSSRCDIR)/* . && \
-    cd src && $(CC) $(LUAFSINC) -g -o lfs.o -c lfs.c
+    cd src && $(CC) $(CFLAGS) $(LUAFSINC) -g -o lfs.o -c lfs.c
 
 # luapeg
 LUAPEGDIR=../../libs/luapeg
 LUAPEGSRCDIR=$(srcdir)/$(LUAPEGDIR)
 LUAPEGDEP=$(LUAPEGDIR)/lpeg.o
 $(LUAPEGDEP): $(LUAPEGDIR)/lpeg.c
-	mkdir -p $(LUAPEGDIR) && cd $(LUAPEGDIR) && cp -f $(LUAPEGSRCDIR)/* . && $(CC) -I$(LIBLUADIR) -g -o lpeg.o -c lpeg.c
+	mkdir -p $(LUAPEGDIR) && cd $(LUAPEGDIR) && cp -f $(LUAPEGSRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o lpeg.o -c lpeg.c
 
 
 # luamd5
@@ -165,7 +165,7 @@ LUAMDVDIR=../../libs/luamd5
 LUAMDVSRCDIR=$(srcdir)/$(LUAMDVDIR)
 LUAMDVDEP=$(LUAMDVDIR)/md5lib.o $(LUAMDVDIR)/md5.o
 $(LUAMDVDEP): $(LUAMDVDIR)/md5lib.c $(LUAMDVDIR)/md5.h $(LUAMDVDIR)/md5.c
-	mkdir -p $(LUAMDVDIR) && cd $(LUAMDVDIR) && cp -f $(LUAMDVSRCDIR)/* . && $(CC) -I$(LIBLUADIR) -g -o md5.o -c md5.c && $(CC) -I$(LIBLUADIR) -g -o md5lib.o -c md5lib.c
+	mkdir -p $(LUAMDVDIR) && cd $(LUAMDVDIR) && cp -f $(LUAMDVSRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o md5.o -c md5.c && $(CC) -I$(LIBLUADIR) -g -o md5lib.o -c md5lib.c
 
 
 # luazlib
@@ -173,7 +173,7 @@ LUAZLIBDIR=../../libs/luazlib
 LUAZLIBSRCDIR=$(srcdir)/$(LUAZLIBDIR)
 LUAZLIBDEP=$(LUAZLIBDIR)/lgzip.o $(LUAZLIBDIR)/lzlib.o
 $(LUAZLIBDEP): $(LUAZLIBDIR)/lgzip.c $(LUAZLIBDIR)/lzlib.c
-	mkdir -p $(LUAZLIBDIR) && cd $(LUAZLIBDIR) && cp -f $(LUAZLIBSRCDIR)/* . && $(CC) -I$(LIBLUADIR) -g -o lgzip.o -c lgzip.c && $(CC) -I$(LIBLUADIR) -g -o lzlib.o -c lzlib.c
+	mkdir -p $(LUAZLIBDIR) && cd $(LUAZLIBDIR) && cp -f $(LUAZLIBSRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o lgzip.o -c lgzip.c && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o lzlib.o -c lzlib.c
 
 
 # Convenience variables.
