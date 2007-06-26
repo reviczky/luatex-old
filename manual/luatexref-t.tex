@@ -32,7 +32,7 @@
 
 \setvariables
   [document]
-  [snapshot=2007-06-22]
+  [snapshot=2007-06-26]
 
 \starttext
 
@@ -128,7 +128,7 @@ files is \UTF-8 encoded. Input files can be pre|-|processed using the
 
 Output in byte|-|sized chunks can be achieved by using characters just
 outside of the valid unicode range, starting at the value 1.114.112 
-(\hex110000). When the times comes to print a character $c>=1.114.112$, \LUATEX\ will
+(0x110000). When the times comes to print a character $c>=1.114.112$, \LUATEX\ will
 actually print the single byte corresponding to $c-1.114.112$.
 
 Output to the terminal uses \type{^^} notation for the lower control
@@ -519,10 +519,6 @@ in a similar fashion as in traditional \PDFTEX\ and \ALEPH.
 
 \section{\LUA\ changes}
 
-Five modules that are normally external are statically linked in with
-\LUATEX: \lua{slnunicode}, \lua{luazip}, \lua{luafilesystem},
-\lua{lpeg} (version 0.6), and \lua{md5}.
-
 The \lua{read("*line")} function from the io library has been
 adjusted so that it is line|-|ending neutral: any of \type{LF}, \type
 {CR} or \type{CR+LF} are accepted.
@@ -573,8 +569,24 @@ The \lua{os} library has a few extra functions and variables:
 
 \stopitemize
 
+\section {\LUA\ Modules}
 
-\chapter{\LUA\ Libraries}
+Some modules that are normally external to Lua are statically linked
+in with \LUATEX, because they offer useful functionality: 
+
+\startitemize
+\item \lua{slnunicode}, from the Selene libraries, \hyphenatedurl{http://luaforge.net/projects/sln}. (version 1.1)
+\item \lua{luazip}, from the kepler project, \hyphenatedurl{http://www.keplerproject.org/luazip/}.  
+  (version 1.2.1, but patched for compilation with lua 5.1)
+\item \lua{luafilesystem}, also from the kepler project, \hyphenatedurl{http://www.keplerproject.org/luafilesystem/}.  
+  (version 1.2, but patched for compilation with lua 5.1)
+\item \lua{lpeg}, by Roberto Ierusalimschy, \hyphenatedurl{http://www.inf.puc-rio.br/~roberto/lpeg.html}. (version 0.6)
+\item \lua{lzlib}, by Tiago Dionizio, \hyphenatedurl{http://mega.ist.utl.pt/~tngd/lua/}. (version 0.2)
+\item \lua{md5}, by Roberto Ierusalimschy \hyphenatedurl{http://www.inf.puc-rio.br/~roberto/md5/md5-5/md5.html}.
+\stopitemize
+
+
+\chapter{\LUATEX\ \LUA\ Libraries}
 
 The interfacing between \TEX\ and \LUA\ is facilitated by a set of
 \LUA\ modules.
@@ -4133,36 +4145,6 @@ Valid fields: \showfields{whatsit,pdf_save_pos}
 \starttabulate[|lT|l|p|]
 \NC \bf field     \NC \bf type \NC  \bf explanation \NC\NR
 \NC attr      \NC node    \NC  \NC\NR
-\stoptabulate
-
-\subsubsection{pdf_snap_ref_point nodes}
-
-Valid fields: \showfields{whatsit,pdf_snap_ref_point}
-
-\starttabulate[|lT|l|p|]
-\NC \bf field     \NC \bf type \NC  \bf explanation \NC\NR
-\NC attr      \NC node    \NC  \NC\NR
-\stoptabulate
-
-\subsubsection{pdf_snapy nodes}
-
-Valid fields: \showfields{whatsit,pdf_snapy}
-
-\starttabulate[|lT|l|p|]
-\NC \bf field     \NC \bf type \NC  \bf explanation \NC\NR
-\NC attr      \NC node    \NC  \NC\NR
-\NC final_skip \NC number \NC \NC\NR
-\NC spec      \NC node \NC pointer to a glue spec\NC\NR
-\stoptabulate
-
-\subsubsection{pdf_snapy_comp nodes}
-
-Valid fields: \showfields{whatsit,pdf_snapy_comp}
-
-\starttabulate[|lT|l|p|]
-\NC \bf field     \NC \bf type \NC  \bf explanation \NC\NR
-\NC attr      \NC node    \NC  \NC\NR
-\NC comp_ratio \NC number \NC \NC\NR
 \stoptabulate
 
 \subsubsection{late_lua nodes}
