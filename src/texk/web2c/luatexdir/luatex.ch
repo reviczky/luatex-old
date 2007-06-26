@@ -1512,12 +1512,6 @@ if name=str_ptr-1 then {we can try to conserve string pool space now}
 @z
 
 @x
-  begin job_name:=cur_name; open_log_file;
-@y
-  begin job_name:=getjobname(cur_name); open_log_file;
-@z
-
-@x
 if name=str_ptr-1 then {we can conserve string pool space now}
   begin flush_string; name:=cur_name;
   end;
