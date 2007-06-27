@@ -172,8 +172,9 @@ $(LUAMDVDEP): $(LUAMDVDIR)/md5lib.c $(LUAMDVDIR)/md5.h $(LUAMDVDIR)/md5.c
 LUAZLIBDIR=../../libs/luazlib
 LUAZLIBSRCDIR=$(srcdir)/$(LUAZLIBDIR)
 LUAZLIBDEP=$(LUAZLIBDIR)/lgzip.o $(LUAZLIBDIR)/lzlib.o
+LUAZLIBINC=-I$(ZLIBSRCDIR) -I$(LIBLUASRCDIR)
 $(LUAZLIBDEP): $(LUAZLIBDIR)/lgzip.c $(LUAZLIBDIR)/lzlib.c
-	mkdir -p $(LUAZLIBDIR) && cd $(LUAZLIBDIR) && cp -f $(LUAZLIBSRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o lgzip.o -c lgzip.c && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o lzlib.o -c lzlib.c
+	mkdir -p $(LUAZLIBDIR) && cd $(LUAZLIBDIR) && cp -f $(LUAZLIBSRCDIR)/* . && $(CC) $(CFLAGS) $(LUAZLIBINC) -g -o lgzip.o -c lgzip.c && $(CC) $(CFLAGS) $(LUAZLIBINC) -g -o lzlib.o -c lzlib.c
 
 
 # Convenience variables.
