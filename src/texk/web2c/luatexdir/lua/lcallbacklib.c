@@ -306,7 +306,7 @@ do_run_callback (int special, char *values, va_list vl) {
       if (s!=NULL) { /* |len| can be zero */
 		bufloc = va_arg(vl, int *);
 		ret = *bufloc;
-		check_buf (ret + len,buf_size);
+		check_buffer_overflow (ret+len);
 		while (len--) {
 		  buffer[(*bufloc)++] = *s++;
 		}

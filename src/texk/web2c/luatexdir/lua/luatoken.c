@@ -236,7 +236,7 @@ get_cur_cs (lua_State *L) {
     s = (char *)lua_tolstring(L,-1,&l);
     if (l>0) {
       if (last+l>buf_size)
-	overflow("buffer size",buf_size);
+        check_buffer_overflow(last+l);
       for (j=0;j<l;j++) {
 	buffer[last+1+j]=*s++;
       }

@@ -134,7 +134,7 @@ luacstring_input (void) {
     /* put that thing in the buffer */
     last = first;
     ret = last;
-    check_buf (last + t->tsize,buf_size);
+    check_buffer_overflow (last + t->tsize);
     while (t->tsize-->0)
       buffer[last++] = *st++;
     if (!t->partial) {
