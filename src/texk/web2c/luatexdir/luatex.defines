@@ -39,6 +39,7 @@ $Id $
 @define var NULL;
 @define var varmem;
 @define var var_mem_max;
+@define procedure check_buffer_overflow();
 
 { macros from luatex.h }
 @define function pdf_char_marked();

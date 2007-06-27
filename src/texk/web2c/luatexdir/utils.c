@@ -182,7 +182,7 @@ strnumber maketexlstring (const char *s, size_t l)
 {
     if (s == NULL || *s == 0)
         return get_nullstr ();
-    check_buf (poolptr + l, poolsize);
+    check_pool_overflow (poolptr + l);
     while (l-- > 0)
         strpool[poolptr++] = *s++;
     last_tex_string = make_string ();
@@ -1663,3 +1663,28 @@ void matrixrecalculate(scaled urx)
     matrixtransformrect(last_llx, last_lly, urx, last_ury);
 }
 
+void 
+check_buffer_overflow (int wsize) {
+  int nsize;
+  if (wsize>buf_size) {
+	nsize = buf_size + buf_size/5+5;
+	if (nsize<wsize) {
+	  nsize = wsize+5;
+	}
+	buffer = xreallocarray (buffer, char, nsize);
+	buf_size = nsize;
+  }
+}
+
+void 
+check_pool_overflow (int wsize) {
+  int nsize ;
+  if (wsize>poolsize) {
+	nsize = poolsize + poolsize/5+5;
+	if (nsize<wsize) {
+	  nsize = wsize+5;
+	}
+	strpool = xreallocarray (strpool, char, nsize);	
+	poolsize = nsize;
+  }
+}
