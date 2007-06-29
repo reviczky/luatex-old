@@ -461,12 +461,11 @@ if format_ident=0 then
   begin writeln(term_out,'Buffer size exceeded!'); goto final_end;
 @.Buffer size exceeded@>
   end
-else begin cur_input.loc_field:=first; cur_input.limit_field:=last-1;
+else 
+  check_buffer_overflow(buf_size+10) { need  a little bit more}
 @y
-Routine is implemented in C; part of module is, however, needed for e-TeX.
-
 @<Report overflow of the input buffer, and abort@>=
-  begin cur_input.loc_field:=first; cur_input.limit_field:=last-1;
+  check_buffer_overflow(buf_size+10) { need  a little bit more}
 @z
 
 @x
