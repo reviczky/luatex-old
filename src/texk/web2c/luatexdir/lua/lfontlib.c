@@ -67,7 +67,7 @@ font_read_vf (lua_State *L) {
   return 2; /* not reached */
 }
 
-
+#if 0
 static int 
 do_font_read_ttf (lua_State *L, char *thetype, int onlyinfo) {
   scaled s = 0;
@@ -102,6 +102,8 @@ static int
 font_read_ttf_info (lua_State *L) {  
   return do_font_read_ttf(L,"ttf",1); 
 }
+
+#endif
 
 
 static int frozenfont (lua_State *L) {
@@ -182,10 +184,10 @@ static int getfont (lua_State *L) {
 
 
 static const struct luaL_reg fontlib [] = {
-  {"read_otf",      font_read_otf},
-  {"read_ttf",      font_read_ttf},
-  {"read_otf_info", font_read_otf_info},
-  {"read_ttf_info", font_read_ttf_info},
+  /*  {"read_otf",      font_read_otf},*/
+  /*  {"read_ttf",      font_read_ttf},*/
+  /*  {"read_otf_info", font_read_otf_info},*/
+  /*  {"read_ttf_info", font_read_ttf_info},*/
   {"read_tfm",      font_read_tfm},
   {"read_vf",       font_read_vf},
   {"currentid",     tex_current_font},

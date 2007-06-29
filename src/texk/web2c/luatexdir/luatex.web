@@ -516,6 +516,7 @@ emphasize this distinction.
 @d too_big_char=1114112 {2097152} {|biggest_char+1|}
 @d special_char=1114113 {2097153} {|biggest_char+2|}
 @d number_chars=1114112 {2097152} {|biggest_char+1|}
+@d number_active_chars=65536+65536 {to reduce the memory req. only two planes }
 @d string_offset=2097152
 @d font_biggest=5535 {the real biggest font}
 @d number_fonts=font_biggest-font_base+1
@@ -1330,10 +1331,8 @@ if format_ident=0 then
   begin writeln(term_out,'Buffer size exceeded!'); goto final_end;
 @.Buffer size exceeded@>
   end
-else begin cur_input.loc_field:=first; cur_input.limit_field:=last-1;
-  overflow("buffer size",buf_size);
-@:TeX capacity exceeded buffer size}{\quad buffer size@>
-  end
+else 
+  check_buffer_overflow(buf_size+10) { need  a little bit more}
 
 @ Different systems have different ways to get started. But regardless of
 what conventions are adopted, the routine that initializes the terminal
@@ -5523,7 +5522,7 @@ things.
 paragraphs is to define these names, and to set up the initial values of the
 equivalents.
 
-In the first region we have |number_chars| equivalents for ``active
+In the first region we have |number_active_chars| equivalents for ``active
 characters'' that act as control sequences.
 
 Then comes region~2, which corresponds to the hash table that we will
@@ -5533,7 +5532,7 @@ locations for control sequences that are perpetually defined
 (since they are used in error recovery).
 
 @d active_base=1 {beginning of region 1, for active character equivalents}
-@d null_cs=active_base+number_chars {equivalent of \.{\\csname\\endcsname}}
+@d null_cs=active_base+number_active_chars {equivalent of \.{\\csname\\endcsname}}
 @d hash_base=null_cs+1 {beginning of region 2, for the hash table}
 @d frozen_control_sequence=hash_base+hash_size {for error recovery}
 @d frozen_protection=frozen_control_sequence {inaccessible but definable}
@@ -7228,7 +7227,7 @@ else
 k:=str_start_macro(s); l:=str_start_macro(s+1)-k;
     {we will move |s| into the (possibly non-empty) |buffer|}
 if first+l>buf_size+1 then
-  overflow("buffer size",buf_size);
+  check_buffer_overflow(first+l);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
 for j:=0 to l-1 do buffer[first+j]:=so(str_pool[k+j]);
 cur_val:=id_lookup(first,l); {|no_new_control_sequence| is |false|}
@@ -8768,7 +8767,7 @@ or |limit| or |line|.
 @p procedure begin_file_reading;
 begin if in_open=max_in_open then overflow("text input levels",max_in_open);
 @:TeX capacity exceeded text input levels}{\quad text input levels@>
-if first=buf_size then overflow("buffer size",buf_size);
+if first=buf_size then check_buffer_overflow(first);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
 incr(in_open); push_input; index:=in_open;
 eof_seen[index]:=false;
@@ -9741,7 +9740,7 @@ while p<>null do
   begin if j>=max_buf_stack then
     begin max_buf_stack:=j+4;
     if max_buf_stack=buf_size then
-      overflow("buffer size",buf_size);
+      check_buffer_overflow(max_buf_stack);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
     end;
   s := info(p) mod string_offset;
@@ -31590,7 +31589,7 @@ exit:end;
 @ An active character that is an |outer_call| is allowed here.
 
 @<Treat |cur_chr|...@>=
-begin cur_cs:=cur_chr+active_base;
+begin cur_cs:=(cur_chr mod number_active_chars)+active_base;
 cur_cmd:=eq_type(cur_cs); cur_chr:=equiv(cur_cs);
 x_token; back_input;
 end
@@ -39038,7 +39037,7 @@ p:=vinfo(pseudo_files);
 if p=null then pseudo_input:=false
 else  begin vinfo(pseudo_files):=vlink(p); sz:=ho(vinfo(p));
   if 4*sz-3>=buf_size-last then
-    @<Report overflow of the input buffer, and abort@>;
+     check_buffer_overflow(last+4*sz);
   last:=first;
   for r:=p+1 to p+sz-1 do
     begin w:=vmem(r).qqqq;
@@ -39177,7 +39176,7 @@ while p<>null do
   begin if m>=max_buf_stack then
     begin max_buf_stack:=m+1;
     if max_buf_stack=buf_size then
-      overflow("buffer size",buf_size);
+      check_buffer_overflow(max_buf_stack);
 @:TeX capacity exceeded buffer size}{\quad buffer size@>
     end;
   buffer[m]:=info(p) mod @'400; incr(m); p:=link(p);

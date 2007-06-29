@@ -167,6 +167,21 @@ LUAMDVDEP=$(LUAMDVDIR)/md5lib.o $(LUAMDVDIR)/md5.o
 $(LUAMDVDEP): $(LUAMDVDIR)/md5lib.c $(LUAMDVDIR)/md5.h $(LUAMDVDIR)/md5.c
 	mkdir -p $(LUAMDVDIR) && cd $(LUAMDVDIR) && cp -f $(LUAMDVSRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o md5.o -c md5.c && $(CC) -I$(LIBLUADIR) -g -o md5lib.o -c md5lib.c
 
+.PHONY: always
+
+# luaff
+LUAFFDIR=../../libs/luafontforge
+LUAFFSRCDIR=$(srcdir)/$(LUAFFDIR)
+
+# This is how it should be:
+#LUAFFDEP=$(LUAFFDIR)/libff.a
+#$(LUAFFDEP): $(LUAFFDIR)/src/luafflib.c
+#	mkdir -p $(LUAFFDIR) && cd $(LUAFFDIR) && cp -R $(LUAFFSRCDIR)/* . && make
+
+# But this is much faster
+LUAFFDEP=$(LUAFFSRCDIR)/libff.a
+$(LUAFFDEP): always
+	cd $(LUAFFSRCDIR) && make
 
 # luazlib
 LUAZLIBDIR=../../libs/luazlib
@@ -181,11 +196,11 @@ $(LUAZLIBDEP): $(LUAZLIBDIR)/lgzip.c $(LUAZLIBDIR)/lzlib.c
 
 luatexlibs = $(pdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) \
              $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP) $(LUAFSDEP) \
-             $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP)
+             $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP) $(LUAFFDEP)
 
 luatexlibsdep = $(pdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) \
                 $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP)  $(LUAFSDEP) \
-                $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP) $(makecpool)
+                $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP) $(LUAFFDEP) $(makecpool)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.
 

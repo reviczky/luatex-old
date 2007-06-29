@@ -56,17 +56,6 @@ font/writetype0.o \
 font/writecff.o \
 font/texfont.o \
 font/tfmofm.o \
-font/ttfotf.o \
-font/ttfatt.o \
-font/ttfspecial.o \
-font/ttfencoding.o \
-font/ttflua.o \
-font/alphabet.o \
-font/cjk.o \
-font/gwwiconv.o \
-font/namelist.o \
-font/psread.o \
-font/fvfonts.o \
 font/vfovf.o \
 font/luafont.o \
 font/dofont.o \

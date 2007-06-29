@@ -318,6 +318,8 @@ luainterpreter (int n) {
   luaopen_zlib(L);
   lua_setglobal(L,"zlib");
   luaopen_gzip(L);
+  /* fontforge */
+  luaopen_ff(L);
 
   luaopen_pdf(L);
   luaopen_tex(L);
