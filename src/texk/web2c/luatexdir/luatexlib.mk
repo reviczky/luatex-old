@@ -172,16 +172,9 @@ $(LUAMDVDEP): $(LUAMDVDIR)/md5lib.c $(LUAMDVDIR)/md5.h $(LUAMDVDIR)/md5.c
 # luaff
 LUAFFDIR=../../libs/luafontforge
 LUAFFSRCDIR=$(srcdir)/$(LUAFFDIR)
-
-# This is how it should be:
-#LUAFFDEP=$(LUAFFDIR)/libff.a
-#$(LUAFFDEP): $(LUAFFDIR)/src/luafflib.c
-#	mkdir -p $(LUAFFDIR) && cd $(LUAFFDIR) && cp -R $(LUAFFSRCDIR)/* . && make
-
-# But this is much faster
-LUAFFDEP=$(LUAFFSRCDIR)/libff.a
-$(LUAFFDEP): always
-	cd $(LUAFFSRCDIR) && make
+LUAFFDEP=$(LUAFFDIR)/libff.a
+$(LUAFFDEP): $(LUAFFDIR)/src/luafflib.c
+	mkdir -p $(LUAFFDIR) && cd $(LUAFFDIR) && cp -R $(LUAFFSRCDIR)/* . && make
 
 # luazlib
 LUAZLIBDIR=../../libs/luazlib
