@@ -7,13 +7,14 @@ FF_OBJS=autohint.o fontinfo.o fvfonts.o \
 parsepfa.o parsettf.o prefs.o psread.o namelist.o \
 splinefill.o splineoverlap.o splinestroke.o splineutil.o splineutil2.o \
 stamp.o start.o encoding.o splineorder2.o kernclass.o ttfspecial.o \
-parsettfatt.o contextchain.o macenc.o splinerefigure.o mm.o \
+parsettfatt.o contextchain.o macenc.o splinerefigure.o \
 parsettfvar.o pua.o stemdb.o \
 lookups.o featurefile.o charview.o fontview.o macbinary.o 
 
 # stemdb.o: needed by autohint.o
 # splinestroke.o: needed by psread.o
 
+# mm.o
 # fvcomposit.o cvundoes.o bvedit.o parsepdf.o  combinations.o 
 # parsettfbmf.o sftextfield.o statemachine.o unicoderange.o 
 # cvgetinfo.o autowidth.o uiutil.o utils.o othersubrs.o 

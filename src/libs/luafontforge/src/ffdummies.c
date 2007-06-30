@@ -4305,3 +4305,110 @@ return( true );
 return( false );
 }
 
+
+/* from mm.c (the stuff needed for Apple MM support) */
+
+
+char *MMAxisAbrev(char *axis_name) {
+    if ( strcmp(axis_name,"Weight")==0 )
+return( "wt" );
+    if ( strcmp(axis_name,"Width")==0 )
+return( "wd" );
+    if ( strcmp(axis_name,"OpticalSize")==0 )
+return( "op" );
+    if ( strcmp(axis_name,"Slant")==0 )
+return( "sl" );
+
+return( axis_name );
+}
+
+static double MMAxisUnmap(MMSet *mm,int axis,double ncv) {
+    struct axismap *axismap = &mm->axismaps[axis];
+    int j;
+
+    if ( ncv<=axismap->blends[0] )
+return(axismap->designs[0]);
+
+    for ( j=1; j<axismap->points; ++j ) {
+	if ( ncv<=axismap->blends[j]) {
+	    double t = (ncv-axismap->blends[j-1])/(axismap->blends[j]-axismap->blends[j-1]);
+return( axismap->designs[j-1]+ t*(axismap->designs[j]-axismap->designs[j-1]) );
+	}
+    }
+
+return(axismap->designs[axismap->points-1]);
+}
+
+
+
+static char *_MMMakeFontname(MMSet *mm,real *normalized,char **fullname) {
+    char *pt, *pt2, *hyphen=NULL;
+    char *ret = NULL;
+    int i,j;
+
+    if ( mm->apple ) {
+	for ( i=0; i<mm->named_instance_count; ++i ) {
+	    for ( j=0; j<mm->axis_count; ++j ) {
+		if (( normalized[j] == -1 &&
+			RealApprox(mm->named_instances[i].coords[j],mm->axismaps[j].min) ) ||
+		    ( normalized[j] ==  0 &&
+			RealApprox(mm->named_instances[i].coords[j],mm->axismaps[j].def) ) ||
+		    ( normalized[j] ==  1 &&
+			RealApprox(mm->named_instances[i].coords[j],mm->axismaps[j].max) ))
+		    /* A match so far */;
+		else
+	    break;
+	    }
+	    if ( j==mm->axis_count )
+	break;
+	}
+	if ( i!=mm->named_instance_count ) {
+	    char *styles = PickNameFromMacName(mm->named_instances[i].names);
+	    if ( styles==NULL )
+		styles = FindEnglishNameInMacName(mm->named_instances[i].names);
+	    if ( styles!=NULL ) {
+		ret = galloc(strlen(mm->normal->familyname)+ strlen(styles)+3 );
+		strcpy(ret,mm->normal->familyname);
+		hyphen = ret+strlen(ret);
+		strcpy(hyphen," ");
+		strcpy(hyphen+1,styles);
+		free(styles);
+	    }
+	}
+    }
+
+    if ( ret==NULL ) {
+	pt = ret = galloc(strlen(mm->normal->familyname)+ mm->axis_count*15 + 1);
+	strcpy(pt,mm->normal->familyname);
+	pt += strlen(pt);
+	*pt++ = '_';
+	for ( i=0; i<mm->axis_count; ++i ) {
+	    if ( !mm->apple )
+		sprintf( pt, " %d%s", (int) rint(MMAxisUnmap(mm,i,normalized[i])),
+			MMAxisAbrev(mm->axes[i]));
+	    else
+		sprintf( pt, " %.1f%s", MMAxisUnmap(mm,i,normalized[i]),
+			MMAxisAbrev(mm->axes[i]));
+	    pt += strlen(pt);
+	}
+	if ( pt>ret && pt[-1]==' ' )
+	    --pt;
+	*pt = '\0';
+    }
+
+    *fullname = ret;
+
+    ret = copy(ret);
+    for ( pt=*fullname, pt2=ret; *pt!='\0'; ++pt )
+	if ( pt==hyphen )
+	    *pt2++ = '-';
+	else if ( *pt!=' ' )
+	    *pt2++ = *pt;
+    *pt2 = '\0';
+return( ret );
+}
+
+char *MMMakeMasterFontname(MMSet *mm,int ipos,char **fullname) {
+return( _MMMakeFontname(mm,&mm->positions[ipos*mm->axis_count],fullname));
+}
+

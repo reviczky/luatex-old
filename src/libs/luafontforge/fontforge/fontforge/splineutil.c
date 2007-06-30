@@ -2170,6 +2170,7 @@ static void SplineFontFromType1(SplineFont *sf, FontDict *fd, struct pscontext *
     }
 }
 
+#ifndef LUA_FF_LIB
 static SplineFont *SplineFontFromMMType1(SplineFont *sf, FontDict *fd, struct pscontext *pscontext) {
     char *pt, *end, *origweight;
     MMSet *mm;
@@ -2411,6 +2412,7 @@ return( NULL );
 
 return( sf );
 }
+#endif
 
 static SplineFont *SplineFontFromCIDType1(SplineFont *sf, FontDict *fd,
 	struct pscontext *pscontext) {
@@ -2526,8 +2528,10 @@ SplineFont *SplineFontFromPSFont(FontDict *fd) {
 	    sf = fd->sf;
 	} else if ( fd->fdcnt!=0 )
 	    sf = SplineFontFromCIDType1(sf,fd,&pscontext);
+#ifndef LUA_FF_LIB
 	else if ( fd->weightvector!=NULL )
 	    SplineFontFromMMType1(sf,fd,&pscontext);
+#endif
 	else
 	    SplineFontFromType1(sf,fd,&pscontext);
 	if ( loaded_fonts_same_as_new && new_fonts_are_order2 &&
