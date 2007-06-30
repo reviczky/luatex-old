@@ -38,6 +38,12 @@ extern int _GScrollBar_Width;
 #include <unistd.h>
 #include <time.h>
 
+#ifdef LUA_FF_LIB
+#define Isspace(a) (a==' ')
+#else
+#define Isspace isspace
+#endif
+
 static int last_aspect=0;
 
 GTextInfo emsizes[] = {
@@ -3095,7 +3101,7 @@ void SFSetFontName(SplineFont *sf, char *family, char *mods,char *full) {
     if ( full==NULL || *full == '\0' )
 	full = copy(n);
     for ( pt=tpt=n; *pt; ) {
-	if ( !isspace(*pt))
+	if ( !Isspace(*pt))
 	    *tpt++ = *pt++;
 	else
 	    ++pt;
@@ -3103,7 +3109,7 @@ void SFSetFontName(SplineFont *sf, char *family, char *mods,char *full) {
     *tpt = '\0';
 #if 0
     for ( pt=tpt=family; *pt; ) {
-	if ( !isspace(*pt))
+	if ( !Isspace(*pt))
 	    *tpt++ = *pt++;
 	else
 	    ++pt;

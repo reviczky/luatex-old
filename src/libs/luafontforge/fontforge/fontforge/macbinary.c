@@ -44,6 +44,35 @@
 #define __Mac 0
 #endif
 
+
+#ifdef LUA_FF_LIB
+/* no need for iconv here, since PS is 8-bit legacy */
+#define Isspace(a) ((a)==' '|| ((a) >= '\t' &&  (a) <= '\r'))
+#define Isdigit(a) ((a)>='0' && (a)<='9')
+#define Isalpha(a) (((a)>='a' && (a)<='z') || ((a)>='A' && (a)<='Z'))
+#define Islower(a) ((a)>='a' && (a)<='z')
+#define Isupper(a) ((a)>='A' && (a)<='Z')
+#define Isalnum(a) (Isalpha(a)||Isdigit(a))
+#define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
+static int Tolower (int c) {
+  if (Isupper(c))
+    return c-32;
+  else 
+    return c;
+}
+#else
+#define Islower islower
+#define Tolower tolower
+#define Isspace isspace
+#define Isdigit isdigit
+#define Isalpha isalpha
+#define Isalnum isalnum
+#define Ishexdigit ishexdigit
+#endif
+
+
+
+
 const int mac_dpi = 72;
 /* I had always assumed that the mac still believed in 72dpi screens, but I */
 /*  see that in geneva under OS/9, the pointsize does not match the pixel */
@@ -107,6 +136,7 @@ extern unsigned long binhex_crc(unsigned char *buffer,int size);
 
 /* ******************************** Creation ******************************** */
 
+#ifndef LUA_FF_LIB
 static uint16 HashToId(char *fontname,SplineFont *sf,EncMap *map) {
     int low = 128, high = 0x3fff;
     /* A FOND ID should be between these two numbers for roman script (I think) */
@@ -630,6 +660,7 @@ static struct resource *BuildDummyNFNTfamilyList(FILE *res, struct sflist *sfs,
     }
 return(resstarts);
 }
+#endif
 
 enum psstyle_flags { psf_bold = 1, psf_italic = 2, psf_outline = 4,
 	psf_shadow = 0x8, psf_condense = 0x10, psf_extend = 0x20 };
@@ -711,6 +742,7 @@ return( sf->macstyle );
 return( _MacStyleCode(styles,sf,psstylecode));
 }
 
+#ifndef LUA_FF_LIB
 static uint32 SFToFOND(FILE *res,SplineFont *sf,uint32 id,int dottf,
 	int32 *sizes, EncMap *map) {
     uint32 rlenpos = ftell(res), widoffpos, widoffloc, kernloc, styleloc, end;
@@ -828,12 +860,12 @@ static uint32 SFToFOND(FILE *res,SplineFont *sf,uint32 id,int dottf,
     if ( strcnt==1 ) {
 	putc(strlen(sf->fontname),res);	/* basename is full name */
 	/* Mac expects this to be upper case */
-	if ( islower(*sf->fontname)) putc(toupper(*sf->fontname),res);
+	if ( Islower(*sf->fontname)) putc(toupper(*sf->fontname),res);
 	else putc(*sf->fontname,res);
 	fwrite(sf->fontname+1,1,strlen(sf->fontname+1),res);
     } else {
 	putc(strlen(sf->familyname),res);/* basename */
-	if ( islower(*sf->familyname)) putc(toupper(*sf->familyname),res);
+	if ( Islower(*sf->familyname)) putc(toupper(*sf->familyname),res);
 	else putc(*sf->familyname,res);
 	fwrite(sf->familyname+1,1,strlen(sf->familyname+1),res);
 	if ( strcnt==3 ) {
@@ -897,7 +929,7 @@ return(rlenpos);
 static void putpnsstring(FILE *res,char *fontname,int len) {
     putc(len,res);
     if ( *fontname && len>0 ) {
-	if ( islower(*fontname))
+	if ( Islower(*fontname))
 	    putc(toupper(*fontname),res);
 	else
 	    putc(*fontname,res);
@@ -1535,10 +1567,10 @@ static void MakeMacPSName(char buffer[63],SplineFont *sf) {
     char *pt, *spt, *lcpt;
 
     for ( pt = buffer, spt = sf->fontname; *spt && pt<buffer+63-1; ++spt ) {
-	if ( isupper(*spt) || spt==sf->fontname ) {
+	if ( Isupper(*spt) || spt==sf->fontname ) {
 	    *pt++ = *spt;
 	    lcpt = (spt==sf->fontname?spt+5:spt+3);
-	} else if ( (islower(*spt) || isdigit(*spt)) && spt<lcpt )
+	} else if ( (Islower(*spt) || Isdigit(*spt)) && spt<lcpt )
 	    *pt++ = *spt;
     }
     *pt = '\0';
@@ -1572,13 +1604,13 @@ return( 0 );
 	/* So Times-Bold => TimesBol, HelveticaDemiBold => HelveDemBol */
 	/* MacBinary limits the name to 63 characters, I dunno what happens if */
 	/*  we excede that */
-    if ( islower(*sf->fontname)) { *sf->fontname = toupper(*sf->fontname); lcfn = true; }
-    if ( islower(*sf->familyname)) { *sf->familyname = toupper(*sf->familyname); lcfam = true; }
+    if ( Islower(*sf->fontname)) { *sf->fontname = toupper(*sf->fontname); lcfn = true; }
+    if ( Islower(*sf->familyname)) { *sf->familyname = toupper(*sf->familyname); lcfam = true; }
     MakeMacPSName(buffer,sf);
 
     ret = _WritePSFont(temppfb,sf,ff_pfb,flags,map,NULL);
-    if ( lcfn ) *sf->fontname = tolower(*sf->fontname);
-    if ( lcfam ) *sf->familyname = tolower(*sf->familyname);
+    if ( lcfn ) *sf->fontname = Tolower(*sf->fontname);
+    if ( lcfam ) *sf->familyname = Tolower(*sf->familyname);
     if ( ret==0 || ferror(temppfb) ) {
 	fclose(temppfb);
 return( 0 );
@@ -1926,6 +1958,7 @@ void SfListFree(struct sflist *sfs) {
 	sfs = sfi;
     }
 }
+#endif
 
 /* ******************************** Reading ********************************* */
 
@@ -2992,7 +3025,7 @@ return( NULL );
     while ( (ch=getc(f))!=':' );	/* There may be comments before file start */
     cnt = val = 0;
     while ( (ch=getc(f))!=':' ) {
-	if ( isspace(ch))
+	if ( Isspace(ch))
     continue;
 	for ( pt=sixbit; *pt!=ch && *pt!='\0'; ++pt );
 	if ( *pt=='\0' ) {
@@ -3124,8 +3157,8 @@ return( sf );
     /*  names are always lower case 8.3, do some simple things to check */
     spt = strrchr(buffer,'/')+1;
     for ( pt=spt; *pt; ++pt )
-	if ( isupper( *pt ))
-	    *pt = tolower( *pt );
+	if ( Isupper( *pt ))
+	    *pt = Tolower( *pt );
     dpt = strchr(spt,'.');
     if ( dpt==NULL ) dpt = spt+strlen(spt);
     if ( dpt-spt>8 || strlen(dpt)>4 ) {

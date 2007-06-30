@@ -3,31 +3,30 @@
 SRCS= src/luafontforge.c
 OBJS= src/luafontforge.o
 
-FF_OBJS=autohint.o autowidth.o bvedit.o bdfinfo.o cvaddpoints.o \
-cvgetinfo.o cvhints.o cvimages.o cvknife.o cvpalettes.o \
-cvpointer.o cvruler.o cvshapes.o cvstroke.o cvtranstools.o	\
-cvundoes.o fontinfo.o fvcomposit.o \
-fvfonts.o fvimportbdf.o fvmetrics.o images.o \
+FF_OBJS=autohint.o fontinfo.o fvfonts.o \
 parsepfa.o parsettf.o prefs.o psread.o namelist.o \
-splinefill.o splineoverlap.o \
-splinestroke.o splineutil.o splineutil2.o \
-stamp.o start.o transform.o uiutil.o utils.o zapfnomen.o 	\
-othersubrs.o encoding.o problems.o metafont.o alignment.o \
-parsettfbmf.o macbinary.o crctab.o freetype.o \
-search.o combinations.o tilepath.o sftextfield.o \
-displayfonts.o cvhand.o cvfreehand.o \
-winfonts.o charinfo.o splineorder2.o \
-genttfinstrs.o ttfinstrs.o cvgridfit.o cvdebug.o showatt.o kernclass.o 	\
-nonlineartrans.o effects.o ttfspecial.o \
-parsettfatt.o contextchain.o macenc.o statemachine.o splinerefigure.o mm.o	 \
-parsettfvar.o pua.o stemdb.o anchorsaway.o \
-palmfonts.o cvdgloss.o parsepdf.o glyphcomp.o \
-unicoderange.o ofl.o lookups.o sfd1.o featurefile.o \
-bitmapdlg.o openfontdlg.o \
-bitmapview.o charview.o fontview.o metricsview.o \
-tottfgpos.o tottfaat.o tottfvar.o tottf.o \
-splinesave.o splinesaveafm.o  savefontdlg.o 
+splinefill.o splineoverlap.o splinestroke.o splineutil.o splineutil2.o \
+stamp.o start.o encoding.o splineorder2.o kernclass.o ttfspecial.o \
+parsettfatt.o contextchain.o macenc.o splinerefigure.o mm.o \
+parsettfvar.o pua.o stemdb.o \
+lookups.o featurefile.o charview.o fontview.o macbinary.o 
 
+# stemdb.o: needed by autohint.o
+# splinestroke.o: needed by psread.o
+
+# fvcomposit.o cvundoes.o bvedit.o parsepdf.o  combinations.o 
+# parsettfbmf.o sftextfield.o statemachine.o unicoderange.o 
+# cvgetinfo.o autowidth.o uiutil.o utils.o othersubrs.o 
+# anchorsaway.o charinfo.o crctab.o cvhints.o cvpointer.o 
+# splinesaveafm.o tottfgpos.o zapfnomen.o fvmetrics.o 
+# showatt.o winfonts.o bitmapview.o search.o openfontdlg.o 
+# ofl.o sfd1.o effects.o genttfinstrs.o ttfinstrs.o freetype.o 
+# bdfinfo.o splinesave.o autohint.c tottfaat.o tottfvar.o mm.o
+# cvdgloss.o glyphcomp.o tilepath.o displayfonts.o tottf.o 
+# problems.o metafont.o alignment.o savefontdlg.o palmfonts.o 
+# cvtranstools.o images.o bitmapdlg.o metricsview.o transform.o 
+# cvknife.o cvaddpoints.o cvruler.o cvshapes.o cvstroke.o 
+# cvgridfit.o cvdebug.o cvhand.o cvfreehand.o cvimages.o cvpalettes.o 
 # cursors.o windowmenu.o histograms.o simplifydlg.o gotodlg.o 
 # print.o dumppfa.o autosave.o cvexport.o  dumpbdf.o autotrace.o splashimage.o 
 # svg.o ufo.o scripting.o plugins.o python.o ikarus.o sfd.o 
@@ -42,9 +41,17 @@ FF_UNI_OBJS =  ArabicForms.o alphabet.o backtrns.o char.o \
  cjk.o memory.o ucharmap.o unialt.o ustring.o \
  utype.o usprintf.o gwwiconv.o
 
-FF_UNI_OBJS_O =  ../Unicode/ArabicForms.o ../Unicode/alphabet.o ../Unicode/backtrns.o ../Unicode/char.o \
- ../Unicode/cjk.o ../Unicode/memory.o ../Unicode/ucharmap.o ../Unicode/unialt.o ../Unicode/ustring.o \
- ../Unicode/utype.o ../Unicode/usprintf.o ../Unicode/gwwiconv.o
+FF_UNI_OBJS_O =  ../Unicode/ArabicForms.o ../Unicode/alphabet.o  ../Unicode/char.o \
+ ../Unicode/memory.o ../Unicode/cjk.o  ../Unicode/ustring.o \
+ ../Unicode/usprintf.o ../Unicode/gwwiconv.o 
+
+# cjk.o and gwwiconv.o are stripped off all _from_unicode entries
+# cjk.o could be shortened even more by breaking the big arrays into
+# smaller blocks divided by zero-segments, but that is not much fun to do
+# (the same is true for namelist.o)
+# ../Unicode/utype.o   /* relevant bits reimplemented */
+# ../Unicode/ucharmap.o /* only needed for message */
+# ../Unicode/unialt.o /* uses quite a lot of room compared to functionality */
 
 FF_CONF_OPTIONS=--without-python --without-iconv --without-bytecode-interpreter --without-freetype-src --without-x \
 --without-devicetables --without-pic --with-regular-link --enable-static

@@ -819,6 +819,7 @@ static void CCD_EnableNextPrev(struct contextchaindlg *ccd) {
 }
 #endif
 
+#ifndef LUA_FF_LIB
 static int CCD_ValidNameList(const char *ret,int empty_bad) {
     int first;
     extern int allow_utf8_glyphnames;
@@ -889,6 +890,7 @@ return(!ans);
 #endif
 return( true );
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 

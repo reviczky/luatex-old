@@ -33,6 +33,14 @@
 #include <gwidget.h>
 #include "ttf.h"
 
+
+/* needed for ps validation */
+#ifdef LUA_FF_LIB
+#define Isdigit(a) ((a)>='0' && (a)<='9')
+#else
+#define Isdigit isdigit
+#endif
+
 /* True Type is a really icky format. Nothing is together. It's badly described */
 /*  much of the description is misleading */
 /* Apple's version: */
@@ -824,7 +832,7 @@ static void ValidatePostScriptFontName(char *str) {
 	    pt[-3] = *pt;		/* ANSI says we can't strcpy overlapping strings */
     }
     strtod(str,&end);
-    if ( (*end=='\0' || (isdigit(str[0]) && strchr(str,'#')!=NULL)) &&
+    if ( (*end=='\0' || (Isdigit(str[0]) && strchr(str,'#')!=NULL)) &&
 	    *str!='\0' ) {
 #if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
 	gwwv_post_error(_("Bad Font Name"),_("A Postscript name may not be a number"));
@@ -864,7 +872,7 @@ char *EnforcePostScriptName(char *old) {
 return( old );
 
     strtod(str,&end);
-    if ( (*end=='\0' || (isdigit(str[0]) && strchr(str,'#')!=NULL)) &&
+    if ( (*end=='\0' || (Isdigit(str[0]) && strchr(str,'#')!=NULL)) &&
 	    *str!='\0' ) {
 	free(str);
 	str=galloc(strlen(old)+2);
@@ -4675,7 +4683,10 @@ return( 0 );
 return( 0 );
     }
     if ( info->bitmapdata_start!=0 && info->bitmaploc_start!=0 )
+#ifndef LUA_FF_LIB
 	TTFLoadBitmaps(ttf,info,info->onlyonestrike);
+#endif
+    ;
     else if ( info->onlystrikes )
 #if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
 	gwwv_post_error( _("No Bitmap Strikes"), _("No (useable) bitmap strikes in this TTF font: %s"), filename==NULL ? "<unknown>" : filename );

@@ -1740,14 +1740,19 @@ return( NULL );
     if ( sc==NULL )
 return(NULL);
     if ( bdf->freetype_context )
+#ifndef LUA_FF_LIB
 	bdf->glyphs[index] = SplineCharFreeTypeRasterize(bdf->freetype_context,
 		sc->orig_pos,bdf->truesize,bdf->clut?8:1);
+#endif
+    ; 
     else {
+#ifndef LUA_FF_LIB
 	if ( use_freetype_to_rasterize_fv && !sc->parent->multilayer &&
 		!sc->parent->strokedfont )
 	    bdf->glyphs[index] = SplineCharFreeTypeRasterizeNoHints(sc,
 		    bdf->truesize,bdf->clut?4:1);
 	else
+#endif
 	    bdf->glyphs[index] = NULL;
 	if ( bdf->glyphs[index]==NULL ) {
 	    if ( bdf->clut )
@@ -1830,8 +1835,10 @@ return;
     free(bdf->glyphs);
     if ( bdf->clut!=NULL )
 	free(bdf->clut);
+#ifndef LUA_FF_LIB
     if ( bdf->freetype_context!=NULL )
 	FreeTypeFreeContext(bdf->freetype_context);
+#endif
     BDFPropsFree(bdf);
     free( bdf->foundry );
     free(bdf);

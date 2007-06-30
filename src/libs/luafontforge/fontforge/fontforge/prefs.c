@@ -381,7 +381,9 @@ static struct prefs_list {
 	{ "DefaultFVGlyphLabel", pr_int, &default_fv_glyphlabel, NULL, NULL, 'S', NULL, 1 },
 	{ "SaveToDir", pr_int, &save_to_dir, NULL, NULL, 'S', NULL, 1 },
 	{ "OnlyCopyDisplayed", pr_bool, &onlycopydisplayed, NULL, NULL, '\0', NULL, 1 },
+#ifndef LUA_FF_LIB
 	{ "PalettesDocked", pr_bool, &palettes_docked, NULL, NULL, '\0', NULL, 1 },
+#endif
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 	{ "CVVisible0", pr_bool, &cvvisible[0], NULL, NULL, '\0', NULL, 1 },
 	{ "CVVisible1", pr_bool, &cvvisible[1], NULL, NULL, '\0', NULL, 1 },
@@ -397,19 +399,18 @@ static struct prefs_list {
 	{ "ShowFilled", pr_int, &CVShows.showfilled, NULL, NULL, '\0', NULL, 1 },
 	{ "ShowTabs", pr_int, &CVShows.showtabs, NULL, NULL, '\0', NULL, 1 },
 #endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
+#ifndef LUA_FF_LIB
 	{ "DefaultScreenDpiSystem", pr_int, &oldsystem, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultOutputFormat", pr_int, &oldformatstate, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultBitmapFormat", pr_int, &oldbitmapstate, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultTTFflags", pr_int, &old_ttf_flags, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultPSflags", pr_int, &old_ps_flags, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultOTFflags", pr_int, &old_otf_flags, NULL, NULL, '\0', NULL, 1 },
-#ifndef LUA_FF_LIB
 	{ "PageWidth", pr_int, &pagewidth, NULL, NULL, '\0', NULL, 1 },
 	{ "PageHeight", pr_int, &pageheight, NULL, NULL, '\0', NULL, 1 },
 	{ "PrintType", pr_int, &printtype, NULL, NULL, '\0', NULL, 1 },
 	{ "PrintCommand", pr_string, &printcommand, NULL, NULL, '\0', NULL, 1 },
 	{ "PageLazyPrinter", pr_string, &printlazyprinter, NULL, NULL, '\0', NULL, 1 },
-#endif
 	{ "RegularStar", pr_bool, &regular_star, NULL, NULL, '\0', NULL, 1 },
 	{ "PolyStar", pr_bool, &polystar, NULL, NULL, '\0', NULL, 1 },
 	{ "RectEllipse", pr_bool, &rectelipse, NULL, NULL, '\0', NULL, 1 },
@@ -419,6 +420,7 @@ static struct prefs_list {
 	{ "RoundRectRadius", pr_real, &rr_radius, NULL, NULL, '\0', NULL, 1 },
 	{ "StarPercent", pr_real, &star_percent, NULL, NULL, '\0', NULL, 1 },
 	{ "CoverageFormatsAllowed", pr_int, &coverageformatsallowed, NULL, NULL, '\0', NULL, 1 },
+#endif
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 	{ "DebugWins", pr_int, &debug_wins, NULL, NULL, '\0', NULL, 1 },
 	{ "GridFitDpi", pr_int, &gridfit_dpi, NULL, NULL, '\0', NULL, 1 },
@@ -466,8 +468,13 @@ int GetPrefs(char *name,Val *val) {
     int i,j;
 
     /* Support for obsolete preferences */
+#ifndef LUA_FF_LIB
     alwaysgenapple=(old_ttf_flags&ttf_flag_applemode)?1:0;
     alwaysgenopentype=(old_ttf_flags&ttf_flag_otmode)?1:0;
+#else
+    alwaysgenapple=0;
+    alwaysgenopentype=0;
+#endif
     
     for ( i=0; prefs_list[i]!=NULL; ++i ) for ( j=0; prefs_list[i][j].name!=NULL; ++j ) {
 	if ( strcmp(prefs_list[i][j].name,name)==0 ) {
@@ -500,6 +507,7 @@ return( false );
 }
 
 static void CheckObsoletePrefs(void) {
+#ifndef LUA_FF_LIB
     if ( alwaysgenapple==false ) {
 	old_ttf_flags &= ~ttf_flag_applemode;
 	old_otf_flags &= ~ttf_flag_applemode;
@@ -514,6 +522,7 @@ static void CheckObsoletePrefs(void) {
 	old_ttf_flags |= ttf_flag_otmode;
 	old_otf_flags |= ttf_flag_otmode;
     }
+#endif
 }
 
 int SetPrefs(char *name,Val *val1, Val *val2) {
@@ -978,24 +987,34 @@ void LoadPrefs(void) {
 #if defined(FONTFORGE_CONFIG_GTK)
     /* Nothing */;
 #else
+#ifndef LUA_FF_LIB
     local_encoding = DefaultEncoding();
+#endif
 #endif
 #if defined(FONTFORGE_CONFIG_GDRAW)
     if ( xdefs_filename!=NULL )
 	GResourceAddResourceFile(xdefs_filename,GResourceProgramName);
 #endif
+#ifndef LUA_FF_LIB
     if ( othersubrsfile!=NULL && ReadOtherSubrsFile(othersubrsfile)<=0 )
 	fprintf( stderr, "Failed to read OtherSubrs from %s\n", othersubrsfile );
 	
+#endif
     if ( glyph_2_name_map ) {
+#ifndef LUA_FF_LIB
 	old_ttf_flags |= ttf_flag_glyphmap;
 	old_otf_flags |= ttf_flag_glyphmap;
+#endif
     }
+#ifndef LUA_FF_LIB
     LoadNamelistDir(NULL);
+#endif
 }
 
 void PrefDefaultEncoding(void) {
+#ifndef LUA_FF_LIB
     local_encoding = DefaultEncoding();
+#endif
 }
 
 void _SavePrefs(void) {

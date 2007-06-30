@@ -40,6 +40,22 @@
 # include <ieeefp.h>		/* Solaris defines finite in ieeefp rather than math.h */
 #endif
 
+#ifdef LUA_FF_LIB
+/* Used for ascii file parsing */
+#define Isspace(a) ((a)==' '|| ((a) >= '\t' &&  (a) <= '\r'))
+#define Isdigit(a) ((a)>='0' && (a)<='9')
+#define Isalpha(a) (((a)>='a' && (a)<='z') || ((a)>='A' && (a)<='Z'))
+#define Isalnum(a) (Isalpha(a)||Isdigit(a))
+#define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
+#else
+#define Isspace isspace
+#define Isdigit isdigit
+#define Isalpha isalpha
+#define Isalnum isalnum
+#define Ishexdigit ishexdigit
+#endif
+
+
 struct pdfcontext {
     char *tokbuf;
     int tblen;
@@ -374,7 +390,7 @@ static int pdf_findfonts(struct pdfcontext *pc) {
 		    ++pt;
 		pc->fontnames[k++] = tpt = copy(pt);
 		for ( pt=tpt; *pt; ++pt ) {
-		    if ( *pt=='#' && ishexdigit(pt[1]) && ishexdigit(pt[2])) {
+		    if ( *pt=='#' && Ishexdigit(pt[1]) && Ishexdigit(pt[2])) {
 			*tpt++ = hex(pt[1],pt[2]);
 			pt += 2;
 		    } else
@@ -417,8 +433,8 @@ static void pdf_hexfilter(FILE *to,FILE *from) {
 
     rewind(from);
     while ( (ch1=getc(from))!=EOF ) {
-	while ( !ishexdigit(ch1) && ch1!=EOF ) ch1 = getc(from);
-	while ( (ch2=getc(from))!=EOF && !ishexdigit(ch2));
+	while ( !Ishexdigit(ch1) && ch1!=EOF ) ch1 = getc(from);
+	while ( (ch2=getc(from))!=EOF && !Ishexdigit(ch2));
 	if ( ch2==EOF )
     break;
 	putc(hex(ch1,ch2),to);
@@ -432,7 +448,7 @@ static void pdf_85filter(FILE *to,FILE *from) {
 
     rewind(from);
     forever {
-	while ( isspace(ch1=getc(from)));
+	while ( Isspace(ch1=getc(from)));
 	if ( ch1==EOF || ch1=='~' )
     break;
 	if ( ch1=='z' ) {
@@ -441,10 +457,10 @@ static void pdf_85filter(FILE *to,FILE *from) {
 	    putc(0,to);
 	    putc(0,to);
 	} else {
-	    while ( isspace(ch2=getc(from)));
-	    while ( isspace(ch3=getc(from)));
-	    while ( isspace(ch4=getc(from)));
-	    while ( isspace(ch5=getc(from)));
+	    while ( Isspace(ch2=getc(from)));
+	    while ( Isspace(ch3=getc(from)));
+	    while ( Isspace(ch4=getc(from)));
+	    while ( Isspace(ch5=getc(from)));
 	    cnt = 4;
 	    if ( ch3=='~' && ch4=='>' ) {
 		cnt=1;
@@ -691,7 +707,7 @@ static int nextpdftoken(FILE *file, real *val, char *tokbuf, int tbsize) {
 
     /* Eat whitespace and comments. Comments last to eol */
     while ( 1 ) {
-	while ( isspace(ch = getc(file)) );
+	while ( Isspace(ch = getc(file)) );
 	if ( ch!='%' )
     break;
 	while ( (ch=getc(file))!=EOF && ch!='\r' && ch!='\n' );
@@ -753,7 +769,7 @@ return( pt_closearray );
 return( pt_unknown );	/* single character token */
     } else if ( ch=='/' ) {
 	pt = tokbuf;
-	while ( (ch=getc(file))!=EOF && !isspace(ch) && ch!='%' &&
+	while ( (ch=getc(file))!=EOF && !Isspace(ch) && ch!='%' &&
 		ch!='(' && ch!=')' && ch!='<' && ch!='>' && ch!='[' && ch!=']' &&
 		ch!='{' && ch!='}' && ch!='/' )
 	    if ( pt<tokbuf+tbsize-2 )
@@ -762,7 +778,7 @@ return( pt_unknown );	/* single character token */
 	ungetc(ch,file);
 return( pt_namelit );	/* name literal */
     } else {
-	while ( (ch=getc(file))!=EOF && !isspace(ch) && ch!='%' &&
+	while ( (ch=getc(file))!=EOF && !Isspace(ch) && ch!='%' &&
 		ch!='(' && ch!=')' && ch!='<' && ch!='>' && ch!='[' && ch!=']' &&
 		ch!='{' && ch!='}' && ch!='/' ) {
 	    if ( pt<tokbuf+tbsize-2 )

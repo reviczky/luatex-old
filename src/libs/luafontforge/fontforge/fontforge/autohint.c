@@ -34,6 +34,23 @@
 #include <chardata.h>
 #include "edgelist.h"
 
+#ifdef LUA_FF_LIB
+/* no need for iconv here, since PS is 8-bit legacy */
+#define Isspace(a) ((a)==' '|| ((a) >= '\t' &&  (a) <= '\r'))
+#define Isdigit(a) ((a)>='0' && (a)<='9')
+#define Isalpha(a) (((a)>='a' && (a)<='z') || ((a)>='A' && (a)<='Z'))
+#define Isupper(a) ((a)>='A' && (a)<='Z')
+#define Isalnum(a) (Isalpha(a)||Isdigit(a))
+#define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
+#else
+#define Isspace isspace
+#define Isdigit isdigit
+#define Isalpha isalpha
+#define Isupper isupper
+#define Isalnum isalnum
+#define Ishexdigit ishexdigit
+#endif
+
 /* to create a type 1 font we must come up with the following entries for the
   private dictionary:
     BlueValues	-- an array of 2n entries where Blue[2i]<Blue[2i+1] max n=7, Blue[i]>0
@@ -79,6 +96,7 @@ static void MergeZones(real zone1[5], real zone2[5]) {
 /*  the same set of letter shapes and have all evolved together and have */
 /*  various common features (ascenders, descenders, lower case, etc.). Other */
 /*  scripts don't fit */
+#ifndef LUA_FF_LIB
 void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
     real caph[5], xh[5], ascenth[5], digith[5], descenth[5], base[5];
     real otherdigits[5];
@@ -95,7 +113,7 @@ void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
 	if ( sf->glyphs[i]!=NULL && sf->glyphs[i]->layers[ly_fore].splines!=NULL ) {
 	    int enc = sf->glyphs[i]->unicodeenc;
 	    const unichar_t *upt;
-	    if ( enc<0x10000 && isalnum(enc) &&
+	    if ( enc<0x10000 && isalnum(enc) && 
 		    ((enc>=32 && enc<128 ) || enc == 0xfe || enc==0xf0 || enc==0xdf ||
 		      enc==0x131 ||
 		     (enc>=0x391 && enc<=0x3f3 ) ||
@@ -392,6 +410,7 @@ void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
 	}
     }
 }
+#endif
 
 static int PVAddBlues(BlueData *bd,int bcnt,char *pt) {
     char *end;
@@ -401,12 +420,12 @@ static int PVAddBlues(BlueData *bd,int bcnt,char *pt) {
     if ( pt==NULL )
 return( bcnt );
 
-    while ( isspace(*pt) || *pt=='[' ) ++pt;
+    while ( Isspace(*pt) || *pt=='[' ) ++pt;
     while ( *pt!=']' && *pt!='\0' ) {
 	val1 = strtod(pt,&end);
 	if ( *end=='\0' || end==pt )
     break;
-	for ( pt=end; isspace(*pt) ; ++pt );
+	for ( pt=end; Isspace(*pt) ; ++pt );
 	val2 = strtod(pt,&end);
 	if ( end==pt )
     break;
@@ -424,7 +443,7 @@ return( bcnt );
 	++bcnt;
 	if ( bcnt>=sizeof(bd->blues)/sizeof(bd->blues[0]))
     break;
-	for ( pt=end; isspace(*pt) ; ++pt );
+	for ( pt=end; Isspace(*pt) ; ++pt );
     }
 return( bcnt );
 }
@@ -1872,6 +1891,7 @@ static DStemInfo *RefDHintsMerge(DStemInfo *into, DStemInfo *rh, real xmul, real
 return( into );
 }
 
+#ifndef LUA_FF_LIB
 static void AutoHintRefs(SplineChar *sc,BlueData *bd, int picky) {
     RefChar *ref;
 
@@ -1911,6 +1931,7 @@ static void AutoHintRefs(SplineChar *sc,BlueData *bd, int picky) {
     SCOutOfDateBackground(sc);
     SCHintsChanged(sc);
 }
+#endif
 
 void SCClearHints(SplineChar *sc) {
     SCClearHintMasks(sc,true);
@@ -2031,6 +2052,7 @@ static void SCFigureSimpleCounterMasks(SplineChar *sc) {
 return;
 
     scs[0] = sc;
+#ifndef LUA_FF_LIB
     hadh3 = CvtPsStem3(NULL,scs,1,true,false);
     hadv3 = CvtPsStem3(NULL,scs,1,false,false);
     if ( hadh3 || hadv3 ) {
@@ -2047,6 +2069,7 @@ return;
 	memcpy(sc->countermasks[0],mask,sizeof(HintMask));
 return;
     }
+#endif
 }
 
 /* find all the other stems (after main) which seem to form a counter group */
@@ -2976,6 +2999,7 @@ static StemInfo *GDFindStems(struct glyphdata *gd, int major) {
 return( head );
 }
 
+#ifndef LUA_FF_LIB
 void _SplineCharAutoHint( SplineChar *sc, BlueData *bd, struct glyphdata *gd2 ) {
     struct glyphdata *gd;
 
@@ -3117,6 +3141,7 @@ void SplineFontAutoHintRefs( SplineFont *_sf) {
 	++k;
     } while ( k<_sf->subfontcnt );
 }
+#endif
 
 static void FigureStems( SplineFont *sf, real snaps[12], real cnts[12],
 	int which ) {

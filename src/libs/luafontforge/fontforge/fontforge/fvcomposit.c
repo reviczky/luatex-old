@@ -36,6 +36,7 @@ extern int accent_offset;	/* in prefs.c */
 #define BottomAccent	0x300
 #define TopAccent	0x345
 
+
 /* for accents between 0x300 and 345 these are some synonyms */
 /* type1 wants accented chars built with accents in the 0x2c? range */
 /*  except for grave and acute which live in iso8859-1 range */
@@ -1079,8 +1080,12 @@ return( greekalts );
 	    adobes_pua_alts[base-0xf600]!=0 )
 return( adobes_pua_alts[base-0xf600]);
 
-    if ( base==-1 || base>=65536 || unicode_alternates[base>>8]==NULL ||
-	    (upt = unicode_alternates[base>>8][base&0xff])==NULL )
+    if ( base==-1 || base>=65536 
+#ifndef LUA_FF_LIB
+|| unicode_alternates[base>>8]==NULL ||
+	    (upt = unicode_alternates[base>>8][base&0xff])==NULL 
+#endif
+)
 return( SFAlternateFromLigature(sf,base,sc));
 
 	    /* The definitions of some of the greek letters may make some */
@@ -1807,11 +1812,11 @@ static void _SCCenterAccent(SplineChar *sc,SplineFont *sf,int ch, SplineChar *rs
     ybase = SplineCharFindSlantedBounds(sc,&bb,ia);
     if ( ia==0 && baserch!=basech && (basersc = SFGetChar(sf,baserch,NULL))!=NULL ) {
 	ybase = SplineCharFindSlantedBounds(basersc,&bbb,ia);
-	if ( ____utype2[1+ch]&(____ABOVE|____BELOW) ) {
+	if ( utype2(1+ch)&(____ABOVE|____BELOW) ) {
 	    bbb.maxy = bb.maxy;
 	    bbb.miny = bb.miny;
 	}
-	if ( ____utype2[1+ch]&(____RIGHT|____LEFT) ) {
+	if ( utype2(1+ch)&(____RIGHT|____LEFT) ) {
 	    bbb.maxx = bb.maxx;
 	    bbb.minx = bb.minx;
 	}
@@ -1831,11 +1836,11 @@ static void _SCCenterAccent(SplineChar *sc,SplineFont *sf,int ch, SplineChar *rs
 	/*  If so then figure offsets relative to it. */
 	xoff = ap1->me.x-ap2->me.x + sc->layers[ly_fore].refs->transform[4];
 	yoff = ap1->me.y-ap2->me.y + sc->layers[ly_fore].refs->transform[5];
-	pos = ____utype2[1+ch];
+	pos = utype2(1+ch);
     } else if ( AnchorClassMatch(basersc,rsc,(AnchorClass *) -1,&ap1,&ap2)!=NULL && ap2->type==at_mark ) {
 	xoff = ap1->me.x-ap2->me.x;
 	yoff = ap1->me.y-ap2->me.y;
-	pos = ____utype2[1+ch];
+	pos = utype2(1+ch);
     } else {
  /* try to establish a common line on which all accents lie. The problem being*/
  /*  that an accent above a,e,o will usually be slightly higher than an accent */
@@ -1872,7 +1877,7 @@ static void _SCCenterAccent(SplineChar *sc,SplineFont *sf,int ch, SplineChar *rs
 	    transform[5] = rbb.maxy+rbb.miny;
 	}
 	if ( pos==-1 ) {
-	    pos = ____utype2[1+ch];
+	  pos = utype2(1+ch);
 	    /* In greek, PSILI and friends are centered above lower case, and kern left*/
 	    /*  for upper case */
 	    if (( basech>=0x390 && basech<=0x3ff) || (basech>=0x1f00 && basech<=0x1fff)) {

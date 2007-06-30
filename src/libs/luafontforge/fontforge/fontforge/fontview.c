@@ -40,6 +40,14 @@
 #include <math.h>
 #include <unistd.h>
 
+#ifdef LUA_FF_LIB
+#define Iscombining unic_iscombining
+#define Isalpha unic_isalpha
+#else
+#define Iscombining iscombining
+#define Isalpha isalpha
+#endif
+
 int onlycopydisplayed = 0;
 int copymetadata = 0;
 int copyttfinstr = 0;
@@ -2116,6 +2124,7 @@ void FontViewMenu_SameGlyphAs(GtkMenuItem *menuitem, gpointer user_data) {
 }
 #endif
 
+
 static void FVCopyFgtoBg(FontView *fv) {
     int i, gid;
 
@@ -2984,7 +2993,7 @@ void FVTrans(FontView *fv,SplineChar *sc,real transform[6], uint8 *sel,
 	if ( transform[0]==1 && transform[3]==1 &&
 		transform[5]==0 && transform[4]!=0 && 
 		sc->unicodeenc!=-1 && sc->unicodeenc<0x10000 &&
-		isalpha(sc->unicodeenc)) {
+		Isalpha(sc->unicodeenc)) {
 	    SCUndoSetLBearingChange(sc,(int) rint(transform[4]));
 	    SCSynchronizeLBearing(sc,transform[4]);	/* this moves the hints */
 	} else {
@@ -3837,6 +3846,7 @@ void FontViewMenu_Autotrace(GtkMenuItem *menuitem, gpointer user_data) {
 }
 #endif
 
+#ifndef LUA_FF_LIB
 void FVBuildAccent(FontView *fv,int onlyaccents) {
     int i, cnt=0, gid;
     SplineChar dummy;
@@ -3911,6 +3921,7 @@ void FontViewMenu_BuildComposite(GtkMenuItem *menuitem, gpointer user_data) {
 # endif
 }
 #endif
+#endif /* LUA_FF_LIB */
 
 static int SFIsDuplicatable(SplineFont *sf, SplineChar *sc) {
     extern const int cns14pua[], amspua[];
@@ -3929,6 +3940,7 @@ return( true );
 return( false );
 }
 
+#ifndef LUA_FF_LIB
 void FVBuildDuplicate(FontView *fv) {
     extern const int cns14pua[], amspua[];
     const int *pua = fv->sf->uni_interp==ui_trad_chinese ? cns14pua : fv->sf->uni_interp==ui_ams ? amspua : NULL;
@@ -3976,6 +3988,7 @@ void FontViewMenu_BuildDuplicatem(GtkMenuItem *menuitem, gpointer user_data) {
 # endif
 }
 #endif
+#endif /* LUA_FF_LIB */
 
 #ifdef KOREAN
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
@@ -4880,6 +4893,7 @@ void FontViewMenu_VKernFromH(GtkMenuItem *menuitem, gpointer user_data) {
 }
 #endif
 
+#ifndef LUA_FF_LIB
 static void FVAutoHint(FontView *fv) {
     int i, cnt=0, gid;
     BlueData *bd = NULL, _bd;
@@ -5109,6 +5123,7 @@ return;
     sc = SFMakeChar(fv->sf,fv->map,index);
     SCEditInstructions(sc);
 }
+#endif /* LUA_FF_LIB */
 
 # ifdef FONTFORGE_CONFIG_GDRAW
 static void FVMenuEditTable(GWindow gw,struct gmenuitem *mi,GEvent *e) {
@@ -8334,7 +8349,7 @@ SplineChar *SCBuildDummy(SplineChar *dummy,SplineFont *sf,EncMap *map,int i) {
     }
     dummy->width = dummy->vwidth = sf->ascent+sf->descent;
     if ( dummy->unicodeenc>0 && dummy->unicodeenc<0x10000 &&
-	    iscombining(dummy->unicodeenc)) {
+	    Iscombining(dummy->unicodeenc)) {
 	/* Mark characters should be 0 width */
 	dummy->width = 0;
 	/* Except in monospaced fonts on windows, where they should be the */
@@ -10540,9 +10555,11 @@ return( NULL );
 		    ( ch1==0x80 && ch2=='\01' ) ) {	/* PFB header */
 	    sf = SFReadPostscript(fullname);
 	    checked = 'p';
+#ifndef LUA_FF_LIB
 	} else if ( ch1=='%' && ch2=='P' && ch3=='D' && ch4=='F' ) {
 	    sf = SFReadPdfFont(fullname,openflags);
 	    checked = 'P';
+#endif
 	} else if ( ch1==1 && ch2==0 && ch3==4 ) {
 	    sf = CFFParse(fullname);
 	    checked = 'c';
@@ -10563,13 +10580,11 @@ return( NULL );
 	    sf = SFDRead(fullname);
 	    checked = 'f';
 	    fromsfd = true;
-#endif
 	} else if ( ch1=='S' && ch2=='T' && ch3=='A' && ch4=='R' ) {
 	    sf = SFFromBDF(fullname,0,false);
 	    checked = 'b';
 	} else if ( ch1=='\1' && ch2=='f' && ch3=='c' && ch4=='p' ) {
 	    sf = SFFromBDF(fullname,2,false);
-#ifndef LUA_FF_LIB
 	} else if ( ch9=='I' && ch10=='K' && ch3==0 && ch4==55 ) {
 	    /* Ikarus font type appears at word 50 (byte offset 98) */
 	    /* Ikarus name section length (at word 2, byte offset 2) was 55 in the 80s at URW */
@@ -10598,6 +10613,7 @@ return( NULL );
 	sf = SFReadSVG(fullname,0);
     } else if ( strmatch(fullname+strlen(fullname)-4, ".ufo")==0 && checked!='u' ) {
 	sf = SFReadUFO(fullname,0);
+#ifndef LUA_FF_LIB
     } else if ( strmatch(fullname+strlen(fullname)-4, ".bdf")==0 && checked!='b' ) {
 	sf = SFFromBDF(fullname,0,false);
     } else if ( strmatch(fullname+strlen(fullname)-2, "pk")==0 ) {
@@ -10610,15 +10626,18 @@ return( NULL );
 	/*  the encoding actually starts at 0x2000 and the one I examined was */
 	/*  for a pixel size of 200. Some sort of printer font? */
 	sf = SFFromBDF(fullname,2,false);
+#endif
     } else if ( strmatch(fullname+strlen(strippedname)-4, ".bin")==0 ||
 		strmatch(fullname+strlen(strippedname)-4, ".hqx")==0 ||
 		strmatch(fullname+strlen(strippedname)-6, ".dfont")==0 ) {
 	sf = SFReadMacBinary(fullname,0,openflags);
+#ifndef LUA_FF_LIB
     } else if ( strmatch(fullname+strlen(strippedname)-4, ".fon")==0 ||
 		strmatch(fullname+strlen(strippedname)-4, ".fnt")==0 ) {
 	sf = SFReadWinFON(fullname,0);
     } else if ( strmatch(fullname+strlen(strippedname)-4, ".pdb")==0 ) {
 	sf = SFReadPalmPdb(fullname,0);
+#endif
     } else if ( (strmatch(fullname+strlen(fullname)-4, ".pfa")==0 ||
 		strmatch(fullname+strlen(fullname)-4, ".pfb")==0 ||
 		strmatch(fullname+strlen(fullname)-4, ".pf3")==0 ||
@@ -10632,10 +10651,8 @@ return( NULL );
 #ifndef LUA_FF_LIB
     } else if ( strmatch(fullname+strlen(fullname)-3, ".mf")==0 ) {
 	sf = SFFromMF(fullname);
-#endif
     } else if ( strmatch(fullname+strlen(fullname)-4, ".pdf")==0 && checked!='P' ) {
 	sf = SFReadPdfFont(fullname,openflags);
-#ifndef LUA_FF_LIB
     } else if ( strmatch(fullname+strlen(fullname)-3, ".ik")==0 && checked!='i' ) {
 	sf = SFReadIkarus(fullname);
 #endif
@@ -10890,6 +10907,7 @@ void FontViewFree(FontView *fv) {
 
 void FVFakeMenus(FontView *fv,int cmd) {
     switch ( cmd ) {
+#ifndef LUA_FF_LIB
       case 0:	/* Cut */
 	FVCopy(fv,ct_fullcopy);
 	FVClear(fv);
@@ -10903,6 +10921,7 @@ void FVFakeMenus(FontView *fv,int cmd) {
       case 3:
 	FVCopyWidth(fv,ut_width);
       break;
+#endif
       case 4:
 	PasteIntoFV(fv,false,NULL);
       break;
@@ -10921,6 +10940,7 @@ void FVFakeMenus(FontView *fv,int cmd) {
       case 9:
 	PasteIntoFV(fv,true,NULL);
       break;
+#ifndef LUA_FF_LIB
       case 10:
 	FVCopyWidth(fv,ut_vwidth);
       break;
@@ -10930,6 +10950,7 @@ void FVFakeMenus(FontView *fv,int cmd) {
       case 12:
 	FVCopyWidth(fv,ut_rbearing);
       break;
+#endif
       case 13:
 	FVJoin(fv);
       break;
@@ -10958,6 +10979,7 @@ void FVFakeMenus(FontView *fv,int cmd) {
 	FVOverlap(fv,over_findinter);
       break;
 
+#ifndef LUA_FF_LIB
       case 200:
 	FVAutoHint(fv);
       break;
@@ -10979,6 +11001,7 @@ void FVFakeMenus(FontView *fv,int cmd) {
       case 206:
 	FVClearInstrs(fv);
       break;
+#endif
     }
 }
 

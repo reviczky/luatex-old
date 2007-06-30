@@ -43,6 +43,13 @@ extern int recognizePUA;
 #define NU_(a) a
 #endif
 
+#ifdef LUA_FF_LIB
+#define Isalpha unic_isalpha
+#else
+#define Isalpha isalpha
+#endif
+
+ 
 static struct psaltnames {
     char *name;
     int unicode;
@@ -285,7 +292,7 @@ return( 0 );
     } else {
 	acnt = 0;
 	for ( i=0; i<rcnt; ++i ) {
-	    if ( isalpha(refs[i]->sc->unicodeenc )) {
+	    if ( Isalpha(refs[i]->sc->unicodeenc )) {
 		alp[acnt++] = refs[i];
 		--rcnt;
 		for ( j=i; j<rcnt; ++j )
@@ -338,6 +345,7 @@ return( 0 );
 return( rcnt );
 }
 
+#ifndef LUA_FF_LIB
 /* Return a list of all alternate or standard glyph names for this encoding */
 char **AllGlyphNames(int uni, NameList *for_this_font, SplineChar *sc) {
     int cnt, k, j, i, len;
@@ -464,6 +472,7 @@ char **AllGlyphNames(int uni, NameList *for_this_font, SplineChar *sc) {
     }
 return( names );
 }
+#endif
 
 char **AllNamelistNames(void) {
     NameList *nl;
@@ -533,6 +542,8 @@ static void NameListFree(NameList *nl) {
     chunkfree(nl,sizeof(NameList));
 }
 /* ************************************************************************** */
+
+#ifndef LUA_FF_LIB
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -717,6 +728,8 @@ return;
     }
     closedir(diro);
 }
+#endif
+
 /* ************************************************************************** */
 const char *RenameGlyphToNamelist(char *buffer, SplineChar *sc,NameList *old,NameList *new) {
     int i, up, ub, uc, ch;
@@ -14345,6 +14358,7 @@ static NameList ams = {
 	{ ams_p0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 /* ************************************************************************** */
+
 static struct psaltnames psaltnames[] = {
 	{ "AEmacron", 0x01e2 },
 	{ "AEsmall", 0xf7e6 },

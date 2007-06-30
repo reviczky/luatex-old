@@ -32,6 +32,24 @@
 #include <utype.h>
 #include "ttf.h"
 
+#ifdef LUA_FF_LIB
+/* no need for iconv here, since PS is 8-bit legacy */
+#define Isspace(a) ((a)==' '|| ((a) >= '\t' &&  (a) <= '\r'))
+#define Isdigit(a) ((a)>='0' && (a)<='9')
+#define Isalpha(a) (((a)>='a' && (a)<='z') || ((a)>='A' && (a)<='Z'))
+#define Isupper(a) ((a)>='A' && (a)<='Z')
+#define Isalnum(a) (Isalpha(a)||Isdigit(a))
+#define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
+#else
+#define Isspace isspace
+#define Isdigit isdigit
+#define Isalpha isalpha
+#define Isupper isupper
+#define Isalnum isalnum
+#define Ishexdigit ishexdigit
+#endif
+
+
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 /* As far as I can tell, the CDV in AdobeSansMM is half gibberish */
 /* This is disturbing */
@@ -715,6 +733,7 @@ return( false );
 return( false );
 		}
 	    }
+#ifndef LUA_FF_LIB /* else tottfvar.c is needed just for this warning */
 	    if ( mm->apple && !ContourPtNumMatch(mm,i)) {
 		if ( complain ) {
 		    FVChangeChar(sf->fv,i);
@@ -727,6 +746,7 @@ return( false );
 		}
 return( false );
 	    }
+#endif
 	    if ( !mm->apple ) {
 		for ( j=1; j<mm->instance_count; ++j ) {
 		    if ( !HintsMatch(sf->glyphs[i]->hstem,mm->instances[j]->glyphs[i]->hstem)) {
@@ -1114,7 +1134,7 @@ return( private );
 	PSDictChangeEntry(private,"ForceBold",data);
     }
     for ( i=0; i<other->next; ++i ) {
-	if ( *other->values[i]!='[' && !isdigit( *other->values[i]) && *other->values[i]!='.' )
+	if ( *other->values[i]!='[' && !Isdigit( *other->values[i]) && *other->values[i]!='.' )
     continue;
 	for ( j=0; j<mm->instance_count; ++j ) {
 	    k = PSDictFindEntry(mm->instances[j]->private,other->keys[i]);

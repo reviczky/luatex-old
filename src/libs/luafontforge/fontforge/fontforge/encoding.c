@@ -36,6 +36,25 @@
 #include <gresource.h>
 #include "plugins.h"
 
+#ifdef LUA_FF_LIB
+/* no need for iconv here, since PS is 8-bit legacy */
+#define Isspace(a) ((a)==' '|| ((a) >= '\t' &&  (a) <= '\r'))
+#define Isdigit(a) ((a)>='0' && (a)<='9')
+#define Isalpha(a) (((a)>='a' && (a)<='z') || ((a)>='A' && (a)<='Z'))
+#define Isupper(a) ((a)>='A' && (a)<='Z')
+#define Isalnum(a) (Isalpha(a)||Isdigit(a))
+#define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
+#else
+#define Isspace isspace
+#define Isdigit isdigit
+#define Isalpha isalpha
+#define Isupper isupper
+#define Isalnum isalnum
+#define Ishexdigit ishexdigit
+#endif
+
+
+
 static int32 tex_base_encoding[] = {
     0x0000, 0x02d9, 0xfb01, 0xfb02, 0x2044, 0x02dd, 0x0141, 0x0142,
     0x02db, 0x02da, 0x000a, 0x02d8, 0x2212, 0x000d, 0x017d, 0x017e,
@@ -526,7 +545,7 @@ static Encoding *ParseConsortiumEncodingFile(FILE *file) {
     max = -1;
 
     while ( fgets(buffer,sizeof(buffer),file)!=NULL ) {
-	if ( ishexdigit(buffer[0]) ) {
+	if ( Ishexdigit(buffer[0]) ) {
 	    if ( sscanf(buffer, "%x %x", (unsigned *) &enc, (unsigned *) &unienc)==2 &&
 		    enc<1024 && enc>=0 ) {
 		encs[enc] = unienc;
@@ -1105,7 +1124,7 @@ return( NULL );
 
     if ( *maybefile!=NULL ) {
 	char *pt = strrchr(*maybefile,'.');
-	while ( pt>*maybefile && isdigit(pt[-1]))
+	while ( pt>*maybefile && Isdigit(pt[-1]))
 	    --pt;
 	best = strtol(pt,NULL,10);
     }
@@ -1124,7 +1143,7 @@ return( NULL );
 	if ( strncmp(pt,ordering,olen)!=0 || pt[olen]!='-' )
     continue;
 	pt += olen+1;
-	if ( !isdigit(*pt))
+	if ( !Isdigit(*pt))
     continue;
 	test = strtol(pt,&end,10);
 	if ( *end!='.' )
@@ -1188,7 +1207,7 @@ struct cidmap *LoadMapFromFile(char *file,char *registry,char *ordering,
     int cid1, cid2, uni, cnt, i;
     char name[100];
 
-    while ( pt>file && isdigit(pt[-1]))
+    while ( pt>file && Isdigit(pt[-1]))
 	--pt;
     ret->supplement = ret->maxsupple = strtol(pt,NULL,10);
     if ( supplement>ret->maxsupple )
@@ -1286,7 +1305,7 @@ return( maybe );	/* User has said it's ok to use maybe at this supplement level 
     if ( file==NULL && (maybe!=NULL || maybefile!=NULL)) {
 	if ( maybefile!=NULL ) {
 	    char *pt = strrchr(maybefile,'.');
-	    while ( pt>maybefile && isdigit(pt[-1]))
+	    while ( pt>maybefile && Isdigit(pt[-1]))
 		--pt;
 	    maybe_sup = strtol(pt,NULL,10);
 	    if ( maybe!=NULL && maybe->supplement >= maybe_sup ) {
@@ -1697,7 +1716,7 @@ return( ranges );
 static char *readpsstr(char *str) {
     char *eos;
 
-    while ( isspace(*str)) ++str;
+    while ( Isspace(*str)) ++str;
     if ( *str=='(' ) ++str;
     /* Postscript strings can be more complicated than this (hex, nested parens, Enc85...) */
     /*  but none of those should show up here */
@@ -1722,7 +1741,7 @@ return( NULL );
     cmap = gcalloc(1,sizeof(struct cmap));
     in = cmt_out;
     while ( fgets(buf2,sizeof(buf2),file)!=NULL ) {
-	for ( pt=buf2; isspace(*pt); ++pt);
+	for ( pt=buf2; Isspace(*pt); ++pt);
 	if ( in==cmt_out ) {
 	    if ( *pt=='/' ) {
 		if ( strncmp(pt,reg,strlen(reg))==0 )
@@ -1730,14 +1749,14 @@ return( NULL );
 		else if ( strncmp(pt,ord,strlen(ord))==0 )
 		    cmap->ordering = readpsstr(pt+strlen(ord));
 		else if ( strncmp(pt,ord,strlen(ord))==0 ) {
-		    for ( pt += strlen(sup); isspace(*pt); ++pt );
+		    for ( pt += strlen(sup); Isspace(*pt); ++pt );
 		    cmap->supplement = strtol(pt,NULL,10);
 		}
     continue;
-	    } else if ( !isdigit(*pt) )
+	    } else if ( !Isdigit(*pt) )
     continue;
 	    val = strtol(pt,&end,10);
-	    while ( isspace(*end)) ++end;
+	    while ( Isspace(*end)) ++end;
 	    if ( strncmp(end,bcsr,strlen(bcsr))==0 )
 		in = cmt_coderange;
 	    else if ( strncmp(end,bndr,strlen(bndr))==0 )
@@ -1755,12 +1774,12 @@ return( NULL );
 	continue;
 	    cmap->groups[in].ranges[pos].first = strtoul(pt+1,&end,16);
 	    if ( *end=='>' ) ++end;
-	    while ( isspace(*end)) ++end;
+	    while ( Isspace(*end)) ++end;
 	    if ( *end=='<' ) ++end;
 	    cmap->groups[in].ranges[pos].last = strtoul(end,&end,16);
 	    if ( in!=cmt_coderange ) {
 		if ( *end=='>' ) ++end;
-		while ( isspace(*end)) ++end;
+		while ( Isspace(*end)) ++end;
 		cmap->groups[in].ranges[pos].cid = strtol(end,&end,10);
 	    }
 	    ++pos;
