@@ -1044,6 +1044,67 @@ static int str_format (lua_State *L) {
 }
 
 
+static int str_split (lua_State *L) {
+  size_t l;
+  size_t i;
+  int n;
+  char *q, *p;
+  int mult = 0;
+  const char *s = luaL_checklstring(L, 1, &l);
+  const char *joiner = luaL_optstring(L, 2, " +");
+  lua_newtable(L);
+  if (l == 0) {
+	lua_pushvalue(L,1);
+	lua_rawseti(L,-2,1);
+	return 1;
+  }
+  p = malloc(l+1);
+  if (p==NULL) {
+	fprintf(stderr, "fatal: memory exhausted (malloc of %u bytes).\n",l+1);
+	exit(EXIT_FAILURE);
+  }
+  strcpy(p,s);
+  n = 1;
+  q = p;
+
+  if (*joiner == 0) {
+	for (i=0;i<l;i++) {
+	  lua_pushlstring(L,q,1); q++;
+	  lua_rawseti(L,-2,n); n++;
+	}
+	return 1;
+  }
+  if (*(joiner+1) == '+') {
+	mult = 1;
+	while(*p==*joiner) {
+	  p++;
+	  l--;
+	}
+	q = p;
+  }
+  for (i=0;i<l;i++) {
+	if (*(p+i)==*joiner) {
+	  *(p+i) = 0;
+	  lua_pushlstring(L,q,((p+i)-q));
+	  lua_rawseti(L,-2,n); n++;
+	  if (mult) {
+		while(*(p+i+1)==*joiner) {
+		  i++;
+		}
+	  }
+	  q = p+i+1;
+	}
+  }
+  if (mult && q==(p+l)) {
+	return 1;
+  }
+  if(q<=(p+l)) {
+	lua_pushlstring(L,q,strlen(q));
+	lua_rawseti(L,-2,n);
+  }
+  return 1;
+} 
+
 static const luaL_Reg strlib[] = {
   {"byte", str_byte},
   {"char", str_char},
@@ -1066,6 +1127,7 @@ static const luaL_Reg strlib[] = {
   {"reverse", str_reverse},
   {"sub", str_sub},
   {"upper", str_upper},
+  {"explode", str_split},
   {NULL, NULL}
 };
 
