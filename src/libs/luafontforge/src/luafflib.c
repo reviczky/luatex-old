@@ -76,8 +76,6 @@ void handle_generic_pst (lua_State *L, struct generic_pst *pst);  /* forward */
 void handle_generic_fpst (lua_State *L, struct generic_fpst *fpst);  /* forward */
 void handle_kernclass (lua_State *L, struct kernclass *kerns);
 void handle_anchorclass (lua_State *L, struct anchorclass *anchor);
-void dump_fpst_reference (lua_State *L, char *name, struct generic_fpst *ref);
-void make_fpst_reference (lua_State *L, struct generic_fpst *ref, int id) ;
 
 
 void
@@ -193,14 +191,9 @@ dump_tag (lua_State *L, char *name, unsigned int field) {
 
 #define NESTED_TABLE(a,b,c) {                                           \
     int k = 1;                                                          \
-    lua_checkstack(L,2);						\
-    lua_pushnumber(L,k); k++;                                           \
-    lua_createtable(L,0,c);                                             \
-    a(L,b);                                                             \
-    lua_rawset(L,-3);                                                   \
-    next = b->next;                                                     \
+    next = b;															\
     while (next != NULL) {                                              \
-      lua_checkstack(L,2);						\
+      lua_checkstack(L,2);												\
       lua_pushnumber(L,k); k++;                                         \
       lua_createtable(L,0,c);                                           \
       a(L, next);                                                       \
@@ -259,7 +252,7 @@ handle_featurescriptlanglist (lua_State *L, struct featurescriptlanglist *featur
 void 
 do_handle_lookup_subtable (lua_State *L, struct lookup_subtable *subtable) {
 
-  /* dump_stringfield(L,"name",                 subtable->subtable_name);  */
+  dump_stringfield(L,"name",                 subtable->subtable_name); 
   dump_stringfield(L,"suffix",               subtable->suffix); 
 
   /* struct otlookup *lookup; */ /* this is the parent */
@@ -277,7 +270,6 @@ do_handle_lookup_subtable (lua_State *L, struct lookup_subtable *subtable) {
     handle_kernclass(L, subtable->kc);
     lua_setfield(L,-2, "kernclass");
   }
-  /*  dump_fpst_reference(L,"possub",subtable->fpst); */
 
   /* generic_asm *sm; */ /* TODO, Apple state machine */
 
@@ -285,24 +277,14 @@ do_handle_lookup_subtable (lua_State *L, struct lookup_subtable *subtable) {
   /* int32 *extra_subtables; */ /* used by OTF file generation */
 }
 
+/* subtables have to be dumped as an array because the ordering
+ *  has to be preserved 
+ */
+
 void
 handle_lookup_subtable (lua_State *L, struct lookup_subtable *subtable) {
   struct lookup_subtable *next;
-
-  lua_checkstack(L,2);     
-  lua_pushstring(L,subtable->subtable_name);
-  lua_createtable(L,0,4);  
-  do_handle_lookup_subtable(L,subtable); 
-  lua_rawset(L,-3);        
-  next = subtable->next;          
-  while (next != NULL) {   
-    lua_checkstack(L,2);   
-    lua_pushstring(L,next->subtable_name);
-    lua_createtable(L,0,4);
-    do_handle_lookup_subtable(L, next);            
-    lua_rawset(L,-3);      
-    next = next->next;     
-  }
+  NESTED_TABLE(do_handle_lookup_subtable,subtable,2); 
 }
 
 void 
@@ -414,9 +396,11 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
   dump_tag(L,"tag",                    pst->tag); 
   dump_intfield(L,"script_lang_index", (pst->script_lang_index+1)); 
 #else
+  /*
   if (pst->subtable != NULL) {
     dump_stringfield(L,"lookup",pst->subtable->subtable_name);
-  } 
+  }
+  */
 #endif
 
   lua_checkstack(L,4);
@@ -485,21 +469,37 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
 void
 handle_generic_pst (lua_State *L, struct generic_pst *pst) {
   struct generic_pst *next;
-
-  int k = 1;                   
-  lua_checkstack(L,2);	 
-  lua_pushnumber(L,k); k++;    
-  lua_createtable(L,0,4);      
-  do_handle_generic_pst(L,pst);                      
-  lua_rawset(L,-3);            
-  next = pst->next;              
+  int k;
+  int l = 1;
+  next = pst; 
+  /* most likely everything arrives in proper order. But to prevent
+   * surprises, better do this is the proper way
+   */
   while (next != NULL) {       
-    lua_checkstack(L,2);	 
-    lua_pushnumber(L,k); k++;    
-    lua_createtable(L,0,4);    
-    do_handle_generic_pst(L, next);                
-    lua_rawset(L,-3);          
-    next = next->next;         
+	if (next->subtable !=NULL && 
+		next->subtable->subtable_name !=NULL) {
+	  lua_checkstack(L,3); /* just in case */
+	  lua_getfield(L,-1,next->subtable->subtable_name);
+	  if (!lua_istable(L,-1)) {
+		lua_pop(L,1);
+		lua_newtable(L);
+		lua_setfield(L,-2,next->subtable->subtable_name);
+		lua_getfield(L,-1,next->subtable->subtable_name);
+	  }
+	  k = lua_objlen(L,-1) + 1; 
+	  lua_pushnumber(L,k);
+	  lua_createtable(L,0,4);    
+	  do_handle_generic_pst(L, next);                
+	  lua_rawset(L,-3);          
+	  next = next->next;         
+	  lua_pop(L,1); /* pop the subtable */
+	} else {
+	  /* Found a pst without subtable, or without subtable name */
+	  lua_pushnumber(L,l); l++;
+	  lua_createtable(L,0,4);    
+	  do_handle_generic_pst(L, next);                
+	  lua_rawset(L,-3);          
+	}
   }
 }
 
@@ -638,7 +638,7 @@ handle_splinechar (lua_State *L,struct splinechar *glyph, int hasvmetrics) {
  if (glyph->possub != NULL) {
    lua_newtable(L);
    handle_generic_pst(L,glyph->possub);
-   lua_setfield(L,-2,"possub");
+   lua_setfield(L,-2,"lookups");
  }
 
  if (glyph->ligofme != NULL) {
@@ -1154,40 +1154,6 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
   }
 }
 
-void dump_fpst_reference (lua_State *L, char *name, struct generic_fpst *ref) {
-  int id = -1;
-  if (ref==NULL) 
-    return;
-  lua_getfield(L, LUA_ENVIRONINDEX, "_fpst");
-  lua_pushlightuserdata(L,ref);
-  lua_rawget(L,-2);
-  if (lua_isnumber(L,-1))
-    id = lua_tonumber(L,-1);
-  lua_pop(L,2);
-  if (id>=0) {
-    lua_pushstring(L,name);
-    lua_pushnumber(L,id);
-    lua_rawset(L,-3);
-  } else {
-    lua_pushfstring(L,"Lookup rule %p went missing\n", &ref);
-    lua_error(L);
-  }
-}
-
-void make_fpst_reference (lua_State *L, struct generic_fpst *ref, int id) {
-  lua_getfield(L, LUA_ENVIRONINDEX, "_fpst");
-  if (lua_isnil(L,-1)) {
-    lua_newtable(L);
-    lua_setfield(L, LUA_ENVIRONINDEX, "_fpst");
-    lua_pop(L,1);
-    lua_getfield(L, LUA_ENVIRONINDEX, "_fpst");
-  }
-  lua_pushlightuserdata(L,ref);
-  lua_pushnumber(L,id);
-  lua_rawset(L,-3);
-  lua_pop(L,1);
-}
-
 void 
 do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   int k;
@@ -1250,7 +1216,6 @@ handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   int k = 1;                        
   lua_checkstack(L,3);	      
 #ifndef OLD_FF
-  /* make_fpst_reference(L,fpst, k); */
   if (fpst->subtable != NULL && 
       fpst->subtable->subtable_name != NULL) {
     lua_pushstring(L,fpst->subtable->subtable_name);
@@ -1267,7 +1232,6 @@ handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   while (next != NULL) {            
     lua_checkstack(L,3); 
 #ifndef OLD_FF
-    /* make_fpst_reference(L,next, k);*/
   if (next->subtable != NULL && 
       next->subtable->subtable_name != NULL) {
     lua_pushstring(L,next->subtable->subtable_name);
@@ -1393,7 +1357,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   if (sf->possub != NULL) {
     lua_newtable(L);
     handle_generic_fpst(L,sf->possub);
-    lua_setfield(L,-2,"possub");
+    lua_setfield(L,-2,"lookups");
   }
 
   lua_checkstack(L,4);
@@ -1607,6 +1571,9 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   dump_intfield(L,"modificationtime", sf->modificationtime);
 
   dump_intfield(L,"os2_version",      sf->os2_version);
+  /* Grid-fitting And Scan-conversion Procedures: not needed */
+
+  /*
   dump_intfield(L,"gasp_version",     sf->gasp_version);
   dump_intfield(L,"gasp_cnt",         sf->gasp_cnt);
 
@@ -1620,6 +1587,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   } else {
     dump_intfield(L,"gasp",         (int)sf->gasp);
   }
+  */
 
   /* uint8 sfd_version;	*/		/* Used only when reading in an sfd file */
   /* struct gfi_data *fontinfo; */ /* TH: looks like this is screen-related */
