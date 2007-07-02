@@ -38,9 +38,9 @@ FF_DUMMY_O=../../src/ffdummies.o
 FF_LIB=src/luafflib.o
 FF_LIB_O=../../src/luafflib.o 
 
-FF_UNI_OBJS =  ArabicForms.o alphabet.o backtrns.o char.o \
- cjk.o memory.o ucharmap.o unialt.o ustring.o \
- utype.o usprintf.o gwwiconv.o
+FF_UNI_OBJS =  ArabicForms.o alphabet.o char.o \
+ memory.o cjk.o ustring.o \
+ usprintf.o gwwiconv.o
 
 FF_UNI_OBJS_O =  ../Unicode/ArabicForms.o ../Unicode/alphabet.o  ../Unicode/char.o \
  ../Unicode/memory.o ../Unicode/cjk.o  ../Unicode/ustring.o \
