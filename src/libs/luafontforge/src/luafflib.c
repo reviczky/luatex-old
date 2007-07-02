@@ -49,9 +49,9 @@ char *otf_lookup_type_enum[] = {
   eight_nulls(),eight_nulls(),
   eight_nulls(),eight_nulls(),
   eight_nulls(), NULL, NULL, NULL, NULL,  NULL, "morx_indic", "morx_context", "morx_insert", /* 0x0FF*/
-  "gpost_start", "gpost_single", "gpos_pair", "gpos_cursive", 
+  "gpos_start", "gpos_single", "gpos_pair", "gpos_cursive", 
   "gpos_mark2base", "gpos_mark2ligature", "gpos_mark2mark",  "gpos_context", 
-  "gpost_contextchain", NULL, NULL, NULL,  NULL, NULL, NULL, NULL, /* 0x10F */
+  "gpos_contextchain", NULL, NULL, NULL,  NULL, NULL, NULL, NULL, /* 0x10F */
   eight_nulls(),eight_nulls(),
   eight_nulls(),eight_nulls(),
   eight_nulls(),eight_nulls(),
