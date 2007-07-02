@@ -165,7 +165,7 @@ LUAMDVDIR=../../libs/luamd5
 LUAMDVSRCDIR=$(srcdir)/$(LUAMDVDIR)
 LUAMDVDEP=$(LUAMDVDIR)/md5lib.o $(LUAMDVDIR)/md5.o
 $(LUAMDVDEP): $(LUAMDVDIR)/md5lib.c $(LUAMDVDIR)/md5.h $(LUAMDVDIR)/md5.c
-	mkdir -p $(LUAMDVDIR) && cd $(LUAMDVDIR) && cp -f $(LUAMDVSRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o md5.o -c md5.c && $(CC) -I$(LIBLUADIR) -g -o md5lib.o -c md5lib.c
+	mkdir -p $(LUAMDVDIR) && cd $(LUAMDVDIR) && cp -f $(LUAMDVSRCDIR)/* . && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o md5.o -c md5.c && $(CC) $(CFLAGS) -I$(LIBLUADIR) -g -o md5lib.o -c md5lib.c
 
 .PHONY: always
 
