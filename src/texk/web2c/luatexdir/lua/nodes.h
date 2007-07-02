@@ -95,11 +95,13 @@ typedef enum {
 #define adjust_node_size 3
 #define adjust_ptr(a)    vlink(a+2)
 
-#define glyph_node_size 4 /* and ligatures */
+#define glyph_node_size 5 /* and ligatures */
 
 #define font(a)         vlink((a)+2)
 #define character(a)    vinfo((a)+2)
 #define lig_ptr(a)      vlink((a)+3)
+#define x_displace(a)   vinfo((a)+4)
+#define y_displace(a)   vlink((a)+4)
 #define is_char_node(a) (a!=null && type(a)==glyph_node)
 
 #define margin_kern_node_size 4

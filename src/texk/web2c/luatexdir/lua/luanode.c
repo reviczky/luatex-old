@@ -329,6 +329,8 @@ lua_node_new(int i, int j) {
     lig_ptr(n) = null; 
     character(n) = 0;
     font(n) = 0;
+	x_displace(n) = 0;
+	y_displace(n) = 0;
     break;
   case disc_node: 
     n = get_node(disc_node_size);  

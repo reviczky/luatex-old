@@ -438,7 +438,7 @@ static char * node_fields_penalty     [] = { "attr", "penalty", NULL };
 static char * node_fields_unset       [] = { "attr", "width", "depth", "height", "dir", "shrink",
 					     "glue_order", "glue_sign", "stretch" , "span",  "list",  NULL };
 static char * node_fields_margin_kern [] = { "attr", "width", "glyph", NULL };
-static char * node_fields_glyph       [] = { "attr", "char", "font", "components", NULL };
+static char * node_fields_glyph       [] = { "attr", "char", "font", "components", "xoffset", "yoffset", NULL };
 
 /* math nodes and noads */
 static char * node_fields_style    [] = { NULL };
@@ -1415,6 +1415,8 @@ lua_nodelib_getfield  (lua_State *L) {
       case  4: lua_pushnumber(L,character(n));	      break;
       case  5: lua_pushnumber(L,font(n));	      break;
       case  6: nodelib_pushlist(L,lig_ptr(n));	      break;
+      case  7: lua_pushnumber(L,x_displace(n));	      break;
+      case  8: lua_pushnumber(L,y_displace(n));	      break;
       default: lua_pushnil(L);
       }
       break;
@@ -1861,9 +1863,11 @@ lua_nodelib_setfield  (lua_State *L) {
       switch (field) {
       case  2: subtype(n) = lua_tointeger(L,3);	        break;
       case  3: nodelib_setattr(L,3,n);                  break;
-      case  4: character(n) = lua_tointeger(L,3);	break;
+      case  4: character(n) = lua_tointeger(L,3);	    break;
       case  5: font(n) = lua_tointeger(L,3);	        break;
       case  6: lig_ptr(n) = nodelib_getlist(L,3);       break;
+      case  7: x_displace(n) = lua_tointeger(L,3);      break;
+      case  8: y_displace(n) = lua_tointeger(L,3);      break;
       default: return nodelib_cantset(L,field,n);
       }
       break;

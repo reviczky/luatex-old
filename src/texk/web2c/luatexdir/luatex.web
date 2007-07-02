@@ -3816,17 +3816,20 @@ required to be strictly less than $2^{16}$). In \LuaTeX, room is
 needed for characters that are larger than that, as well as a pointer
 to a potential attribute list. 
 
-@d glyph_node_size=4
+@d glyph_node_size=5
 @d glyph_node=41 {|type| of a glyph node}
 @d is_char_node(#) == ((#<>null)and(type(#)=glyph_node))
 @d font(#)==vlink(#+2) {the font code in a |glyph_node|}
 @d character(#)==vinfo(#+2) {the character code in a |glyph_node|}
 @d lig_ptr(#)==vlink(#+3) {the list of characters for ligature replacements }
+@d x_displace(#)==vinfo(#+4) { horizontal displacement }
+@d y_displace(#)==vlink(#+4) { vertical displacement  }
 
 @p function new_glyph(@!f,@!c:integer):pointer;
 var p:pointer; {the new node}
 begin p:=get_node(glyph_node_size); set_type(p,glyph_node);
 subtype(p):=0; font(p):=f;  character(p):=c; 
+x_displace(p):=0; y_displace(p):=0;
 if f<>0 then begin
   call_func(char_exists(f,c));
 end;
@@ -3860,6 +3863,7 @@ are being created.
 var p:pointer; {the new node}
 begin p:=get_node(glyph_node_size);  set_type(p,glyph_node);
 subtype(p):=1; font(p):=f;  character(p):=c; 
+x_displace(p):=0; y_displace(p):=0;
 if f<>0 then begin
   call_func(char_exists(f,c));
 end;
@@ -3870,6 +3874,7 @@ end;
 function new_lig_item(@!c:integer):pointer;
 var p:pointer; {the new node}
 begin p:=get_node(glyph_node_size); character(p):=c; lig_ptr(p):=null;
+x_displace(p):=0; y_displace(p):=0;
 build_attribute_list(p);
 new_lig_item:=p;
 end;
@@ -4841,6 +4846,8 @@ glyph_node: begin r:=get_node(glyph_node_size);
   character(r):=character(p); font(r):=font(p);
   node_attr(r):=node_attr(p); add_node_attr_ref(node_attr(p)); 
   s:=copy_node_list(lig_ptr(p));
+  x_displace(r):=x_displace(p);
+  y_displace(r):=y_displace(p);
   lig_ptr(r):=s;
   end;
 hlist_node,vlist_node,unset_node: begin r:=get_node(box_node_size);
