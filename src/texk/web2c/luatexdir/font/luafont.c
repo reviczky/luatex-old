@@ -312,7 +312,7 @@ string_field (lua_State *L, char *name, char *dflt) {
 static int
 count_char_packet_bytes  (lua_State *L) {
   int i, l, ff;
-  unsigned int len;
+  size_t len;
   char *s;
   ff = 0;
   l = 0;
@@ -354,7 +354,7 @@ count_char_packet_bytes  (lua_State *L) {
 static void
 read_char_packets  (lua_State *L, integer *l_fonts, charinfo *co) {
   int i, n, m;
-  unsigned l;
+  size_t l;
   int cmd;
   char *s;
   real_eight_bits *cpackets;
