@@ -671,11 +671,11 @@ static GTextInfo mslanguages[] = {
     { (unichar_t *) N_("French Luxembourg"), NULL, 0, 0, (void *) 0x140c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French Monaco"), NULL, 0, 0, (void *) 0x180c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French West Indies"), NULL, 0, 0, (void *) 0x1c0c, NULL, 0, 0, 0, 0, 0, 0, 1},
-    { (unichar_t *) NU_("French Réunion"), NULL, 0, 0, (void *) 0x200c, NULL, 0, 0, 0, 0, 0, 0, 1},
+    { (unichar_t *) NU_("French R\303\251union"), NULL, 0, 0, (void *) 0x200c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French D.R. Congo"), NULL, 0, 0, (void *) 0x240c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French Senegal"), NULL, 0, 0, (void *) 0x280c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French Camaroon"), NULL, 0, 0, (void *) 0x2c0c, NULL, 0, 0, 0, 0, 0, 0, 1},
-    { (unichar_t *) NU_("French Côte d'Ivoire"), NULL, 0, 0, (void *) 0x300c, NULL, 0, 0, 0, 0, 0, 0, 1},
+    { (unichar_t *) NU_("French C\303\264te d'Ivoire"), NULL, 0, 0, (void *) 0x300c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French Mali"), NULL, 0, 0, (void *) 0x340c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French Morocco"), NULL, 0, 0, (void *) 0x380c, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("French Haiti"), NULL, 0, 0, (void *) 0x3c0c, NULL, 0, 0, 0, 0, 0, 0, 1},
@@ -924,7 +924,7 @@ static const char lightgerm[] = "Mager";
 static const char mediumgerm[] = "Mittel";
 static const char bookgerm[] = "Buchschrift";
 static const char italicgerm[] = "Kursiv";
-static const char obliquegerm[] = "Schräg";
+static const char obliquegerm[] = "Schr\303\244g";
 static const char condensedgerm[] = "Schmal";
 static const char expandedgerm[] = "Breit";
 static const char outlinegerm[] = "Konturert";
@@ -993,115 +993,115 @@ static const char obliqueital[] = "Obliquo";
 static const char condensedital[] = "Condensato";
 static const char expandedital[] = "Allargato";
 
-static const char regularru[] = "Обычный";
-static const char demiboldru[] = "Полужирный";
-static const char boldru[] = "Обычный";
-static const char heavyru[] = "Сверхжирный";
-static const char blackru[] = "Чёрный";
-static const char thinru[] = "Тонкий";
-static const char lightru[] = "Светлый";
-static const char italicru[] = "Курсив";
-static const char obliqueru[] = "Наклон";
-static const char condensedru[] = "Узкий";
-static const char expandedru[] = "Широкий";
+static const char regularru[] = "\320\236\320\261\321\213\321\207\320\275\321\213\320\271";
+static const char demiboldru[] = "\320\237\320\276\320\273\321\203\320\266\320\270\321\200\320\275\321\213\320\271";
+static const char boldru[] = "\320\236\320\261\321\213\321\207\320\275\321\213\320\271";
+static const char heavyru[] = "\320\241\320\262\320\265\321\200\321\205\320\266\320\270\321\200\320\275\321\213\320\271";
+static const char blackru[] = "\320\247\321\221\321\200\320\275\321\213\320\271";
+static const char thinru[] = "\320\242\320\276\320\275\320\272\320\270\320\271";
+static const char lightru[] = "\320\241\320\262\320\265\321\202\320\273\321\213\320\271";
+static const char italicru[] = "\320\232\321\203\321\200\321\201\320\270\320\262";
+static const char obliqueru[] = "\320\235\320\260\320\272\320\273\320\276\320\275";
+static const char condensedru[] = "\320\243\320\267\320\272\320\270\320\271";
+static const char expandedru[] = "\320\250\320\270\321\200\320\276\320\272\320\270\320\271";
 
-static const char regularhu[] = "Normál";
-static const char demiboldhu[] = "Negyedkövér";
-static const char demiboldhu2[] = "Félkövér";
-static const char boldhu[] = "Félkövér";
-static const char boldhu2[] = "Háromnegyedkövér";
-static const char thinhu[] = "Sovány";
-static const char lighthu[] = "Világos";
-static const char mediumhu[] = "Közepes";
-static const char bookhu[] = "Halvány";
-static const char bookhu2[] = "Könyv";
-static const char heavyhu[] = "Kövér";
-static const char heavyhu2[] = "Extrakövér";
+static const char regularhu[] = "Norm\303\241l";
+static const char demiboldhu[] = "Negyedk\303\266v\303\251r";
+static const char demiboldhu2[] = "F\303\251lk\303\266v\303\251r";
+static const char boldhu[] = "F\303\251lk\303\266v\303\251r";
+static const char boldhu2[] = "H\303\241romnegyedk\303\266v\303\251r";
+static const char thinhu[] = "Sov\303\241ny";
+static const char lighthu[] = "Vil\303\241gos";
+static const char mediumhu[] = "K\303\266zepes";
+static const char bookhu[] = "Halv\303\241ny";
+static const char bookhu2[] = "K\303\266nyv";
+static const char heavyhu[] = "K\303\266v\303\251r";
+static const char heavyhu2[] = "Extrak\303\266v\303\251r";
 static const char blackhu[] = "Fekete";
-static const char blackhu2[] = "Sötét";
-static const char italichu[] = "Dőlt";
-static const char obliquehu[] = "Döntött";
+static const char blackhu2[] = "S\303\266t\303\251t";
+static const char italichu[] = "D\305\221lt";
+static const char obliquehu[] = "D\303\266nt\303\266tt";
 static const char obliquehu2[] = "Ferde";
 static const char condensedhu[] = "Keskeny";
-static const char expandedhu[] = "Széles";
-static const char outlinehu[] = "Kontúros";
+static const char expandedhu[] = "Sz\303\251les";
+static const char outlinehu[] = "Kont\303\272ros";
 
 static const char regularpl[] = "podstawowa";
-static const char demiboldpl[] = "półgruba";
+static const char demiboldpl[] = "p\303\263\305\202gruba";
 static const char boldpl[] = "pogrubiona";
 static const char thinpl[] = "cienka";
 static const char lightpl[] = "bardzo cienka";
 static const char heavypl[] = "bardzo gruba";
-static const char italicpl[] = "pochyła";
-static const char obliquepl[] = "pochyła";
-static const char condensedpl[] = "wąska";
+static const char italicpl[] = "pochy\305\202a";
+static const char obliquepl[] = "pochy\305\202a";
+static const char condensedpl[] = "w\304\205ska";
 static const char expandedpl[] = "szeroka";
 static const char outlinepl[] = "konturowa";
-static const char mediumpl[] = "zwykła";
-static const char bookpl[] = "zwykła";
+static const char mediumpl[] = "zwyk\305\202a";
+static const char bookpl[] = "zwyk\305\202a";
 
 
 
 static struct langstyle regs[] = { {0x409, regulareng}, { 0x40c, regularfren }, { 0x410, regularital }, { 0x407, regulargerm }, { 0x40a, regularspan }, { 0x419, regularru }, { 0x40e, regularhu },
 	{ 0x413, regulardutch}, { 0x41d, regularswed }, { 0x414, regularnor },
-	{ 0x406, regulardanish}, {0x415, regularpl }, { 0x804, "正常"},
-	{ 0x408, "κανονική"}, { 0x42a, "Chuẩn"}, { 0 }};
+	{ 0x406, regulardanish}, {0x415, regularpl }, { 0x804, "\346\255\243\345\270\270"},
+	{ 0x408, "\316\272\316\261\316\275\316\277\316\275\316\271\316\272\316\256"}, { 0x42a, "Chu\341\272\251n"}, { 0 }};
 static struct langstyle meds[] = { {0x409, mediumeng}, { 0x410, mediumital },
 	{ 0x40c, mediumfren }, { 0x407, mediumgerm }, { 0x40e, mediumhu },
-	{ 0x406, mediumdanish}, {0x415, mediumpl }, { 0x804, "中等"}, 
-	{ 0x408, "µεσαία"}, { 0x42a, "Vừa"}, { 0x413, mediumdutch}, { 0 }};
+	{ 0x406, mediumdanish}, {0x415, mediumpl }, { 0x804, "\344\270\255\347\255\211"}, 
+	{ 0x408, "\302\265\316\265\317\203\316\261\316\257\316\261"}, { 0x42a, "V\341\273\253a"}, { 0x413, mediumdutch}, { 0 }};
 static struct langstyle books[] = { {0x409, bookeng}, { 0x410, bookital },
 	{ 0x407, bookgerm }, { 0x40e, bookhu }, { 0x40e, bookhu2 },
-	{ 0x415, bookpl}, { 0x804, "书体"}, { 0x408, "ßιßλίου"},
-	{ 0x42a, "Sách"}, { 0x413, bookdutch}, { 0 }};
+	{ 0x415, bookpl}, { 0x804, "\344\271\246\344\275\223"}, { 0x408, "\303\237\316\271\303\237\316\273\316\257\316\277\317\205"},
+	{ 0x42a, "S\303\241ch"}, { 0x413, bookdutch}, { 0 }};
 static struct langstyle bolds[] = { {0x409, boldeng}, { 0x410, boldital }, { 0x40c, boldfren }, { 0x407, boldgerm }, { 0x407, boldgerm2 }, { 0x40a, boldspan}, { 0x419, boldru }, { 0x40e, boldhu }, { 0x40e, boldhu2 }, 
 	{ 0x413, bolddutch}, { 0x41d, boldswed }, { 0x414, boldnor },
-	{ 0x406, bolddanish}, { 0x415, boldpl}, { 0x804, "粗体"},  
-	{ 0x408, "έντονη"}, { 0x42a, "Đậm"}, { 0 }};
+	{ 0x406, bolddanish}, { 0x415, boldpl}, { 0x804, "\347\262\227\344\275\223"},  
+	{ 0x408, "\316\255\316\275\317\204\316\277\316\275\316\267"}, { 0x42a, "\304\220\341\272\255m"}, { 0 }};
 static struct langstyle italics[] = { {0x409, italiceng}, { 0x410, italicital }, { 0x40c, italicfren }, { 0x407, italicgerm }, { 0x40a, italicspan}, { 0x419, italicru }, { 0x40e, italichu },
 	{ 0x413, italicdutch}, { 0x413, italicdutch2}, { 0x41d, italicswed }, { 0x414, italicnor },
-	{ 0x406, italicdanish}, { 0x415, italicpl}, { 0x804, "斜体"},
-	{ 0x408, "Λειψίας"}, { 0x42a, "Nghiêng" }, { 0 }};
+	{ 0x406, italicdanish}, { 0x415, italicpl}, { 0x804, "\346\226\234\344\275\223"},
+	{ 0x408, "\316\233\316\265\316\271\317\210\316\257\316\261\317\202"}, { 0x42a, "Nghi\303\252ng" }, { 0 }};
 static struct langstyle obliques[] = { {0x409, obliqueeng}, { 0x410, obliqueital },
 	{ 0x40c, obliquefren }, { 0x407, obliquegerm }, { 0x419, obliqueru },
 	{ 0x40e, obliquehu }, { 0x40e, obliquehu2 }, {0x415, obliquepl},
-	{ 0x804, "斜体"}, { 0x408, "πλάγια"},
-	{ 0x42a, "Xiên" }, { 0x413, obliquedutch}, { 0x413, obliquedutch2}, { 0 }};
+	{ 0x804, "\346\226\234\344\275\223"}, { 0x408, "\317\200\316\273\316\254\316\263\316\271\316\261"},
+	{ 0x42a, "Xi\303\252n" }, { 0x413, obliquedutch}, { 0x413, obliquedutch2}, { 0 }};
 static struct langstyle demibolds[] = { {0x409, demiboldeng}, {0x409, demiboldeng3}, {0x409, demiboldeng5},
 	{ 0x410, demiboldital }, { 0x40c, demiboldfren }, { 0x40c, demiboldfren2 }, { 0x407, demiboldgerm }, { 0x407, demiboldgerm2 },
 	{ 0x419, demiboldru }, { 0x40e, demiboldhu }, { 0x40e, demiboldhu2 },
 	{ 0x406, demibolddanish}, { 0x415, demiboldpl },
-	{ 0x804, "略粗"}, { 0x408, "ηµιέντονη"},
-	{ 0x42a, "Nửa đậm"}, { 0x413, demibolddutch}, { 0 }};
+	{ 0x804, "\347\225\245\347\262\227"}, { 0x408, "\316\267\302\265\316\271\316\255\316\275\317\204\316\277\316\275\316\267"},
+	{ 0x42a, "N\341\273\255a \304\221\341\272\255m"}, { 0x413, demibolddutch}, { 0 }};
 static struct langstyle heavys[] = { {0x409, heavyeng}, { 0x410, heavyital },
 	{ 0x419, heavyru }, { 0x40e, heavyhu }, { 0x40e, heavyhu2 },
-	{ 0x415, heavypl }, { 0x804, "粗"}, { 0 }};
+	{ 0x415, heavypl }, { 0x804, "\347\262\227"}, { 0 }};
 static struct langstyle blacks[] = { {0x409, blackeng}, { 0x410, blackital }, { 0x40c, blackfren }, { 0x407, blackgerm }, { 0x419, blackru }, { 0x40e, blackhu }, { 0x40e, blackhu2 }, { 0x40a, blackspan }, 
 	{ 0x413, blackdutch}, { 0x41d, blackswed }, { 0x414, blacknor }, { 0x406, blackdanish}, 
-	{ 0x415, heavypl }, { 0x804, "黑"},  { 0x408, "µαύρα"},
-	{ 0x42a, "Đen"}, 0 };
+	{ 0x415, heavypl }, { 0x804, "\351\273\221"},  { 0x408, "\302\265\316\261\317\215\317\201\316\261"},
+	{ 0x42a, "\304\220en"}, 0 };
 static struct langstyle thins[] = { {0x409, thineng}, { 0x410, thinital },
 	{ 0x419, thinru }, { 0x40e, thinhu }, { 0x415, thinpl},
-	{ 0x804, "细"}, { 0 }};
+	{ 0x804, "\347\273\206"}, { 0 }};
 static struct langstyle extralights[] = { {0x409, extralighteng}, {0x409, extralighteng2},
-	{ 0x804, "极细"}, {0}};
+	{ 0x804, "\346\236\201\347\273\206"}, {0}};
 static struct langstyle lights[] = { {0x409, lighteng}, {0x410, lightital}, {0x40c, lightfren}, {0x407, lightgerm}, { 0x419, lightru }, { 0x40e, lighthu }, { 0x40a, lightspan }, 
 	{ 0x413, lightdutch}, { 0x41d, lightswed }, { 0x414, lightnor },
-	{ 0x406, lightdanish}, { 0x415, lightpl}, { 0x804, "细"},
-	{ 0x408, "λεπτή"}, { 0x42a, "Nhẹ" }, { 0 }};
+	{ 0x406, lightdanish}, { 0x415, lightpl}, { 0x804, "\347\273\206"},
+	{ 0x408, "\316\273\316\265\317\200\317\204\316\256"}, { 0x42a, "Nh\341\272\271" }, { 0 }};
 static struct langstyle condenseds[] = { {0x409, condensedeng}, {0x410, condensedital}, {0x40c, condensedfren}, {0x407, condensedgerm}, { 0x419, condensedru }, { 0x40e, condensedhu }, { 0x40a, condensedspan }, 
 	{ 0x413, condenseddutch}, { 0x41d, condensedswed },
 	{ 0x414, condensednor }, { 0x406, condenseddanish},
-	{ 0x415, condensedpl }, { 0x804, "压缩"},
-	{ 0x408, "πυκνή"}, { 0x42a, "Hẹp" }, { 0 }};
+	{ 0x415, condensedpl }, { 0x804, "\345\216\213\347\274\251"},
+	{ 0x408, "\317\200\317\205\316\272\316\275\316\256"}, { 0x42a, "H\341\272\271p" }, { 0 }};
 static struct langstyle expandeds[] = { {0x409, expandedeng}, {0x410, expandedital}, {0x40c, expandedfren}, {0x407, expandedgerm}, { 0x419, expandedru }, { 0x40e, expandedhu }, { 0x40a, expandedspan }, 
 	{ 0x413, expandeddutch}, { 0x41d, expandedswed }, { 0x414, expandednor },
-	{ 0x406, expandeddanish}, { 0x415, expandedpl }, { 0x804, "加宽"},
-	{ 0x408, "αραιή"}, { 0x42a, "Rộng" }, { 0 }};
+	{ 0x406, expandeddanish}, { 0x415, expandedpl }, { 0x804, "\345\212\240\345\256\275"},
+	{ 0x408, "\316\261\317\201\316\261\316\271\316\256"}, { 0x42a, "R\341\273\231ng" }, { 0 }};
 static struct langstyle outlines[] = { {0x409, outlineeng}, {0x40c, outlinefren},
 	{0x407, outlinegerm}, {0x40e, outlinehu}, { 0x406, outlinedanish},
-	{0x415, outlinepl}, { 0x804, "轮廓"}, { 0x408, "περιγράμματος"},
-	{0x42a, "Nét ngoài" }, { 0x413, outlinedutch}, { 0 }};
+	{0x415, outlinepl}, { 0x804, "\350\275\256\345\273\223"}, { 0x408, "\317\200\316\265\317\201\316\271\316\263\317\201\316\254\316\274\316\274\316\261\317\204\316\277\317\202"},
+	{0x42a, "N\303\251t ngo\303\240i" }, { 0x413, outlinedutch}, { 0 }};
 static struct langstyle *stylelist[] = {regs, meds, books, demibolds, bolds, heavys, blacks,
 	extralights, lights, thins, italics, obliques, condenseds, expandeds, outlines, NULL };
 
@@ -9063,7 +9063,7 @@ return;
 /* GT: when translating this please leave the "SIL Open Font License" in */
 /* GT: English (possibly translating it in parentheses). I believe there */
 /* GT: are legal reasons for this. */
-/* GT: So "Añadir SIL Open Font License (licencia de fuentes libres)" */
+/* GT: So "A\303\261adir SIL Open Font License (licencia de fuentes libres)" */
     tnlabel[5].text = (unichar_t *) S_("Add SIL ");
     tnlabel[5].image_precedes = false;
     tnlabel[5].image = &OFL_logo;
@@ -9183,7 +9183,7 @@ return;
     memset(&txgcd,0,sizeof(txgcd));
 
     k=0;
-    txlabel[k].text = (unichar_t *) U_("ΤεΧ General");
+    txlabel[k].text = (unichar_t *) U_("\316\244\316\265\316\247 General");
     txlabel[k].text_is_1byte = true;
     txgcd[k].gd.label = &txlabel[k];
     txgcd[k].gd.pos.x = 10; txgcd[k].gd.pos.y = 10;
@@ -9192,7 +9192,7 @@ return;
     txgcd[k].gd.handle_controlevent = GFI_TeXChanged;
     txgcd[k++].creator = GRadioCreate;
 
-    txlabel[k].text = (unichar_t *) U_("ΤεΧ Math Symbol");
+    txlabel[k].text = (unichar_t *) U_("\316\244\316\265\316\247 Math Symbol");
     txlabel[k].text_is_1byte = true;
     txgcd[k].gd.label = &txlabel[k];
     txgcd[k].gd.pos.x = 80; txgcd[k].gd.pos.y = txgcd[k-1].gd.pos.y;
@@ -9201,7 +9201,7 @@ return;
     txgcd[k].gd.handle_controlevent = GFI_TeXChanged;
     txgcd[k++].creator = GRadioCreate;
 
-    txlabel[k].text = (unichar_t *) U_("ΤεΧ Math Extension");
+    txlabel[k].text = (unichar_t *) U_("\316\244\316\265\316\247 Math Extension");
     txlabel[k].text_is_1byte = true;
     txgcd[k].gd.label = &txlabel[k];
     txgcd[k].gd.pos.x = 155; txgcd[k].gd.pos.y = txgcd[k-1].gd.pos.y;
@@ -9880,7 +9880,7 @@ return;
 
     d->tx_aspect = i;
 /* xgettext won't use non-ASCII messages */
-    aspects[i].text = (unichar_t *) U_("ΤεΧ");	/* Tau epsilon Chi, in greek */
+    aspects[i].text = (unichar_t *) U_("\316\244\316\265\316\247");	/* Tau epsilon Chi, in greek */
     aspects[i].text_is_1byte = true;
     aspects[i++].gcd = txbox;
 
