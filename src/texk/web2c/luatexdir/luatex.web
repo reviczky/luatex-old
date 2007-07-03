@@ -3837,6 +3837,31 @@ build_attribute_list(p);
 lig_ptr(p):=null;
 new_glyph:=p;
 end;
+@#
+function glyph_width(@!p:halfword):pointer;
+var w:integer;
+begin
+  w := char_width(font(p),character(p)) + x_displace(p);
+  glyph_width := w;
+end;
+@#
+function glyph_height(@!p:halfword):pointer;
+var w:integer;
+begin
+  w := char_height(font(p),character(p)) + y_displace(p);
+  if w<0 then w:=0;
+  glyph_height := w;
+end;
+@#
+function glyph_depth(@!p:halfword):pointer;
+var w:integer;
+begin
+  w := char_depth(font(p),character(p));
+  if y_displace(p)>0 then w := w - y_displace(p);
+  if w<0 then w:=0;
+  glyph_depth := w;
+end;
+
 
 @ A subset of the glyphs nodes represent ligatures: characters
 fabricated from the interaction of two or more actual characters.  The
@@ -19044,11 +19069,19 @@ reswitch: if is_char_node(p) then
   if (font_natural_dir(f)<>-1) then
     case font_direction(dvi_direction) of
     dir__LT,dir__LB: begin
+	  if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_up(y_displace(p));
       pdf_dvicmd_set(c);
+	  if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_down(y_displace(p));
       end;
     dir__RT,dir__RB: begin
-      pdf_dvicmd_put(c);
+	  if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_up(y_displace(p));
       pdf_dvicmd_left(c_wd);
+      pdf_dvicmd_put(c);
+	  if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_down(y_displace(p));
       end;
     dir__TL,dir__TR: begin
       pdf_dvicmd_put(c);
@@ -19078,7 +19111,11 @@ reswitch: if is_char_node(p) then
   else
     case font_direction(dvi_direction) of
     dir__LT: begin
+	  if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_up(y_displace(p));
       pdf_dvicmd_set(c);
+	  if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_down(y_displace(p));
       end;
     dir__LB: begin
       pdf_dvicmd_down(c_ht);
@@ -19086,8 +19123,12 @@ reswitch: if is_char_node(p) then
       pdf_dvicmd_up(c_ht);
       end;
     dir__RT: begin
+	  if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_up(y_displace(p));
       pdf_dvicmd_left(c_wd);
       pdf_dvicmd_put(c);
+	  if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_down(y_displace(p));
       end;
     dir__RB: begin
       pdf_dvicmd_left(c_wd);
@@ -21191,11 +21232,15 @@ begin
     check_expand_pars := true;
 end;
 
-function char_stretch(f: internal_font_number; c: integer): scaled;
+function char_stretch(p:halfword): scaled;
 var k: internal_font_number;
     dw: scaled;
     ef: integer;
+    f: internal_font_number; 
+    c: integer;
 begin
+    f := font(p);
+    c := character(p);
     char_stretch := 0;
     k := pdf_font_stretch[f];
     ef := get_ef_code(f, c);
@@ -21206,11 +21251,15 @@ begin
     end;
 end;
 
-function char_shrink(f: internal_font_number; c: integer): scaled;
+function char_shrink(p:halfword): scaled;
 var k: internal_font_number;
     dw: scaled;
     ef: integer;
+    f: internal_font_number; 
+    c: integer;
 begin
+    f := font(p);
+    c := character(p);
     char_shrink := 0;
     k := pdf_font_shrink[f];
     ef := get_ef_code(f, c);
@@ -21543,8 +21592,8 @@ if m >= cal_expand_ratio then begin
     case m of
     cal_expand_ratio: begin
         f := font(p);
-        add_char_stretch(font_stretch)(character(p));
-        add_char_shrink(font_shrink)(character(p));
+        add_char_stretch(font_stretch)(p);
+        add_char_shrink(font_shrink)(p);
     end;
     subst_ex_font:
         do_subst_font(p, font_expand_ratio);
@@ -25496,16 +25545,16 @@ it into the global variable |disc_width| before calling |try_break|.
 @d sub_disc_width_from_active_width(#) ==
     active_width[#] := active_width[#] - disc_width[#]
 
-@d add_char_stretch_end(#) == char_stretch(f, #)
+@d add_char_stretch_end(#) == char_stretch(#)
 @d add_char_stretch(#) == # := # + add_char_stretch_end
 
-@d add_char_shrink_end(#) == char_shrink(f, #)
+@d add_char_shrink_end(#) == char_shrink(#)
 @d add_char_shrink(#) == # := # + add_char_shrink_end
 
-@d sub_char_stretch_end(#) == char_stretch(f, #)
+@d sub_char_stretch_end(#) == char_stretch(#)
 @d sub_char_stretch(#) == # := # - sub_char_stretch_end
 
-@d sub_char_shrink_end(#) == char_shrink(f, #)
+@d sub_char_shrink_end(#) == char_shrink(#)
 @d sub_char_shrink(#) == # := # - sub_char_shrink_end
 
 @d add_kern_stretch_end(#) == kern_stretch(#)
@@ -25545,15 +25594,14 @@ only character nodes, kern nodes, and box or rule nodes.
 if is_char_node(v) then
   begin f:=font(v);
   if is_rotated(line_break_dir) then begin
-    break_width[1]:=break_width[1]-char_height(f,character(v))
-                                  -char_depth(f,character(v));
+    break_width[1]:=break_width[1]-glyph_height(v)-glyph_depth(v);
     end
   else
-    break_width[1]:=break_width[1]-char_width(f,character(v));
+    break_width[1]:=break_width[1]-glyph_width(v);
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := v;
-      sub_char_stretch(break_width[8])(character(v));
-      sub_char_shrink(break_width[9])(character(v));
+      sub_char_stretch(break_width[8])(v);
+      sub_char_shrink(break_width[9])(v);
   end;
   end
 else  case type(v) of
@@ -25580,15 +25628,14 @@ else  case type(v) of
 if is_char_node(s) then
   begin f:=font(s);
   if is_rotated(line_break_dir) then begin
-    break_width[1]:=break_width[1]+char_height(f,character(s))
-                                  +char_depth(f,character(s));
+    break_width[1]:=break_width[1]+glyph_height(s)+glyph_depth(s);
     end
   else
-    break_width[1]:=@|break_width[1]+char_width(f,character(s));
+    break_width[1]:=@|break_width[1]+glyph_width(s);
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
-      add_char_stretch(break_width[8])(character(s));
-      add_char_shrink(break_width[9])(character(s));
+      add_char_stretch(break_width[8])(s);
+      add_char_shrink(break_width[9])(s);
   end;
   end
 else  case type(s) of
@@ -26190,15 +26237,14 @@ character node.
 begin prev_p:=cur_p;
 repeat f:=font(cur_p);
 if is_rotated(line_break_dir) then begin
-    act_width:=act_width+char_height(f,character(cur_p))
-                        +char_depth(f,character(cur_p));
+    act_width:=act_width+glyph_height(cur_p)+glyph_depth(cur_p);
   end
 else
-  act_width:=act_width+char_width(f,character(cur_p));
+  act_width:=act_width+glyph_width(cur_p);
 if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
     prev_char_p := cur_p;
-    add_char_stretch(active_width[8])(character(cur_p));
-    add_char_shrink(active_width[9])(character(cur_p));
+    add_char_stretch(active_width[8])(cur_p);
+    add_char_shrink(active_width[9])(cur_p);
 end;
 cur_p:=vlink(cur_p);
 until not is_char_node(cur_p);
@@ -26246,15 +26292,14 @@ end
 if is_char_node(s) then
   begin f:=font(s);
   if is_rotated(line_break_dir) then begin
-      disc_width[1]:=disc_width[1]+char_height(f,character(s))
-                            +char_depth(f,character(s));
+      disc_width[1]:=disc_width[1]+glyph_height(s)+glyph_depth(s);
     end
   else
-    disc_width[1]:=disc_width[1]+char_width(f,character(s));
+    disc_width[1]:=disc_width[1]+glyph_width(s);
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
-      add_char_stretch(disc_width[8])(character(s));
-      add_char_shrink(disc_width[9])(character(s));
+      add_char_stretch(disc_width[8])(s);
+      add_char_shrink(disc_width[9])(s);
   end;
   end
 else  case type(s) of
@@ -26280,15 +26325,14 @@ else  case type(s) of
 if is_char_node(s) then
   begin f:=font(s);
   if is_rotated(line_break_dir) then begin
-      act_width:=act_width+char_height(f,character(s))
-                          +char_depth(f,character(s));
+      act_width:=act_width+glyph_height(s)+glyph_depth(s);
     end
   else
-    act_width:=act_width+char_width(f,character(s));
+    act_width:=act_width+glyph_width(s);
   if (pdf_adjust_spacing > 1) and check_expand_pars(f) then begin
       prev_char_p := s;
-      add_char_stretch(active_width[8])(character(s));
-      add_char_shrink(active_width[9])(character(s));
+      add_char_stretch(active_width[8])(s);
+      add_char_shrink(active_width[9])(s);
   end;
   end
 else  case type(s) of
@@ -31171,7 +31215,7 @@ begin scan_char_num; f:=cur_font; p:=new_character(f,cur_val);
 if p<>null then
   begin x:=x_height(f); s:=slant(f)/float_constant(65536);
 @^real division@>
-  a:=char_width(f,character(p));@/
+  a:=glyph_width(p);@/
   do_assignments;@/
   @<Create a character node |q| for the next character,
     but set |q:=null| if problems arise@>;
@@ -31200,8 +31244,8 @@ because the user cannot remove these nodes nor access them via \.{\\lastkern}.
 @<Append the accent with appropriate kerns...@>=
 begin t:=slant(f)/float_constant(65536);
 @^real division@>
-w:=char_width(f,character(q)); 
-h:=char_height(f,character(q));
+w:=glyph_width(q); 
+h:=glyph_height(q);
 if h<>x then {the accent must be shifted up or down}
   begin p:=hpack(p,natural); shift_amount(p):=x-h;
   end;
@@ -31469,7 +31513,7 @@ done:
 
 @ @<Let |d| be the natural width of node |p|...@>=
 reswitch: if is_char_node(p) then
-  begin f:=font(p); d:=char_width(f,character(p));
+  begin f:=font(p); d:=glyph_width(p);
   goto found;
   end;
 case type(p) of
