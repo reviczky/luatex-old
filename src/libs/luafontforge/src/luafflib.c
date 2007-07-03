@@ -759,7 +759,7 @@ handle_pfminfo (lua_State *L, struct pfminfo pfm) {
   dump_intfield (L, "os2_supyoff",        pfm.os2_supyoff	  );
   dump_intfield (L, "os2_strikeysize",    pfm.os2_strikeysize );
   dump_intfield (L, "os2_strikeypos",     pfm.os2_strikeypos  );
-  dump_stringfield (L, "os2_vendor",      pfm.os2_vendor);
+  dump_lstringfield (L, "os2_vendor",    pfm.os2_vendor, 4);
   dump_intfield (L, "os2_family_class",   pfm.os2_family_class);
   dump_intfield (L, "os2_xheight",        pfm.os2_xheight);
   dump_intfield (L, "os2_capheight",      pfm.os2_capheight);
@@ -1105,9 +1105,9 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
   } else if (format == pst_class) {
   
     lua_newtable(L);
-    DUMP_NUMBER_ARRAY("nclasses", rule->u.class.ncnt,rule->u.class.nclasses);
-    DUMP_NUMBER_ARRAY("bclasses", rule->u.class.bcnt,rule->u.class.bclasses);
-    DUMP_NUMBER_ARRAY("fclasses", rule->u.class.fcnt,rule->u.class.fclasses);
+    DUMP_NUMBER_ARRAY("current", rule->u.class.ncnt,rule->u.class.nclasses);
+    DUMP_NUMBER_ARRAY("before", rule->u.class.bcnt,rule->u.class.bclasses);
+    DUMP_NUMBER_ARRAY("after", rule->u.class.fcnt,rule->u.class.fclasses);
 #if 0
     DUMP_NUMBER_ARRAY("allclasses", 0,rule->u.class.allclasses);
 #endif
@@ -1116,17 +1116,17 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
   } else if (format == pst_coverage) {
 
     lua_newtable(L);
-    DUMP_STRING_ARRAY("ncovers", rule->u.coverage.ncnt,rule->u.coverage.ncovers);
-    DUMP_STRING_ARRAY("bcovers", rule->u.coverage.bcnt,rule->u.coverage.bcovers);
-    DUMP_STRING_ARRAY("fcovers", rule->u.coverage.fcnt,rule->u.coverage.fcovers);
+    DUMP_STRING_ARRAY("current", rule->u.coverage.ncnt,rule->u.coverage.ncovers);
+    DUMP_STRING_ARRAY("before", rule->u.coverage.bcnt,rule->u.coverage.bcovers);
+    DUMP_STRING_ARRAY("after", rule->u.coverage.fcnt,rule->u.coverage.fcovers);
     lua_setfield(L,-2,fpossub_format_enum[format]);
 
   } else if (format == pst_reversecoverage) {
 
     lua_newtable(L);
-    DUMP_STRING_ARRAY("ncovers", rule->u.rcoverage.always1,rule->u.rcoverage.ncovers);
-    DUMP_STRING_ARRAY("bcovers", rule->u.rcoverage.bcnt,rule->u.rcoverage.bcovers);
-    DUMP_STRING_ARRAY("fcovers", rule->u.rcoverage.fcnt,rule->u.rcoverage.fcovers);
+    DUMP_STRING_ARRAY("current", rule->u.rcoverage.always1,rule->u.rcoverage.ncovers);
+    DUMP_STRING_ARRAY("before", rule->u.rcoverage.bcnt,rule->u.rcoverage.bcovers);
+    DUMP_STRING_ARRAY("after", rule->u.rcoverage.fcnt,rule->u.rcoverage.fcovers);
     dump_stringfield(L,"replacements", rule->u.rcoverage.replacements);
     lua_setfield(L,-2,fpossub_format_enum[format]);
   } else {
@@ -1181,20 +1181,16 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   /* dump_intfield (L,"effectively_by_glyphs", fpst->effectively_by_glyphs); */
 #endif
 
-  if (fpst->nccnt>0) {
-	dump_intfield (L,"nccnt", fpst->nccnt);
-  }
-  if (fpst->bccnt>0) {
-	dump_intfield (L,"bccnt", fpst->bccnt);
-  }
-  if (fpst->fccnt>0) {
-	dump_intfield (L,"fccnt", fpst->fccnt);
-  }
+  /*
+  if (fpst->nccnt>0) {dump_intfield (L,"nccnt", fpst->nccnt);  }
+  if (fpst->bccnt>0) {dump_intfield (L,"bccnt", fpst->bccnt);  }
+  if (fpst->fccnt>0) {dump_intfield (L,"fccnt", fpst->fccnt);  }
+  */
   /*dump_intfield (L,"rule_cnt", fpst->rule_cnt);*/
 
-  DUMP_STRING_ARRAY("nclass",fpst->nccnt,fpst->nclass);
-  DUMP_STRING_ARRAY("bclass",fpst->nccnt,fpst->bclass);
-  DUMP_STRING_ARRAY("fclass",fpst->nccnt,fpst->fclass);
+  DUMP_STRING_ARRAY("current_class",fpst->nccnt,fpst->nclass);
+  DUMP_STRING_ARRAY("before_class",fpst->nccnt,fpst->bclass);
+  DUMP_STRING_ARRAY("after_class",fpst->nccnt,fpst->fclass);
 
   lua_checkstack(L,4);
   if (fpst->rule_cnt>0) {
@@ -1547,7 +1543,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   dump_intfield(L,"design_range_bottom",sf->design_range_bottom);
   dump_intfield(L,"design_range_top",   sf->design_range_top);
   dump_floatfield(L,"strokewidth",      sf->strokewidth);
-  dump_intfield(L,"mark_class_cnt",     sf->mark_class_cnt);
+  /*dump_intfield(L,"mark_class_cnt",     sf->mark_class_cnt);*/
   
   if (sf->mark_class_cnt>0) {
     lua_newtable(L);
