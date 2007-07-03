@@ -190,7 +190,7 @@ static const struct luaL_reg fontlib [] = {
   /*  {"read_ttf_info", font_read_ttf_info},*/
   {"read_tfm",      font_read_tfm},
   {"read_vf",       font_read_vf},
-  {"currentid",     tex_current_font},
+  {"current",       tex_current_font},
   {"getfont",       getfont},
   {"setfont",       setfont},
   {"define",        deffont},
