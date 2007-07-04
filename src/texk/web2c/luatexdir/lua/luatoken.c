@@ -483,6 +483,9 @@ tokenlist_from_lua(lua_State *L) {
   }
 }
 
+#define token_list 0
+#define backed_up 3
+
 void
 get_token_lua (void) {
   integer callback_id ; 
@@ -493,6 +496,13 @@ get_token_lua (void) {
     get_next();
     return;
   }
+  if (cur_input.state_field==token_list && 
+      cur_input.index_field==backed_up &&
+      cur_input.loc_field!=null) {
+    get_next();
+    return;
+  }
+
   callback_id = callback_defined(token_filter_callback);
   if (callback_id==0) {
     get_next();
