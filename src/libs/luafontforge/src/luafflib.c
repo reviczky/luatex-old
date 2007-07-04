@@ -13,11 +13,7 @@
 
 #define FONT_METATABLE "fontforge.splinefont"
 
-#ifdef OLD_FF
 #define LUA_OTF_VERSION "0.2"
-#else
-#define LUA_OTF_VERSION "0.1"
-#endif
 
 char *possub_type_enum[] = { 
   "null", "position", "pair",  "substitution", 
@@ -71,6 +67,7 @@ char *otf_lookup_type_enum[] = {
 
 
 char *anchor_type_enum[] = { "mark", "basechar", "baselig", "basemark", "centry", "cexit", "max", NULL };
+#define MAX_ANCHOR_TYPE 7
 char *anchorclass_type_enum[] = { "mark", "mkmk", "curs", "mklg", NULL };
 char *glyph_class_enum[] = { "automatic", "none" ,"base", "ligature","mark", "component", NULL };
 
@@ -206,8 +203,6 @@ dump_tag (lua_State *L, char *name, unsigned int field) {
       next = next->next;                                                \
     } }
 
-#ifndef OLD_FF
-
 void
 do_handle_scriptlanglist (lua_State *L, struct scriptlanglist *sl) {
   int l,k;
@@ -336,7 +331,6 @@ handle_lookup (lua_State *L, struct otlookup *lookup ) {
   struct otlookup *next;
   NESTED_TABLE(do_handle_lookup,lookup,18); /* 18 is a guess */
 }
-#endif
 
 void
 do_handle_kernpair (lua_State *L, struct kernpair *kp) {
@@ -344,14 +338,9 @@ do_handle_kernpair (lua_State *L, struct kernpair *kp) {
   if (kp->sc != NULL)
     dump_char_ref(L, kp->sc); 
   dump_intfield(L,"off",          kp->off);
-#ifdef OLD_FF
-  dump_intfield(L,"sli",          kp->sli);
-  dump_intfield(L,"flags",        kp->flags);
-#else 
   if (kp->subtable!=NULL) {
     dump_stringfield(L,"lookup",kp->subtable->subtable_name);
   }
-#endif
 }
 
 void
@@ -404,17 +393,6 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
   }
 
   /*dump_intfield(L,"macfeature",        pst->macfeature); */
-#ifdef OLD_FF
-  dump_intfield(L,"flags",             pst->flags); 
-  dump_tag(L,"tag",                    pst->tag); 
-  dump_intfield(L,"script_lang_index", (pst->script_lang_index+1)); 
-#else
-  /*
-  if (pst->subtable != NULL) {
-    dump_stringfield(L,"lookup",pst->subtable->subtable_name);
-  }
-  */
-#endif
 
   lua_checkstack(L,4);
   if (pst->type == pst_position) {
@@ -547,29 +525,65 @@ handle_liglist (lua_State *L, struct liglist *ligofme) {
   NESTED_TABLE(do_handle_liglist,ligofme,3);
 }
 
+/*
+if glyph.anchor then
+            local t = { }
+            for k,v in ipairs(glyph.anchor) do
+                if not t[v.type] then t[v.type] = { } end
+                t[v.type][v.anchor] = v
+                v.anchor = nil
+                v.type = nil
+            end
+            glyph.anchor = t
+        end
+*/
+
 void
 do_handle_anchorpoint (lua_State *L, struct anchorpoint *anchor) {
 
-  /* needs checking: probably a class id only */
-  if (anchor->anchor != NULL)
-    dump_stringfield(L,"anchor", anchor->anchor->name);
+  if (anchor->anchor==NULL) {
+    return;
+  }
+  if (anchor->type>=0 && anchor->type <= MAX_ANCHOR_TYPE ) {
+    lua_pushstring(L,anchor_type_enum[anchor->type]);
+  } else {
+    lua_pushstring(L,"Anchorpoint has an unknown type!");
+    lua_error(L);
+  }
 
+  lua_rawget(L,-2);
+  if (!lua_istable(L,-1)) {
+    /* create the table first */
+    lua_pop(L,1);
+    lua_pushstring(L,anchor_type_enum[anchor->type]);
+    lua_pushvalue(L,-1);
+    lua_newtable(L);
+    lua_rawset(L,-4);
+    lua_rawget(L,-2);
+  }
+  /* now the 'type' table is top of stack */
+  lua_pushstring(L,anchor->anchor->name);
+  lua_newtable(L);
   dump_intfield(L,"x",      anchor->me.x);
   dump_intfield(L,"y",      anchor->me.y);
-
-  dump_enumfield(L,"type",        anchor->type, anchor_type_enum);
+  
   /* dump_intfield(L,"selected",      anchor->selected);*/
   /* dump_intfield(L,"ticked",        anchor->ticked);*/
   if (anchor->has_ttf_pt)
     dump_intfield(L,"ttf_pt_index",  anchor->ttf_pt_index);
   dump_intfield(L,"lig_index",     anchor->lig_index);
-
+  lua_rawset(L,-3);  
+  lua_pop(L,1);
 }
 
 void
 handle_anchorpoint (lua_State *L, struct anchorpoint *anchor) {
   struct anchorpoint *next;
-  NESTED_TABLE(do_handle_anchorpoint,anchor,3);
+  next = anchor;
+  while (next != NULL) {
+    do_handle_anchorpoint(L, next);
+    next = next->next;
+  } 
 }
 
 void 
@@ -948,23 +962,10 @@ void
 do_handle_anchorclass (lua_State *L, struct anchorclass *anchor) {
 
   dump_stringfield(L,"name",           anchor->name);
-#ifdef OLD_FF
-  dump_tag(L,"feature_tag",            anchor->feature_tag);
-  dump_intfield(L,"script_lang_index", (anchor->script_lang_index+1));
-  dump_intfield(L,"flags",             anchor->flags);
-  dump_intfield(L,"merge_with",        anchor->merge_with);
-#else
   if (anchor->subtable!=NULL) {
     dump_stringfield(L,"lookup",anchor->subtable->subtable_name);
   }
-  /*dump_intfield(L,"has_base",          anchor->has_base);*/
-#endif
   dump_enumfield(L,"type",              anchor->type, anchorclass_type_enum);
-  /*dump_intfield(L,"processed",         anchor->processed);*/
-  /*dump_intfield(L,"has_mark",          anchor->has_mark);*/
-  /*dump_intfield(L,"matches",           anchor->matches);*/
-  /*dump_intfield(L,"ac_num",            anchor->ac_num);*/
-
 }
 
 void
@@ -972,31 +973,6 @@ handle_anchorclass (lua_State *L, struct anchorclass *anchor) {
   struct anchorclass *next;
   NESTED_TABLE(do_handle_anchorclass,anchor,10);
 }
-
-#ifdef OLD_FF
-void
-do_handle_table_ordering (lua_State *L, struct table_ordering *orders) {
-  int i;
-
-  dump_tag(L,"table_tag",          orders->table_tag);
-  lua_checkstack(L,4);
-  lua_newtable(L);
-  for ( i=0; orders->ordered_features[i]!=0; ++i ) {
-    lua_pushnumber(L,(i+1));
-    lua_pushstring(L,make_tag_string(orders->ordered_features[i]));
-    lua_rawset(L,-3);
-  }
-  lua_setfield(L,-2,"ordered_features");
-}
-#endif
-
-#ifdef OLD_FF
-void
-handle_table_ordering (lua_State *L, struct table_ordering *orders) {
-  struct table_ordering *next;
-  NESTED_TABLE(do_handle_table_ordering,orders,2);
-}
-#endif
 
 void
 do_handle_ttf_table  (lua_State *L, struct ttf_table *ttf_tab) {
@@ -1012,28 +988,6 @@ handle_ttf_table  (lua_State *L, struct ttf_table *ttf_tab) {
   struct ttf_table *next;
   NESTED_TABLE(do_handle_ttf_table,ttf_tab,4);
 }
-
-#ifdef OLD_FF
-void
-handle_script_record (lua_State *L, struct script_record *sl) {
-  int k;
-  if (sl->script != 0) {
-    dump_tag(L,"script",          sl->script);
-    if (sl->langs != NULL) {
-      k = 0;
-      lua_checkstack(L,4);
-      lua_newtable(L);
-      while (sl->langs[k] != 0) {
-	lua_pushnumber(L,(k+1));
-	lua_pushstring(L,make_tag_string(sl->langs[k]));
-	lua_rawset(L,-3);
-	k++;
-      }
-      lua_setfield(L,-2,"langs");
-    }
-  }
-}
-#endif
 
 void
 do_handle_kernclass (lua_State *L, struct kernclass *kerns) {
@@ -1059,14 +1013,9 @@ do_handle_kernclass (lua_State *L, struct kernclass *kerns) {
   }
   lua_setfield(L,-2,"seconds");
 
-#ifdef OLD_FF
-  dump_intfield(L,"sli",             kerns->sli);
-  dump_intfield(L,"flags",           kerns->flags);
-#else
   if (kerns->subtable != NULL) {
     dump_stringfield(L,"lookup", kerns->subtable->subtable_name);
   }
-#endif
   dump_intfield(L,"kcid",            kerns->kcid); /* probably not needed */
 
   lua_createtable(L,kerns->second_cnt*kerns->first_cnt,1);
@@ -1161,13 +1110,9 @@ void handle_fpst_rule (lua_State *L, struct fpst_rule *rule, int format) {
       lua_pushnumber(L,(k+1));
       lua_newtable(L);
       dump_intfield(L,"seq",rule->lookups[k].seq);
-#ifdef OLD_FF
-      dump_tag(L,"lookup_tag",rule->lookups[k].lookup_tag);
-#else
       if (rule->lookups[k].lookup!=NULL) {
 	dump_stringfield(L,"lookup", rule->lookups[k].lookup->lookup_name);
       }
-#endif
       lua_rawset(L,-3);
     }
     lua_setfield(L,-2,"lookups");
@@ -1186,29 +1131,6 @@ do_handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
     dump_enumfield(L,"type", fpst->type, possub_type_enum);
   }
   dump_enumfield(L,"format", fpst->format, fpossub_format_enum);
-#ifdef OLD_FF
-  dump_intfield (L,"script_lang_index", (fpst->script_lang_index+1));
-  if (fpst->flags>0) {
-    dump_intfield (L,"flags", fpst->flags);
-  }
-  dump_tag(L,"tag",fpst->tag);
-#else
-  /* useless info */
-  /*
-  if (fpst->subtable!=NULL) {
-    dump_stringfield(L,"lookupe",fpst->subtable->subtable_name);
-  }
-  */
-  /* used by the ff otf writing routines */
-  /* dump_intfield (L,"effectively_by_glyphs", fpst->effectively_by_glyphs); */
-#endif
-
-  /*
-  if (fpst->nccnt>0) {dump_intfield (L,"nccnt", fpst->nccnt);  }
-  if (fpst->bccnt>0) {dump_intfield (L,"bccnt", fpst->bccnt);  }
-  if (fpst->fccnt>0) {dump_intfield (L,"fccnt", fpst->fccnt);  }
-  */
-  /*dump_intfield (L,"rule_cnt", fpst->rule_cnt);*/
 
   DUMP_STRING_ARRAY("current_class",fpst->nccnt,fpst->nclass);
   DUMP_STRING_ARRAY("before_class",fpst->nccnt,fpst->bclass);
@@ -1233,32 +1155,24 @@ handle_generic_fpst(lua_State *L, struct generic_fpst *fpst) {
   struct generic_fpst *next;
   int k = 1;                        
   lua_checkstack(L,3);	      
-#ifndef OLD_FF
   if (fpst->subtable != NULL && 
       fpst->subtable->subtable_name != NULL) {
     lua_pushstring(L,fpst->subtable->subtable_name);
   } else {
     lua_pushnumber(L,k); k++;
   }
-#else
-  lua_pushnumber(L,k); k++;         
-#endif
   lua_createtable(L,0,10);          
   do_handle_generic_fpst(L,fpst);   
   lua_rawset(L,-3);                 
   next = fpst->next;                
   while (next != NULL) {            
     lua_checkstack(L,3); 
-#ifndef OLD_FF
   if (next->subtable != NULL && 
       next->subtable->subtable_name != NULL) {
     lua_pushstring(L,next->subtable->subtable_name);
   } else {
     lua_pushnumber(L,k); k++;
   }
-#else
-    lua_pushnumber(L,k); k++;
-#endif
     lua_createtable(L,0,10);        
     do_handle_generic_fpst(L, next);
     lua_rawset(L,-3);               
@@ -1369,9 +1283,6 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   dump_intfield   (L,"glyphcnt",        sf->glyphcnt);
   dump_intfield   (L,"glyphmax",        sf->glyphmax);
 
-  /* for the new version, have to dump possub first, 
-     to set up an array of fpst pointers -> indices */
-
   if (sf->possub != NULL) {
     lua_newtable(L);
     handle_generic_fpst(L,sf->possub);
@@ -1401,9 +1312,9 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     handle_encmap(L,sf->map);
     lua_setfield(L,-2,"map");
   }
-#ifndef OLD_FF
+
   dump_stringfield(L,"origname",        sf->origname); /* new */
-#endif
+
   if (sf->private != NULL) {
     lua_newtable(L);
     handle_psdict(L, sf->private);
@@ -1453,23 +1364,6 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     lua_setfield(L,-2,"ttf_tables");
   }
 
-#ifdef OLD_FF
-  /* TH the object pointed to is a array of script_records, with last one NULL */
-  if (sf->script_lang != NULL) {
-    k = 0;
-    lua_newtable(L);
-    while (sf->script_lang[k] != NULL) {
-      lua_pushnumber(L,(k+1));
-      lua_newtable(L);
-      handle_script_record(L,sf->script_lang[k]);
-      lua_rawset(L,-3);
-      k++;
-    }
-    lua_setfield(L,-2,"script_lang");
-  }
-  dump_intfield(L,"sli_cnt",     sf->sli_cnt);
-#endif
-
   if (sf->texdata.type != tex_unset) {
     lua_newtable(L);
     dump_enumfield(L,"type",  sf->texdata.type, tex_type_enum);
@@ -1485,7 +1379,7 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   if (sf->anchor != NULL) {
     lua_newtable(L);
     handle_anchorclass(L,sf->anchor);
-    lua_setfield(L,-2,"anchor");
+    lua_setfield(L,-2,"anchor_classes");
   }
   if (sf->kerns != NULL) { 
     lua_newtable(L);
@@ -1497,34 +1391,6 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     handle_kernclass(L,sf->vkerns);
     lua_setfield(L,-2,"vkerns");
   }
-  
-#ifdef OLD_FF
-  if (sf->orders != NULL) {
-    lua_newtable(L);
-    handle_table_ordering(L,sf->orders);
-    lua_setfield(L,-2,"orders");
-  }
-  lua_newtable(L);
-  dump_intfield(L,"tt_cur", sf->gentags.tt_cur);
-  if (sf->gentags.tagtype != NULL) {
-    lua_createtable(L,sf->gentags.tt_cur,0);
-    for (k=0;k<sf->gentags.tt_cur;k++) {
-      lua_pushnumber(L,(k+1));
-      lua_newtable(L);
-
-      if (sf->gentags.tagtype[k].type>LAST_POSSUB_TYPE_ENUM) {
-	dump_tag(L,"type",  sf->gentags.tagtype[k].type); 
-      } else {
-	dump_enumfield(L,"type", sf->gentags.tagtype[k].type, possub_type_enum);
-      }
-      dump_tag(L,"tag", sf->gentags.tagtype[k].tag);
-      lua_rawset(L,-3);
-    }
-    lua_setfield(L,-2,"tagtype");
-  }
-  lua_setfield(L,-2,"gentags");
-#else
-  /* OTLookup *gsub_lookups, *gpos_lookups;*/
   if (sf->gsub_lookups != NULL) {
     lua_newtable(L);
     handle_lookup(L,sf->gsub_lookups);
@@ -1535,7 +1401,6 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
     handle_lookup(L,sf->gpos_lookups);
     lua_setfield(L,-2,"gpos");
   }
-#endif
 
   /* Todo: a set of Apple-related items */
   /*
@@ -1592,19 +1457,9 @@ handle_splinefont(lua_State *L, struct splinefont *sf) {
   /* Grid-fitting And Scan-conversion Procedures: not needed */
 
   /*
-  dump_intfield(L,"gasp_version",     sf->gasp_version);
-  dump_intfield(L,"gasp_cnt",         sf->gasp_cnt);
-
-  if (sf->gasp_version==1) {
-    if (sf->gasp!= NULL) {
-      lua_newtable(L);
-      dump_intfield(L,"ppem",       sf->gasp->ppem);
-      dump_intfield(L,"flags",      sf->gasp->flags);
-      lua_setfield(L,-1,"gasp");
-    }
-  } else {
+    dump_intfield(L,"gasp_version",     sf->gasp_version);
+    dump_intfield(L,"gasp_cnt",         sf->gasp_cnt);
     dump_intfield(L,"gasp",         (int)sf->gasp);
-  }
   */
 
   /* uint8 sfd_version;	*/		/* Used only when reading in an sfd file */
