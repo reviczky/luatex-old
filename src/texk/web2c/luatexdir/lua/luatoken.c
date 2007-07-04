@@ -485,6 +485,7 @@ tokenlist_from_lua(lua_State *L) {
 
 #define token_list 0
 #define backed_up 3
+#define v_template 2
 
 void
 get_token_lua (void) {
@@ -492,7 +493,14 @@ get_token_lua (void) {
   integer p,q,r,i,j;
   lua_State *L;
   L = Luas[0];
-  if (cur_input.nofilter_field==true) {
+
+  while (cur_input.state_field==token_list && 
+		 cur_input.loc_field==null &&
+		 cur_input.index_field!=v_template) {
+	end_token_list();
+  }
+  if (cur_input.state_field==token_list && 
+	  cur_input.nofilter_field==true) {
     get_next();
     return;
   }
@@ -523,44 +531,44 @@ get_token_lua (void) {
       return;
     }
     if (lua_istable(L,-1)) {
-      if (get_cur_cmd(L) || get_cur_cs(L)) {
-	/*cur_input.nofilter_field=true;*/
-	lua_pop(L,1);
-	break;	
-      } else {
-	lua_rawgeti(L,-1,1);
-	if (lua_istable(L,-1)) {
-	  lua_pop(L,1); 
-	  /* build a token list */
-	  r = get_avail(); p = r;
-	  j = lua_objlen(L,-1);
-	  if (j>0) {
-	    for (i=1;i<=j;i++) {
-	      lua_rawgeti(L,-1,i);
-	      if (get_cur_cmd(L) || get_cur_cs(L)) {
-		store_new_token(cur_tok);
-	      }
-	      lua_pop(L,1);
-	    }
-	  }
-	  if (p!=r) {
-	    p = link(r);
-	    free_avail(r);
-	    begin_token_list(p, inserted);
-	    cur_input.nofilter_field=true;
-	    get_next();
-	    lua_pop(L,1);
-	    break;	
+	  lua_rawgeti(L,-1,1);
+	  if (lua_istable(L,-1)) {
+		lua_pop(L,1); 
+		/* build a token list */
+		r = get_avail(); p = r;
+		j = lua_objlen(L,-1);
+		if (j>0) {
+		  for (i=1;i<=j;i++) {
+			lua_rawgeti(L,-1,i);
+			if (get_cur_cmd(L) || get_cur_cs(L)) {
+			  store_new_token(cur_tok);
+			}
+			lua_pop(L,1);
+		  }
+		}
+		if (p!=r) {
+		  p = link(r);
+		  free_avail(r);
+		  begin_token_list(p, inserted);
+		  cur_input.nofilter_field=true;
+		  get_next();
+		  lua_pop(L,1);
+		  break;	
+		} else {
+		  fprintf(stdout,"error: illegal or empty token list returned\n");
+		  lua_pop(L,2);
+		  error();
+		  return;
+		}
 	  } else {
-	    fprintf(stdout,"error: illegal or empty token list returned\n");
-	    lua_pop(L,2);
-	    error();
-	    return;
-	  }
-	} else {
-	  lua_pop(L,2);
-	  continue; 
-	}
+		lua_pop(L,1);
+		if (get_cur_cmd(L) || get_cur_cs(L)) {
+		  lua_pop(L,1);
+		  break;	
+		} else {
+		  lua_pop(L,2);
+		  continue; 
+		}
       }
     } else {
       lua_pop(L,1);  
