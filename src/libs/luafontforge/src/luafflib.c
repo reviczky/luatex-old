@@ -70,6 +70,11 @@ char *otf_lookup_type_enum[] = {
 };
 
 
+char *anchor_type_enum[] = { "mark", "basechar", "baselig", "basemark", "centry", "cexit", "max", NULL };
+char *anchorclass_type_enum[] = { "mark", "mkmk", "curs", "mklg", NULL };
+char *glyph_class_enum[] = { "automatic", "none" ,"base", "ligature","mark", "component", NULL };
+
+
 #define check_isfont(L,b) (SplineFont **)luaL_checkudata(L,b,FONT_METATABLE)
 
 void handle_generic_pst (lua_State *L, struct generic_pst *pst);  /* forward */
@@ -291,6 +296,14 @@ void
 do_handle_lookup (lua_State *L, struct otlookup *lookup ) {
 
   dump_enumfield     (L,"type",             lookup->lookup_type, otf_lookup_type_enum); 
+
+  /*
+    pst_r2l=1, 
+	pst_ignorebaseglyphs=2, 
+	pst_ignoreligatures=4,
+	pst_ignorecombiningmarks=8 
+  */
+
   dump_cond_intfield (L,"flags",            lookup->lookup_flags); 
   dump_stringfield   (L,"name",             lookup->lookup_name); 
 
@@ -417,8 +430,16 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
     dump_stringfield(L,"paired",pst->u.pair.paired);
     if (pst->u.pair.vr != NULL) {
 	  lua_pushstring(L,"vr");
+	  lua_createtable(L,2,0);
+
       lua_createtable(L,0,4);
       handle_vr (L, pst->u.pair.vr);
+      lua_rawseti(L,-2,1);
+
+      lua_createtable(L,0,4);
+      handle_vr (L, pst->u.pair.vr+1);
+      lua_rawseti(L,-2,2);
+
       lua_rawset(L,-3);
     }
     lua_rawset(L,-3);
@@ -526,8 +547,6 @@ handle_liglist (lua_State *L, struct liglist *ligofme) {
   NESTED_TABLE(do_handle_liglist,ligofme,3);
 }
 
-char *anchor_type_enum[] = { "at_mark", "at_basechar", "at_baselig", "at_basemark", "at_centry", "at_cexit", "at_max", NULL };
-
 void
 do_handle_anchorpoint (lua_State *L, struct anchorpoint *anchor) {
 
@@ -588,8 +607,11 @@ handle_splinechar (lua_State *L,struct splinechar *glyph, int hasvmetrics) {
 
   /*  struct splinefont *parent; */  /* TH Not used */
 
+  /*
+
+  */
   if (glyph->glyph_class>0) {
-    dump_intfield(L,"glyph_class",              glyph->glyph_class);  
+    dump_enumfield(L,"class",              glyph->glyph_class, glyph_class_enum);  
   }
   /* TH: internal fontforge stuff
      dump_intfield(L,"ticked",                   glyph->ticked);
@@ -935,13 +957,13 @@ do_handle_anchorclass (lua_State *L, struct anchorclass *anchor) {
   if (anchor->subtable!=NULL) {
     dump_stringfield(L,"lookup",anchor->subtable->subtable_name);
   }
-  dump_intfield(L,"has_base",          anchor->has_base);
+  /*dump_intfield(L,"has_base",          anchor->has_base);*/
 #endif
-  dump_intfield(L,"type",              anchor->type);
-  dump_intfield(L,"processed",         anchor->processed);
-  dump_intfield(L,"has_mark",          anchor->has_mark);
-  dump_intfield(L,"matches",           anchor->matches);
-  dump_intfield(L,"ac_num",            anchor->ac_num);
+  dump_enumfield(L,"type",              anchor->type, anchorclass_type_enum);
+  /*dump_intfield(L,"processed",         anchor->processed);*/
+  /*dump_intfield(L,"has_mark",          anchor->has_mark);*/
+  /*dump_intfield(L,"matches",           anchor->matches);*/
+  /*dump_intfield(L,"ac_num",            anchor->ac_num);*/
 
 }
 
