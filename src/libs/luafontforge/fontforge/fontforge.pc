@@ -1,6 +1,0 @@
-prefix=/usr/local
-exec_prefix=${prefix}
-
-Name: FontForge
-Description: Outline font editor.
-Version: 20070607
