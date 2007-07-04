@@ -3,12 +3,12 @@
 SRCS= src/luafontforge.c
 OBJS= src/luafontforge.o
 
-FF_OBJS=autohint.o charview.o contextchain.o encoding.o featurefile.o \
+FF_OBJS=start.o autohint.o charview.o contextchain.o encoding.o featurefile.o \
 fontinfo.o fontview.o fvfonts.o kernclass.o lookups.o macbinary.o \
 macenc.o namelist.o parsepfa.o parsettf.o parsettfatt.o parsettfvar.o \
 prefs.o psread.o pua.o splinefill.o splineorder2.o splineoverlap.o \
 splinerefigure.o splinestroke.o splineutil.o splineutil2.o stamp.o \
-start.o stemdb.o ttfspecial.o
+stemdb.o ttfspecial.o
 
 # stemdb.o: needed by autohint.o
 # splinestroke.o: needed by psread.o
@@ -49,7 +49,7 @@ MY_CFLAGS=-g -O2 -D_NO_LIBJPEG=1 -D_NO_FREETYPE=1 -D_NO_LIBXML=1 -D_NO_LIBPNG=1 
 
 fontforge: $(FF_DUMMY) $(FF_LIB) $(FF_OBJS) $(FF_UNI_OBJS)
 	rm -f libff.a
-	cd fontforge/fontforge && ar cru  ../../libff.a  $(FF_OBJS) $(FF_UNI_OBJS_O) $(FF_DUMMY_O) $(FF_LIB_O)
+	cd fontforge/fontforge && ar cru  ../../libff.a  $(FF_OBJS) $(FF_UNI_OBJS_O) $(FF_DUMMY_O) $(FF_LIB_O) && ranlib ../../libff.a
 
 $(FF_UNI_OBJS):
 	cd fontforge/Unicode && make $@
