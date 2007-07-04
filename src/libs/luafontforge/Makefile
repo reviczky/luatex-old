@@ -3,34 +3,15 @@
 SRCS= src/luafontforge.c
 OBJS= src/luafontforge.o
 
-FF_OBJS=autohint.o fontinfo.o fvfonts.o \
-parsepfa.o parsettf.o prefs.o psread.o namelist.o \
-splinefill.o splineoverlap.o splinestroke.o splineutil.o splineutil2.o \
-stamp.o start.o encoding.o splineorder2.o kernclass.o ttfspecial.o \
-parsettfatt.o contextchain.o macenc.o splinerefigure.o \
-parsettfvar.o pua.o stemdb.o \
-lookups.o featurefile.o charview.o fontview.o macbinary.o 
+FF_OBJS=autohint.o charview.o contextchain.o encoding.o featurefile.o \
+fontinfo.o fontview.o fvfonts.o kernclass.o lookups.o macbinary.o \
+macenc.o namelist.o parsepfa.o parsettf.o parsettfatt.o parsettfvar.o \
+prefs.o psread.o pua.o splinefill.o splineorder2.o splineoverlap.o \
+splinerefigure.o splinestroke.o splineutil.o splineutil2.o stamp.o \
+start.o stemdb.o ttfspecial.o
 
 # stemdb.o: needed by autohint.o
 # splinestroke.o: needed by psread.o
-
-# mm.o
-# fvcomposit.o cvundoes.o bvedit.o parsepdf.o  combinations.o 
-# parsettfbmf.o sftextfield.o statemachine.o unicoderange.o 
-# cvgetinfo.o autowidth.o uiutil.o utils.o othersubrs.o 
-# anchorsaway.o charinfo.o crctab.o cvhints.o cvpointer.o 
-# splinesaveafm.o tottfgpos.o zapfnomen.o fvmetrics.o 
-# showatt.o winfonts.o bitmapview.o search.o openfontdlg.o 
-# ofl.o sfd1.o effects.o genttfinstrs.o ttfinstrs.o freetype.o 
-# bdfinfo.o splinesave.o autohint.c tottfaat.o tottfvar.o mm.o
-# cvdgloss.o glyphcomp.o tilepath.o displayfonts.o tottf.o 
-# problems.o metafont.o alignment.o savefontdlg.o palmfonts.o 
-# cvtranstools.o images.o bitmapdlg.o metricsview.o transform.o 
-# cvknife.o cvaddpoints.o cvruler.o cvshapes.o cvstroke.o 
-# cvgridfit.o cvdebug.o cvhand.o cvfreehand.o cvimages.o cvpalettes.o 
-# cursors.o windowmenu.o histograms.o simplifydlg.o gotodlg.o 
-# print.o dumppfa.o autosave.o cvexport.o  dumpbdf.o autotrace.o splashimage.o 
-# svg.o ufo.o scripting.o plugins.o python.o ikarus.o sfd.o 
 
 FF_DUMMY=src/ffdummies.o
 FF_DUMMY_O=../../src/ffdummies.o 
@@ -38,8 +19,7 @@ FF_DUMMY_O=../../src/ffdummies.o
 FF_LIB=src/luafflib.o
 FF_LIB_O=../../src/luafflib.o 
 
-FF_UNI_OBJS =  ArabicForms.o alphabet.o char.o \
- memory.o cjk.o ustring.o \
+FF_UNI_OBJS =  ArabicForms.o alphabet.o char.o memory.o cjk.o ustring.o \
  usprintf.o gwwiconv.o
 
 FF_UNI_OBJS_O =  ../Unicode/ArabicForms.o ../Unicode/alphabet.o  ../Unicode/char.o \
