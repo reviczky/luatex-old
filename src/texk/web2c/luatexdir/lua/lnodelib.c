@@ -802,27 +802,30 @@ lua_nodelib_set_attribute (lua_State *L) {
     attr_list_ref(head) = 1; /* used once */
     node_attr(*n) = head;
     /* */
-    t = vlink(head);
-    while (1) {
-      if (attribute_id(t)==i) {
-	attribute_value(t)=val;
-	return 1;
-      } else if (attribute_id(t)>i) {
-	p = lua_node_new(attribute_node,0);
-	vlink(p) = vlink(t);
-	vlink(t) = p;
-	attribute_id(p) = attribute_id(t) ;
-	attribute_value(p) = attribute_value(t) ;
-	attribute_id(t) = i;
-	attribute_value(t) = val;
-	return 1;
-      }
-      if (vlink(t)==null)
-	break;
+    t = head;
+    if (vlink(t)!=null) {
       t = vlink(t);
+      while (1) {
+	if (attribute_id(t)==i) {
+	  attribute_value(t)=val;
+	  return 1;
+	} else if (attribute_id(t)>i) {
+	  p = lua_node_new(attribute_node,0);
+	  vlink(p) = vlink(t);
+	  vlink(t) = p;
+	  attribute_id(p) = attribute_id(t) ;
+	  attribute_value(p) = attribute_value(t) ;
+	  attribute_id(t) = i;
+	  attribute_value(t) = val;
+	  return 1;
+	}
+	if (vlink(t)==null)
+	  break;
+	t = vlink(t);
+      }
+      /* this point is reached if the new id is higher 
+	 than the last id in the original list */
     }
-    /* this point is reached if the new id is higher 
-       than the last id in the original list */
     p = lua_node_new(attribute_node,0);
     attribute_id(p) = i;
     attribute_value(p) = val;
