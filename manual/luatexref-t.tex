@@ -32,7 +32,7 @@
  
 \setvariables
   [document]
-  [snapshot=2007-06-26]
+  [snapshot=2007-07-06]
 
 \starttext
 
@@ -81,7 +81,7 @@ need arises, anything can (and will) be changed without prior notice.
 \item \LUA\ 5.1.2
 \item Dedicated \LUA\ libraries
 \item Various \TEX\ extensions
-\item The (\OPENTYPE) Font Parser from \FONTFORGE\ 2006.12.20
+\item The (\OPENTYPE) Font Parser from \FONTFORGE\ 2007.06.07
 \item Compiled source code to glue it all together
 \stopitemize
 
@@ -415,13 +415,13 @@ Macro expansion takes place in the argument.
 
 \subsection{\LUATEX\ as a \LUA\ interpreter}
 
-In a number of cases, \LUATEX\ behaves like it is a \LUA\ interpreter only.
-
+There are two situations that make \LUATEX\ behaves like it is a \LUA\
+interpreter only:
 \startitemize[packed]
 \item If a \type{--luaonly} option is given
 \item If the executable is named \type{texlua} (or \type{luatexlua})
-\item if the non|-|option (file) on the commandline has the extension
-	\type{lua} or \type{luc}.
+%\item if the non|-|option (file) on the commandline has the extension
+%	\type{lua} or \type{luc}, as a fallback.
 \stopitemize
 
 In this mode, it will set \LUA's \type{arg[0]} to the found script
@@ -535,7 +535,19 @@ all platforms.
 (\luatex{isdir(filename)} and \luatex{isfile(filename)}) and one extra
 string field in the attributes table (\type{permissions}).
 
-The \lua{string} library has six extra iterators that return strings
+The \lua{string} library has an extra function:
+\luatex{string.explode(s[,m])}. This function returns an array containing
+the string argument \type{s} split into substrings based on the value
+of the string argument \type{m}. The second argument is a string that
+is either empty (this splits the string into characters), a single
+character (this splits on each occurrence of that character, possibly
+introducing empty strings), or a single character followed by the plus
+sign \type{+} (this special version does not create empty
+substrings). The default value for \type{m} is `\type{ +}' (multiple
+spaces).
+
+
+The \lua{string} library also has six extra iterators that return strings
 piecemeal:
 
 \startitemize
@@ -2525,14 +2537,12 @@ the executable after loading and executing the startup file.
 
 \starttabulate[|lT|l|l|p|]
 \NC \bf key      \NC \bf type     \NC \bf default \NC \bf explanation \NC\NR
-\NC pool_size \NC 	        number\NC  100000\NC cf.\ web2c docs \NC \NR
 \NC string_vacancies \NC   number\NC  75000\NC cf.\ web2c docs \NC \NR
 \NC pool_free \NC 	        number\NC  5000\NC cf.\ web2c docs \NC \NR
 \NC max_strings \NC        number\NC  15000\NC cf.\ web2c docs \NC \NR
 \NC strings_free \NC       number\NC  100\NC cf.\ web2c docs \NC \NR
 \NC trie_size \NC 	        number\NC  20000\NC cf.\ web2c docs \NC \NR
 \NC hyph_size \NC 	        number\NC  659\NC cf.\ web2c docs \NC \NR
-\NC buf_size \NC 	        number\NC  3000\NC cf.\ web2c docs \NC \NR
 \NC nest_size \NC 	        number\NC  50\NC cf.\ web2c docs \NC \NR
 \NC max_in_open \NC        number\NC  15\NC cf.\ web2c docs \NC \NR
 \NC param_size \NC         number\NC  60\NC cf.\ web2c docs \NC \NR
@@ -2607,25 +2617,80 @@ The number is a bit special:
 setting relative to the designsize of the font.
 \stopitemize
 
+\subsection{The fonts array}
+
+\starttyping
+font.fonts[n] = { ... }
+table f = font.fonts[n]
+\stoptyping
+
+See \in{chapter}[fonts] for the structure of the tables.
+
+The associated function calls are
+
+\startfunctioncall
+table f = font.getfont(number n)
+font.setfont(number n, table f)
+\stopfunctioncall
+
+Note the following: Assignments can only be made to fonts that have
+already been defined in \TEX, but have not been accessed {\it at all\/} since
+that definition. This limits the usability of the write access to
+font.fonts quite a lot, a less stringent ruleset will be implemented
+later.
+
+\subsection{Checking a font's status}
+
+You can test for the status of a font by calling this function:
+
+\startfunctioncall
+boolean f = font.frozen(number n)
+\stopfunctioncall
+
+The return value is one of true (unassignable), false (can be changed)
+or nil (not a valid font at all).
+
+\subsection{Defining a font directly}
+
+You can define your own font into \luatex{font.fonts}
+
+\startfunctioncall
+number i = font.define(table f)
+\stopfunctioncall
+
+The return value is the internal id number of the defined font (the
+index into \luatex{font.fonts}). If the font creation fails, an error is
+raised. The table is a font structure, as explained in
+\in{chapter}[fonts].
+
+\subsection{Currently active font}
+
+\startfunctioncall
+number i = font.current();
+\stopfunctioncall
+
+This is the currently used font number.
+
+
+\section{The \luatex{fontforge} library}
+
 \subsection{Loading an \OPENTYPE\ or \TRUETYPE\ file}
 
 If you want to use an \OPENTYPE\ font, you have to get the metric
-information from somewhere. The next two functions provide a way of
-doing that.
+information from somewhere. Using the \type{fontforge} library, the
+basic way to get that information is thus:
+
 
 \startfunctioncall
-table ttf_metrics = font.read_otf(string filename)
-table ttf_metrics = font.read_ttf(string filename)
+local font = fontforge.open("filename")
+local metrics = fontforge.to_table(font)
+fontforge.close(font)
 \stopfunctioncall
 
-The result is identical in both cases, but you have to use the
-\luatex{read_otf} for loading of information from \POSTSCRIPT|-|based \OPENTYPE\
-and \luatex{read_ttf} for loading of \TRUETYPE|-|based \OPENTYPE\ (or simply a
-\TRUETYPE\ font). Bitmap|-|only \OPENTYPE\ fonts are not supported.
-
-At the moment, the \type{filename} font file is actually parsed and
-even partially interpreted by the \OPENTYPE|/|\TRUETYPE\ loading routines
-from \FONTFORGE. There are a few reasons for this:
+the \type{filename} font file is parsed and even partially interpreted
+by the \OPENTYPE|/|\TRUETYPE\ loading routines from \FONTFORGE. There
+are a few advantages to this approach compared to reading the actual
+font file ourselves:
 
 \startitemize
 
@@ -2636,11 +2701,11 @@ from \FONTFORGE. There are a few reasons for this:
    than just the bare tables would be.
 
 \item \POSTSCRIPT|-|based \OPENTYPE\ fonts do not store the character height and
-  depth in the font file, so the actual character boundingbox has to be
-  calculated.
+  depth in the font file, so the character boundingbox has to be
+  calculated in some way.
 
 \item In the future, it may be interesting to allow \LUA\ scripts access to
-  the actual font programs.
+  the font program itself, perhaps even creating or changing the font.
 
 \stopitemize
 
@@ -2649,7 +2714,7 @@ not yet finished):
 
 \starttabulate[|lT|l|p|]
 \NC \bf key                      \NC \bf type \NC \bf explanation \NC\NR
-\NC table_version                \NC number   \NC indicates the \luatex{read_otf()} version\NC\NR
+\NC table_version                \NC number   \NC indicates the metrics version\NC\NR
 \NC fontname                     \NC string   \NC \NC\NR
 \NC fullname                     \NC string   \NC \NC\NR
 \NC familyname                   \NC string   \NC \NC\NR
@@ -2679,6 +2744,7 @@ not yet finished):
                                                     \type {greek}, \type {japanese}, \type {trad_chinese},
                                                     \type {simp_chinese}, \type {korean}, \type {ams}\NC\NR
 \NC map                          \NC table    \NC \NC\NR
+\NC origname                     \NC string   \NC \NC\NR
 \NC private                      \NC table    \NC \NC\NR
 \NC xuid                         \NC string   \NC \NC\NR
 \NC pfminfo                      \NC table    \NC \NC\NR
@@ -2687,20 +2753,22 @@ not yet finished):
 \NC subfonts                     \NC array    \NC \NC\NR
 \NC cidmaster                    \NC array    \NC \NC\NR
 \NC commments                    \NC string   \NC \NC\NR
-\NC anchor                       \NC table    \NC \NC\NR
-\NC orders                       \NC table    \NC \NC\NR
+\NC anchor_classes               \NC table    \NC \NC\NR
+%\NC orders                       \NC table    \NC \NC\NR
 \NC ttf_tables                   \NC table    \NC \NC\NR
 %NC ttf_tab_saved                \NC table    \NC \NC\NR
-\NC script_lang                  \NC table    \NC \NC\NR
+%\NC script_lang                  \NC table    \NC \NC\NR
 \NC kerns                        \NC table    \NC \NC\NR
 \NC vkerns                       \NC table    \NC \NC\NR
 \NC texdata                      \NC table    \NC \NC\NR
-\NC tt_cur                       \NC number   \NC \NC\NR
-\NC gentags                      \NC table    \NC \NC\NR
-\NC possub                       \NC table    \NC \NC\NR
+%\NC tt_cur                       \NC number   \NC \NC\NR
+%\NC gentags                      \NC table    \NC \NC\NR
+\NC lookups                       \NC table    \NC \NC\NR
+\NC gpos                          \NC table    \NC \NC\NR
+\NC gsub                          \NC table    \NC \NC\NR
 \NC chosenname                   \NC string   \NC \NC\NR
 \NC macstyle                     \NC number   \NC \NC\NR
-\NC sli_cnt                      \NC number   \NC \NC\NR
+%\NC sli_cnt                      \NC number   \NC \NC\NR
 \NC fondname                     \NC string   \NC \NC\NR
 \NC design_size                  \NC number   \NC \NC\NR
 \NC fontstyle_id                 \NC number   \NC \NC\NR
@@ -2708,15 +2776,15 @@ not yet finished):
 \NC design_range_bottom          \NC number   \NC \NC\NR
 \NC design_range_top             \NC number   \NC \NC\NR
 \NC strokewidth                  \NC float    \NC \NC\NR
-\NC mark_class_cnt               \NC number   \NC \NC\NR
+%\NC mark_class_cnt               \NC number   \NC \NC\NR
 \NC mark_classes                 \NC array    \NC \NC\NR
 \NC mark_class_names             \NC array    \NC \NC\NR
 \NC creationtime                 \NC number   \NC \NC\NR
 \NC modificationtime             \NC number   \NC \NC\NR
 \NC os2_version                  \NC number   \NC \NC\NR
-\NC gasp_version                 \NC number   \NC \NC\NR
-\NC gasp_cnt                     \NC number   \NC \NC\NR
-\NC gasp                         \NC table    \NC \NC\NR
+%\NC gasp_version                 \NC number   \NC \NC\NR
+%\NC gasp_cnt                     \NC number   \NC \NC\NR
+%\NC gasp                         \NC table    \NC \NC\NR
 \stoptabulate
 
 \subsubsection{Glyph items}
@@ -2736,10 +2804,11 @@ information (quite a few of these are only present if nonzero).
 \NC kerns                        \NC array    \NC (only for horizontal fonts, if set)\NC\NR
 \NC vkerns                       \NC array    \NC (only for vertical fonts, if set)\NC\NR
 \NC dependents                   \NC array    \NC linear array of glyph name strings (only if nonempty)\NC\NR
-\NC possub                       \NC table    \NC (only if nonempty)\NC\NR
+\NC lookups                       \NC table    \NC (only if nonempty)\NC\NR
 \NC ligofme                      \NC table    \NC (only if nonempty)\NC\NR
 \NC comment                      \NC string   \NC (only if set)\NC\NR
-\NC color                        \NC number   \NC (only if set)\NC\NR
+\NC anchor                       \NC table   \NC (only if set)\NC\NR
+%\NC color                        \NC number   \NC (only if set)\NC\NR
 \NC tex_height                   \NC number   \NC (only if set)\NC\NR
 \NC tex_depth                    \NC number   \NC (only if set)\NC\NR
 \NC tex_sub_pos                  \NC number   \NC (only if set)\NC\NR
@@ -2752,21 +2821,19 @@ The \type{kerns} and \type{vkerns} are linear arrays of small hashes:
 \NC \bf key                      \NC \bf type \NC \bf explanation \NC\NR
 \NC char                         \NC string   \NC \NC\NR
 \NC off                          \NC number   \NC \NC\NR
-\NC sli                          \NC number   \NC \NC\NR
-\NC flags                        \NC number   \NC \NC\NR
+\NC lookup                       \NC string   \NC \NC\NR
 \stoptabulate
 
-The \type{possub} is a linear array of small hashes:
+The \type{lookups} is a hash based on lookup subtable names, with 
+the value of each key inside that a linear array of small hashes:
 
+% TODO: fix this description
 \starttabulate[|lT|l|p|]
 \NC \bf key                      \NC \bf type \NC \bf explanation \NC\NR
 \NC type                         \NC enum     \NC \type {position}, \type {pair},  \type {substitution}, \type {alternate},
                                                   \type {multiple}, \type {ligature}, \type {lcaret},  \type {kerning}, \type {vkerning}, \type {anchors},
                                                   \type {contextpos}, \type {contextsub}, \type {chainpos}, \type {chainsub},
                                                   \type {reversesub}, \type {max}, \type {kernback}, \type {vkernback} \NC\NR
-\NC flags                        \NC number   \NC \NC\NR
-\NC tag                          \NC string   \NC \NC\NR
-\NC script_lang_index            \NC number   \NC \NC\NR
 \stoptabulate
 
 For the first seven values of \type{type}, there can be additional sub|-|information:
@@ -2798,6 +2865,47 @@ The \type{ligofme} is a linear array of small hashes:
 \NC components         \NC array    \NC linear array of named components\NC\NR
 \NC ccnt               \NC number   \NC \NC\NR
 \stoptabulate
+
+The \type{anchor} table is indexed by a string signifying the 
+anchor type, which is one of 
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC mark              \NC string   \NC placement mark\NR
+\NC basechar          \NC string   \NC mark for attaching combining items to a base char\NR
+\NC baselig           \NC string   \NC mark for attaching combining items to a ligature\NR
+\NC basemark          \NC string   \NC generic mark for attaching combining items to connect to\NR
+\NC centry            \NC string   \NC cursive entry point\NR
+\NC cexit             \NC string   \NC cursive exit point\NR
+\stoptabulate
+
+Each of those, if present is another hash, with the entries
+anchors. The anchor name (class) is the key, and the values
+are the actual data:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC x                  \NC number   \NC x location\NC\NR
+\NC y                  \NC number   \NC y location\NC\NR
+\NC ttf_pt_index       \NC number   \NC truetype point index, only if given\NC\NR
+\NC lig_index          \NC number   \NC only if non-zero\NC\NR
+\stoptabulate
+
+
+For clarification, an anchor table could for example look like this :
+\starttyping
+  ["anchor"]={
+    ["basemark"]={
+     ["Anchor-7"]={ ["x"]=170, ["y"]=1080 }
+    },
+    ["mark"]={
+     ["Anchor-1"] ={ ["x"]=160, ["y"]=810 },
+     ["Anchor-4"]= { ["x"]=160, ["y"]=800 }
+    }
+   },
+\stoptyping
+
+
 
 \subsubsection{map table}
 
@@ -2975,31 +3083,111 @@ possible keys are:
 \NC cidfindfontname   \NC \NC\NR
 \stoptabulate
 
-\subsubsection{anchor table}
+\subsubsection{anchor_classes table}
 
-The anchor classes:
-
-\starttabulate[|lT|l|p|]
-\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC name                   \NC string   \NC \NC\NR
-\NC feature_tag            \NC string   \NC \NC\NR
-\NC script_lang_index      \NC number   \NC \NC\NR
-\NC flags                  \NC number   \NC \NC\NR
-\NC merge_with             \NC number   \NC \NC\NR
-\NC type                   \NC number   \NC \NC\NR
-\NC processed              \NC number   \NC \NC\NR
-\NC has_mark               \NC number   \NC \NC\NR
-\NC matches                \NC number   \NC \NC\NR
-\NC ac_num                 \NC number   \NC \NC\NR
-\stoptabulate
-
-\subsubsection{orders table}
+The anchor_classes classes:
 
 \starttabulate[|lT|l|p|]
 \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC table_tag              \NC string   \NC \NC\NR
-\NC ordered_features       \NC array    \NC list of tag strings\NC\NR
+\NC name                   \NC string   \NC A descriptive id of this anchor class\NC\NR
+\NC lookup                 \NC string   \NC \NC\NR
+\NC type                   \NC string   \NC One of "mark", "mkmk", "curs", "mklg" \NC\NR
 \stoptabulate
+
+\subsubsection{gpos table}
+
+Th gpos table has one array entry for each lookup.
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC type                  \NC string   \NC One of  
+  %"gsub_start", "gsub_single", "gsub_multiple", "gsub_alternate", 
+  %"gsub_ligature", "gsub_context",  "gsub_context_chain",
+  %"gsub_reversecchain", % "morx_indic", "morx_context", "morx_insert",
+  "gpos_start", "gpos_single", "gpos_pair", "gpos_cursive", 
+  "gpos_mark2base", "gpos_mark2ligature", "gpos_mark2mark",  "gpos_context", 
+  "gpos_contextchain" % ,  "kern_statemachine" 
+\NC\NR
+\NC flags                 \NC table  \NC \NC\NR
+\NC name                  \NC string   \NC \NC\NR
+\NC features              \NC array   \NC \NC\NR
+\NC subtables             \NC array   \NC \NC\NR
+\stoptabulate
+
+The flags table has a true value for each of the lookup flags that is
+actually set:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC r2l                    \NC boolean   \NC \NC\NR
+\NC ignorebaseglyphs       \NC boolean    \NC \NC\NR
+\NC ignoreligatures        \NC boolean    \NC \NC\NR
+\NC ignorecombiningmarks   \NC boolean    \NC \NC\NR
+\stoptabulate
+
+
+
+The features table has:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC tag                    \NC string   \NC \NC\NR
+\NC scripts                \NC table    \NC \NC\NR
+\NC ismax                  \NC number   \NC (only if true)\NC\NR
+\stoptabulate
+
+The scripts table within features has:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC script	               \NC string          \NC \NC\NR
+\NC langs                  \NC array of strings \NC \NC\NR
+\stoptabulate
+
+
+
+The subtables table has:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC name                    \NC string   \NC \NC\NR
+\NC suffix                  \NC string   \NC (only if used)\NC\NR
+\NC anchor_classes          \NC number   \NC (only if used)\NC\NR
+\NC vertical_kerning        \NC number   \NC (only if used)\NC\NR
+\NC kernclass               \NC table    \NC (only if used)\NC\NR
+\stoptabulate
+
+
+The kernclass with subtables table has:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC first_cnt             \NC number   \NC \NC\NR
+\NC second_cnt            \NC number   \NC \NC\NR
+\NC firsts                \NC array of strings  \NC \NC\NR
+\NC seconds               \NC array of strings   \NC \NC\NR
+\NC lookup                \NC string \NC associated lookup \NC \NR
+\NC offsets               \NC array of numbers  \NC \NC\NR
+\NC kcid                 \NC number   \NC ? \NC\NR
+\stoptabulate
+
+\subsubsection{gsub table}
+
+This has identical layout to the \type{gpos} table, except for the
+type:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
+\NC type                  \NC string   \NC One of  "gsub_start", "gsub_single", "gsub_multiple", "gsub_alternate", 
+  "gsub_ligature", "gsub_context",  "gsub_context_chain",
+  "gsub_reversecchain" %,  % "morx_indic", "morx_context", "morx_insert",
+%  "gpos_start", "gpos_single", "gpos_pair", "gpos_cursive", 
+%  "gpos_mark2base", "gpos_mark2ligature", "gpos_mark2mark",  "gpos_context", 
+%  "gpos_contextchain" % ,  "kern_statemachine" 
+\NC\NR
+\stoptabulate
+
+
 
 \subsubsection{ttf_tables table}
 
@@ -3009,14 +3197,6 @@ The anchor classes:
 \NC len                    \NC number   \NC \NC\NR
 \NC maxlen                 \NC number   \NC \NC\NR
 \NC data                   \NC number   \NC \NC\NR
-\stoptabulate
-
-\subsubsection{script_lang table}
-
-\starttabulate[|lT|l|p|]
-\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC script                 \NC string   \NC \NC\NR
-\NC langs                  \NC array    \NC list of language tags\NC\NR
 \stoptabulate
 
 \subsubsection{kerns table}
@@ -3036,43 +3216,20 @@ Substructure is identical to the per|-|glyph subtable.
 \NC params                 \NC array    \NC 22 font numeric parameters\NC\NR
 \stoptabulate
 
-\subsubsection{gentags table}
+\subsubsection{lookups table}
 
-\starttabulate[|lT|l|p|]
-\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC tagtype                \NC array    \NC \NC\NR
-\stoptabulate
-
-The array items are mini|-|hashes:
-
-\starttabulate[|lT|l|p|]
-\NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC type                   \NC enum     \NC allowed values: \type {null}, \type {position}, \type {pair},
-                                        \type {substitution}, \type {alternate}, \type {multiple}, \type {ligature},
-                                        \type {lcaret},  \type {kerning}, \type {vkerning}, \type {anchors},
-                                        \type {contextpos}, \type {contextsub}, \type {chainpos}, \type {chainsub},
-                                        \type {reversesub}, \type {max}, \type {kernback}, \type {vkernback}\NC\NR
-\NC tag                    \NC string   \NC \NC\NR
-\stoptabulate
-
-
-\subsubsection{possub table}
-
-Top|-|level \type{possub} is quite different from the ones at character level.
+Top|-|level \type{lookups} is quite different from the ones at
+character level. The keys in this hash are strings, the values the
+actual lookups, represented as dictionary tables.
 
 \starttabulate[|lT|l|p|]
 \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
 \NC type                   \NC number   \NC \NC\NR
 \NC format                 \NC enum     \NC \type {glyphs}, \type {class}, \type {coverage}, \type {reversecoverage} \NC\NR
-\NC script_lang_index      \NC number   \NC \NC\NR
-\NC flags                  \NC number   \NC (only if nonzero)\NC\NR
 \NC tag                    \NC string   \NC \NC\NR
-\NC nccnt                  \NC number   \NC (only if nonzero)\NC\NR
-\NC bccnt                  \NC number   \NC (only if nonzero)\NC\NR
-\NC fccnt                  \NC number   \NC (only if nonzero)\NC\NR
-\NC nclass                 \NC array   \NC \NC\NR
-\NC bclass                 \NC array   \NC \NC\NR
-\NC fclass                 \NC array   \NC \NC\NR
+\NC current_class          \NC array   \NC \NC\NR
+\NC before_class           \NC array   \NC \NC\NR
+\NC after_class            \NC array   \NC \NC\NR
 \NC rules                  \NC array   \NC an array of rule items\NC\NR
 \stoptabulate
 
@@ -3092,7 +3249,7 @@ Each of the lookup item is:
 \starttabulate[|lT|l|p|]
 \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
 \NC seq                    \NC number   \NC \NC\NR
-\NC lookup_tag             \NC string   \NC \NC\NR
+\NC lookup                 \NC string   \NC \NC\NR
 \stoptabulate
 
 glyph:
@@ -3109,30 +3266,31 @@ class:
 
 \starttabulate[|lT|l|p|]
 \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC nclasses               \NC array    \NC of numbers \NC\NR
-\NC bclasses               \NC array    \NC of numbers  \NC\NR
-\NC fclasses               \NC array    \NC of numbers  \NC\NR
+\NC current              \NC array    \NC of numbers \NC\NR
+\NC before               \NC array    \NC of numbers  \NC\NR
+\NC after                \NC array    \NC of numbers  \NC\NR
 \stoptabulate
 
 coverage:
 
 \starttabulate[|lT|l|p|]
 \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC ncovers                \NC array    \NC of strings \NC\NR
-\NC bcovers                \NC array    \NC of strings\NC\NR
-\NC fcovers                \NC array    \NC of strings \NC\NR
+\NC current                \NC array    \NC of strings \NC\NR
+\NC before                 \NC array    \NC of strings\NC\NR
+\NC after                  \NC array    \NC of strings \NC\NR
 \stoptabulate
 
 reversecoverage:
 
 \starttabulate[|lT|l|p|]
 \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC ncovers                \NC array    \NC of strings \NC\NR
-\NC bcovers                \NC array    \NC of strings\NC\NR
-\NC fcovers                \NC array    \NC of strings \NC\NR
+\NC current                \NC array    \NC of strings \NC\NR
+\NC before                 \NC array    \NC of strings\NC\NR
+\NC after                  \NC array    \NC of strings \NC\NR
 \NC replacements           \NC string   \NC \NC\NR
 \stoptabulate
 
+\iffalse
 \subsection{Loading \OPENTYPE\ or \TRUETYPE\ name information}
 
 \startfunctioncall
@@ -3145,61 +3303,7 @@ section, but they only return a small subset of the information. The
 returned table only has five keys: \type{fontname}, \type{fullname},
 \type{familyname}, \type{weight} and \type{table_version}.
 
-
-\subsection{The fonts array}
-
-\starttyping
-font.fonts[n] = { ... }
-table f = font.fonts[n]
-\stoptyping
-
-See \in{chapter}[fonts] for the structure of the tables.
-
-The associated function calls are
-
-\startfunctioncall
-table f = font.getfont(number n)
-font.setfont(number n, table f)
-\stopfunctioncall
-
-Note the following: Assignments can only be made to fonts that have
-already be defined in \TEX, but have not been accessed {\it at all\/} since
-that definition. This limits the usability of the write access to
-font.fonts quite a lot, a less stringent ruleset will be implemented
-later.
-
-\subsection{Checking a font's status}
-
-You can test for the status of a font by calling this function:
-
-\startfunctioncall
-boolean f = font.frozen(number n)
-\stopfunctioncall
-
-The return value is one of true (unassignable), false (can be changed)
-or nil (not a valid font at all).
-
-\subsection{Defining a font directly}
-
-You can define your own font into \luatex{font.fonts}
-
-\startfunctioncall
-number i = font.define(table f)
-\stopfunctioncall
-
-The return value is the internal id number of the defined font (the
-index into \luatex{font.fonts}). If the font creation fails, an error is
-raised. The table is a font structure, as explained in
-\in{chapter}[fonts].
-
-\subsection{Currently active font}
-
-\startfunctioncall
-number i = font.currentid;
-\stopfunctioncall
-
-This is the currently used font number.
-
+\fi
 
 \chapter[fonts]{Font structure}
 
@@ -3882,6 +3986,8 @@ Valid fields: \showfields{glyph}
 \NC char       \NC number  \NC \NC\NR
 \NC font       \NC number  \NC \NC\NR
 \NC components \NC node    \NC pointer to ligature components\NC\NR
+\NC xoffset    \NC number  \NC \NC \NR
+\NC yoffset    \NC number  \NC \NC \NR
 \stoptabulate
 
 \subsubsection{margin\_kern nodes}
@@ -4223,7 +4329,7 @@ Valid fields: \showfields{whatsit,user_defined}
 \NC          \NC table \NC \NC\NR
 \stoptabulate
 
-\section{User-defined whatsits}
+% \section{User-defined whatsits}
 
 \chapter{Modifications}
 
@@ -4454,6 +4560,10 @@ introduces a potential pitfall: the memory arrays should never be used
 as the left hand side of a statement that can modify the array in
 question.
 
+The input line buffer and pool size are now also reallocated when
+needed, and the \type{texmf.cnf} settings \type{buf_size} and
+\type{pool_size} are silently ignored.
+
 \section{Sparse arrays}
 
 The \tex{mathcode}, \tex{delcode}, \tex{catcode},
@@ -4542,6 +4652,12 @@ so this will take some extra effort to implement correctly.
 \item When used inside  \type{\directlua}, \type{pdf.print()} should create a
 literal node instead of flushin immedately.
 
+\item At the moment, only characters in plane~0 and plane~1 can be
+assigned catcode~13 (i.e. turned into active characters). This is a
+temporary measure to reduce the memory requirements of \LUATEX.
+
+\item There is a problem with empty jobnames on 64-bit archs
+
 \stopitemize
 
 \chapter{TODO}
@@ -4570,8 +4686,6 @@ the natural width of the included items into account.
 
 \item Make the number of the output box configurable.
 
-\item Switch to \FONTFORGE\ 2.0
-
 \item Complete the attributes in math and switch the nodes to a double|-|linked list.
 
 \item Implement csname lookups for \type{tex.box} access.
@@ -4579,6 +4693,10 @@ the natural width of the included items into account.
 \item Integrate the various \PDFTEX\ extended font codes for hz en protruding into
 the font table
 
+
+\item TTF subsetting and Type1C support.
+
+\item Support font reencoding of 8-bit fonts via char index.
 \stopitemize
 
 \stoptext
