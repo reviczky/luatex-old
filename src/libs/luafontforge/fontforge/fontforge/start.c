@@ -45,7 +45,8 @@
 # include <stdlib.h>		/* getenv,setenv */
 #endif
 
-int32 unicode_from_adobestd[256];
+int32 unicode_from_adobestd[256] = {0}; /* fix 64bit aligns */
+
 struct lconv localeinfo;
 char *coord_sep = ",";		/* Not part of locale data */
 const struct unicode_nameannot * const *const *_UnicodeNameAnnot = NULL;
