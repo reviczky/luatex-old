@@ -292,14 +292,22 @@ do_handle_lookup (lua_State *L, struct otlookup *lookup ) {
 
   dump_enumfield     (L,"type",             lookup->lookup_type, otf_lookup_type_enum); 
 
-  /*
-    pst_r2l=1, 
-	pst_ignorebaseglyphs=2, 
-	pst_ignoreligatures=4,
-	pst_ignorecombiningmarks=8 
-  */
+  lua_newtable(L);
+  if (lookup->lookup_flags & pst_r2l) {
+    lua_pushstring(L,"r2l");  lua_pushboolean(L,1);   lua_rawset(L,-3);
+  }
+  if (lookup->lookup_flags & pst_ignorebaseglyphs) {
+    lua_pushstring(L,"ignorebaseglyphs");  lua_pushboolean(L,1);   lua_rawset(L,-3);
+  }
+  if (lookup->lookup_flags & pst_ignoreligatures) {
+    lua_pushstring(L,"ignoreligatures");  lua_pushboolean(L,1);   lua_rawset(L,-3);
+  }
+  if (lookup->lookup_flags & pst_ignorecombiningmarks) {
+    lua_pushstring(L,"ignorecombiningmarks");  lua_pushboolean(L,1);   lua_rawset(L,-3);
+  }
+  lua_setfield(L,-2,"flags");
 
-  dump_cond_intfield (L,"flags",            lookup->lookup_flags); 
+
   dump_stringfield   (L,"name",             lookup->lookup_name); 
 
   if (lookup->features != NULL) {
@@ -571,7 +579,7 @@ do_handle_anchorpoint (lua_State *L, struct anchorpoint *anchor) {
   /* dump_intfield(L,"ticked",        anchor->ticked);*/
   if (anchor->has_ttf_pt)
     dump_intfield(L,"ttf_pt_index",  anchor->ttf_pt_index);
-  dump_intfield(L,"lig_index",     anchor->lig_index);
+  dump_cond_intfield(L,"lig_index",     anchor->lig_index);
   lua_rawset(L,-3);  
   lua_pop(L,1);
 }
