@@ -702,6 +702,7 @@ void SFRemoveUnusedLookupSubTables(SplineFont *sf,
     AnchorClass *ac, *acprev, *acnext;
     OTLookup *otl, *otlprev, *otlnext;
 
+    otlprev = NULL;
     /* Presumes someone has called SFFindUnusedLookups first */
 
     if ( remove_incomplete_anchorclasses ) {
@@ -812,7 +813,8 @@ void SFRemoveLookupSubTable(SplineFont *sf,struct lookup_subtable *sub) {
 	SplineFont *_sf;
 	PST *pst, *prev, *next;
 	KernPair *kp, *kpprev, *kpnext;
-	k=0;
+	k=0; 
+	i = 0;
 	do {
 	    _sf = sf->subfontcnt==0 ? sf : sf->subfonts[i];
 	    for ( i=0; i<_sf->glyphcnt; ++i ) if ( (sc=_sf->glyphs[i])!=NULL ) {
@@ -1075,7 +1077,7 @@ void NameOTLookup(OTLookup *otl,SplineFont *sf) {
 	if ( fl==NULL ) fl = otl->features;
 	if ( fl!=NULL && fl->scripts!=NULL ) {
 	    char buf[8];
-	    int j;
+	    /*int j;*/
 	    struct scriptlanglist *sl, *found, *found2;
 	    uint32 script_tag = fl->scripts->script;
 	    found = found2 = NULL;
@@ -4909,8 +4911,8 @@ static void ACDMatrixInit(struct matrixinit *mi,SplineFont *sf, struct lookup_su
 
 /* Anchor list, [new], [delete], [edit], [show first mark/entry], [show first base/exit] */
 /*  [ok], [cancel] */
-static void AnchorClassD(SplineFont *sf, struct lookup_subtable *sub) {
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+static void AnchorClassD(SplineFont *sf, struct lookup_subtable *sub) {
     GRect pos;
     GWindowAttrs wattrs;
     AnchorClassDlg acd;
@@ -5013,14 +5015,14 @@ static void AnchorClassD(SplineFont *sf, struct lookup_subtable *sub) {
     while ( !acd.done )
 	GDrawProcessOneEvent(NULL);
     GDrawDestroyWindow(acd.gw);
-#endif
 }
+#endif
 
 /* ************************************************************************** */
 /* ********************** Single/Double Glyph Subtables ********************* */
 /* ************************************************************************** */
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+#ifndef LUA_FF_LIB
 
 static int isalphabetic = true, byscripts = true, stemming=true;
 int lookup_hideunused = true;
@@ -6169,10 +6171,9 @@ return( false );
     }
 return( true );
 }
-#endif
+
 
 static void PSTKernD(SplineFont *sf, struct lookup_subtable *sub) {
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     PSTKernDlg pstkd;
     GRect pos;
     GWindowAttrs wattrs;
@@ -6461,7 +6462,6 @@ static void PSTKernD(SplineFont *sf, struct lookup_subtable *sub) {
 	BDFFontFree(pstkd.display);
 	pstkd.display = NULL;
     }
-#endif /* NO_UI */
 }
 
 
@@ -6503,9 +6503,6 @@ return( true );
 return( false );
 }
 
-
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
-
 int EditSubtable(struct lookup_subtable *sub,int isgpos,SplineFont *sf,
 	struct subtable_data *sd) {
     char *def = sub->subtable_name;
@@ -6539,7 +6536,6 @@ return( false );
 	_LookupSubtableContents(sf, sub, sd);
 return( true );
 }
-
 
 static struct lookup_subtable *NewSubtable(OTLookup *otl,int isgpos,SplineFont *sf, struct subtable_data *sd) {
     struct lookup_subtable *sub, *last;
@@ -6713,7 +6709,9 @@ int VerticalKernFeature(SplineFont *sf, OTLookup *otl, int ask) {
     FeatureScriptLangList *fl;
     struct lookup_subtable *sub;
     KernClass *kc;
+#ifndef LUA_FF_LIB
     char *buts[3];
+#endif
 
     for ( fl=otl->features; fl!=NULL; fl=fl->next ) {
 	if ( fl->featuretag==CHR('k','e','r','n') )
@@ -6736,10 +6734,15 @@ return( true );
     if ( !ask )
 return( -1 );
 
+#ifndef LUA_FF_LIB
     buts[0] = _("_Horizontal"); buts[1] = _("_Vertical"); buts[2] = NULL;
 return( gwwv_ask(_("Kerning direction"),(const char **) buts,0,1,_("Is this horizontal or vertical kerning data?")) );
+#else
+return( -1 );
+#endif
 }
 
+#ifndef LUA_FF_LIB
 void _LookupSubtableContents(SplineFont *sf, struct lookup_subtable *sub,
 	struct subtable_data *sd) {
     int lookup_type = sub->lookup->lookup_type;
@@ -6829,6 +6832,7 @@ return;
     else
 	PSTKernD(sf,sub);
 }
+#endif
 
 struct lookup_subtable *SFSubTableMake(SplineFont *sf,uint32 tag,uint32 script,
 	int lookup_type ) {

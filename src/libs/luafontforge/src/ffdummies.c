@@ -18,6 +18,104 @@
 
 #include "ttf.h" /* for macsettingname */
 
+/* some Gdraw routines for filesystem access */
+
+
+int GFileIsDir(const char *file) {
+    char buffer[1000];
+    sprintf(buffer,"%s/.",file);
+return( access(buffer,0)==0 );
+}
+
+int GFileExists(const char *file) {
+return( access(file,0)==0 );
+}
+
+char *GFileNameTail(const char *oldname) {
+    char *pt;
+
+    pt = strrchr(oldname,'/');
+    if ( pt !=NULL )
+return( pt+1);
+    else
+return( (char *)oldname );
+}
+
+
+char *GFileAppendFile(char *dir,char *name,int isdir) {
+    char *ret, *pt;
+
+    ret = galloc((strlen(dir)+strlen(name)+3));
+    strcpy(ret,dir);
+    pt = ret+strlen(ret);
+    if ( pt>ret && pt[-1]!='/' )
+        *pt++ = '/';
+    strcpy(pt,name);
+    if ( isdir ) {
+        pt += strlen(pt);
+        if ( pt>ret && pt[-1]!='/' ) {
+            *pt++ = '/';
+            *pt = '\0';
+        }
+    }
+return(ret);
+}
+
+int GFileReadable(char *file) {
+return( access(file,04)==0 );
+}
+
+static char dirname_[1024];
+
+
+char *GFileGetAbsoluteName(char *name, char *result, int rsiz) {
+    /* result may be the same as name */
+    char buffer[1000];
+
+    if ( *name!='/' ) {
+        char *pt, *spt, *rpt, *bpt;
+
+        if ( dirname_[0]=='\0' ) {
+            getcwd(dirname_,sizeof(dirname_));
+        }
+        strcpy(buffer,dirname_);
+        if ( buffer[strlen(buffer)-1]!='/' )
+            strcat(buffer,"/");
+        strcat(buffer,name);
+
+        /* Normalize out any .. */
+        spt = rpt = buffer;
+        while ( *spt!='\0' ) {
+            if ( *spt=='/' ) ++spt;
+            for ( pt = spt; *pt!='\0' && *pt!='/'; ++pt );
+            if ( pt==spt )      /* Found // in a path spec, reduce to / (we've*/
+                strcpy(spt,pt); /*  skipped past the :// of the machine name) */
+            else if ( pt==spt+1 && spt[0]=='.' )        /* Noop */
+                strcpy(spt,pt);
+            else if ( pt==spt+2 && spt[0]=='.' && spt[1]=='.' ) {
+                for ( bpt=spt-2 ; bpt>rpt && *bpt!='/'; --bpt );
+                if ( bpt>=rpt && *bpt=='/' ) {
+                    strcpy(bpt,pt);
+                    spt = bpt;
+                } else {
+                    rpt = pt;
+                    spt = pt;
+                }
+            } else
+                spt = pt;
+        }
+        name = buffer;
+        if ( rsiz>sizeof(buffer)) rsiz = sizeof(buffer);        /* Else valgrind gets unhappy */
+    }
+    if (result!=name) {
+        strncpy(result,name,rsiz);
+        result[rsiz-1]='\0';
+    }
+return(result);
+}
+
+
+
 /* a gettext miss */
 
 char *sgettext(const char *msgid) {
@@ -1805,9 +1903,9 @@ int unic_tolower (int c) {
 
 /* some error and process reporting stuff */
 
-void gwwv_post_error(char *a, char *b) { }
+void gwwv_post_error(char *a, ...) { }
 void gwwv_ask (char *a) { }
-void gwwv_post_notice (char *a) { }
+void gwwv_post_notice (char *a, ...) { }
 void gwwv_progress_change_line1 (char *a) { }
 void gwwv_progress_change_line2 (char *b) { }
 void gwwv_progress_next (void){ }
@@ -2020,102 +2118,6 @@ int WriteUFOFont(char *basedir,SplineFont *sf,enum fontformat ff,int flags,
 
 int _ExportGlif(FILE *glif,SplineChar *sc) {
 return 0;
-}
-
-/* some Gdraw routines for filesystem access */
-
-
-int GFileIsDir(const char *file) {
-    char buffer[1000];
-    sprintf(buffer,"%s/.",file);
-return( access(buffer,0)==0 );
-}
-
-int GFileExists(const char *file) {
-return( access(file,0)==0 );
-}
-
-char *GFileNameTail(const char *oldname) {
-    char *pt;
-
-    pt = strrchr(oldname,'/');
-    if ( pt !=NULL )
-return( pt+1);
-    else
-return( (char *)oldname );
-}
-
-
-char *GFileAppendFile(char *dir,char *name,int isdir) {
-    char *ret, *pt;
-
-    ret = galloc((strlen(dir)+strlen(name)+3));
-    strcpy(ret,dir);
-    pt = ret+strlen(ret);
-    if ( pt>ret && pt[-1]!='/' )
-        *pt++ = '/';
-    strcpy(pt,name);
-    if ( isdir ) {
-        pt += strlen(pt);
-        if ( pt>ret && pt[-1]!='/' ) {
-            *pt++ = '/';
-            *pt = '\0';
-        }
-    }
-return(ret);
-}
-
-int GFileReadable(char *file) {
-return( access(file,04)==0 );
-}
-
-static char dirname_[1024];
-
-
-char *GFileGetAbsoluteName(char *name, char *result, int rsiz) {
-    /* result may be the same as name */
-    char buffer[1000];
-
-    if ( *name!='/' ) {
-        char *pt, *spt, *rpt, *bpt;
-
-        if ( dirname_[0]=='\0' ) {
-            getcwd(dirname_,sizeof(dirname_));
-        }
-        strcpy(buffer,dirname_);
-        if ( buffer[strlen(buffer)-1]!='/' )
-            strcat(buffer,"/");
-        strcat(buffer,name);
-
-        /* Normalize out any .. */
-        spt = rpt = buffer;
-        while ( *spt!='\0' ) {
-            if ( *spt=='/' ) ++spt;
-            for ( pt = spt; *pt!='\0' && *pt!='/'; ++pt );
-            if ( pt==spt )      /* Found // in a path spec, reduce to / (we've*/
-                strcpy(spt,pt); /*  skipped past the :// of the machine name) */
-            else if ( pt==spt+1 && spt[0]=='.' )        /* Noop */
-                strcpy(spt,pt);
-            else if ( pt==spt+2 && spt[0]=='.' && spt[1]=='.' ) {
-                for ( bpt=spt-2 ; bpt>rpt && *bpt!='/'; --bpt );
-                if ( bpt>=rpt && *bpt=='/' ) {
-                    strcpy(bpt,pt);
-                    spt = bpt;
-                } else {
-                    rpt = pt;
-                    spt = pt;
-                }
-            } else
-                spt = pt;
-        }
-        name = buffer;
-        if ( rsiz>sizeof(buffer)) rsiz = sizeof(buffer);        /* Else valgrind gets unhappy */
-    }
-    if (result!=name) {
-        strncpy(result,name,rsiz);
-        result[rsiz-1]='\0';
-    }
-return(result);
 }
 
 /* from autosave.c, but much shortened */
@@ -3019,7 +3021,6 @@ BDFChar *BDFMakeGID(BDFFont *bdf,int gid) {
     SplineChar *sc;
     BDFChar *bc;
     int i;
-    extern int use_freetype_to_rasterize_fv;
 
     if ( gid==-1 )
 return( NULL );

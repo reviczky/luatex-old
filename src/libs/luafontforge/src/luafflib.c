@@ -11,6 +11,8 @@
 
 #include "pfaedit.h"
 
+extern void  LoadPrefs(void);
+
 #define FONT_METATABLE "fontforge.splinefont"
 
 #define LUA_OTF_VERSION "0.2"
@@ -205,7 +207,7 @@ dump_tag (lua_State *L, char *name, unsigned int field) {
 
 void
 do_handle_scriptlanglist (lua_State *L, struct scriptlanglist *sl) {
-  int l,k;
+  int k;
   dump_tag(L,"script",          sl->script);
 
   lua_checkstack(L,3);

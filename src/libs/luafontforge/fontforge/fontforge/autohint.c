@@ -65,6 +65,7 @@ This file has routines to figure out at least some of these
 Also other routines to guess at good per-character hints
 */
 
+#ifndef LUA_FF_LIB
 static void AddBlue(real val, real array[5], int force) {
     val = rint(val);
     if ( !force && (val<array[0]-array[1] || val >array[0]+array[1] ))
@@ -96,7 +97,7 @@ static void MergeZones(real zone1[5], real zone2[5]) {
 /*  the same set of letter shapes and have all evolved together and have */
 /*  various common features (ascenders, descenders, lower case, etc.). Other */
 /*  scripts don't fit */
-#ifndef LUA_FF_LIB
+
 void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
     real caph[5], xh[5], ascenth[5], digith[5], descenth[5], base[5];
     real otherdigits[5];
@@ -410,7 +411,6 @@ void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
 	}
     }
 }
-#endif
 
 static int PVAddBlues(BlueData *bd,int bcnt,char *pt) {
     char *end;
@@ -450,6 +450,7 @@ return( bcnt );
 
 /* Quick and dirty (and sometimes wrong) approach to figure out the common */
 /* alignment zones in latin (greek, cyrillic) alphabets */
+
 void QuickBlues(SplineFont *_sf, BlueData *bd) {
     real xheight = -1e10, caph = -1e10, ascent = -1e10, descent = 1e10, max, min;
     real xheighttop = -1e10, caphtop = -1e10;
@@ -619,6 +620,7 @@ void QuickBlues(SplineFont *_sf, BlueData *bd) {
     }
     bd->bluecnt = bcnt;
 }
+#endif /* LUA_FF_LIB*/
 
 void ElFreeEI(EIList *el) {
     EI *e, *next;
@@ -848,7 +850,7 @@ void ELOrder(EIList *el, int major ) {
 }
 
 static HintInstance *HIMerge(HintInstance *into, HintInstance *hi) {
-    HintInstance *n, *first = NULL, *last;
+    HintInstance *n, *first = NULL, *last = NULL;
 
     while ( into!=NULL && hi!=NULL ) {
 	if ( into->begin<hi->begin ) {
@@ -1165,10 +1167,12 @@ return( false );
 }
 #endif
 
+#ifndef LUA_FF_LIB
 EI *EIActiveEdgesFindStem(EI *apt, real i, int major) {
     int cnt=apt->up?1:-1;
     EI *e, *p;
 
+    p = NULL;
 	/* If we're at an intersection point and the next spline continues */
 	/*  in about the same direction then this doesn't count as two lines */
 	/*  but as one */
@@ -1220,6 +1224,7 @@ return( NULL );
     }
 return( stems );
 }
+#endif
 
 real HIlen( StemInfo *stems) {
     HintInstance *hi;
@@ -1260,6 +1265,8 @@ return( true );
 return( false );
 }
 
+
+#ifndef LUA_FF_LIB
 static int StemWouldConflict(StemInfo *stems,double base, double width) {
     int found;
 
@@ -1287,6 +1294,7 @@ return( false );		/* If it has already been added, then too late to worry about 
     }
 return( found );
 }
+#endif
 
 int StemListAnyConflicts(StemInfo *stems) {
     StemInfo *s;
@@ -1308,7 +1316,7 @@ return( any );
 }
 
 HintInstance *HICopyTrans(HintInstance *hi, real mul, real offset) {
-    HintInstance *first=NULL, *last, *cur, *p;
+    HintInstance *first=NULL, *last = NULL, *cur, *p;
 
     while ( hi!=NULL ) {
 	cur = chunkalloc(sizeof(HintInstance));
@@ -1336,6 +1344,8 @@ HintInstance *HICopyTrans(HintInstance *hi, real mul, real offset) {
     }
 return( first );
 }
+
+#ifndef LUA_FF_LIB
 
 static int inhints(StemInfo *stems,real base, real width) {
 
@@ -1524,6 +1534,7 @@ static StemInfo *CheckForGhostHints(StemInfo *stems,SplineChar *sc, BlueData *bd
     }
 return( stems );
 }
+#endif
 
 static HintInstance *SCGuessHintPoints(SplineChar *sc, StemInfo *stem,int major, int off) {
     SplinePoint *starts[20], *ends[20];
@@ -1818,6 +1829,7 @@ void SCGuessVHintInstancesList(SplineChar *sc) {
 */
 }
 
+#ifndef LUA_FF_LIB
 static StemInfo *RefHintsMerge(StemInfo *into, StemInfo *rh, real mul, real offset,
 	real omul, real oofset) {
     StemInfo *prev, *h, *n;
@@ -1891,7 +1903,6 @@ static DStemInfo *RefDHintsMerge(DStemInfo *into, DStemInfo *rh, real xmul, real
 return( into );
 }
 
-#ifndef LUA_FF_LIB
 static void AutoHintRefs(SplineChar *sc,BlueData *bd, int picky) {
     RefChar *ref;
 
@@ -2045,8 +2056,10 @@ return;
 
 static void SCFigureSimpleCounterMasks(SplineChar *sc) {
     SplineChar *scs[MmMax];
+#ifndef LUA_FF_LIB
     int hadh3, hadv3, i;
     HintMask mask;
+#endif
 
     if ( sc->countermask_cnt!=0 )
 return;
@@ -2821,6 +2834,7 @@ return;						/* In an MM font we may still need to resolve things like different
     if ( instance_count==1 )
 	SCFigureSimpleCounterMasks(sc);
 }
+#ifndef LUA_FF_LIB
 
 static HintInstance *StemAddHIFromActive(struct stemdata *stem,int major) {
     int i;
@@ -2904,6 +2918,7 @@ return;
 	}
     }
 }
+
 
 static void GDPreprocess(struct glyphdata *gd) {
     int i,j;
@@ -2999,7 +3014,6 @@ static StemInfo *GDFindStems(struct glyphdata *gd, int major) {
 return( head );
 }
 
-#ifndef LUA_FF_LIB
 void _SplineCharAutoHint( SplineChar *sc, BlueData *bd, struct glyphdata *gd2 ) {
     struct glyphdata *gd;
 

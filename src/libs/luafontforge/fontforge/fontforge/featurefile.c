@@ -36,6 +36,11 @@
 
 #include <stddef.h> /* for offsetof() */
 
+#ifdef LUA_FF_LIB
+extern void gwwv_post_error(char *a, ...);
+extern void gwwv_post_notice (char *a, ...) ;
+#endif
+
 /* Adobe's opentype feature file */
 
 /* ************************************************************************** */
@@ -211,7 +216,7 @@ static void dump_kernclass(FILE *out,SplineFont *sf,struct lookup_subtable *sub)
 }
 
 static char *nameend_from_class(char *glyphclass) {
-    char *pt;
+    char *pt  = glyphclass;
 
     while ( *pt==' ' ) ++pt;
     while ( *pt!=' ' && *pt!='\0' ) ++pt;
@@ -1129,6 +1134,7 @@ return;					/* No support for apple "lookups" */
     fprintf( out, "} %s;\n", lookupname(otl) );
 }
 
+#ifndef LUA_FF_LIB
 static void untick_lookups(SplineFont *sf) {
     OTLookup *otl;
     int isgpos;
@@ -1137,8 +1143,10 @@ static void untick_lookups(SplineFont *sf) {
 	for ( otl= isgpos ? sf->gpos_lookups : sf->gsub_lookups; otl!=NULL; otl=otl->next )
 	    otl->ticked = false;
 }
+#endif
 
 void FeatDumpOneLookup(FILE *out,SplineFont *sf, OTLookup *otl) {
+#ifndef LUA_FF_LIB
     FeatureScriptLangList *fl;
     struct scriptlanglist *sl;
     int l;
@@ -1166,8 +1174,10 @@ void FeatDumpOneLookup(FILE *out,SplineFont *sf, OTLookup *otl) {
 		fl->featuretag==CHR('m','a','r','k') ? "\\" : "",
 		fl->featuretag>>24, fl->featuretag>16, fl->featuretag>>8, fl->featuretag );
     }
+#endif
 }
 
+#ifndef LUA_FF_LIB
 static void dump_gdef(FILE *out,SplineFont *sf) {
     PST *pst;
     int i,gid,j,k,l, lcnt, needsclass;
@@ -1175,7 +1185,7 @@ static void dump_gdef(FILE *out,SplineFont *sf) {
     SplineFont *_sf;
     struct lglyphs { SplineChar *sc; PST *pst; } *glyphs;
     static char *clsnames[] = { "@GDEF_Simple", "@GDEF_Ligature", "@GDEF_Mark", "@GDEF_Component" };
-
+    _sf = NULL;
     glyphs = NULL;
     for ( l=0; l<2; ++l ) {
 	lcnt = 0;
@@ -1432,9 +1442,10 @@ static void cleanupnames(SplineFont *sf) {
 	    otl->tempname = NULL;
 	}
 }
+#endif
 
 void FeatDumpFontLookups(FILE *out,SplineFont *sf) {
-
+#ifndef LUA_FF_LIB
     if ( sf->cidmaster!=NULL ) sf=sf->cidmaster;
 
     untick_lookups(sf);
@@ -1442,6 +1453,7 @@ void FeatDumpFontLookups(FILE *out,SplineFont *sf) {
     dump_gsubgpos(out,sf);
     dump_gdef(out,sf);
     cleanupnames(sf);
+#endif
 }
 
 
@@ -1842,6 +1854,7 @@ static void fea_ParseTok(struct parseState *tok) {
 return;
     }
 
+    peekch = 0;
   skip_whitespace:
     ch = getc(in);
     while ( isspace(ch) || ch=='#' ) {
@@ -2270,6 +2283,7 @@ return(NULL);
 	char *pt1, *start1, *pt2, *start2;
 	int v1, v2;
 
+	start2 = NULL; range_len = 0; last_val =0 ; contents = NULL;
 	forever {
 	    fea_ParseTok(tok);
 	    if ( tok->type==tk_char && tok->tokbuf[0]==']' )
@@ -3075,7 +3089,7 @@ static FPST *fea_markedglyphs_to_fpst(struct parseState *tok,struct markedglyphs
     FPST *fpst;
     struct fpst_rule *r;
     struct feat_item *item, *head;
-
+    head = NULL;
     for ( g=glyphs; g!=NULL && g->mark_count==0; g=g->next ) {
 	++bcnt;
 	if ( !g->is_name ) all_single = false;

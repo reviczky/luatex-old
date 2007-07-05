@@ -57,25 +57,29 @@ static void FPSTRuleContentsFree(struct fpst_rule *r, enum fpossub_format format
 	    free(r->u.coverage.fcovers[j]);
 	free(r->u.coverage.fcovers);
       break;
+    case pst_formatmax:
+      break;
     }
     free(r->lookups);
 }
 
+#ifndef LUA_FF_LIB
 static void FPSTRulesFree(struct fpst_rule *r, enum fpossub_format format, int rcnt) {
     int i;
     for ( i=0; i<rcnt; ++i )
 	FPSTRuleContentsFree(&r[i],format);
     free(r);
 }
+#endif
 
 static struct fpst_rule *RulesCopy(struct fpst_rule *from, int cnt,
 	enum fpossub_format format ) {
     int i, j;
     struct fpst_rule *to, *f, *t;
-
     if ( cnt==0 )
 return( NULL );
 
+    t = NULL;
     to = gcalloc(cnt,sizeof(struct fpst_rule));
     for ( i=0; i<cnt; ++i ) {
 	f = from+i; t = to+i;
@@ -122,6 +126,8 @@ return( NULL );
 		for ( j=0; j<t->u.coverage.fcnt; ++j )
 		    t->u.coverage.fcovers[j] = copy(f->u.coverage.fcovers[j]);
 	    }
+	    break;
+	case pst_formatmax:
 	  break;
 	}
 	if ( f->lookup_cnt!=0 ) {
@@ -365,6 +371,7 @@ char *cu_copybetween(const unichar_t *start, const unichar_t *end) {
 return( ret );
 }
 
+#ifndef LUA_FF_LIB
 static char *ccd_cu_copy(const unichar_t *start) {
     char *ret, *pt;
 
@@ -588,7 +595,7 @@ return;
     parseseqlookups(sf,pt+2,r);
 }
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+
 static GTextInfo **glistlist(FPST *fpst) {
     GTextInfo **ti;
     int i;
@@ -604,7 +611,6 @@ return(NULL);
     }
 return( ti );
 }
-#endif
 
 
 static unichar_t *clslistitem(struct fpst_rule *r) {
@@ -699,7 +705,6 @@ return;
     parseseqlookups(sf,pt+2,r);
 }
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static GTextInfo **clslistlist(FPST *fpst) {
     GTextInfo **ti;
     int i;
@@ -817,9 +822,7 @@ static void CCD_EnableNextPrev(struct contextchaindlg *ccd) {
       break;
     }
 }
-#endif
 
-#ifndef LUA_FF_LIB
 static int CCD_ValidNameList(const char *ret,int empty_bad) {
     int first;
     extern int allow_utf8_glyphnames;
@@ -1327,6 +1330,8 @@ return( true );
 }
 #endif
 
+#ifndef LUA_FF_LIB
+
 static int BaseEnc(SplineChar *sc) {
     int uni = sc->unicodeenc;
 
@@ -1368,6 +1373,8 @@ static char *addglyph(char *results,char *name) {
 	strcpy(results,name);
 return( results );
 }
+
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static int CCD_StdClass(GGadget *g, GEvent *e) {
@@ -1433,6 +1440,7 @@ return( true );
 }
 #endif
 
+#ifndef LUA_FF_LIB
 static void _CCD_FromSelection(struct contextchaindlg *ccd,int cid,int order_matters ) {
     SplineFont *sf = ccd->sf;
     FontView *fv = sf->fv;
@@ -1478,6 +1486,7 @@ static void _CCD_FromSelection(struct contextchaindlg *ccd,int cid,int order_mat
 #endif
     free(vals);
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static int CCD_FromSelection(GGadget *g, GEvent *e) {
@@ -2563,6 +2572,7 @@ static void CCD_AddReplacements(GGadgetCreateData *gcd, GTextInfo *label,
 struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	struct gfi_data *gfi, unichar_t *newname) {
     struct contextchaindlg *ccd;
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     int i,j,k, space;
     static char *titles[2][5] = {
 	{ N_("Edit Contextual Position"), N_("Edit Contextual Substitution"),
@@ -2573,7 +2583,6 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	    N_("New Chaining Position"), N_("New Chaining Substitution"),
 	    N_("New Reverse Chaining Substitution")
 	}};
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     GRect pos, subpos;
     GWindow gw;
     GWindowAttrs wattrs;
@@ -2585,7 +2594,6 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
     GGadgetCreateData bgcd[6], rgcd[15];
     GTextInfo blabel[4], rlabel[15];
     int blen = GIntGetResource(_NUM_Buttonsize)*100/GGadgetScale(100);
-#endif
     struct fpst_rule *r=NULL;
     char *text[] = {
 /* GT: The following strings should be concatenated together, the result */
@@ -2600,6 +2608,7 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	    N_("For chaining subtables you may also specify backtrack and"),
 	    N_(" lookahead lists."), 0 };
     FPST *tempfpst;
+#endif
 
     ccd = chunkalloc(sizeof(struct contextchaindlg));
     ccd->gfi = gfi;

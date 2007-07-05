@@ -3253,7 +3253,9 @@ static void _SCHintsChanged(SplineChar *sc) {
 
 void SCHintsChanged(SplineChar *sc) {
     struct splinecharlist *dlist;
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     int was = sc->changedsincelasthinted;
+#endif
 
     if ( sc->parent->onlybitmaps || sc->parent->multilayer || sc->parent->strokedfont || sc->parent->order2 )
 return;

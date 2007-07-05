@@ -173,8 +173,12 @@ $(LUAMDVDEP): $(LUAMDVDIR)/md5lib.c $(LUAMDVDIR)/md5.h $(LUAMDVDIR)/md5.c
 LUAFFDIR=../../libs/luafontforge
 LUAFFSRCDIR=$(srcdir)/$(LUAFFDIR)
 LUAFFDEP=$(LUAFFDIR)/libff.a
-$(LUAFFDEP): $(LUAFFDIR)/src/luafflib.c
-	mkdir -p $(LUAFFDIR) && cd $(LUAFFDIR) && cp -R $(LUAFFSRCDIR)/* . && make
+$(LUAFFDEP): always
+	mkdir -p $(LUAFFDIR) && cp -f $(LUAFFSRCDIR)/Makefile $(LUAFFDIR)
+	mkdir -p $(LUAFFDIR)/fontforge && cp -f $(LUAFFSRCDIR)/fontforge/fontforge/Makefile $(LUAFFDIR)/fontforge
+	mkdir -p $(LUAFFDIR)/Unicode && cp -f $(LUAFFSRCDIR)/fontforge/Unicode/Makefile $(LUAFFDIR)/Unicode
+	cd $(LUAFFDIR) && make
+
 
 # luazlib
 LUAZLIBDIR=../../libs/luazlib

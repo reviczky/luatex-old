@@ -534,7 +534,7 @@ typedef struct generic_asm {		/* Apple State Machine */
 	    } kern;
 	} u;
     } *state;
-    /*uint32 opentype_tag;		/* If converted from opentype */
+  uint32 opentype_tag;		/* If converted from opentype */
 } ASM;
 /* State Flags:
  Indic:

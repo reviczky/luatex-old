@@ -29,6 +29,7 @@
 #include "utype.h"
 
 #ifdef LUA_FF_LIB
+extern int unic_tolower(int);
 #define Tolower unic_tolower
 #else
 #define Tolower tolower
