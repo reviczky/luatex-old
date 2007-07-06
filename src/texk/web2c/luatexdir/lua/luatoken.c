@@ -225,7 +225,8 @@ token_from_lua (lua_State *L) {
 static int
 get_cur_cs (lua_State *L) {
   char *s;
-  unsigned j,l;
+  unsigned j;
+  size_t l;
   integer cs;
   int save_nncs;
   int ret;
@@ -447,7 +448,8 @@ tokenlist_to_luastring(lua_State *L, halfword p) {
 halfword
 tokenlist_from_lua(lua_State *L) {
   char *s;
-  int tok,i,j;
+  int tok,i;
+  size_t j;
   halfword p,q,r;
   r = get_avail();
   info(r)=0; /* ref count */
