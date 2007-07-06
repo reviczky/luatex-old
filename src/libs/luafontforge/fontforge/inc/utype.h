@@ -99,7 +99,6 @@ extern const unsigned int  ____codepointassigned[];
 
 #define isunicodepointassigned(ch) (____codepointassigned[(ch)/32]&(1<<((ch)%32)))
 
-#endif /* LUA_FF_LIB */
 
 extern struct arabicforms {
     unsigned short initial, medial, final, isolated;
@@ -112,4 +111,5 @@ extern struct arabicforms {
 
 #define _DOUBLE_S	0xdf
 
+#endif /* LUA_FF_LIB */
 #endif
