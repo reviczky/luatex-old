@@ -2272,6 +2272,7 @@ printf( "-%s-\n", toknames[tok]);
 	    if ( sp+1<sizeof(stack)/sizeof(stack[0]) ) {
 		struct pskeydict dict;
 		for ( i=0; i<DASH_MAX && dashes[i]!=0; ++i );
+		dict.is_executable = 0;
 		dict.cnt = dict.max = i;
 		dict.entries = gcalloc(i,sizeof(struct pskeyval));
 		for ( j=0; j<i; ++j ) {
@@ -2344,7 +2345,7 @@ printf( "-%s-\n", toknames[tok]);
 	  case pt_sethsbcolor:
 	    if ( sp>=3 ) {
 		real h = stack[sp-3].u.val, s = stack[sp-2].u.val, b = stack[sp-1].u.val;
-		int r,g,bl;
+		int r = 0,g = 0,bl =0 ;
 		if ( s==0 )	/* it's grey */
 		    fore = ((int) (b*255)) * 0x010101;
 		else {
@@ -2657,6 +2658,7 @@ printf( "-%s-\n", toknames[tok]);
 	  case pt_array:
 	    if ( sp>=1 && stack[sp-1].type==ps_num ) {
 		struct pskeydict dict;
+		dict.is_executable = 0;
 		dict.cnt = dict.max = stack[sp-1].u.val;
 		dict.entries = gcalloc(dict.cnt,sizeof(struct pskeyval));
 		/* all entries are inited to void */
@@ -3103,7 +3105,7 @@ SplinePointList *SplinesFromEntityChar(EntityChar *ec,int *flags,int is_stroked)
     /*SplineSet *spl;*/
     int handle_eraser = false;
     int ask = false;
-
+	nlast = NULL; last = NULL;
     EntityDefaultStrokeFill(ec->splines);
 
     if ( !is_stroked ) {
@@ -3374,7 +3376,7 @@ We're not smart here no: 0 1 255 {1 index exch /.notdef put} for */
 Encoding *PSSlurpEncodings(FILE *file) {
     char *names[1024];
     int32 encs[1024];
-    Encoding *item, *head = NULL, *last;
+    Encoding *item, *head = NULL, *last = NULL;
     char *encname;
     char tokbuf[200];
     IO wrapper;
@@ -3656,6 +3658,7 @@ SplineChar *PSCharStringToSplines(uint8 *type1, int len, struct pscontext *conte
     real unblended[2][MmMax];
     int last_was_b1=false, old_last_was_b1;
 
+	dx6=0; /* compiler warning */
     if ( !is_type2 && context->instance_count>1 )
 	memset(unblended,0,sizeof(unblended));
 

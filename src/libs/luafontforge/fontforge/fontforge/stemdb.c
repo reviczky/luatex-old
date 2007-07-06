@@ -1207,6 +1207,7 @@ static struct stemdata *FindOrMakeHVStem(struct glyphdata *gd,
     struct stemdata *stem;
     BasePoint dir;
 
+	stem = NULL;
     memset(&dir,0,sizeof(dir));
     if ( is_h ) {
 	dir.x = 1;

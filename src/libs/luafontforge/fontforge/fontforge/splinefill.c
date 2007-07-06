@@ -449,6 +449,9 @@ void FindEdgesSplineSet(SplinePointList *spl, EdgeList *es) {
     }
 }
 
+
+#ifndef LUA_FF_LIB
+
 static void FindEdges(SplineChar *sc, EdgeList *es) {
     RefChar *rf;
 
@@ -457,6 +460,7 @@ static void FindEdges(SplineChar *sc, EdgeList *es) {
 
     FindEdgesSplineSet(sc->layers[ly_fore].splines,es);
 }
+#endif
 
 Edge *ActiveEdgesInsertNew(EdgeList *es, Edge *active,int i) {
     Edge *apt, *pr, *npt;
@@ -539,6 +543,7 @@ Edge *ActiveEdgesRefigure(EdgeList *es, Edge *active,real i) {
 return( active );
 }
 
+#ifndef LUA_FF_LIB
 Edge *ActiveEdgesFindStem(Edge *apt, Edge **prev, real i) {
     int cnt=apt->up?1:-1;
     Edge *pr, *e;
@@ -725,6 +730,7 @@ static void InitializeHints(SplineChar *sc, EdgeList *es) {
 	hint->e1 = t2-.2; hint->e2 = t2 + .2;
     }
 }
+#endif
 
 /* After a bitmap has been compressed, it's sizes may not comply with the */
 /*  expectations for saving images */
@@ -873,6 +879,7 @@ void BCCompressBitmap(BDFChar *bdfc) {
     }
 }
 
+#ifndef LUA_FF_LIB
 static void Bresenham(uint8 *bytemap,EdgeList *es,int x1,int x2,int y1,int y2,
 	int grey) {
     int dx, dy, incr1, incr2, d, x, y;
@@ -1002,6 +1009,7 @@ static void StrokeGlyph(uint8 *bytemap,EdgeList *es,real wid, SplineChar *sc) {
     for ( ref=sc->layers[ly_fore].refs; ref!=NULL; ref = ref->next )
 	StrokeSS(bytemap,es,width,0xff,ref->layers[0].splines);
 }
+#endif
 
 #ifdef FONTFORGE_CONFIG_TYPE3
 static void StrokePaths(uint8 *bytemap,EdgeList *es,Layer *layer,Layer *alt) {
@@ -1139,6 +1147,8 @@ static void ProcessLayer(uint8 *bytemap,EdgeList *es,Layer *layer,
 }
 #endif
 
+#ifndef LUA_FF_LIB
+
 static void FlattenBytemap(EdgeList *es,uint8 *bytemap) {
     int i,j;
     uint8 *bpt, *pt;
@@ -1164,6 +1174,7 @@ return( 8 );
 return( 0 );
     }
 }
+
 
 /* Yes, I really do want a double, even though it will almost always be an */
 /*  integer value there are a few cases (fill pattern for charview) where */
@@ -1302,7 +1313,9 @@ BDFFont *SplineFontToBDFHeader(SplineFont *_sf, int pixelsize, int indicate) {
     bdf->res = -1;
 return( bdf );
 }
+#endif
 
+#ifndef LUA_FF_LIB
 #if 0
 /* This code was an attempt to do better at rasterizing by making a big bitmap*/
 /*  and shrinking it down. It did make curved edges look better, but it made */
@@ -1614,7 +1627,9 @@ return;
     free(bc->bitmap);
     *bc = new;
 }
+#endif
 
+#ifndef LUA_FF_LIB
 GClut *_BDFClut(int linear_scale) {
     int scale = linear_scale*linear_scale, i;
     Color bg = default_background;
@@ -1638,6 +1653,7 @@ return( clut );
 void BDFClut(BDFFont *bdf, int linear_scale) {
     bdf->clut = _BDFClut(linear_scale);
 }
+#endif
 
 int BDFDepth(BDFFont *bdf) {
     if ( bdf->clut==NULL )
@@ -1647,6 +1663,7 @@ return( bdf->clut->clut_len==256 ? 8 :
 	bdf->clut->clut_len==16 ? 4 : 2);
 }
 
+#ifndef LUA_FF_LIB
 BDFChar *SplineCharAntiAlias(SplineChar *sc, int pixelsize, int linear_scale) {
     BDFChar *bc;
 
@@ -1723,6 +1740,7 @@ return( SplineFontRasterize(_sf,pixelsize,true));
 #endif
 return( bdf );
 }
+
 
 BDFChar *BDFPieceMeal(BDFFont *bdf, int index) {
     SplineChar *sc;
@@ -1805,6 +1823,7 @@ BDFFont *SplineFontPieceMeal(SplineFont *sf,int pixelsize,int flags,void *ftc) {
 	BDFClut(bdf,4);
 return( bdf );
 }
+#endif
 
 void BDFCharFree(BDFChar *bdfc) {
     if ( bdfc==NULL )

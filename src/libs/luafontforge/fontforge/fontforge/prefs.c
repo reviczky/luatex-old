@@ -568,14 +568,16 @@ return( -1 );
 		if ( val2!=NULL )
 return( -1 );
 		else if ( val1->type==v_str ) {
+#ifndef LUA_FF_LIB
 		    NameList *nl = NameListByName(val1->u.sval);
 		    if ( strcmp(val1->u.sval,"NULL")==0 && pf->val != &namelist_for_new_fonts )
-			nl = NULL;
+			  nl = NULL;
 		    else if ( nl==NULL )
-return( -1 );
+			  return( -1 );
 		    *((NameList **) (pf->val)) = nl;
+#endif
 		} else
-return( -1 );
+		  return( -1 );
 	    } else
 return( false );
 
@@ -604,7 +606,9 @@ char *getPfaEditShareDir(void) {
     static char *sharedir=NULL;
     static int set=false;
     char *pt = NULL;
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     int len;
+#endif
 
     if ( set )
 return( sharedir );
@@ -622,9 +626,11 @@ return( NULL );
     strcpy(sharedir+(pt-GResourceProgramDir),"/share/fontforge");
 return( sharedir );
 #endif
+return( NULL );
 }
 
 #if !defined(FONTFORGE_CONFIG_GTK)
+#ifndef LUA_FF_LIB
 #  include <charset.h>		/* we still need the charsets & encoding to set local_encoding */
 static int encmatch(const char *enc,int subok) {
     static struct { char *name; int enc; } encs[] = {
@@ -729,7 +735,9 @@ static int encmatch(const char *enc,int subok) {
 #endif
 	{ NULL }};
     int i;
+#if HAVE_ICONV_H
     static char *last_complaint;
+#endif
     char buffer[80];
 
 #if HAVE_ICONV_H
@@ -786,12 +794,10 @@ static int DefaultEncoding(void) {
     int enc;
 
 #if HAVE_LANGINFO_H
-#ifndef LUA_FF_LIB
     loc = nl_langinfo(CODESET);
     enc = encmatch(loc,false);
     if ( enc!=e_unknown )
 return( enc );
-#endif
 #endif
     loc = getenv("LC_ALL");
     if ( loc==NULL ) loc = getenv("LC_CTYPE");
@@ -814,6 +820,7 @@ return( e_iso8859_1 );
 return( enc );
 }
 #endif
+#endif
 
 static void ParseMacMapping(char *pt,struct macsettingname *ms) {
     char *end;
@@ -829,6 +836,7 @@ static void ParseMacMapping(char *pt,struct macsettingname *ms) {
 	(end[3]&0xff);
 }
 
+#ifndef LUA_FF_LIB
 static void ParseNewMacFeature(FILE *p,char *line) {
     fseek(p,-(strlen(line)-strlen("MacFeat:")),SEEK_CUR);
     line[strlen("MacFeat:")] ='\0';
@@ -838,13 +846,14 @@ static void ParseNewMacFeature(FILE *p,char *line) {
 	MacFeatListFree(user_mac_feature_map);
     user_mac_feature_map = default_mac_feature_map;
 }
+#endif
 
 static void DefaultXUID(void) {
     /* Adobe has assigned PfaEdit a base XUID of 1021. Each new user is going */
     /*  to get a couple of random numbers appended to that, hoping that will */
     /*  make for a fairly safe system. */
     /* FontForge will use the same scheme */
-    int r1 = NULL, r2 = NULL;
+    int r1 = 0, r2 = 0;
     char buffer[50];
 #ifndef LUA_FF_LIB /* TH odd, the crosscompiler gets ld errors from gettimeofday() */
     struct timeval tv;
@@ -960,12 +969,14 @@ void LoadPrefs(void) {
 		}
 	      break;
 	      case pr_namelist:
+#ifndef LUA_FF_LIB
 		{ NameList *nl = NameListByName(pt);
 		    if ( strcmp(pt,"NULL")==0 && pl->val != &namelist_for_new_fonts )
 			*((NameList **) (pl->val)) = NULL;
 		    else if ( nl!=NULL )
 			*((NameList **) (pl->val)) = nl;
 		}
+#endif
 	      break;
 	      case pr_bool: case pr_int:
 		sscanf( pt, "%d", (int *) pl->val );
@@ -980,6 +991,8 @@ void LoadPrefs(void) {
 		else
 		    (pl->set)(copy(pt));
 	      break;
+		case pr_enum:
+		  break;
 	    }
 	}
 	fclose(p);
@@ -1055,6 +1068,8 @@ return;
 	    if ( (pl->val)==NULL )
 		free(temp);
 	  break;
+		case pr_enum:
+		  break;
 	}
     }
 
@@ -2241,6 +2256,7 @@ void DoPrefs(void) {
 }
 #endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 
+#ifndef LUA_FF_LIB
 void RecentFilesRemember(char *filename) {
     int i;
 
@@ -2263,3 +2279,4 @@ void RecentFilesRemember(char *filename) {
     }
     SavePrefs();
 }
+#endif

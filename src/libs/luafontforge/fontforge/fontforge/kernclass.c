@@ -2937,7 +2937,7 @@ void KernPairD(SplineFont *sf,SplineChar *sc1,SplineChar *sc2,int isv) {
 #endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 
 int KernClassContains(KernClass *kc, char *name1, char *name2, int ordered ) {
-    int infirst=0, insecond=0, scpos1, kwpos1, scpos2, kwpos2;
+    int infirst=0, insecond=0, scpos1=0, kwpos1=0, scpos2=0, kwpos2=0;
     int i;
 
     for ( i=1; i<kc->first_cnt; ++i ) {

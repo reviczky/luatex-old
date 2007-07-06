@@ -44,7 +44,9 @@ extern int _GScrollBar_Width;
 #define Isspace isspace
 #endif
 
+#ifndef LUA_FF_LIB
 static int last_aspect=0;
+#endif
 
 GTextInfo emsizes[] = {
     { (unichar_t *) "1000", NULL, 0, 0, NULL, NULL, 0, 0, 0, 0, 0, 0, 1},
@@ -194,10 +196,12 @@ static GTextInfo os2versions[] = {
     { (unichar_t *) N_("3"), NULL, 0, 0, (void *) 3, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("4"), NULL, 0, 0, (void *) 4, NULL, 0, 0, 0, 0, 0, 0, 1},
     { NULL }};
+#ifndef LUA_FF_LIB
 static GTextInfo gaspversions[] = {
     { (unichar_t *) N_("0"), NULL, 0, 0, (void *) 0, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("1"), NULL, 0, 0, (void *) 1, NULL, 0, 0, 0, 0, 0, 0, 1},
     { NULL }};
+#endif
 static GTextInfo panfamily[] = {
     { (unichar_t *) N_("PanoseFamily|Any"), NULL, 0, 0, (void *) 0, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("PanoseFamily|No Fit"), NULL, 0, 0, (void *) 1, NULL, 0, 0, 0, 0, 0, 0, 1},
@@ -382,6 +386,8 @@ static GTextInfo panxheight[] = {
     { (unichar_t *) "14", NULL, 0, 0, (void *) 14, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) "15", NULL, 0, 0, (void *) 15, NULL, 0, 0, 0, 0, 0, 0, 1},
     { NULL }};
+
+#ifndef LUA_FF_LIB
 static struct ms_2_locales { char *loc_name; int local_id; } ms_2_locals[] = {
     { "af", 0x436 },
     { "sq_AL", 0x41c },
@@ -594,6 +600,8 @@ static struct ms_2_locales { char *loc_name; int local_id; } ms_2_locals[] = {
     { "yo", 0x46a },
     { "zu", 0x435 },
     { NULL }};
+#endif
+
 static GTextInfo mslanguages[] = {
     { (unichar_t *) N_("Afrikaans"), NULL, 0, 0, (void *) 0x436, NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("Albanian"), NULL, 0, 0, (void *) 0x41c, NULL, 0, 0, 0, 0, 0, 0, 1},
@@ -863,6 +871,7 @@ static GTextInfo antialias[] = {
     { (unichar_t *) N_("No Anti-Alias"), NULL, 0, 0, (void *) 0, NULL, 0, 0, 0, 0, 1, 0, 1},
     { (unichar_t *) N_("Anti-Alias"), NULL, 0, 0, (void *) 1, NULL, 0, 0, 0, 0, 0, 0, 1},
     { NULL }};
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static GTextInfo symsmooth[] = {
     { (unichar_t *) N_("No Symmetric-Smooth"), NULL, 0, 0, (void *) 0, NULL, 0, 0, 0, 0, 1, 0, 1},
     { (unichar_t *) N_("Symmetric-Smoothing"), NULL, 0, 0, (void *) 1, NULL, 0, 0, 0, 0, 0, 0, 1},
@@ -871,7 +880,6 @@ static GTextInfo gfsymsmooth[] = {
     { (unichar_t *) N_("No Grid Fit w/ Sym-Smooth"), NULL, 0, 0, (void *) 0, NULL, 0, 0, 0, 0, 1, 0, 1},
     { (unichar_t *) N_("Grid Fit w/ Sym-Smooth"), NULL, 0, 0, (void *) 1, NULL, 0, 0, 0, 0, 0, 0, 1},
     { NULL }};
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static struct col_init gaspci[5] = {
     { me_int , NULL, NULL, NULL, N_("Gasp|Pixels Per EM") },
     { me_enum, NULL, gridfit, NULL, N_("Gasp|Grid Fit") },
@@ -1041,6 +1049,7 @@ static const char mediumpl[] = "zwyk\305\202a";
 static const char bookpl[] = "zwyk\305\202a";
 
 
+#ifndef LUA_FF_LIB
 
 static struct langstyle regs[] = { {0x409, regulareng}, { 0x40c, regularfren }, { 0x410, regularital }, { 0x407, regulargerm }, { 0x40a, regularspan }, { 0x419, regularru }, { 0x40e, regularhu },
 	{ 0x413, regulardutch}, { 0x41d, regularswed }, { 0x414, regularnor },
@@ -1079,7 +1088,7 @@ static struct langstyle heavys[] = { {0x409, heavyeng}, { 0x410, heavyital },
 static struct langstyle blacks[] = { {0x409, blackeng}, { 0x410, blackital }, { 0x40c, blackfren }, { 0x407, blackgerm }, { 0x419, blackru }, { 0x40e, blackhu }, { 0x40e, blackhu2 }, { 0x40a, blackspan }, 
 	{ 0x413, blackdutch}, { 0x41d, blackswed }, { 0x414, blacknor }, { 0x406, blackdanish}, 
 	{ 0x415, heavypl }, { 0x804, "\351\273\221"},  { 0x408, "\302\265\316\261\317\215\317\201\316\261"},
-	{ 0x42a, "\304\220en"}, 0 };
+									 { 0x42a, "\304\220en"}, {0} };
 static struct langstyle thins[] = { {0x409, thineng}, { 0x410, thinital },
 	{ 0x419, thinru }, { 0x40e, thinhu }, { 0x415, thinpl},
 	{ 0x804, "\347\273\206"}, { 0 }};
@@ -1104,6 +1113,7 @@ static struct langstyle outlines[] = { {0x409, outlineeng}, {0x40c, outlinefren}
 	{0x42a, "N\303\251t ngo\303\240i" }, { 0x413, outlinedutch}, { 0 }};
 static struct langstyle *stylelist[] = {regs, meds, books, demibolds, bolds, heavys, blacks,
 	extralights, lights, thins, italics, obliques, condenseds, expandeds, outlines, NULL };
+#endif
 
 #define CID_Features	101		/* Mac stuff */
 #define CID_FeatureDel	103
@@ -1949,8 +1959,10 @@ static char *knownweights[] = { "Demi", "Bold", "Regu", "Medi", "Book", "Thin",
 static char *realweights[] = { "Demi", "Bold", "Regular", "Medium", "Book", "Thin",
 	"Light", "Heavy", "Black", "Ultra", "Nord", "Normal", "Gras", "Standard", "Halbfett",
 	"Fett", "Mager", "Mittel", "Buchschrift", NULL};
+#ifndef LUA_FF_LIB
 static char *moreweights[] = { "ExtraLight", "VeryLight", NULL };
 static char **noticeweights[] = { moreweights, realweights, knownweights, NULL };
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static int GFI_NameChange(GGadget *g, GEvent *e) {

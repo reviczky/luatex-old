@@ -2179,6 +2179,7 @@ struct macname *MacNameCopy(struct macname *mn) {
 return( head );
 }
 
+#ifndef LUA_FF_LIB
 static struct macsetting *MacSettingCopy(struct macsetting *ms) {
     struct macsetting *head=NULL, *last, *cur;
 
@@ -2216,6 +2217,7 @@ static MacFeat *MacFeatCopy(MacFeat *mf) {
     }
 return( head );
 }
+#endif
 
 /* ************************************************************************** */
 static GTextInfo maclanguages[] = {

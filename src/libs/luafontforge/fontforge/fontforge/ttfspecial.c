@@ -107,7 +107,8 @@ static void PfEd_GlyphComments(SplineFont *sf, struct PfEd_subtabs *pfed,
     char *upt;
     uint32 uch;
 
-    any = 0;
+	sc2 = NULL;
+    any = 0; 
     /* We don't need to check in bygid order. We just want to know existance */
     for ( i=0; i<sf->glyphcnt; ++i ) {
 	if ( sf->glyphs[i]!=NULL && sf->glyphs[i]->ttf_glyph!=-1 &&

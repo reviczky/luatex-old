@@ -30,6 +30,11 @@
 #include "gfile.h"
 #include "chardata.h"
 
+#ifdef LUA_FF_LIB
+extern void SFAddGlyphAndEncode(SplineFont *sf,SplineChar *sc,EncMap *basemap, int baseenc);
+extern void gwwv_post_error(char *a, ...);
+#endif
+
 static RefChar *RefCharsCopy(RefChar *ref) {
     RefChar *rhead=NULL, *last=NULL, *cur;
 
@@ -158,6 +163,8 @@ return( mc->subs[s].to );
 return( newsub );
 }
 
+#ifndef LUA_FF_LIB
+
 AnchorClass *MCConvertAnchorClass(struct sfmergecontext *mc,AnchorClass *ac) {
     int a;
     AnchorClass *newac;
@@ -263,6 +270,7 @@ return;
     free(mc->subs);
     free(mc->acs);
 }
+#endif
 
 PST *PSTCopy(PST *base,SplineChar *sc,struct sfmergecontext *mc) {
     PST *head=NULL, *last=NULL, *cur;
@@ -322,6 +330,7 @@ static AnchorPoint *AnchorPointsDuplicate(AnchorPoint *base,SplineChar *sc) {
 return( head );
 }
 
+#ifndef LUA_FF_LIB
 static void AnchorClassesAdd(SplineFont *into, SplineFont *from, struct sfmergecontext *mc) {
     AnchorClass *fac, *iac, *last, *cur;
 
@@ -456,6 +465,7 @@ static void KernClassesAdd(SplineFont *into, SplineFont *from,struct sfmergecont
 	last = cur;
     }
 }
+#endif
 
 static struct altuni *AltUniCopy(struct altuni *altuni,SplineFont *noconflicts) {
     struct altuni *head=NULL, *last=NULL, *cur;
@@ -523,6 +533,7 @@ SplineChar *SplineCharCopy(SplineChar *sc,SplineFont *into,struct sfmergecontext
 return(nsc);
 }
 
+#ifndef LUA_FF_LIB
 static KernPair *KernsCopy(KernPair *kp,int *mapping,SplineFont *into,
 	struct sfmergecontext *mc) {
     KernPair *head = NULL, *last=NULL, *new;
@@ -545,6 +556,7 @@ static KernPair *KernsCopy(KernPair *kp,int *mapping,SplineFont *into,
     }
 return( head );
 }
+
 
 BDFChar *BDFCharCopy(BDFChar *bc) {
     BDFChar *nbc = galloc(sizeof( BDFChar ));
@@ -579,6 +591,7 @@ void BitmapsCopy(SplineFont *to, SplineFont *from, int to_index, int from_index 
 	}
     }
 }
+#endif
 
 #define GN_HSIZE	257
 
@@ -838,6 +851,7 @@ return( NULL );
 return( sf->subfonts[j]->glyphs[ind] );
 }
 
+#ifndef LUA_FF_LIB
 SplineChar *SFGetOrMakeChar(SplineFont *sf, int unienc, const char *name ) {
     SplineChar *sc=NULL;
 
@@ -868,6 +882,7 @@ SplineChar *SFGetOrMakeChar(SplineFont *sf, int unienc, const char *name ) {
     }
 return( sc );
 }
+#endif
 
 static int _SFFindExistingSlot(SplineFont *sf, int unienc, const char *name ) {
     int gid = -1;
@@ -900,6 +915,9 @@ return( -1 );
 
 return( gid );
 }
+
+
+#ifndef LUA_FF_LIB
 
 static void MFixupSC(SplineFont *sf, SplineChar *sc,int i) {
     RefChar *ref, *prev;
@@ -1158,6 +1176,7 @@ return;
     else
 	__MergeFont(fv->sf,other);
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static void MergeAskFilename(FontView *fv) {
@@ -1354,6 +1373,7 @@ void FVMergeFonts(FontView *fv) {
 }
 #endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 
+#ifndef LUA_FF_LIB
 static RefChar *InterpRefs(RefChar *base, RefChar *other, real amount, SplineChar *sc) {
     RefChar *head=NULL, *last=NULL, *cur;
     RefChar *test;
@@ -1510,6 +1530,7 @@ static KernPair *InterpKerns(KernPair *kp1, KernPair *kp2, real amount,
 	SplineFont *new, SplineChar *scnew) {
     KernPair *head=NULL, *last, *nkp, *k;
 
+	last = NULL;
     if ( kp1==NULL || kp2==NULL )
 return( NULL );
     while ( kp1!=NULL ) {
@@ -1531,6 +1552,7 @@ return( NULL );
     }
 return( head );
 }
+#endif
 
 #ifdef FONTFORGE_CONFIG_TYPE3
 static uint32 InterpColor( uint32 col1,uint32 col2, real amount ) {
@@ -1606,6 +1628,7 @@ static void LayerInterpolate(Layer *to,Layer *base,Layer *other,real amount,Spli
 }
 #endif
 
+#ifndef LUA_FF_LIB
 static void InterpolateChar(SplineFont *new, int orig_pos, SplineChar *base, SplineChar *other, real amount) {
     SplineChar *sc;
 
@@ -1725,6 +1748,7 @@ return( NULL );
     new->map = EncMapFromEncoding(new,enc);
 return( new );
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static void InterAskFilename(FontView *fv, real amount) {

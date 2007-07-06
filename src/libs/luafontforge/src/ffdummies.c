@@ -3048,12 +3048,14 @@ return( NULL );
 	bdf->glyphcnt = sf->glyphcnt;
     }
     if ( (bc = bdf->glyphs[gid])==NULL ) {
+#ifndef LUA_FF_LIB
 	if ( bc!=NULL )
 	    /* Done */;
 	else if ( bdf->clut==NULL )
 	    bc = SplineCharRasterize(sc,bdf->pixelsize);
 	else
 	    bc = SplineCharAntiAlias(sc,bdf->pixelsize,BDFDepth(bdf));
+#endif
 	bdf->glyphs[gid] = bc;
 	bc->orig_pos = gid;
 	BCCharChangedUpdate(bc);

@@ -243,6 +243,8 @@ char *TTFGetFontName(FILE *ttf,int32 offset,int32 off2) {
     Encoding *enc;
     int fullplat, fullspec, fulllang, famplat, famspec, famlang;
 
+	nameoffset = 0; fullstr=0; fulllen=0; famval=0; famstr=0; famlen=0;
+	fullplat=0; fullspec=0; fulllang=0; famplat=0; famspec=0; famlang=0;
     fseek(ttf,offset,SEEK_SET);
     /* version = */ getlong(ttf);
     num = getushort(ttf);
@@ -3679,6 +3681,8 @@ static int PickCMap(struct cmap_encs *cmap_encs,int enccnt,int def) {
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     ret = gwwv_choose(_("Pick a CMap subtable"),(const char **) choices,enccnt,def,
 	    _("Pick a CMap subtable"));
+#else
+	ret = -1;
 #endif
     for ( i=0; i<enccnt; ++i )
 	free(choices[i]);

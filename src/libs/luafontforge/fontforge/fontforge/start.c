@@ -196,7 +196,7 @@ exit(0);
 
 /* TH oddly ,the crosscompiler gets errors from gettimeofday() */
 static void initrand(void) {
-#ifndef LUA_FF_LIB /
+#ifndef LUA_FF_LIB
     struct timeval tv;
 
     gettimeofday(&tv,NULL);
@@ -555,6 +555,7 @@ static void AddR(char *prog, char *name, char *val ) {
 }
 #endif
 
+#ifndef LUA_FF_LIB
 #ifdef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static char * GResourceProgramDir=NULL;
 #endif
@@ -583,6 +584,7 @@ return( PREFIX "/share/locale" );
     strcpy(sharedir+(pt-GResourceProgramDir),"/share/locale");
 return( sharedir );
 }
+#endif
 
 #if defined(__Mac) && !(defined(FONTFORGE_CONFIG_NO_WINDOWING_UI) || defined( X_DISPLAY_MISSING ))
 static int uses_local_x(int argc,char **argv) {

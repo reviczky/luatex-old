@@ -2330,7 +2330,7 @@ static FOND *BuildFondList(FILE *f,long rlistpos,int subcnt,long rdata_pos,
 	cur->last = getushort(f);
 /* on a 1 point font... */
 	/* ascent = */ getushort(f);
-	/* descent = */ (short) getushort(f);
+	/* descent = */ getushort(f);
 	/* leading = */ getushort(f);
 	/* widmax = */ getushort(f);
 	if ( (widoff = getlong(f))!=0 ) widoff += offset;
@@ -2575,10 +2575,10 @@ static FOND *PickFOND(FOND *fondlist,char *filename,char **name, int *style) {
     FOND *test;
     uint8 stylesused[96];
     char **names;
-    FOND **fonds, *fond;
-    int *styles;
     int cnt, which;
     char *pt, *lparen;
+    FOND **fonds = NULL, *fond = NULL;
+    int *styles = NULL;
     char *find = NULL;
 
     if ((pt = strrchr(filename,'/'))!=NULL ) pt = filename;
@@ -2840,10 +2840,10 @@ static SplineFont *IsResourceFork(FILE *f, long offset,char *filename,int flags,
     unsigned char buffer[16], buffer2[16];
     long rdata_pos, map_pos, type_list, name_list, rpos;
     int32 rdata_len, map_len;
-    uint32 nfnt_pos, font_pos, fond_pos;
     unsigned long tag;
     int i, cnt, subcnt, nfnt_subcnt=0, font_subcnt=0, fond_subcnt=0;
     SplineFont *sf;
+    uint32 nfnt_pos=0, font_pos=0, fond_pos=0;
     FOND *fondlist=NULL;
 
     fseek(f,offset,SEEK_SET);

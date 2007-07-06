@@ -1,5 +1,8 @@
 #ifndef _UTYPE_H
+
 #define _UTYPE_H
+
+#ifndef LUA_FF_LIB
 
 #define ____L	0x1
 #define ____U	0x2
@@ -47,12 +50,12 @@
 #define ____TOUCHING	0x100000
 #define ____COMBININGPOSMASK	0x1fff00
 
+extern const unsigned int  ____utype[];
 extern const unsigned short ____tolower[];
 extern const unsigned short ____toupper[];
 extern const unsigned short ____totitle[];
 extern const unsigned short ____tomirror[];
 extern const unsigned char ____digitval[];
-extern const unsigned int  ____utype[];
 
 extern const unsigned int  ____utype2[];
 
@@ -96,6 +99,7 @@ extern const unsigned int  ____codepointassigned[];
 
 #define isunicodepointassigned(ch) (____codepointassigned[(ch)/32]&(1<<((ch)%32)))
 
+#endif /* LUA_FF_LIB */
 
 extern struct arabicforms {
     unsigned short initial, medial, final, isolated;

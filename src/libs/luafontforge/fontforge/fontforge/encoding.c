@@ -44,6 +44,7 @@
 #define Isupper(a) ((a)>='A' && (a)<='Z')
 #define Isalnum(a) (Isalpha(a)||Isdigit(a))
 #define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
+extern void gwwv_post_error(char *a, ...);
 #else
 #define Isspace isspace
 #define Isdigit isdigit
@@ -584,8 +585,10 @@ void ParseEncodingFile(char *filename) {
     FILE *file;
     char *orig = filename;
     Encoding *head, *item, *prev, *next;
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     char buf[300];
     char *name;
+#endif
     int i,ch;
 
     if ( filename==NULL ) filename = getPfaEditEncodings();
@@ -736,6 +739,7 @@ return;
     DumpPfaEditEncodings();
 }
 
+#ifndef LUA_FF_LIB
 static GTextInfo *EncodingList(void) {
     GTextInfo *ti;
     int i;
@@ -754,6 +758,7 @@ static GTextInfo *EncodingList(void) {
 	ti[0].selected = true;
 return( ti );
 }
+#endif
 
 #define CID_Encodings	1001
 
@@ -927,10 +932,10 @@ return( item );
 }
 
 void LoadEncodingFile(void) {
-    static char filter[] = "*.{ps,PS,txt,TXT,enc,ENC}";
-    char *fn = NULL;
     char *filename;
+    char *fn = NULL;
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+    static char filter[] = "*.{ps,PS,txt,TXT,enc,ENC}";
     fn = gwwv_open_filename(_("Load Encoding"), NULL, filter, NULL);
 #endif
     if ( fn==NULL )
@@ -1171,6 +1176,7 @@ return( ret );
 return( NULL );
 }
 
+#ifndef LUA_FF_LIB
 static char *SearchNoLibsDirForCidMap(char *dir,char *registry,char *ordering,
 	int supplement,char **maybefile) {
     char *ret;
@@ -1185,6 +1191,7 @@ return( NULL );
     free(dir);
 return( ret );
 }
+#endif
 
 static struct cidmap *MakeDummyMap(char *registry,char *ordering,int supplement) {
     struct cidmap *ret = galloc(sizeof(struct cidmap));
@@ -1483,6 +1490,7 @@ void SFEncodeToMap(SplineFont *sf,struct cidmap *map) {
     SFApplyOrdering(sf, max+1);
 }
 
+#ifndef LUA_FF_LIB
 struct block {
     int cur, tot;
     char **maps;
@@ -1556,6 +1564,7 @@ return;
     FindMapsInDir(block,dir);
     free(dir);
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 struct cidmap *AskUserForCIDMap(SplineFont *sf) {
@@ -1734,6 +1743,7 @@ static struct cmap *ParseCMap(char *filename) {
     static const char *bcsr = "begincodespacerange", *bndr = "beginnotdefrange", *bcr = "begincidrange";
     static const char *reg = "/Registry", *ord = "/Ordering", *sup="/Supplement";
 
+	pos = 0;
     file = fopen(filename,"r");
     if ( file==NULL )
 return( NULL );
@@ -2525,9 +2535,9 @@ void SFRemoveGlyph(SplineFont *sf,SplineChar *sc, int *flags) {
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     CharView *cv, *next;
     BitmapView *bv, *bvnext;
+    FontView *fvs;
 #endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
     RefChar *refs, *rnext;
-    FontView *fvs;
     KernPair *kp, *kprev;
     int i;
 

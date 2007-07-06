@@ -4,7 +4,7 @@ srcdir = $(top_srcdir)/Unicode
 
 CC = gcc
 
-OBJECTS = ArabicForms.o alphabet.o char.o memory.o cjk.o ustring.o usprintf.o gwwiconv.o
+OBJECTS = ArabicForms.o alphabet.o char.o memory.o cjk.o ustring.o gwwiconv.o
 
 CFLAGS = -I$(top_srcdir)/inc -Wall -g -O2 -DLUA_FF_LIB=1 $(XCFLAGS)
 

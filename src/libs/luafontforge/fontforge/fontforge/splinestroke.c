@@ -999,6 +999,7 @@ static int SplineSolveForPen(Spline *s,StrokeInfo *si,double *ts,int *pinners,
     Spline1D *xsp = &s->splines[0], *ysp = &s->splines[1];
     BasePoint pp, pm, np, nm, testp, testm;
 
+	a =0;b =0;c =0;
     ts[cnt++] = tstart;
     for ( i=0; i<2; ++i ) {
 	if ( i==0 ) {

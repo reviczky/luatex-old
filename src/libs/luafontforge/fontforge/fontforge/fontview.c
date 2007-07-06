@@ -41,6 +41,14 @@
 #include <unistd.h>
 
 #ifdef LUA_FF_LIB
+/* from views.h */
+extern void SFAddGlyphAndEncode(SplineFont *sf,SplineChar *sc,EncMap *basemap, int baseenc);
+extern void SFAddEncodingSlot(SplineFont *sf,int gid);
+extern void SFRemoveGlyph(SplineFont *sf,SplineChar *sc, int *flags);
+
+extern int unic_iscombining(int);
+extern int unic_isalpha(int);
+extern void gwwv_post_error(char *a, ...);
 #define Iscombining unic_iscombining
 #define Isalpha unic_isalpha
 #else
@@ -56,7 +64,7 @@ struct compressors compressors[] = {
     { ".gz", "gunzip", "gzip" },
     { ".bz2", "bunzip2", "bzip2" },
     { ".Z", "gunzip", "compress" },
-    NULL
+    {NULL}
 };
 
 #define XOR_COLOR	0x505050
@@ -305,6 +313,7 @@ void FVDeselectAll(FontView *fv) {
     fv->sel_index = 0;
 }
 
+#ifndef LUA_FF_LIB
 static void FVInvertSelection(FontView *fv) {
     int i;
 
@@ -314,6 +323,7 @@ static void FVInvertSelection(FontView *fv) {
     }
     fv->sel_index = 1;
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static void FVSelectAll(FontView *fv) {
@@ -1838,6 +1848,7 @@ void FontViewMenu_Metafont(GtkMenuItem *menuitem, gpointer user_data) {
 # endif
 #endif
 
+#ifndef LUA_FF_LIB
 /* returns -1 if nothing selected, if exactly one char return it, -2 if more than one */
 static int FVAnyCharSelected(FontView *fv) {
     int i, val=-1;
@@ -1852,6 +1863,7 @@ return( -2 );
     }
 return( val );
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static int FVAllSelected(FontView *fv) {
@@ -2263,6 +2275,7 @@ void UnlinkThisReference(FontView *fv,SplineChar *sc) {
     }
 }
 
+#ifndef LUA_FF_LIB
 static void FVClear(FontView *fv) {
     int i;
     BDFFont *bdf;
@@ -2318,6 +2331,7 @@ static void FVClear(FontView *fv) {
 	}
     }
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 # ifdef FONTFORGE_CONFIG_GDRAW
@@ -2417,20 +2431,20 @@ void FontViewMenu_UnlinkRef(GtkMenuItem *menuitem, gpointer user_data) {
 #endif
 
 void SFRemoveUndoes(SplineFont *sf,uint8 *selected, EncMap *map) {
-    SplineFont *main = sf->cidmaster? sf->cidmaster : sf, *ssf;
+    SplineFont *sf_main = sf->cidmaster? sf->cidmaster : sf, *ssf;
     int i,k, max, layer, gid;
     SplineChar *sc;
     BDFFont *bdf;
 
-    if ( selected!=NULL || main->subfontcnt==0 )
+    if ( selected!=NULL || sf_main->subfontcnt==0 )
 	max = sf->glyphcnt;
     else {
 	max = 0;
-	for ( k=0; k<main->subfontcnt; ++k )
-	    if ( main->subfonts[k]->glyphcnt>max ) max = main->subfonts[k]->glyphcnt;
+	for ( k=0; k<sf_main->subfontcnt; ++k )
+	    if ( sf_main->subfonts[k]->glyphcnt>max ) max = sf_main->subfonts[k]->glyphcnt;
     }
     for ( i=0; ; ++i ) {
-	if ( selected==NULL || main->subfontcnt!=0 ) {
+	if ( selected==NULL || sf_main->subfontcnt!=0 ) {
 	    if ( i>=max )
     break;
 	    gid = i;
@@ -2443,7 +2457,7 @@ void SFRemoveUndoes(SplineFont *sf,uint8 *selected, EncMap *map) {
 	    if ( gid==-1 )
     continue;
 	}
-	for ( bdf=main->bitmaps; bdf!=NULL; bdf=bdf->next ) {
+	for ( bdf=sf_main->bitmaps; bdf!=NULL; bdf=bdf->next ) {
 	    if ( bdf->glyphs[gid]!=NULL ) {
 		UndoesFree(bdf->glyphs[gid]->undoes); bdf->glyphs[gid]->undoes = NULL;
 		UndoesFree(bdf->glyphs[gid]->redoes); bdf->glyphs[gid]->redoes = NULL;
@@ -2451,7 +2465,7 @@ void SFRemoveUndoes(SplineFont *sf,uint8 *selected, EncMap *map) {
 	}
 	k = 0;
 	do {
-	    ssf = main->subfontcnt==0? main: main->subfonts[k];
+	    ssf = sf_main->subfontcnt==0? sf_main: sf_main->subfonts[k];
 	    if ( gid<ssf->glyphcnt && ssf->glyphs[gid]!=NULL ) {
 		sc = ssf->glyphs[gid];
 		for ( layer = 0; layer<sc->layer_cnt; ++layer ) {
@@ -2460,7 +2474,7 @@ void SFRemoveUndoes(SplineFont *sf,uint8 *selected, EncMap *map) {
 		}
 	    }
 	    ++k;
-	} while ( k<main->subfontcnt );
+	} while ( k<sf_main->subfontcnt );
     }
 }
 
@@ -3004,7 +3018,9 @@ void FVTrans(FontView *fv,SplineChar *sc,real transform[6], uint8 *sel,
     if ( flags&fvt_round_to_int )
 	SCRound2Int(sc,1.0);
     if ( flags&fvt_dobackground ) {
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 	ImageList *img;
+#endif
 	SCPreserveBackground(sc);
 	SplinePointListTransform(sc->layers[ly_back].splines,transform,true);
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
@@ -3921,7 +3937,6 @@ void FontViewMenu_BuildComposite(GtkMenuItem *menuitem, gpointer user_data) {
 # endif
 }
 #endif
-#endif /* LUA_FF_LIB */
 
 static int SFIsDuplicatable(SplineFont *sf, SplineChar *sc) {
     extern const int cns14pua[], amspua[];
@@ -3940,7 +3955,6 @@ return( true );
 return( false );
 }
 
-#ifndef LUA_FF_LIB
 void FVBuildDuplicate(FontView *fv) {
     extern const int cns14pua[], amspua[];
     const int *pua = fv->sf->uni_interp==ui_trad_chinese ? cns14pua : fv->sf->uni_interp==ui_ams ? amspua : NULL;
@@ -5166,6 +5180,7 @@ void FontViewMenu_ClearInstrs(GtkMenuItem *menuitem, gpointer user_data) {
 }
 #endif
 
+#ifndef LUA_FF_LIB
 static void FVClearHints(FontView *fv) {
     int i, gid;
 
@@ -5185,6 +5200,7 @@ static void FVClearHints(FontView *fv) {
     gwwv_progress_end_indicator();
 #endif
 }
+#endif
 
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 # ifdef FONTFORGE_CONFIG_GDRAW
@@ -8370,7 +8386,7 @@ SplineChar *SCBuildDummy(SplineChar *dummy,SplineFont *sf,EncMap *map,int i) {
 return( dummy );
 }
 
-static SplineChar *_SFMakeChar(SplineFont *sf,EncMap *map,int enc) {
+ static SplineChar *_SFMakeChar(SplineFont *sf,EncMap *map,int enc) {
     SplineChar dummy, *sc;
     SplineFont *ssf;
     int j, real_uni, gid;
@@ -10230,17 +10246,19 @@ FontView *_FontViewCreate(SplineFont *sf) {
 return( fv );
 }
 
+#ifndef LUA_FF_LIB
 static void FontViewInit(void) {
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     mb2DoGetText(mblist);
     mbDoGetText(fvpopupmenu);
 #endif
 }
+#endif
 
 FontView *FontViewCreate(SplineFont *sf) {
     FontView *fv = _FontViewCreate(sf);
-    static int done = false;
 #if defined(FONTFORGE_CONFIG_GTK)
+    static int done = false;
     GtkWidget *status;
     PangoContext *context;
     PangoFont *font;
@@ -10285,6 +10303,7 @@ FontView *FontViewCreate(SplineFont *sf) {
 			     ((values.background.blue &0xff00)>>8));
     }
 #elif defined(FONTFORGE_CONFIG_GDRAW)
+    static int done = false;
     GRect pos;
     GWindow gw;
     GWindowAttrs wattrs;
@@ -10431,7 +10450,9 @@ return( sf );
 /*  by LoadSplineFont (which does) and by RevertFile (which knows what it's doing) */
 SplineFont *ReadSplineFont(char *filename,enum openflags openflags) {
     SplineFont *sf;
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     char ubuf[250], *temp;
+#endif
     int fromsfd = false;
     int i;
     char *pt, *strippedname, *oldstrippedname, *tmpfile=NULL, *paren=NULL, *fullname=filename;
@@ -10860,10 +10881,11 @@ return( FontViewCreate(SplineFontNew()));
 #endif
 
 void FontViewFree(FontView *fv) {
+#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     int i;
     FontView *prev;
     FontView *fvs;
-
+#endif
     if ( fv->sf == NULL )	/* Happens when usurping a font to put it into an MM */
 	BDFFontFree(fv->filled);
     else if ( fv->nextsame==NULL && fv->sf->fv==fv ) {
@@ -10925,9 +10947,11 @@ void FVFakeMenus(FontView *fv,int cmd) {
       case 4:
 	PasteIntoFV(fv,false,NULL);
       break;
+#ifndef LUA_FF_LIB
       case 5:
 	FVClear(fv);
       break;
+#endif
       case 6:
 	FVClearBackground(fv);
       break;

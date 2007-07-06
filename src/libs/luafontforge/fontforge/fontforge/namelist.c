@@ -31,19 +31,8 @@
 
 extern int recognizePUA;
 
-#ifndef _ 
-#define _(a) a
-#endif
-
-#ifndef N_ 
-#define N_(a) a
-#endif
-
-#ifndef NU_ 
-#define NU_(a) a
-#endif
-
 #ifdef LUA_FF_LIB
+extern int unic_isalpha(int);
 #define Isalpha unic_isalpha
 #else
 #define Isalpha isalpha
@@ -124,6 +113,7 @@ static void psinitnames(void) {
     psnamesinited = true;
 }
 
+#ifndef LUA_FF_LIB
 static void psreinitnames(void) {
     /* If we reread a (loaded) namelist file, then we must remove the old defn*/
     /*  which means we must remove all the old hash entries before we can put */
@@ -145,6 +135,7 @@ static void psreinitnames(void) {
     for ( nl=&agl; nl!=NULL; nl=nl->next )
 	NameListHash(nl);
 }
+#endif
 
 int UniFromName(const char *name,enum uni_interp interp,Encoding *encname) {
     int i = -1;
@@ -232,6 +223,7 @@ const char *StdGlyphName(char *buffer, int uni,enum uni_interp interp,NameList *
 return( name );
 }
 
+#ifndef LUA_FF_LIB
 #define RefMax	40
 
 static int transcmp(RefChar *r1, RefChar *r2) {
@@ -345,7 +337,6 @@ return( 0 );
 return( rcnt );
 }
 
-#ifndef LUA_FF_LIB
 /* Return a list of all alternate or standard glyph names for this encoding */
 char **AllGlyphNames(int uni, NameList *for_this_font, SplineChar *sc) {
     int cnt, k, j, i, len;
@@ -472,7 +463,7 @@ char **AllGlyphNames(int uni, NameList *for_this_font, SplineChar *sc) {
     }
 return( names );
 }
-#endif
+
 
 char **AllNamelistNames(void) {
     NameList *nl;
@@ -486,6 +477,7 @@ char **AllNamelistNames(void) {
     names[cnt] = NULL;
 return( names );
 }
+#endif
 
 #if 0
 uint8 *AllNamelistUnicodes(void) {
@@ -506,6 +498,7 @@ NameList *DefaultNameListForNewFonts(void) {
 return( namelist_for_new_fonts );
 }
 
+#ifndef LUA_FF_LIB
 NameList *NameListByName(char *name) {
     NameList *nl;
     for ( nl = &agl; nl!=NULL; nl=nl->next ) {
@@ -541,6 +534,7 @@ static void NameListFree(NameList *nl) {
     NameListFreeContents(nl);
     chunkfree(nl,sizeof(NameList));
 }
+#endif
 /* ************************************************************************** */
 
 #ifndef LUA_FF_LIB
@@ -730,6 +724,7 @@ return;
 }
 #endif
 
+#ifndef LUA_FF_LIB
 /* ************************************************************************** */
 const char *RenameGlyphToNamelist(char *buffer, SplineChar *sc,NameList *old,NameList *new) {
     int i, up, ub, uc, ch;
@@ -821,6 +816,7 @@ return;
     sf->for_new_glyphs = new;
 }
 
+
 char **SFTemporaryRenameGlyphsToNamelist(SplineFont *sf,NameList *new) {
     int gid;
     char buffer[40]; const char *name;
@@ -853,6 +849,8 @@ void SFTemporaryRestoreGlyphNames(SplineFont *sf,char **former) {
     }
     free(former);
 }
+
+#endif
 /* ************************************************************************** */
 static const char *agl_sans_p0_b0[] = {
 	NULL,
@@ -19850,5 +19848,5 @@ static struct psaltnames psaltnames[] = {
 	{ "Ooblique", 0xd8 },
 	{ "notsign", 0xac },
 /* Sun has used "masculine" for ordmasculine */
-	NULL
+	{NULL}
 };

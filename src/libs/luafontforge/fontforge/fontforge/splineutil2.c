@@ -1963,6 +1963,7 @@ static int SplinesRemoveMidMaybe(SplineChar *sc,SplinePoint *mid, int flags,
 return( _SplinesRemoveMidMaybe(sc,mid,flags,err,lenmax2) || changed1 );
 }
 
+#ifndef LUA_FF_LIB
 void SPLNearlyHvCps(SplineChar *sc,SplineSet *ss,double err) {
     Spline *s, *first=NULL;
     int refresh;
@@ -1998,6 +1999,7 @@ void SPLNearlyHvCps(SplineChar *sc,SplineSet *ss,double err) {
 	    SplineRefigure(s);
     }
 }
+#endif
 
 void SPLNearlyHvLines(SplineChar *sc,SplineSet *ss,double err) {
     Spline *s, *first=NULL;
@@ -2026,6 +2028,7 @@ void SPLNearlyHvLines(SplineChar *sc,SplineSet *ss,double err) {
     }
 }
 
+#ifndef LUA_FF_LIB
 /* Does this spline deviate from a straight line between its endpoints by more*/
 /*  than err?								      */
 /* Rotate the spline so that the line between the endpoints is horizontal,    */
@@ -2096,6 +2099,7 @@ int SPLNearlyLines(SplineChar *sc,SplineSet *ss,double err) {
     }
 return( changed );
 }
+#endif
 
 static void SPLForceLines(SplineChar *sc,SplineSet *ss,double bump_size) {
     Spline *s, *first=NULL;
@@ -2523,6 +2527,7 @@ SplineSet *SplineCharSimplify(SplineChar *sc,SplineSet *head,
 return( head );
 }
 
+#ifndef LUA_FF_LIB
 /* If the start point of a contour to be the left most point on it.  If there */
 /*  are several points with that same value, use the one closest to the base */
 /*  line */
@@ -2650,6 +2655,7 @@ return;
     if ( changed )
 	SCCharChangedUpdate(sc);
 }
+#endif
 
 static int SplineSetMakeLoop(SplineSet *spl,real fudge) {
     if ( spl->first!=spl->last &&
@@ -2728,6 +2734,7 @@ SplineSet *SplineSetJoin(SplineSet *start,int doall,real fudge,int *changed) {
 return(start);
 }
 
+#ifndef LUA_FF_LIB
 SplineSet *SplineCharRemoveTiny(SplineChar *sc,SplineSet *head) {
     SplineSet *spl, *snext, *pr;
     Spline *spline, *next, *first;
@@ -2775,6 +2782,7 @@ SplineSet *SplineCharRemoveTiny(SplineChar *sc,SplineSet *head) {
     }
 return( head );
 }
+#endif
 
 #if 0
 Spline *SplineAddPointsOfInflection(Spline *s) {
@@ -2826,7 +2834,7 @@ Spline *SplineAddExtrema(Spline *s,int always,real lenbound, real offsetbound,
     uint8 rmfrom[4], rmto[4];
     int p, i,j, p_s, mini;
     SplinePoint *sp;
-    real len;
+    real len = 0;
 
     if ( !always ) {
 	real xlen, ylen;

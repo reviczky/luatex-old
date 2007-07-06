@@ -5556,6 +5556,7 @@ int SCRoundToCluster(SplineChar *sc,int layer,int sel,double within,double max) 
     struct cluster *cspace;
     Spline *s, *first;
 
+	ptspace = NULL;
     /* First figure out what points we will need */
     for ( k=0; k<2; ++k ) {
 	ptcnt = selcnt = 0;
