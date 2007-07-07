@@ -590,9 +590,9 @@ void ParseEncodingFile(char *filename) {
     char *name;
 #endif
     int i,ch;
-
+    file = NULL;
     if ( filename==NULL ) filename = getPfaEditEncodings();
-    file = fopen(filename,"r");
+    if ( filename!=NULL ) file = fopen(filename,"r");
     if ( file==NULL ) {
 	if ( orig!=NULL )
 	    gwwv_post_error(_("Couldn't open file"), _("Couldn't open file %.200s"), orig);

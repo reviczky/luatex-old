@@ -2162,7 +2162,7 @@ return( true );
 }
 
 struct macname *MacNameCopy(struct macname *mn) {
-    struct macname *head=NULL, *last, *cur;
+    struct macname *head=NULL, *last=NULL, *cur;
 
     while ( mn!=NULL ) {
 	cur = chunkalloc(sizeof(struct macname));

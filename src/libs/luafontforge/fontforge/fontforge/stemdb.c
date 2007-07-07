@@ -458,7 +458,7 @@ static Spline *FindMatchingHVEdge(struct glyphdata *gd, struct pointdata *pd,
     int winding, nw, i,j;
     struct monotonic **space;
     BasePoint *dir, d, hv;
-
+    nw = 0;
     /* Things are difficult if we go exactly through the point. Move off */
     /*  to the side a tiny bit and hope that doesn't matter */
     if ( is_next==2 ) {
@@ -1575,7 +1575,7 @@ static int StemIsActiveAt(struct glyphdata *gd,struct stemdata *stem,double stem
     double test;
     struct monotonic **space, *m;
     int winding, nw, i,j;
-
+    m = NULL; nw = 0;
     pos.x = stem->left.x + stempos*stem->unit.x;
     pos.y = stem->left.y + stempos*stem->unit.y;
 

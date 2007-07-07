@@ -894,7 +894,7 @@ void LoadPrefs(void) {
     char *prefs = getPfaEditPrefs();
     FILE *p;
     char line[1100];
-    int i, j, ri=0, mn=0, ms=0, fn=0, ff=0, filt_max=0;
+    int i=0, j=0, ri=0, mn=0, ms=0, fn=0, ff=0, filt_max=0;
     int msp=0, msc=0;
     char *pt;
     struct prefs_list *pl;

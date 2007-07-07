@@ -1594,6 +1594,7 @@ static void SCGuessHintInstances(SplineChar *sc, StemInfo *stem,int major) {
     int sm, wm, off;
     real ob, oe;
     HintInstance *s=NULL, *w=NULL, *cur, *p, *t, *n, *w2;
+    ob = 0; oe = 0;
     /* We've got a hint (from somewhere, old data, reading in a font, user specified etc.) */
     /*  but we don't have HintInstance info. So see if we can find those data */
     /* Will get confused by stems with holes in them (for example if you make */

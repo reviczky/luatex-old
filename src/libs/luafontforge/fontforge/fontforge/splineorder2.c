@@ -836,7 +836,7 @@ return( ret );
 }
 
 SplineSet *SplineSetsTTFApprox(SplineSet *ss) {
-    SplineSet *head=NULL, *last, *cur;
+    SplineSet *head=NULL, *last=NULL, *cur;
 
     while ( ss!=NULL ) {
 	cur = SSttfApprox(ss);
@@ -895,7 +895,7 @@ return( ret );
 }
 
 SplineSet *SplineSetsPSApprox(SplineSet *ss) {
-    SplineSet *head=NULL, *last, *cur;
+    SplineSet *head=NULL, *last=NULL, *cur;
 
     while ( ss!=NULL ) {
 	cur = SSPSApprox(ss);

@@ -4730,8 +4730,8 @@ return;
 }
 
 AnchorPoint *AnchorPointsCopy(AnchorPoint *alist) {
-    AnchorPoint *head=NULL, *last, *ap;
-
+    AnchorPoint *head=NULL, *last=NULL, *ap;
+    
     while ( alist!=NULL ) {
 	ap = chunkalloc(sizeof(AnchorPoint));
 	*ap = *alist;
