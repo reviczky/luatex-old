@@ -45,7 +45,7 @@ static unsigned long get_unsigned (cff_font *cff, int n)
   return v;
 }
 
-#define ERROR pdftex_fail
+#define CFF_ERROR pdftex_fail
 #define WARN pdftex_warn
 
 
@@ -144,7 +144,7 @@ cff_get_index_header (cff_font *cff)
   if (count > 0) {
     idx->offsize = get_card8(cff);
     if (idx->offsize < 1 || idx->offsize > 4)
-      ERROR("invalid offsize data");
+      CFF_ERROR("invalid offsize data");
 
     idx->offset = xcalloc(count+1, sizeof(l_offset));
     for (i=0;i<count+1;i++) {
@@ -152,7 +152,7 @@ cff_get_index_header (cff_font *cff)
     }
 
     if (idx->offset[0] != 1)
-      ERROR("cff_get_index(): invalid index data");
+      CFF_ERROR("cff_get_index(): invalid index data");
 
     idx->data = NULL;
   } else {
@@ -179,7 +179,7 @@ cff_get_index (cff_font *cff)
   if (count > 0) {
     idx->offsize = get_card8(cff);
     if (idx->offsize < 1 || idx->offsize > 4)
-      ERROR("invalid offsize data");
+      CFF_ERROR("invalid offsize data");
 
     idx->offset = xcalloc((count + 1),sizeof(l_offset));
     for (i = 0 ; i < count + 1; i++) {
@@ -187,7 +187,7 @@ cff_get_index (cff_font *cff)
     }
 
     if (idx->offset[0] != 1)
-      ERROR("Invalid CFF Index offset data");
+      CFF_ERROR("Invalid CFF Index offset data");
 
     length = idx->offset[count] - idx->offset[0];
 
@@ -213,7 +213,7 @@ cff_pack_index (cff_index *idx, card8 *dest, long destlen)
 
   if (idx->count < 1) {
     if (destlen < 2)
-      ERROR("Not enough space available...");
+      CFF_ERROR("Not enough space available...");
     memset(dest, 0, 2);
     return 2;
   }
@@ -222,7 +222,7 @@ cff_pack_index (cff_index *idx, card8 *dest, long destlen)
   datalen = idx->offset[idx->count] - 1;
 
   if (destlen < len)
-    ERROR("Not enough space available...");
+    CFF_ERROR("Not enough space available...");
 
   *(dest++) = (idx->count >> 8) & 0xff;
   *(dest++) = idx->count & 0xff;
@@ -336,7 +336,7 @@ void cff_release_encoding (cff_encoding *encoding)
     switch (encoding->format & (~0x80)) {
     case 0: xfree(encoding->data.codes);      break;
     case 1: xfree(encoding->data.range1);     break;
-    default:  ERROR("Unknown Encoding format.");
+    default:  CFF_ERROR("Unknown Encoding format.");
     }
     if (encoding->format & 0x80) 
       xfree(encoding->supp);
@@ -432,7 +432,7 @@ cff_set_name (cff_font *cff, char *name)
   cff_index *idx;
 
   if (strlen(name) > 127)
-    ERROR("FontName string length too large...");
+    CFF_ERROR("FontName string length too large...");
 
   if (cff->name)
     cff_release_index(cff->name);
@@ -453,7 +453,7 @@ long
 cff_put_header (cff_font *cff, card8 *dest, long destlen)
 {
   if (destlen < 4)
-    ERROR("Not enough space available...");
+    CFF_ERROR("Not enough space available...");
 
   *(dest++) = cff->header_major;
   *(dest++) = cff->header_minor;
@@ -468,10 +468,10 @@ cff_put_header (cff_font *cff, card8 *dest, long destlen)
 }
 
 #define CFF_PARSE_OK                0
-#define CFF_ERROR_PARSE_ERROR      -1
-#define CFF_ERROR_STACK_OVERFLOW   -2
-#define CFF_ERROR_STACK_UNDERFLOW  -3
-#define CFF_ERROR_STACK_RANGECHECK -4
+#define CFF_CFF_ERROR_PARSE_CFF_ERROR      -1
+#define CFF_CFF_ERROR_STACK_OVERFLOW   -2
+#define CFF_CFF_ERROR_STACK_UNDERFLOW  -3
+#define CFF_CFF_ERROR_STACK_RANGECHECK -4
 
 #define DICT_ENTRY_MAX 16
 
@@ -614,7 +614,7 @@ static double get_integer (card8 **data, card8 *endptr, int *status)
     b1 = *(*data)++;
     result = -(b0-251)*256-b1-108;
   } else {
-    *status = CFF_ERROR_PARSE_ERROR;
+    *status = CFF_CFF_ERROR_PARSE_CFF_ERROR;
   }
 
   return (double) result;
@@ -628,7 +628,7 @@ static double get_real(card8 **data, card8 *endptr, int *status)
   int len = 0, fail = 0;
 
   if (**data != 30 || *data >= endptr -1) {
-    *status = CFF_ERROR_PARSE_ERROR;
+    *status = CFF_CFF_ERROR_PARSE_CFF_ERROR;
     return 0.0;
   }
 
@@ -669,12 +669,12 @@ static double get_real(card8 **data, card8 *endptr, int *status)
 
   /* returned values */
   if (fail || nibble != 0x0f) {
-    *status = CFF_ERROR_PARSE_ERROR;
+    *status = CFF_CFF_ERROR_PARSE_CFF_ERROR;
   } else {
     char *s;
     result = strtod(work_buffer, &s);
     if (*s != 0 || errno == ERANGE) {
-      *status = CFF_ERROR_PARSE_ERROR;
+      *status = CFF_CFF_ERROR_PARSE_CFF_ERROR;
     }
   }
 
@@ -692,20 +692,20 @@ static void add_dict (cff_dict *dict,
     *data += 1;
     if (*data >= endptr ||
 	(id = **data + CFF_LAST_DICT_OP1) >= CFF_LAST_DICT_OP) {
-      *status = CFF_ERROR_PARSE_ERROR;
+      *status = CFF_CFF_ERROR_PARSE_CFF_ERROR;
       return;
     }
   } else if (id >= CFF_LAST_DICT_OP1) {
-    *status = CFF_ERROR_PARSE_ERROR;
+    *status = CFF_CFF_ERROR_PARSE_CFF_ERROR;
     return;
   }
 
   argtype = dict_operator[id].argtype;
   if (dict_operator[id].opname == NULL || argtype < 0) {
-    *status = CFF_ERROR_PARSE_ERROR;
+    *status = CFF_CFF_ERROR_PARSE_CFF_ERROR;
     return;
   } else if (stack_top < 1) {
-    *status = CFF_ERROR_STACK_UNDERFLOW;
+    *status = CFF_CFF_ERROR_STACK_UNDERFLOW;
     return;
   }
 
@@ -761,7 +761,7 @@ cff_dict *cff_dict_unpack (card8 *data, card8 *endptr)
 	arg_stack[stack_top] = get_real(&data, endptr, &status);
 	stack_top++;
       } else {
-	status = CFF_ERROR_STACK_OVERFLOW;
+	status = CFF_CFF_ERROR_STACK_OVERFLOW;
       }
     } else if (*data == 255 || (*data >= 22 && *data <= 27)) { /* reserved */
       data++;
@@ -770,7 +770,7 @@ cff_dict *cff_dict_unpack (card8 *data, card8 *endptr)
 	arg_stack[stack_top] = get_integer(&data, endptr, &status);
 	stack_top++;
       } else {
-	status = CFF_ERROR_STACK_OVERFLOW;
+	status = CFF_CFF_ERROR_STACK_OVERFLOW;
       }
     }
   }
@@ -879,7 +879,7 @@ long cff_read_fdarray (cff_font *cff)
   card16 i;
 
   if (cff->topdict == NULL)
-    ERROR("in cff_read_fdarray(): Top DICT not found");
+    CFF_ERROR("in cff_read_fdarray(): Top DICT not found");
 
   if (!(cff->flag & FONTTYPE_CIDFONT))
     return 0;
@@ -1075,33 +1075,33 @@ static long pack_integer (card8 *dest, long destlen, long value)
 
   if (value >= -107 && value <= 107) {
     if (destlen < 1)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
     dest[0] = (value + 139) & 0xff;
     len = 1;
   } else if (value >= 108 && value <= 1131) {
     if (destlen < 2)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
     value = 0xf700u + value - 108;
     dest[0] = (value >> 8) & 0xff;
     dest[1] = value & 0xff;
     len = 2;
   } else if (value >= -1131 && value <= -108) {
     if (destlen < 2)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
     value = 0xfb00u - value - 108;
     dest[0] = (value >> 8) & 0xff;
     dest[1] = value & 0xff;
     len = 2;
   } else if (value >= -32768 && value <= 32767) { /* shortint */
     if (destlen < 3)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
     dest[0] = 28;
     dest[1] = (value >> 8) & 0xff;
     dest[2] = value & 0xff;
     len = 3;
   } else { /* longint */
     if (destlen < 5)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
     dest[0] = 29;
     dest[1] = (value >> 24) & 0xff;
     dest[2] = (value >> 16) & 0xff;
@@ -1119,7 +1119,7 @@ static long pack_real (card8 *dest, long destlen, double value)
 #define CFF_REAL_MAX_LEN 17
 
   if (destlen < 2)
-    ERROR("Buffer overflow.");
+    CFF_ERROR("Buffer overflow.");
 
   dest[0] = 30;
 
@@ -1157,11 +1157,11 @@ static long pack_real (card8 *dest, long destlen, double value)
     } else if (work_buffer[i] >= '0' && work_buffer[i] <= '9') {
       ch = work_buffer[i] - '0';
     } else {
-      ERROR("Invalid character.");
+      CFF_ERROR("Invalid character.");
     }
 
     if (destlen < pos/2 + 1)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
 
     if (pos % 2) {
       dest[pos/2] += ch;
@@ -1176,7 +1176,7 @@ static long pack_real (card8 *dest, long destlen, double value)
       dest[pos/2] += 0x0b;
     } else {
       if (destlen < pos/2 + 1)
-	ERROR("Buffer overflow.");
+	CFF_ERROR("Buffer overflow.");
       dest[pos/2] = 0xb0;
     }
     pos++;
@@ -1185,7 +1185,7 @@ static long pack_real (card8 *dest, long destlen, double value)
       dest[pos/2] += 0x0c;
     } else {
       if (destlen < pos/2 + 1)
-	ERROR("Buffer overflow.");
+	CFF_ERROR("Buffer overflow.");
       dest[pos/2] = 0xc0;
     }
     e *= -1;
@@ -1203,11 +1203,11 @@ static long pack_real (card8 *dest, long destlen, double value)
       } else if (work_buffer[i] >= '0' && work_buffer[i] <= '9') {
 	ch = work_buffer[i] - '0';
       } else {
-	ERROR("Invalid character.");
+	CFF_ERROR("Invalid character.");
       }
 
       if (destlen < pos/2 + 1)
-	ERROR("Buffer overflow.");
+	CFF_ERROR("Buffer overflow.");
 
       if (pos % 2) {
 	dest[pos/2] += ch;
@@ -1223,7 +1223,7 @@ static long pack_real (card8 *dest, long destlen, double value)
     pos++;
   } else {
     if (destlen < pos/2 + 1)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
     dest[pos/2] = 0xff;
     pos += 2;
   }
@@ -1245,7 +1245,7 @@ static long cff_dict_put_number (double value,
 
     lvalue = (long) value;
     if (destlen < 5)
-      ERROR("Buffer overflow.");
+      CFF_ERROR("Buffer overflow.");
     dest[0] = 29;
     dest[1] = (lvalue >> 24) & 0xff;
     dest[2] = (lvalue >> 16) & 0xff;
@@ -1284,15 +1284,15 @@ put_dict_entry (cff_dict_entry *de,
     }
     if (id >= 0 && id < CFF_LAST_DICT_OP1) {
       if (len + 1 > destlen)
-	ERROR("Buffer overflow.");
+	CFF_ERROR("Buffer overflow.");
       dest[len++] = id;
     } else if (id >= 0 && id < CFF_LAST_DICT_OP) {
       if (len + 2 > destlen)
-	ERROR("in cff_dict_pack(): Buffer overflow");
+	CFF_ERROR("in cff_dict_pack(): Buffer overflow");
       dest[len++] = 12;
       dest[len++] = id - CFF_LAST_DICT_OP1;
     } else {
-      ERROR("Invalid CFF DICT operator ID.");
+      CFF_ERROR("Invalid CFF DICT operator ID.");
     }
   }
 
@@ -1331,12 +1331,12 @@ void cff_dict_add (cff_dict *dict, const char *key, int count)
   }
 
   if (id == CFF_LAST_DICT_OP)
-    ERROR("Unknown CFF DICT operator.");
+    CFF_ERROR("Unknown CFF DICT operator.");
 
   for (i=0;i<dict->count;i++) {
     if ((dict->entries)[i].id == id) {
       if ((dict->entries)[i].count != count)
-	ERROR("Inconsistent DICT argument number.");
+	CFF_ERROR("Inconsistent DICT argument number.");
       return;
     }
   }
@@ -1386,7 +1386,7 @@ void cff_dict_set (cff_dict *dict, const char *key, int idx, double value)
       if ((dict->entries)[i].count > idx)
 	(dict->entries)[i].values[idx] = value;
       else
-	ERROR("Invalid index number.");
+	CFF_ERROR("Invalid index number.");
       break;
     }
   }
@@ -1450,7 +1450,7 @@ long cff_get_sid (cff_font *cff, char *str)
 void cff_update_string (cff_font *cff)
 {
   if (cff == NULL)
-    ERROR("CFF font not opened.");
+    CFF_ERROR("CFF font not opened.");
   
   if (cff->string)
     cff_release_index(cff->string);
@@ -1466,7 +1466,7 @@ s_SID cff_add_string (cff_font *cff, char *str)
   l_offset offset, size;
 
   if (cff == NULL)
-    ERROR("CFF font not opened.");
+    CFF_ERROR("CFF font not opened.");
 
   if (cff->_string == NULL)
     cff->_string = cff_new_index(0);
@@ -1536,7 +1536,7 @@ long cff_read_charsets (cff_font *cff)
   card16 count, i;
 
   if (cff->topdict == NULL)
-    ERROR("Top DICT not available");
+    CFF_ERROR("Top DICT not available");
 
   if (!cff_dict_known(cff->topdict, "charset")) {
     cff->flag |= CHARSETS_ISOADOBE;
@@ -1609,12 +1609,12 @@ long cff_read_charsets (cff_font *cff)
     break;
   default:
     xfree(charset);
-    ERROR("Unknown Charset format");
+    CFF_ERROR("Unknown Charset format");
     break;
   }
 
   if (count > 0)
-    ERROR("Charset data possibly broken");
+    CFF_ERROR("Charset data possibly broken");
 
   return length;
 }
@@ -1629,7 +1629,7 @@ long cff_pack_charsets (cff_font *cff, card8 *dest, long destlen)
     return 0;
 
   if (destlen < 1)
-    ERROR("in cff_pack_charsets(): Buffer overflow");
+    CFF_ERROR("in cff_pack_charsets(): Buffer overflow");
 
   charset = cff->charsets;
 
@@ -1637,7 +1637,7 @@ long cff_pack_charsets (cff_font *cff, card8 *dest, long destlen)
   switch (charset->format) {
   case 0:
     if (destlen < len + (charset->num_entries)*2)
-      ERROR("in cff_pack_charsets(): Buffer overflow");
+      CFF_ERROR("in cff_pack_charsets(): Buffer overflow");
     for (i=0;i<(charset->num_entries);i++) {
       s_SID sid = (charset->data).glyphs[i]; /* or CID */
       dest[len++] = (sid >> 8) & 0xff;
@@ -1647,7 +1647,7 @@ long cff_pack_charsets (cff_font *cff, card8 *dest, long destlen)
   case 1:
     {
       if (destlen < len + (charset->num_entries)*3)
-	ERROR("in cff_pack_charsets(): Buffer overflow");
+	CFF_ERROR("in cff_pack_charsets(): Buffer overflow");
       for (i=0;i<(charset->num_entries);i++) {
 	dest[len++] = ((charset->data).range1[i].first >> 8) & 0xff;
 	dest[len++] = (charset->data).range1[i].first & 0xff;
@@ -1658,7 +1658,7 @@ long cff_pack_charsets (cff_font *cff, card8 *dest, long destlen)
   case 2:
     {
       if (destlen < len + (charset->num_entries)*4)
-	ERROR("in cff_pack_charsets(): Buffer overflow");
+	CFF_ERROR("in cff_pack_charsets(): Buffer overflow");
       for (i=0;i<(charset->num_entries);i++) {
 	dest[len++] = ((charset->data).range2[i].first >> 8) & 0xff;
 	dest[len++] = (charset->data).range2[i].first & 0xff;
@@ -1668,7 +1668,7 @@ long cff_pack_charsets (cff_font *cff, card8 *dest, long destlen)
     }
     break;
   default:
-    ERROR("Unknown Charset format");
+    CFF_ERROR("Unknown Charset format");
     break;
   }
 
@@ -1708,19 +1708,19 @@ long cff_pack_charsets (cff_font *cff, card8 *dest, long destlen)
 #define CS_TYPE2_DEBUG     5
 
 /* decoder/encoder status codes */
-#define CS_BUFFER_ERROR -3
-#define CS_STACK_ERROR  -2
-#define CS_PARSE_ERROR  -1
+#define CS_BUFFER_CFF_ERROR -3
+#define CS_STACK_CFF_ERROR  -2
+#define CS_PARSE_CFF_ERROR  -1
 #define CS_PARSE_OK      0
 #define CS_PARSE_END     1
 #define CS_SUBR_RETURN   2
 #define CS_CHAR_END      3
 
-static int status = CS_PARSE_ERROR;
+static int status = CS_PARSE_CFF_ERROR;
 
-#define DST_NEED(a,b) {if ((a) < (b)) { status = CS_BUFFER_ERROR ; return ; }}
-#define SRC_NEED(a,b) {if ((a) < (b)) { status = CS_PARSE_ERROR  ; return ; }}
-#define NEED(a,b)     {if ((a) < (b)) { status = CS_STACK_ERROR  ; return ; }}
+#define DST_NEED(a,b) {if ((a) < (b)) { status = CS_BUFFER_CFF_ERROR ; return ; }}
+#define SRC_NEED(a,b) {if ((a) < (b)) { status = CS_PARSE_CFF_ERROR  ; return ; }}
+#define NEED(a,b)     {if ((a) < (b)) { status = CS_STACK_CFF_ERROR  ; return ; }}
 
 /* hintmask and cntrmask need number of stem zones */
 static int num_stems = 0;
@@ -1853,7 +1853,7 @@ clear_stack (card8 **dest, card8 *limit)
        * This number cannot be represented as a single operand.
        * We must use `a b mul ...' or `a c div' to represent large values.
        */
-      ERROR("Argument value too large. (This is bug)");
+      CFF_ERROR("Argument value too large. (This is bug)");
     } else if (fabs(value - ivalue) > 3.0e-5) {
       /* 16.16-bit signed fixed value  */
       DST_NEED(limit, *dest + 5);
@@ -1884,7 +1884,7 @@ clear_stack (card8 **dest, card8 *limit)
       *(*dest)++ = (ivalue >> 8) & 0xff;
       *(*dest)++ = (ivalue) & 0xff;
     } else { /* Shouldn't come here */
-      ERROR("Unexpected error.");
+      CFF_ERROR("Unexpected error.");
     }
   }
 
@@ -1976,7 +1976,7 @@ do_operator1 (card8 **dest, card8 *limit, card8 **data, card8 *endptr)
       clear_stack(dest, limit);
     } else if (cs2_stack_top == 4 || cs2_stack_top == 5) {
       WARN("\"seac\" character deprecated in Type 2 charstring.");
-      status = CS_PARSE_ERROR;
+      status = CS_PARSE_CFF_ERROR;
       return;
     } else if (cs2_stack_top > 0) {
       WARN("Operand stack not empty.");
@@ -1998,7 +1998,7 @@ do_operator1 (card8 **dest, card8 *limit, card8 **data, card8 *endptr)
   case cs_hvcurveto:
     if (phase < 2) {
       WARN("Broken Type 2 charstring.");
-      status = CS_PARSE_ERROR;
+      status = CS_PARSE_CFF_ERROR;
       return;
     }
     clear_stack(dest, limit);
@@ -2010,12 +2010,12 @@ do_operator1 (card8 **dest, card8 *limit, card8 **data, card8 *endptr)
   case cs_return:
   case cs_callgsubr:
   case cs_callsubr:
-    ERROR("Unexpected call(g)subr/return");
+    CFF_ERROR("Unexpected call(g)subr/return");
     break;
   default:
     /* no-op ? */
     WARN("%s: Unknown charstring operator: 0x%02x", CS_TYPE2_DEBUG_STR, op);
-    status = CS_PARSE_ERROR;
+    status = CS_PARSE_CFF_ERROR;
     break;
   }
 
@@ -2044,7 +2044,7 @@ do_operator2 (card8 **dest, card8 *limit, card8 **data, card8 *endptr)
   switch(op) {
   case cs_dotsection: /* deprecated */
     WARN("Operator \"dotsection\" deprecated in Type 2 charstring.");
-    status = CS_PARSE_ERROR;
+    status = CS_PARSE_CFF_ERROR;
     return;
     break;
   case cs_hflex:
@@ -2053,7 +2053,7 @@ do_operator2 (card8 **dest, card8 *limit, card8 **data, card8 *endptr)
   case cs_flex1:
     if (phase < 2) {
       WARN("%s: Broken Type 2 charstring.", CS_TYPE2_DEBUG_STR);
-      status = CS_PARSE_ERROR;
+      status = CS_PARSE_CFF_ERROR;
       return;
     }
     clear_stack(dest, limit);
@@ -2223,7 +2223,7 @@ do_operator2 (card8 **dest, card8 *limit, card8 **data, card8 *endptr)
   default:
     /* no-op ? */
     WARN("%s: Unknown charstring operator: 0x0c%02x", CS_TYPE2_DEBUG_STR, op);
-    status = CS_PARSE_ERROR;
+    status = CS_PARSE_CFF_ERROR;
     break;
   }
 
@@ -2263,7 +2263,7 @@ cs2_get_integer (card8 **data, card8 *endptr)
     result = -(b0-251)*256-b1-108;
     *data += 1;
   } else {
-    status = CS_PARSE_ERROR;
+    status = CS_PARSE_CFF_ERROR;
     return;
   }
 
@@ -2313,7 +2313,7 @@ get_subr (card8 **subr, long *len, cff_index *subr_idx, long id)
   card16 count;
 
   if (subr_idx == NULL)
-    ERROR("%s: Subroutine called but no subroutine found.", CS_TYPE2_DEBUG_STR);
+    CFF_ERROR("%s: Subroutine called but no subroutine found.", CS_TYPE2_DEBUG_STR);
 
   count = subr_idx->count;
 
@@ -2327,7 +2327,7 @@ get_subr (card8 **subr, long *len, cff_index *subr_idx, long id)
   }
 
   if (id > count)
-    ERROR("%s: Invalid Subr index: %ld (max=%u)", CS_TYPE2_DEBUG_STR, id, count);
+    CFF_ERROR("%s: Invalid Subr index: %ld (max=%u)", CS_TYPE2_DEBUG_STR, id, count);
 
   *len = (subr_idx->offset)[id + 1] - (subr_idx->offset)[id];
   *subr = subr_idx->data + (subr_idx->offset)[id] - 1;
@@ -2351,7 +2351,7 @@ do_charstring (card8 **dest, card8 *limit,
   long  len;
 
   if (cs2_nest > CS_SUBR_NEST_MAX)
-    ERROR("%s: Subroutine nested too deeply.", CS_TYPE2_DEBUG_STR);
+    CFF_ERROR("%s: Subroutine nested too deeply.", CS_TYPE2_DEBUG_STR);
 
   cs2_nest++;
 
@@ -2363,24 +2363,24 @@ do_charstring (card8 **dest, card8 *limit,
       status = CS_SUBR_RETURN;
     } else if (b0 == cs_callgsubr) {
       if (cs2_stack_top < 1) {
-	status = CS_STACK_ERROR;
+	status = CS_STACK_CFF_ERROR;
       } else {
 	cs2_stack_top--;
 	get_subr(&subr, &len, gsubr_idx, (long) cs2_arg_stack[cs2_stack_top]);
 	if (*dest + len > limit)
-	  ERROR("%s: Possible buffer overflow.", CS_TYPE2_DEBUG_STR);
+	  CFF_ERROR("%s: Possible buffer overflow.", CS_TYPE2_DEBUG_STR);
 	do_charstring(dest, limit, &subr, subr + len,
 		      gsubr_idx, subr_idx);
 	*data += 1;
       }
     } else if (b0 == cs_callsubr) {
       if (cs2_stack_top < 1) {
-	status = CS_STACK_ERROR;
+	status = CS_STACK_CFF_ERROR;
       } else {
 	cs2_stack_top--;
 	get_subr(&subr, &len, subr_idx, (long) cs2_arg_stack[cs2_stack_top]);
 	if (limit < *dest + len)
-	  ERROR("%s: Possible buffer overflow.", CS_TYPE2_DEBUG_STR);
+	  CFF_ERROR("%s: Possible buffer overflow.", CS_TYPE2_DEBUG_STR);
 	do_charstring(dest, limit, &subr, subr + len,
 		      gsubr_idx, subr_idx);
 	*data += 1;
@@ -2390,7 +2390,7 @@ do_charstring (card8 **dest, card8 *limit,
     } else if (b0 < 32 && b0 != 28) { /* 19, 20 need mask */
       do_operator1(dest, limit, data, endptr);
     } else if ((b0 <= 22 && b0 >= 27) || b0 == 31) { /* reserved */
-      status = CS_PARSE_ERROR; /* not an error ? */
+      status = CS_PARSE_CFF_ERROR; /* not an error ? */
     } else { /* integer */
       cs2_get_integer(data, endptr);
     }
@@ -2401,7 +2401,7 @@ do_charstring (card8 **dest, card8 *limit,
   } else if (status == CS_CHAR_END && *data < endptr) {
     WARN("%s: Garbage after endchar.", CS_TYPE2_DEBUG_STR);
   } else if (status < CS_PARSE_OK) { /* error */
-    ERROR("%s: Parsing charstring failed: (status=%d, stack=%d)",
+    CFF_ERROR("%s: Parsing charstring failed: (status=%d, stack=%d)",
 	  CS_TYPE2_DEBUG_STR, status, cs2_stack_top);
   }
 
@@ -2465,7 +2465,7 @@ long cff_read_encoding (cff_font *cff)
   card8 i;
 
   if (cff->topdict == NULL) {
-    ERROR("Top DICT data not found");
+    CFF_ERROR("Top DICT data not found");
   }
 
   if (!cff_dict_known(cff->topdict, "Encoding")) {
@@ -2514,7 +2514,7 @@ long cff_read_encoding (cff_font *cff)
     break;
   default:
     xfree(encoding);
-    ERROR("Unknown Encoding format");
+    CFF_ERROR("Unknown Encoding format");
     break;
   }
 
@@ -2546,7 +2546,7 @@ long cff_pack_encoding (cff_font *cff, card8 *dest, long destlen)
     return 0;
 
   if (destlen < 2)
-    ERROR("in cff_pack_encoding(): Buffer overflow");
+    CFF_ERROR("in cff_pack_encoding(): Buffer overflow");
 
   encoding = cff->encoding;
 
@@ -2555,7 +2555,7 @@ long cff_pack_encoding (cff_font *cff, card8 *dest, long destlen)
   switch (encoding->format & (~0x80)) {
   case 0:
     if (destlen < len + encoding->num_entries)
-      ERROR("in cff_pack_encoding(): Buffer overflow");
+      CFF_ERROR("in cff_pack_encoding(): Buffer overflow");
     for (i=0;i<(encoding->num_entries);i++) {
       dest[len++] = (encoding->data).codes[i];
     }
@@ -2563,7 +2563,7 @@ long cff_pack_encoding (cff_font *cff, card8 *dest, long destlen)
   case 1:
     {
       if (destlen < len + (encoding->num_entries)*2)
-	ERROR("in cff_pack_encoding(): Buffer overflow");
+	CFF_ERROR("in cff_pack_encoding(): Buffer overflow");
       for (i=0;i<(encoding->num_entries);i++) {
 	dest[len++] = (encoding->data).range1[i].first & 0xff;
 	dest[len++] = (encoding->data).range1[i].n_left;
@@ -2571,13 +2571,13 @@ long cff_pack_encoding (cff_font *cff, card8 *dest, long destlen)
     }
     break;
   default:
-    ERROR("Unknown Encoding format");
+    CFF_ERROR("Unknown Encoding format");
     break;
   }
 
   if ((encoding->format) & 0x80) {
     if (destlen < len + (encoding->num_supps)*3 + 1)
-      ERROR("in cff_pack_encoding(): Buffer overflow");
+      CFF_ERROR("in cff_pack_encoding(): Buffer overflow");
     dest[len++] = encoding->num_supps;
     for (i=0;i<(encoding->num_supps);i++) {
       dest[len++] = (encoding->supp)[i].code;
@@ -2600,7 +2600,7 @@ long cff_pack_fdselect (cff_font *cff, card8 *dest, long destlen)
     return 0;
 
   if (destlen < 1)
-    ERROR("in cff_pack_fdselect(): Buffur overflow");
+    CFF_ERROR("in cff_pack_fdselect(): Buffur overflow");
 
   fdsel = cff->fdselect;
 
@@ -2608,9 +2608,9 @@ long cff_pack_fdselect (cff_font *cff, card8 *dest, long destlen)
   switch (fdsel->format) {
   case 0:
     if (fdsel->num_entries != cff->num_glyphs)
-      ERROR("in cff_pack_fdselect(): Invalid data");
+      CFF_ERROR("in cff_pack_fdselect(): Invalid data");
     if (destlen < len + fdsel->num_entries)
-      ERROR("in cff_pack_fdselect(): Buffer overflow");
+      CFF_ERROR("in cff_pack_fdselect(): Buffer overflow");
     for (i=0;i<fdsel->num_entries;i++) {
       dest[len++] = (fdsel->data).fds[i];
     }
@@ -2618,17 +2618,17 @@ long cff_pack_fdselect (cff_font *cff, card8 *dest, long destlen)
   case 3:
     {
       if (destlen < len + 2)
-	ERROR("in cff_pack_fdselect(): Buffer overflow");
+	CFF_ERROR("in cff_pack_fdselect(): Buffer overflow");
       len += 2;
       for (i=0;i<(fdsel->num_entries);i++) {
 	if (destlen < len + 3)
-	  ERROR("in cff_pack_fdselect(): Buffer overflow");
+	  CFF_ERROR("in cff_pack_fdselect(): Buffer overflow");
 	dest[len++] = ((fdsel->data).ranges[i].first >> 8) & 0xff;
 	dest[len++] = (fdsel->data).ranges[i].first & 0xff;
 	dest[len++] = (fdsel->data).ranges[i].fd;
       }
       if (destlen < len + 2)
-	ERROR("in cff_pack_fdselect(): Buffer overflow");
+	CFF_ERROR("in cff_pack_fdselect(): Buffer overflow");
       dest[len++]  = (cff->num_glyphs >> 8) & 0xff;
       dest[len++]  = cff->num_glyphs & 0xff;
       dest[1] = ((len/3 - 1) >> 8) & 0xff;
@@ -2636,7 +2636,7 @@ long cff_pack_fdselect (cff_font *cff, card8 *dest, long destlen)
     }
     break;
   default:
-    ERROR("Unknown FDSelect format.");
+    CFF_ERROR("Unknown FDSelect format.");
     break;
   }
 
@@ -2900,7 +2900,7 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
   offset   = cffont->offset;
   cs_count = cs_idx->count;
   if (cs_count < 2) {
-    ERROR("No valid charstring data found.");
+    CFF_ERROR("No valid charstring data found.");
   }
 
   /* build the new charstrings entry */ 
@@ -2936,7 +2936,7 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
     }
   }
   if (gid != num_glyphs)
-    ERROR("Unexpected error: %i != %i", gid, num_glyphs);
+    CFF_ERROR("Unexpected error: %i != %i", gid, num_glyphs);
 
   xfree(data);
   cff_release_index(cs_idx);

@@ -22,6 +22,10 @@ $Id: writefont.c,v 1.3 2005/12/27 19:04:42 hahe Exp $
 
 #include "ptexlib.h"
 
+extern void writetype0 (fd_entry * fd) ;
+extern void writetype2 (fd_entry * fd) ;
+extern unsigned long cidtogid_obj;
+
 void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f);
 void create_cid_fontdictionary(fm_entry * fm, integer font_objnum, internalfontnumber f);
 
@@ -375,7 +379,7 @@ static void write_fontfile(fd_entry * fd)
       if (is_opentype(fd->fm))
 	writetype0(fd);
       else if (is_truetype(fd->fm))
-	writettf(fd);
+	writetype2(fd);
       else
         assert(0);
     } else {
@@ -646,7 +650,10 @@ void do_pdf_font(integer font_objnum, internalfontnumber f)
       }
 
       set_included(fm);
-      if (font_format(f)==opentype_format &&
+      if ((font_format(f)==opentype_format 
+	   || 
+	   font_format(f)==truetype_format)
+	  &&
 	  font_embedding(f)==subset_embedding) {
 	set_subsetted(fm);
       }
@@ -706,7 +713,7 @@ void create_cid_fontdescriptor(fo_entry * fo, internalfontnumber f)
 
 static void mark_cid_subset_glyphs(fo_entry *fo, internal_font_number f) 
 {
-  int i, k, jj;
+  int i, k;
   glw_entry *j;
   void *aa;
 
@@ -822,7 +829,11 @@ void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f)
       pdf_puts("/Subtype /CIDFontType0\n");
     } else {
       pdf_puts("/Subtype /CIDFontType2\n");
-      pdf_printf("/CIDToGIDMap /Identity\n");
+      if (cidtogid_obj == 0) {
+	pdf_printf("/CIDToGIDMap /Identity\n");
+      } else {
+	pdf_printf("/CIDToGIDMap %u 0 R\n", (unsigned int)cidtogid_obj);
+      }
     }
     write_fontname(fo->fd, "BaseFont");
     pdf_printf("/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
@@ -830,9 +841,8 @@ void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f)
     pdf_printf("/CIDSystemInfo <<\n");
     pdf_printf("/Registry (%s)\n", font_cidregistry(f));
     pdf_printf("/Ordering (%s)\n",font_cidordering(f));
-    pdf_printf("/Supplement %i\n",font_cidsupplement(f));
+    pdf_printf("/Supplement %u\n",(unsigned int)font_cidsupplement(f));
     pdf_printf(">>\n");
-    pdf_end_dict();
 
     /* I doubt there is anything useful that could be written here */
     /*      
@@ -841,7 +851,7 @@ void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f)
       pdf_puts("\n");
       }
     */
+    pdf_end_dict();
 
 }
-
 

@@ -53,7 +53,11 @@ font/writet1.o \
 font/writet3.o \
 font/writettf.o \
 font/writetype0.o \
+font/writetype2.o \
 font/writecff.o \
+font/tt_glyf.o \
+font/tt_table.o \
+font/sfnt.o \
 font/texfont.o \
 font/tfmofm.o \
 font/vfovf.o \
