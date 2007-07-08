@@ -559,11 +559,12 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
   liginfo *cligs;
   kerninfo *ckerns;
   int fligs, fkerns;
+  char *tmpnam;
   integer tfm_byte = 0; /* index into |tfm_buffer| */
   integer saved_tfm_byte = 0; /* saved index into |tfm_buffer| */
   unsigned char *tfm_buffer = NULL; /* byte buffer for tfm files */
   integer tfm_size = 0; /* total size of the tfm file */
-
+  
   widths=NULL;
   heights=NULL;
   depths = NULL;
@@ -585,7 +586,11 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
 
   /* cnom can be an absolute filename, xbasename() fixes that. */
 
-  set_font_name(f,xbasename(cnom));
+  tmpnam=strdup(xbasename(cnom));
+  if (strcmp(tmpnam+strlen(tmpnam)-4,".tfm")==0) {
+    *(tmpnam+strlen(tmpnam)-4) =0;
+  }
+  set_font_name(f,tmpnam);
   set_font_area(f,caire);
 
   /* @<Read the {\.{TFM}} size fields@>; */
