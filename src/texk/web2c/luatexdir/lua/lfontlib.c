@@ -6,16 +6,6 @@
 /* this function is in vfovf.c for the moment */
 extern int make_vf_table(lua_State *L, char *name, scaled s);
 
-/* this function is in ttfotf.c for the moment */
-extern int make_ttf_table(lua_State *L, char *name, scaled s, char *tt_type, int info_only);
-
-static int 
-tex_current_font (lua_State *L) {
-  int i = get_cur_font();
-  lua_pushnumber(L,i);
-  return 1;
-}
-
 static int 
 font_read_tfm (lua_State *L) {
   internalfontnumber f;
@@ -67,46 +57,47 @@ font_read_vf (lua_State *L) {
   return 2; /* not reached */
 }
 
-#if 0
 static int 
-do_font_read_ttf (lua_State *L, char *thetype, int onlyinfo) {
-  scaled s = 0;
-  if(lua_isstring(L, 1)) {
-    char *cnom = (char *)lua_tostring(L, 1);
-    return make_ttf_table(L,cnom,s,thetype,onlyinfo);
+tex_current_font (lua_State *L) {
+  lua_pushnumber(L,get_cur_font());
+  return 1;
+}
+
+static int 
+tex_max_font (lua_State *L) {
+  lua_pushnumber(L,max_font_id());
+  return 1;
+}
+
+
+static int 
+tex_each_font_next (lua_State *L) {
+  int i,m; /* id */
+  m = lua_tonumber(L,1);
+  i = lua_tonumber(L,2);
+  i++;
+  while(i<=m && !is_valid_font(i))
+    i++; 
+  if (i>m) {
+    lua_pushnil(L);
+    return 1;
   } else {
-    lua_pushstring(L, "expected a font file name as first argument"); 
-    lua_error(L);
+    lua_pushnumber(L, i);
+    font_to_lua (L, i);
+    return 2;
   }
-  return 2; /* not reached */
-}
-
-
-static int 
-font_read_otf (lua_State *L) {
-  return do_font_read_ttf(L,"otf",0);
 }
 
 static int 
-font_read_otf_info (lua_State *L) {  
-  return do_font_read_ttf(L,"otf",1); 
+tex_each_font (lua_State *L) {
+  lua_pushcclosure(L, tex_each_font_next, 0);
+  lua_pushnumber(L, max_font_id());
+  lua_pushnumber(L, 0);
+  return 3;
 }
 
 static int 
-font_read_ttf (lua_State *L) {  
-  return do_font_read_ttf(L,"ttf",0); 
-}
-
-
-static int 
-font_read_ttf_info (lua_State *L) {  
-  return do_font_read_ttf(L,"ttf",1); 
-}
-
-#endif
-
-
-static int frozenfont (lua_State *L) {
+frozenfont (lua_State *L) {
   int i;
   i = (int)luaL_checkinteger(L,1);
   if (i) {
@@ -128,29 +119,30 @@ static int frozenfont (lua_State *L) {
 }
 
 
-static int setfont (lua_State *L) {
+static int 
+setfont (lua_State *L) {
   int i;
   i = (int)luaL_checkinteger(L,-2);
   if (i) {
-	luaL_checktype(L,-1,LUA_TTABLE);
-	/* */
-	if (is_valid_font(i)) {
-	  if (! (font_touched(i) || font_used(i))) {
-		font_from_lua (L,i) ;
-	  } else {
-		lua_pushstring(L, "that font has been accessed already, changing it is forbidden");
-		lua_error(L);
-	  }
-	} else {
-	  lua_pushstring(L, "that integer id is not a valid font");
-	  lua_error(L);
-	}
+    luaL_checktype(L,-1,LUA_TTABLE);
+    if (is_valid_font(i)) {
+      if (! (font_touched(i) || font_used(i))) {
+	font_from_lua (L,i) ;
+      } else {
+	lua_pushstring(L, "that font has been accessed already, changing it is forbidden");
+	lua_error(L);
+      }
+    } else {
+      lua_pushstring(L, "that integer id is not a valid font");
+      lua_error(L);
+    }
   }
   return 0;
 }
 
 
-static int deffont (lua_State *L) {
+static int 
+deffont (lua_State *L) {
   int i;
   luaL_checktype(L,-1,LUA_TTABLE);
 
@@ -167,30 +159,23 @@ static int deffont (lua_State *L) {
   return 0; /* not reached */
 }
 
-static int getfont (lua_State *L) {
+static int 
+getfont (lua_State *L) {
   int i;
   i = (int)luaL_checkinteger(L,-1);
-  if (i) {
-    if (is_valid_font(i) &&  font_to_lua (L, i)) {
-      /* do nothing */
-    } else {
-      lua_pushnil(L);
-    }
-  } else {
-    lua_pushnil(L);
-  }
+  if (i && is_valid_font(i) &&  font_to_lua (L, i))
+    return 1;
+  lua_pushnil(L);
   return 1;
 }
 
 
 static const struct luaL_reg fontlib [] = {
-  /*  {"read_otf",      font_read_otf},*/
-  /*  {"read_ttf",      font_read_ttf},*/
-  /*  {"read_otf_info", font_read_otf_info},*/
-  /*  {"read_ttf_info", font_read_ttf_info},*/
   {"read_tfm",      font_read_tfm},
   {"read_vf",       font_read_vf},
   {"current",       tex_current_font},
+  {"max",           tex_max_font},
+  {"each",          tex_each_font},
   {"getfont",       getfont},
   {"setfont",       setfont},
   {"define",        deffont},
