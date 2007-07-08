@@ -625,6 +625,7 @@ return( true );
 }
 #endif
 
+#ifndef LUA_FF_LIB
 int FontForgeMain( int argc, char **argv ) {
     extern const char *source_modtime_str;
     const char *load_prefs = getenv("FONTFORGE_LOADPREFS");
@@ -926,3 +927,4 @@ int FontForgeMain( int argc, char **argv ) {
 #endif
 return( 0 );
 }
+#endif
