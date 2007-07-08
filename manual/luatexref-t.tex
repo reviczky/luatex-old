@@ -4671,10 +4671,6 @@ unless \type{--jobname} is given explicitly on the command line, the
 \tex{jobname} will be empt, resulting in output files without names
 (only extensions).
 
-
-\item The \TFM\ loader sometimes stores a full path instead of only a
-name, this prevents \VF\ loading from working properly.
-
 \item The Lua setting of \type{false_boundarychar=65536} inside 
 of a returned font metrics table results in an error.
 
@@ -4689,7 +4685,7 @@ structures in math mode are quite different from those in text mode,
 so this will take some extra effort to implement correctly.
 
 \item When used inside  \type{\directlua}, \type{pdf.print()} should create a
-literal node instead of flushin immedately.
+literal node instead of flushing immediately.
 
 \item At the moment, only characters in plane~0 and plane~1 can be
 assigned catcode~13 (i.e. turned into active characters). This is a

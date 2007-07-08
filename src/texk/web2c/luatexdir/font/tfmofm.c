@@ -583,7 +583,9 @@ read_tfm_info(internalfontnumber f, char *cnom, char *caire, scaled s) {
   if(open_tfm_file(cnom,caire,&tfm_buffer,&tfm_size)!=1)
      tfm_abort;
 
-  set_font_name(f,cnom);
+  /* cnom can be an absolute filename, xbasename() fixes that. */
+
+  set_font_name(f,xbasename(cnom));
   set_font_area(f,caire);
 
   /* @<Read the {\.{TFM}} size fields@>; */
