@@ -2619,25 +2619,29 @@ setting relative to the designsize of the font.
 
 \subsection{The fonts array}
 
+The whole table of \TEX\ fonts is accessible from lua using a virtual array.
+
 \starttyping
 font.fonts[n] = { ... }
 table f = font.fonts[n]
 \stoptyping
 
-See \in{chapter}[fonts] for the structure of the tables.
+See \in{chapter}[fonts] for the structure of the tables. Because this
+is a virtual array, you cannot call \type{pairs} on it, but see below
+for the \type{font.each} iterator.
 
-The associated function calls are
+The two metatable functions implementing the virtual array are:
 
 \startfunctioncall
 table f = font.getfont(number n)
 font.setfont(number n, table f)
 \stopfunctioncall
 
-Note the following: Assignments can only be made to fonts that have
-already been defined in \TEX, but have not been accessed {\it at all\/} since
-that definition. This limits the usability of the write access to
-font.fonts quite a lot, a less stringent ruleset will be implemented
-later.
+Also note the following: Assignments can only be made to fonts that
+have already been defined in \TEX, but have not been accessed {\it at
+all\/} since that definition. This limits the usability of the write
+access to \type{font.fonts} quite a lot, a less stringent ruleset will
+likely be implemented later.
 
 \subsection{Checking a font's status}
 
@@ -2671,6 +2675,27 @@ number i = font.current();
 
 This is the currently used font number.
 
+\subsection{Maximum font id}
+
+\startfunctioncall
+number i = font.max();
+\stopfunctioncall
+
+This is the largest used index in \type{font.fonts}.
+
+\subsection{Iterating over all fonts}
+
+\startfunctioncall
+for i,v in font.each() do
+  ...
+end
+\stopfunctioncall
+
+This is an iterator over each of the defined \TEX\ fonts. The first
+returned value is the index in \type{font.fonts}, the second the font
+itself, as a lua table. The indices are listed incrementally, but they
+do not always form an array of consecutive numbers: in some cases
+there can be holes in the sequence.
 
 \section{The \luatex{fontforge} library}
 
@@ -4613,7 +4638,7 @@ contents. While this uses more memory than the previous code (that
 mostly used \type{getc} calls), it can be quite a bit faster
 (depending on your I/O subsystem).
 
-\chapter{Known bugs}
+\chapter{Known bugs and limitations}
 
 The bugs below are going to be fixed eventually.
 
@@ -4627,17 +4652,17 @@ going to be replaced by a new subsystem soon anyway.
 \PDF\ mode yet: this affects all the top|-|bottom and bottom|-|top writing
 directions. And also, the \tex{textdir} command is broken.
 
+\item There is a problem with jobnames on 64-bit architectures: 
+unless \type{--jobname} is given explicitly on the command line, the
+\tex{jobname} will be empt, resulting in output files without names
+(only extensions).
+
+
 \item The \TFM\ loader sometimes stores a full path instead of only a
 name, this prevents \VF\ loading from working properly.
 
 \item The Lua setting of \type{false_boundarychar=65536} inside 
 of a returned font metrics table results in an error.
-
-\item Letter spacing (\tex{letterspacefont}) is currently non|-|functional
-due to massive changes in the virtual font handling. This
-functionality may actually be removed completely in the future,
-because it is straightforward to set up letterspacing using the \LUA\
-'define_font' interface.
 
 \item Hyphenation can only deal with the Base Multilingual Plane (BMP)
 
@@ -4656,7 +4681,11 @@ literal node instead of flushin immedately.
 assigned catcode~13 (i.e. turned into active characters). This is a
 temporary measure to reduce the memory requirements of \LUATEX.
 
-\item There is a problem with empty jobnames on 64-bit archs
+\item Letter spacing (\tex{letterspacefont}) is currently non|-|functional
+due to massive changes in the virtual font handling. This
+functionality may actually be removed completely in the future,
+because it is straightforward to set up letterspacing using the \LUA\
+\quote{define_font} interface.
 
 \stopitemize
 
@@ -4693,8 +4722,7 @@ the natural width of the included items into account.
 \item Integrate the various \PDFTEX\ extended font codes for hz en protruding into
 the font table
 
-
-\item TTF subsetting and Type1C support.
+\item Type1C support.
 
 \item Support font reencoding of 8-bit fonts via char index.
 \stopitemize
