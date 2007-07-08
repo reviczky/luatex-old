@@ -51,6 +51,7 @@ struct lconv localeinfo;
 char *coord_sep = ",";		/* Not part of locale data */
 const struct unicode_nameannot * const *const *_UnicodeNameAnnot = NULL;
 
+#ifndef LUA_FF_LIB
 static void initadobeenc(void) {
     int i,j;
 
@@ -120,6 +121,7 @@ return;
     }
 #endif
 }
+#endif
 
 void doversion(void) {
     extern const char *source_version_str;
@@ -131,6 +133,7 @@ void doversion(void) {
 exit(0);
 }
 
+#ifndef LUA_FF_LIB
 #ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static void _dousage(void) {
     printf( "fontforge [options] [fontfiles]\n" );
@@ -193,15 +196,16 @@ static void dohelp(void) {
 exit(0);
 }
 #endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
+#endif
 
 /* TH oddly ,the crosscompiler gets errors from gettimeofday() */
-static void initrand(void) {
+
 #ifndef LUA_FF_LIB
+static void initrand(void) {
     struct timeval tv;
 
     gettimeofday(&tv,NULL);
     srand(tv.tv_usec);
-#endif
 }
 
 static void initlibrarysearchpath(void) {
@@ -214,6 +218,7 @@ static void initlibrarysearchpath(void) {
     setenv("DYLD_LIBRARY_PATH","/sw/lib",0);
 #endif
 }
+#endif
 
 struct delayed_event {
     void *data;
