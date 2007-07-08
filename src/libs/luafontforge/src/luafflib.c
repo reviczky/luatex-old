@@ -114,6 +114,7 @@ ff_open (lua_State *L) {
   return 1;
 }
 
+
 static int 
 ff_close (lua_State *L) {
   SplineFont *sf;
@@ -1489,8 +1490,34 @@ ff_make_table (lua_State *L) {
   return 1;
 }
 
+static int 
+ff_info (lua_State *L) {
+  SplineFont *sf;
+  const char *fontname;
+  int openflags = 0;
+  fontname = luaL_checkstring(L,1);
+  openflags = (int)luaL_optinteger(L,2,0);
+  sf = ReadSplineFontInfo((char *)fontname,openflags);
+  if (sf==NULL) {
+    lua_pushfstring(L,"font loading failed for %s\n", fontname);
+    lua_error(L);
+  } else {
+    lua_newtable(L);
+    dump_stringfield(L,"familyname",      sf->familyname);
+    dump_stringfield(L,"fontname",        sf->fontname);
+    dump_stringfield(L,"fullname",        sf->fullname);
+    dump_intfield   (L,"italicangle",     sf->italicangle);
+    dump_stringfield(L,"version",         sf->version);
+    dump_stringfield(L,"weight",          sf->weight);
+    SplineFontFree(sf);
+  }
+  return 1;
+}
+
+
 static struct luaL_reg fflib[] = {
   {"open", ff_open},
+  {"info", ff_info},
   {"close", ff_close},
   {"to_table", ff_make_table},
   {NULL, NULL}

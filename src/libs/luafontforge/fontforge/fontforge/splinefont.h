@@ -2279,6 +2279,13 @@ extern KernClass *SFFindKernClass(SplineFont *sf,SplineChar *first,SplineChar *l
 extern KernClass *SFFindVKernClass(SplineFont *sf,SplineChar *first,SplineChar *last,
 	int *index,int allow_zero);
 
+#ifdef LUA_FF_LIB
+extern SplineFont *SFReadTTFInfo(char *filename,int flags,enum openflags openflags);
+extern SplineFont *CFFParseInfo(char *filename);
+extern SplineFont *SFReadMacBinaryInfo(char *filename,int flags,enum openflags openflags);
+extern SplineFont *ReadSplineFontInfo(char *filename,enum openflags);
+#endif
+
 #if !defined(_NO_PYTHON)
 extern void FontForge_PythonInit(void);
 extern void PyFF_ErrorString(const char *msg,const char *str);

@@ -3186,6 +3186,20 @@ SplineFont *SFReadMacBinary(char *filename,int flags,enum openflags openflags) {
 return( sf );
 }
 
+#ifdef LUA_FF_LIB
+SplineFont *SFReadMacBinaryInfo(char *filename,int flags,enum openflags openflags) {
+    SplineFont *sf = FindResourceFile(filename,flags,openflags,NULL,NULL);
+
+    if ( sf==NULL )
+	LogError( _("Couldn't find a font file named %s\n"), filename );
+    else if ( sf==(SplineFont *) (-1) ) {
+	LogError( _("%s is a mac resource file but contains no postscript or truetype fonts\n"), filename );
+	sf = NULL;
+    }
+return( sf );
+}
+#endif
+
 int LoadKerningDataFromMacFOND(SplineFont *sf, char *filename,EncMap *map) {
     if ( FindResourceFile(filename,ttf_onlykerns,0,sf,map)==NULL )
 return ( false );

@@ -896,6 +896,7 @@ return( old );
 return( str );
 }
 
+#ifndef LUA_FF_LIB
 static int IsSubSetOf(const char *substr,const char *fullstr ) {
     /* The mac string is often a subset of the unicode string. Certain */
     /*  characters can't be expressed in the mac encoding and are omitted */
@@ -922,6 +923,7 @@ return( true );
     }
 return( ch1=='\0' );
 }
+#endif
 
 static void TTFAddLangStr(FILE *ttf, struct ttfinfo *info, int id,
 	int strlen, int stroff,int plat,int spec,int language) {
@@ -974,6 +976,7 @@ return;
 	    cur->frommac[id/32] &= ~(1<<(id&0x1f));
     } else if ( plat==1 ) {
 	/* Mac string doesn't match mac unicode string */
+#ifndef LUA_FF_LIB
 	if ( !IsSubSetOf(str,cur->names[id]) )
 	    LogError( _("Warning: Mac and Unicode entries in the 'name' table differ for the\n %s string in the language %s\n Mac String: %s\nMac Unicode String: %s\n"),
 		    TTFNameIds(id),MSLangString(language),
@@ -981,8 +984,10 @@ return;
 	else
 	    LogError( _("Warning: Mac string is a subset of the Unicode string in the 'name' table\n for the %s string in the %s language.\n"),
 		    TTFNameIds(id),MSLangString(language));
+#endif
 	free(str);
     } else if ( plat==3 && (cur->frommac[id/32] & (1<<(id&0x1f))) ) {
+#ifndef LUA_FF_LIB
 	if ( !IsSubSetOf(cur->names[id],str) )
 	    LogError( _("Warning: Mac and Windows entries in the 'name' table differ for the\n %s string in the language %s\n Mac String: %s\nWindows String: %s\n"),
 		    TTFNameIds(id),MSLangString(language),
@@ -990,6 +995,7 @@ return;
 	else
 	    LogError( _("Warning: Mac string is a subset of the Windows string in the 'name' table\n for the %s string in the %s language.\n"),
 		    TTFNameIds(id),MSLangString(language));
+#endif
 	free(cur->names[id]);
 	cur->names[id] = str;
 	cur->frommac[id/32] &= ~(1<<(id&0x1f));
@@ -4770,6 +4776,25 @@ return( 0 );
 return( true );
 }
 
+
+#ifdef LUA_FF_LIB
+static int readttfinfo(FILE *ttf, struct ttfinfo *info, char *filename) {
+
+    if ( !readttfheader(ttf,info,filename,&info->chosenname)) {
+return( 0 );
+    }
+    readttfpreglyph(ttf,info);
+    if ( info->os2_start!=0 )
+	readttfos2metrics(ttf,info);
+    if ( info->postscript_start!=0 ) {
+      fseek(ttf,info->postscript_start,SEEK_SET);
+      (void)getlong(ttf);
+      info->italicAngle = getfixed(ttf);
+    }
+return( true );
+}
+#endif
+
 static void SymbolFixup(struct ttfinfo *info) {
     /* convert a two-byte symbol encoding (one using PUA) into expected */
     /*  one-byte encoding. */
@@ -5314,6 +5339,98 @@ return( NULL );
 return( sf );
 }
 
+#ifdef LUA_FF_LIB
+
+/* I am not sure what happens to the ttinfo struct's members. 
+   perhaps some need free()-ing
+*/
+
+static SplineFont *SFFillFromTTFInfo(struct ttfinfo *info) {
+    SplineFont *sf ;
+
+    sf = SplineFontEmpty();
+
+    sf->fontname = info->fontname;
+    sf->fullname = info->fullname;
+    sf->familyname = info->familyname;
+
+    if ( info->fd!=NULL ) {		/* Special hack for type42 fonts */
+	sf->fontname = copy(info->fd->fontname);
+	if ( info->fd->fontinfo!=NULL ) {
+	    sf->familyname = utf8_verify_copy(info->fd->fontinfo->familyname);
+	    sf->fullname = utf8_verify_copy(info->fd->fontinfo->fullname);
+	    sf->weight = utf8_verify_copy(info->fd->fontinfo->weight);
+	}
+    }
+    if ( sf->fontname==NULL )   sf->fontname   = EnforcePostScriptName(sf->fullname);
+    if ( sf->fontname==NULL )   sf->fontname   = EnforcePostScriptName(sf->familyname);
+    if ( sf->fontname==NULL )   sf->fontname   = EnforcePostScriptName("UntitledTTF");
+
+    if ( sf->fullname==NULL )   sf->fullname   = copy( sf->fontname );
+    if ( sf->familyname==NULL ) sf->familyname = copy( sf->fontname );
+    if ( sf->weight==NULL ) {
+      if ( info->weight != NULL )
+	sf->weight = info->weight;
+      else if ( info->pfminfo.pfmset )
+	sf->weight = copy( info->pfminfo.weight <= 100 ? "Thin" :
+			   info->pfminfo.weight <= 200 ? "Extra-Light" :
+			   info->pfminfo.weight <= 300 ? "Light" :
+			   info->pfminfo.weight <= 400 ? "Book" :
+			   info->pfminfo.weight <= 500 ? "Medium" :
+			   info->pfminfo.weight <= 600 ? "Demi" :
+			   info->pfminfo.weight <= 700 ? "Bold" :
+			   info->pfminfo.weight <= 800 ? "Heavy" :
+			   "Black" );
+      else
+	sf->weight = copy("");
+    } else
+	free( info->weight );
+    sf->version = info->version;
+    sf->italicangle = info->italicAngle;
+
+return( sf );
+}
+
+SplineFont *_SFReadTTFInfo(FILE *ttf, int flags,enum openflags openflags, char *filename,struct fontdict *fd) {
+    struct ttfinfo info;
+    int ret;
+
+    memset(&info,'\0',sizeof(struct ttfinfo));
+    info.onlystrikes = (flags&ttf_onlystrikes)?1:0;
+    info.onlyonestrike = (flags&ttf_onlyonestrike)?1:0;
+    info.use_typo_metrics = true;
+    info.fd = fd;
+    ret = readttfinfo(ttf,&info,filename);
+    if ( !ret )
+return( NULL );
+return( SFFillFromTTFInfo(&info));
+}
+
+
+SplineFont *SFReadTTFInfo(char *filename, int flags, enum openflags openflags) {
+    FILE *ttf;
+    SplineFont *sf;
+    char *temp=filename, *pt, *lparen;
+
+    pt = strrchr(filename,'/');
+    if ( pt==NULL ) pt = filename;
+    if ( (lparen=strchr(pt,'('))!=NULL && strchr(lparen,')')!=NULL ) {
+	temp = copy(filename);
+	pt = temp + (lparen-filename);
+	*pt = '\0';
+    }
+    ttf = fopen(temp,"rb");
+    if ( temp!=filename ) free(temp);
+    if ( ttf==NULL )
+return( NULL );
+
+    sf = _SFReadTTFInfo(ttf,flags,openflags,filename,NULL);
+    fclose(ttf);
+return( sf );
+}
+#endif
+
+
 SplineFont *_CFFParse(FILE *temp,int len, char *fontsetname) {
     struct ttfinfo info;
 
@@ -5340,6 +5457,35 @@ return( NULL );
     fclose(cff);
 return( sf );
 }
+
+#ifdef LUA_FF_LIB
+SplineFont *_CFFParseInfo(FILE *temp,int len, char *fontsetname) {
+    struct ttfinfo info;
+
+    memset(&info,'\0',sizeof(info));
+    info.cff_start = 0;
+    info.cff_length = len;
+    info.barecff = true;
+    if ( !readcffglyphs(temp,&info) )
+return( NULL );
+return( SFFillFromTTFInfo(&info));
+}
+
+SplineFont *CFFParseInfo(char *filename) {
+    FILE *cff = fopen(filename,"r");
+    SplineFont *sf;
+    long len;
+
+    if ( cff == NULL )
+return( NULL );
+    fseek(cff,0,SEEK_END);
+    len = ftell(cff);
+    fseek(cff,0,SEEK_SET);
+    sf = _CFFParseInfo(cff,len,NULL);
+    fclose(cff);
+return( sf );
+}
+#endif
 
 char **NamesReadCFF(char *filename) {
     FILE *cff = fopen(filename,"rb");

@@ -1888,7 +1888,7 @@ char *XUIDFromFD(int xuid[20]) {
 return( ret );
 }
 
-static void SplineFontMetaData(SplineFont *sf,struct fontdict *fd) {
+void SplineFontMetaData(SplineFont *sf,struct fontdict *fd) {
     int em;
 
     sf->fontname = utf8_verify_copy(fd->cidfontname?fd->cidfontname:fd->fontname);

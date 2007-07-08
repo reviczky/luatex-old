@@ -2699,6 +2699,30 @@ there can be holes in the sequence.
 
 \section{The \luatex{fontforge} library}
 
+\subsection{Getting quick information on a font}
+
+\startfunctioncall
+local info = fontforge.info("filename")
+\stopfunctioncall
+
+This function returns either \type{nil}, or a \type{table} containing six
+fairly interesting information items from the font file:
+
+\starttabulate[|lT|l|p|]
+\NC \bf key                      \NC \bf type \NC \bf explanation \NC\NR
+\NC fontname                     \NC string   \NC \NC\NR
+\NC fullname                     \NC string   \NC \NC\NR
+\NC familyname                   \NC string   \NC \NC\NR
+\NC weight                       \NC string   \NC \NC\NR
+\NC version                      \NC string   \NC \NC\NR
+\NC italicangle                  \NC float    \NC \NC\NR
+\stoptabulate
+
+Getting information through this function is (sometimes much) more
+efficient than loading the font properly, and is therefore handy when
+you want to create a dictionary of available fonts based on a
+directory contents.
+
 \subsection{Loading an \OPENTYPE\ or \TRUETYPE\ file}
 
 If you want to use an \OPENTYPE\ font, you have to get the metric
@@ -2706,11 +2730,11 @@ information from somewhere. Using the \type{fontforge} library, the
 basic way to get that information is thus:
 
 
-\startfunctioncall
+\starttyping
 local font = fontforge.open("filename")
 local metrics = fontforge.to_table(font)
 fontforge.close(font)
-\stopfunctioncall
+\stoptyping
 
 the \type{filename} font file is parsed and even partially interpreted
 by the \OPENTYPE|/|\TRUETYPE\ loading routines from \FONTFORGE. There
@@ -2779,21 +2803,15 @@ not yet finished):
 \NC cidmaster                    \NC array    \NC \NC\NR
 \NC commments                    \NC string   \NC \NC\NR
 \NC anchor_classes               \NC table    \NC \NC\NR
-%\NC orders                       \NC table    \NC \NC\NR
 \NC ttf_tables                   \NC table    \NC \NC\NR
-%NC ttf_tab_saved                \NC table    \NC \NC\NR
-%\NC script_lang                  \NC table    \NC \NC\NR
 \NC kerns                        \NC table    \NC \NC\NR
 \NC vkerns                       \NC table    \NC \NC\NR
 \NC texdata                      \NC table    \NC \NC\NR
-%\NC tt_cur                       \NC number   \NC \NC\NR
-%\NC gentags                      \NC table    \NC \NC\NR
 \NC lookups                       \NC table    \NC \NC\NR
 \NC gpos                          \NC table    \NC \NC\NR
 \NC gsub                          \NC table    \NC \NC\NR
 \NC chosenname                   \NC string   \NC \NC\NR
 \NC macstyle                     \NC number   \NC \NC\NR
-%\NC sli_cnt                      \NC number   \NC \NC\NR
 \NC fondname                     \NC string   \NC \NC\NR
 \NC design_size                  \NC number   \NC \NC\NR
 \NC fontstyle_id                 \NC number   \NC \NC\NR
@@ -2801,15 +2819,11 @@ not yet finished):
 \NC design_range_bottom          \NC number   \NC \NC\NR
 \NC design_range_top             \NC number   \NC \NC\NR
 \NC strokewidth                  \NC float    \NC \NC\NR
-%\NC mark_class_cnt               \NC number   \NC \NC\NR
 \NC mark_classes                 \NC array    \NC \NC\NR
 \NC mark_class_names             \NC array    \NC \NC\NR
 \NC creationtime                 \NC number   \NC \NC\NR
 \NC modificationtime             \NC number   \NC \NC\NR
 \NC os2_version                  \NC number   \NC \NC\NR
-%\NC gasp_version                 \NC number   \NC \NC\NR
-%\NC gasp_cnt                     \NC number   \NC \NC\NR
-%\NC gasp                         \NC table    \NC \NC\NR
 \stoptabulate
 
 \subsubsection{Glyph items}

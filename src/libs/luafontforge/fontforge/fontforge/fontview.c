@@ -10420,10 +10420,34 @@ FontView *FontViewCreate(SplineFont *sf) {
 return( fv );
 }
 
+#ifdef LUA_FF_LIB
+
+extern void SplineFontMetaData(SplineFont *sf,struct fontdict *fd) ;
+
+static SplineFont *SFReadPostscriptInfo(char *filename) {
+  FontDict *fd=NULL;
+  SplineFont *sf=NULL;
+  fd = ReadPSFont(filename);
+  if ( fd!=NULL ) {
+    if ( fd->sf!=NULL ) {
+      sf = fd->sf;
+    } else {
+      sf = SplineFontEmpty();
+      SplineFontMetaData(sf,fd);
+      if ( fd->wascff ) {
+	SplineFontFree(sf);
+	sf = fd->sf;
+      }
+    }
+  }
+  PSFontFree(fd);
+  return( sf );
+}
+#endif
+
 static SplineFont *SFReadPostscript(char *filename) {
     FontDict *fd=NULL;
     SplineFont *sf=NULL;
-
 # ifdef FONTFORGE_CONFIG_GDRAW
     gwwv_progress_change_stages(2);
     fd = ReadPSFont(filename);
@@ -10445,6 +10469,7 @@ static SplineFont *SFReadPostscript(char *filename) {
     }
 return( sf );
 }
+
 
 /* This does not check currently existing fontviews, and should only be used */
 /*  by LoadSplineFont (which does) and by RevertFile (which knows what it's doing) */
@@ -10756,6 +10781,85 @@ return( NULL );
     }
 return( sf );
 }
+
+#ifdef LUA_FF_LIB
+SplineFont *ReadSplineFontInfo(char *filename,enum openflags openflags) {
+    SplineFont *sf;
+    char *pt =NULL, *strippedname=filename, *paren=NULL, *fullname=filename;
+    FILE *foo;
+    int checked;
+
+    if ( filename==NULL )
+return( NULL );
+
+    pt = strrchr(filename,'/');
+    if ( pt==NULL ) pt = filename;
+    if ( (paren=strchr(pt,'('))!=NULL && strchr(paren,')')!=NULL ) {
+	strippedname = copy(filename);
+	strippedname[paren-filename] = '\0';
+    }
+
+    sf = NULL;
+    foo = fopen(strippedname,"rb");
+    checked = false;
+    if ( foo!=NULL ) {
+	/* Try to guess the file type from the first few characters... */
+	int ch1 = getc(foo);
+	int ch2 = getc(foo);
+	int ch3 = getc(foo);
+	int ch4 = getc(foo);
+	fclose(foo);
+	if (( ch1==0 && ch2==1 && ch3==0 && ch4==0 ) ||
+		(ch1=='O' && ch2=='T' && ch3=='T' && ch4=='O') ||
+		(ch1=='t' && ch2=='r' && ch3=='u' && ch4=='e') ||
+		(ch1=='t' && ch2=='t' && ch3=='c' && ch4=='f') ) {
+	    sf = SFReadTTFInfo(fullname,0,openflags);
+	    checked = 't';
+	} else if (( ch1=='%' && ch2=='!' ) ||
+		    ( ch1==0x80 && ch2=='\01' ) ) {	/* PFB header */
+	    sf = SFReadPostscriptInfo(fullname);
+	    checked = 'p';
+	} else if ( ch1==1 && ch2==0 && ch3==4 ) {
+	    sf = CFFParseInfo(fullname);
+	    checked = 'c';
+	} /* Too hard to figure out a valid mark for a mac resource file */
+    }
+
+    if ( sf!=NULL )
+	/* good */;
+    else if (( strmatch(fullname+strlen(fullname)-4, ".ttf")==0 ||
+		strmatch(fullname+strlen(strippedname)-4, ".ttc")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".gai")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".otf")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".otb")==0 ) && checked!='t') {
+	sf = SFReadTTFInfo(fullname,0,openflags);
+    } else if ( (strmatch(fullname+strlen(fullname)-4, ".pfa")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".pfb")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".pf3")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".cid")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".gsf")==0 ||
+		strmatch(fullname+strlen(fullname)-4, ".pt3")==0 ||
+		strmatch(fullname+strlen(fullname)-3, ".ps")==0 ) && checked!='p' ) {
+	sf = SFReadPostscriptInfo(fullname);
+    } else if ( strmatch(fullname+strlen(fullname)-4, ".cff")==0 && checked!='c' ) {
+	sf = CFFParseInfo(fullname);
+    } else {
+	sf = SFReadMacBinaryInfo(fullname,0,openflags);
+    }
+
+    if ( sf==NULL ) {
+      if ( !GFileExists(filename) )
+	gwwv_post_error(_("Couldn't open font"),_("The requested file, %.100s, does not exist"),GFileNameTail(filename));
+      else if ( !GFileReadable(filename) )
+	gwwv_post_error(_("Couldn't open font"),_("You do not have permission to read %.100s"),GFileNameTail(filename));
+      else
+	gwwv_post_error(_("Couldn't open font"),_("%.100s is not in a known format (or is so badly corrupted as to be unreadable)"),GFileNameTail(filename));
+    }
+    if ( fullname!=filename && fullname!=strippedname )
+	free(fullname);
+    return( sf );
+}
+#endif
 
 static SplineFont *AbsoluteNameCheck(char *filename) {
     char buffer[1025];
