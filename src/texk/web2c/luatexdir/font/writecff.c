@@ -2982,4 +2982,32 @@ void write_cff(cff_font *cffont, fd_entry *fd) {
 
 }
 
+/* not finished yet */
 
+void writet1c (fd_entry *fd) {
+  cff_font *cffont;
+  FILE *fp;
+  ff_entry *ff;
+  
+  ff = check_ff_exist(fd->fm->ff_name, 0);
+    
+  fp = xfopen (ff->ff_path, "rb");
+  cur_file_name = ff->ff_path;
+
+  if (!fp) {
+    fprintf(stderr,"Type1: Could not open Type1 font: %s", cur_file_name);
+    uexit(1);
+  }
+
+  /* this is the main point: it converts the Type1 source to CFF */
+  /*
+    cffont = t1_load_font(NULL, 0, fp);
+  */
+
+  if (!cffont) {
+    fprintf(stderr,"Could not load Type 1 font: %s", cur_file_name);
+    uexit(1);
+  }
+  fclose(fp);
+  write_cff(cffont,fd);
+}

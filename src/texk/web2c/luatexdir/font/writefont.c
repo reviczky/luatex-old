@@ -26,6 +26,10 @@ extern void writetype0 (fd_entry * fd) ;
 extern void writetype2 (fd_entry * fd) ;
 extern unsigned long cidtogid_obj;
 
+#ifdef DO_TYPE1C
+extern void writet1c(fd); /* in writecff.c */
+#endif
+
 void write_cid_fontdictionary(fo_entry * fo, internalfontnumber f);
 void create_cid_fontdictionary(fm_entry * fm, integer font_objnum, internalfontnumber f);
 
@@ -384,7 +388,11 @@ static void write_fontfile(fd_entry * fd)
         assert(0);
     } else {
       if (is_type1(fd->fm))
+#ifdef DO_TYPE1C
+        writet1c(fd);
+#else
         writet1(fd);
+#endif
       else if (is_truetype(fd->fm))
         writettf(fd);
       else if (is_opentype(fd->fm))
@@ -509,7 +517,11 @@ void write_fontdictionary(fo_entry * fo)
     pdf_puts("/Type /Font\n");
     pdf_puts("/Subtype /");
     if (is_type1(fo->fm))
+#ifdef DO_TYPE1C
+        pdf_printf("%s\n", "Type1C");
+#else
         pdf_printf("%s\n", "Type1");
+#endif
     else if (is_truetype(fo->fm))
         pdf_printf("%s\n", "TrueType");
     else if (is_opentype(fo->fm))
