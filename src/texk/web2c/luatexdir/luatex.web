@@ -18974,6 +18974,7 @@ var base_line: scaled; {the baseline coordinate for this box}
 c_wd,c_ht,c_dp: scaled;
   {the real width, height and depth of the character}
 w: scaled; { temporary value for directional width calculation }
+dir_nest: integer; { for tracking nested direction nodes }
 edge_v: scaled;
 edge_h: scaled;
 effective_horizontal: scaled;
@@ -37619,30 +37620,26 @@ viewpont) by that distance.
 
 @<(PDF) Output a reflection instruction if the direction has changed@>=
 begin
-wterm_ln('');
-wterm('found a dir switch (',p:1, '), dir_dir(p)=', dir_dir(p):1, 
-                         ' dir_level(p)=', dir_level(p):1, 
-                         ' cur_h=', cur_h:1, 
-                         ' dvi_direction=', dvi_direction:1, 
-                         ' dir_dvi_h(p)=', dir_dvi_h(p):1, '.' );
-if dir_dir(p)>=0 then
-  begin
+if dir_dir(p)>=0 then begin
   push_dir_node(p);
   if dir_opposite(dir_secondary[dir_dir(dir_ptr)])(dir_secondary[dvi_direction])
   then begin
 	@<(PDF) Calculate the needed width to the matching |enddir|, and store it in |w|, as
       well as in the enddir's |dir_dvi_h|@>;
-    pdf_dvicmd_right(w);
-    end
-  else begin 
-    pdf_dvicmd_left(dir_dvi_h(p));
+    case box_direction(dvi_direction) of
+    dir_TL_,dir_BL_: pdf_dvicmd_right(w);
+    dir_TR_,dir_BR_: pdf_dvicmd_left(w);
+    end;
   end;
   dvi_direction:=dir_dir(dir_ptr);
   end
 else begin
   pop_dir_node;
   dvi_direction:=dir_dir(dir_ptr);
-  pdf_dvicmd_right(dir_dvi_h(p));
+  case box_direction(dvi_direction) of
+    dir_TL_,dir_BL_: pdf_dvicmd_right(dir_dvi_h(p));
+    dir_TR_,dir_BR_: pdf_dvicmd_left(dir_dvi_h(p));
+  end;
   end
 end
 
@@ -37655,6 +37652,7 @@ begin
   { to me, it looks like the next is needed. but Aleph doesn't do that,
    so let us not do it either }
   {|w:=w-cur_g; cur_glue:=0;|}
+  dir_nest:=1;
   while q<>null do begin
 	q:=vlink(q);
     if is_char_node(q) then begin
@@ -37685,10 +37683,11 @@ begin
         end;
       math_node: w:=w+surround(q);
       whatsit_node: begin
-        if subtype(q)=dir_node then begin { CHECK: this could be too simplistic, not sure }
-          if dir_level(p)-1 = dir_level(q) then begin
+        if subtype(q)=dir_node then begin 
+          if dir_dir(q)>=0 then incr(dir_nest) else decr(dir_nest);
+          if dir_nest=0 then begin
             dir_dvi_h(q) := w;
-	        q:=null;
+	    q:=null;
             end;
           end 
         else if (subtype(q) = pdf_refxform_node) or 
