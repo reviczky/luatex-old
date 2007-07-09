@@ -300,7 +300,7 @@ get_cur_cs (lua_State *L) {
 #define str_start_macro(a) str_start[(a) - string_offset]
 
 char * 
-tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
+tokenlist_to_cstring ( int p , int inhibit_par, int *siz) {
   integer m, c  ;
   integer q;
   char *s;
@@ -411,7 +411,7 @@ tokenlist_to_cstring ( integer p , int inhibit_par, int *siz) {
 
 
 void
-tokenlist_to_lua(lua_State *L, halfword p) {
+tokenlist_to_lua(lua_State *L, int p) {
   int cmd,chr,cs;
   int v;
   int i = 1;
@@ -437,7 +437,7 @@ tokenlist_to_lua(lua_State *L, halfword p) {
 
 
 void
-tokenlist_to_luastring(lua_State *L, halfword p) {
+tokenlist_to_luastring(lua_State *L, int p) {
   int l;
   char *s;
   s = tokenlist_to_cstring(p,1,&l);
@@ -445,7 +445,7 @@ tokenlist_to_luastring(lua_State *L, halfword p) {
 }
 
 
-halfword
+int
 tokenlist_from_lua(lua_State *L) {
   char *s;
   int tok,i;

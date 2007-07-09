@@ -49,7 +49,7 @@ prepare_cmdline(lua_State * L, char **argv, int argc, int zero_offset)
     return;
 }
 
-extern const_string dump_name;
+extern string dump_name;
 extern const_string c_job_name;
 extern boolean srcspecialsoption;
 extern char *last_source_name;

@@ -2002,12 +2002,12 @@ luaopen_node (lua_State *L)
 }
 
 void 
-nodelist_to_lua (lua_State *L, halfword n) { 
+nodelist_to_lua (lua_State *L, int n) { 
   lua_pushnumber(L,n);
   lua_nodelib_push(L);
 }
 
-halfword
+int
 nodelist_from_lua (lua_State *L) { 
   halfword *n;
   if (lua_isnil(L,-1))

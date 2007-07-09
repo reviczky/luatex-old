@@ -284,7 +284,7 @@ static int test_eof (lua_State *L, FILE *f) {
   return (c != EOF);
 }
 
-
+#if 0
 static int read_line (lua_State *L, FILE *f) {
   luaL_Buffer b;
   luaL_buffinit(L, &b);
@@ -305,6 +305,7 @@ static int read_line (lua_State *L, FILE *f) {
     }
   }
 }
+#endif
 
 /* this new version does not care wether the file has 
    line endings using an 'alien' convention */

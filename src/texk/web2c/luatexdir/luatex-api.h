@@ -58,6 +58,17 @@ extern int luaopen_font (lua_State *L);
 extern int font_to_lua   (lua_State *L, int f) ;
 extern int font_from_lua (lua_State *L, int f) ; /* return is boolean */
 
+extern int   luaopen_token (lua_State *L);
+extern char *tokenlist_to_cstring (int p , int inhibit_par, int *siz);
+extern void  tokenlist_to_lua(lua_State *L, int p);
+extern void  tokenlist_to_luastring(lua_State *L, int p) ;
+extern int   tokenlist_from_lua(lua_State *L);
+
+extern void  lua_nodelib_push (lua_State *L) ;
+extern int   luaopen_node (lua_State *L);
+extern void  nodelist_to_lua (lua_State *L, int n) ;
+extern int   nodelist_from_lua (lua_State *L); 
+
 
 extern void dump_luac_registers (void);
 

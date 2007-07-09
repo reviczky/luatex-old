@@ -292,18 +292,6 @@ extern char * node_names[];
 extern char * whatsit_node_names[];
 extern halfword lua_node_new(int i, int j);
 
-/* from luatoken.c */
-
-extern void tokenlist_to_lua(lua_State *L, halfword p) ;
-extern void tokenlist_to_luastring(lua_State *L, halfword p) ;
-extern halfword tokenlist_from_lua(lua_State *L) ;
-
-/* from lnodelib.c */
-
-extern void nodelist_to_lua (lua_State *L, halfword n);
-extern halfword nodelist_from_lua (lua_State *L) ;
-extern void lua_nodelib_push (lua_State *L) ;
-
 #define zero_glue       0
 #define sfi_glue        zero_glue+glue_spec_size
 #define fil_glue        sfi_glue+glue_spec_size
