@@ -1,30 +1,6 @@
 % engine=luatex language=uk
 
-% FOR TACO:
-
-% example of nodes
-
-% function upcase(n) -- slow variant, ascii only
-%     while n do
-%         if n.id == node.id('glyph') then
-%             n.char = string.byte(string.downcase(string.char(n.char)))
-%         end
-%         n = n.next
-%     end
-% end
-
-% example of nodes with attributes
-
-% function upcase(n) -- slow variant, ascii only
-%     while n do
-%         if n.id == node.id('glyph') and node.has_attribute(n,10,1) then
-%             n.char = string.byte(string.downcase(string.char(n.char)))
-%         end
-%         n = n.next
-%     end
-% end
-
- % TODO: fix layout of function legend descriptions
+% TODO: fix layout of function legend descriptions
 
 \environment luatexref-env
 
@@ -32,7 +8,7 @@
  
 \setvariables
   [document]
-  [snapshot=2007-07-06]
+  [snapshot=2007-07-09]
 
 \starttext
 
@@ -44,11 +20,11 @@
 
 \chapter{Introduction}
 
-\startframedtext[framecolor=red,foregroundcolor=red,width=\hsize]
+\startframedtext[framecolor=red,foregroundcolor=red,width=\hsize,font=\tfa]
 
 This book will eventually become the reference manual of \LUATEX. At
 the moment, it simply reports the behaviour of the executable
-matching the snapshot date in the title page.
+matching the snapshot or beta release date in the title page.
 
 \blank
 
@@ -65,7 +41,9 @@ need arises, anything can (and will) be changed without prior notice.
 
 \blank
 
-\bf If you are unhappy with this situation, wait for the public betas.
+\bf If you are not willing to deal with this situation, you should wait 
+for the stable version. Are current estimate expects that to become
+available sometime in the summer of~2008.
 
 \stopframedtext
 
@@ -81,7 +59,7 @@ need arises, anything can (and will) be changed without prior notice.
 \item \LUA\ 5.1.2
 \item Dedicated \LUA\ libraries
 \item Various \TEX\ extensions
-\item The (\OPENTYPE) Font Parser from \FONTFORGE\ 2007.06.07
+\item Parts of the Font Parser from \FONTFORGE\ 2007.06.07
 \item Compiled source code to glue it all together
 \stopitemize
 
@@ -97,7 +75,8 @@ Text input and output is now considered to be \UNICODE\ text, so
 characters can use the full range of \UNICODE\ ($2^{20}+2^{16} =
 \hbox{10FFFF} = 1114111$).
 
-For now, it only makes sense to use values above the base plane (FFFF) for \tex{mathcode} and \tex{catcode} assignments, since the
+For now, it only makes sense to use values above the base plane (\type{"0xFFFF})
+for \tex{mathcode} and \tex{catcode} assignments, since the
 hyphenation patterns are still limited to at the most 16-bit values,
 so the other commands will not know what to do with those high values.
 
@@ -2873,19 +2852,21 @@ the value of each key inside that a linear array of small hashes:
                                                   \type {multiple}, \type {ligature}, \type {lcaret},  \type {kerning}, \type {vkerning}, \type {anchors},
                                                   \type {contextpos}, \type {contextsub}, \type {chainpos}, \type {chainsub},
                                                   \type {reversesub}, \type {max}, \type {kernback}, \type {vkernback} \NC\NR
+\NC specification                 \NC table   \NC extra data \NC\NR
 \stoptabulate
 
-For the first seven values of \type{type}, there can be additional sub|-|information:
+For the first seven values of \type{type}, there can be additional
+sub|-|information, stored in the sub-table \type{specification}:
 
 \starttabulate[|lT|l|l|p|]
-\NC \bf value    \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
-\NC position     \NC pos                \NC table    \NC \type {vr} table\NC\NR
-\NC pair         \NC pair               \NC table    \NC one string: \type {paired}, and a \type {vr} (sub)table\NC\NR
-\NC substitution \NC subs               \NC table    \NC one string: \type {variant}\NC\NR
-\NC alternate    \NC alt                \NC table    \NC one string: \type {components}\NC\NR
-\NC multiple     \NC mult               \NC table    \NC one string: \type {components}\NC\NR
-\NC ligature     \NC lig                \NC table    \NC two strings: \type {components}, \type {char}\NC\NR
-\NC lcaret       \NC lcaret             \NC array    \NC linear array of numbers\NC\NR
+\NC \bf value    \NC \bf type \NC \bf explanation \NC\NR
+\NC position     \NC table    \NC \type {vr} table\NC\NR
+\NC pair         \NC table    \NC one string: \type {paired}, and a \type {vr} (sub)table\NC\NR
+\NC substitution \NC table    \NC one string: \type {variant}\NC\NR
+\NC alternate    \NC table    \NC one string: \type {components}\NC\NR
+\NC multiple     \NC table    \NC one string: \type {components}\NC\NR
+\NC ligature     \NC table    \NC two strings: \type {components}, \type {char}\NC\NR
+\NC lcaret       \NC array    \NC linear array of numbers\NC\NR
 \stoptabulate
 
 The \type{vr} table contains for number|-|valued fields: \type{xoff},
@@ -3218,11 +3199,7 @@ type:
 \starttabulate[|lT|l|p|]
 \NC \bf key            \NC \bf type \NC \bf explanation \NC\NR
 \NC type                  \NC string   \NC One of  "gsub_start", "gsub_single", "gsub_multiple", "gsub_alternate", 
-  "gsub_ligature", "gsub_context",  "gsub_context_chain",
-  "gsub_reversecchain" %,  % "morx_indic", "morx_context", "morx_insert",
-%  "gpos_start", "gpos_single", "gpos_pair", "gpos_cursive", 
-%  "gpos_mark2base", "gpos_mark2ligature", "gpos_mark2mark",  "gpos_context", 
-%  "gpos_contextchain" % ,  "kern_statemachine" 
+  "gsub_ligature", "gsub_context",  "gsub_contextchain", "gsub_reversecontextchain" 
 \NC\NR
 \stoptabulate
 
@@ -4658,18 +4635,14 @@ The bugs below are going to be fixed eventually.
 
 The top ones will be fixed soon, but in the later items either the
 actual problem is hard to find, or the code that causes the bug is
-going to be replaced by a new subsystem soon anyway.
+going to be replaced by a new subsystem soon anyway, or it may not
+be worth the hassle and the limitations will eventually be documented.
 
 \startitemize
 
-\item Not all of \ALEPH's direction commands are handled properly in
-\PDF\ mode yet: this affects all the top|-|bottom and bottom|-|top writing
-directions. And also, the \tex{textdir} command is broken.
-
-\item There is a problem with jobnames on 64-bit architectures: 
-unless \type{--jobname} is given explicitly on the command line, the
-\tex{jobname} will be empt, resulting in output files without names
-(only extensions).
+\item Seaching of directly-generated PDF documents that use wide fonts 
+is impossible, due to explicit referencing (by \LUATEX) of font glyph
+indices without a ToUnicode map being included.
 
 \item Hyphenation can only deal with the Base Multilingual Plane (BMP)
 
@@ -4686,7 +4659,13 @@ literal node instead of flushing immediately.
 
 \item At the moment, only characters in plane~0 and plane~1 can be
 assigned catcode~13 (i.e. turned into active characters). This is a
-temporary measure to reduce the memory requirements of \LUATEX.
+temporary measure to reduce the memory requirements of \LUATEX.  In
+general, \LUATEX's memory footprint is a bit larger that we would
+like (with \type{plain.fmt} preloaded it needs about 55MB).
+
+\item Not all of \ALEPH's direction commands are handled properly in
+\PDF\ mode, and especially the vertical scripts support is missing
+almost completely (only TRT and TLT are actually tested).
 
 \item Letter spacing (\tex{letterspacefont}) is currently non|-|functional
 due to massive changes in the virtual font handling. This
@@ -4698,8 +4677,9 @@ because it is straightforward to set up letterspacing using the \LUA\
 
 \chapter{TODO}
 
-On top of the \quote{normal} extensions that are planned, there are some
-more specific small feature requests .
+On top of the \quote{normal} extensions that are planned, there are
+some more specific small feature requests. Whether these will all be
+included is not certain yet, (and new requests are welcome).
 
 \startitemize
 
@@ -4722,14 +4702,17 @@ the natural width of the included items into account.
 
 \item Make the number of the output box configurable.
 
-\item Complete the attributes in math and switch the nodes to a double|-|linked list.
+\item Complete the attributes in math and switch all the nodes to a double|-|linked list.
 
-\item Implement csname lookups for \type{tex.box} access.
+\item Finish the interface from Lua to \TeX's internals, specially the hash and 
+equivalence table (a small subpart is implementing \type{\csname}
+lookups for \type{tex.box} access).
+
 
 \item Integrate the various \PDFTEX\ extended font codes for hz en protruding into
 the font table
 
-\item Type1C support.
+\item Use of Type1C for embedded PostScript font subsets.
 
 \item Support font reencoding of 8-bit fonts via char index.
 \stopitemize
