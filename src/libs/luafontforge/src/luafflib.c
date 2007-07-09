@@ -30,8 +30,8 @@ char *possub_type_enum[] = {
 
 char *otf_lookup_type_enum[] = { 
   "gsub_start", "gsub_single", "gsub_multiple", "gsub_alternate", 
-  "gsub_ligature", "gsub_context",  "gsub_context_chain", NULL, 
-  "gsub_reversechain", NULL, NULL, NULL,  NULL, NULL, NULL, NULL, /*0x00F */
+  "gsub_ligature", "gsub_context",  "gsub_contextchain", NULL, 
+  "gsub_reversecontextchain", NULL, NULL, NULL,  NULL, NULL, NULL, NULL, /*0x00F */
   eight_nulls(),eight_nulls(),
   eight_nulls(),eight_nulls(),
   eight_nulls(),eight_nulls(),
@@ -406,73 +406,42 @@ do_handle_generic_pst (lua_State *L, struct generic_pst *pst) {
   /*dump_intfield(L,"macfeature",        pst->macfeature); */
 
   lua_checkstack(L,4);
+  lua_pushstring(L,"specification");
+  lua_createtable(L,0,4);
   if (pst->type == pst_position) {
-    lua_pushstring(L,"pos");
-    lua_createtable(L,0,4);
     handle_vr (L, &pst->u.pos);
-    lua_rawset(L,-3);
-
   } else if (pst->type == pst_pair) {
-
-	lua_pushstring(L,"pair");
-    lua_createtable(L,0,2);
     dump_stringfield(L,"paired",pst->u.pair.paired);
     if (pst->u.pair.vr != NULL) {
-	  lua_pushstring(L,"vr");
-	  lua_createtable(L,2,0);
-
+      lua_pushstring(L,"vr");
+      lua_createtable(L,2,0);
       lua_createtable(L,0,4);
       handle_vr (L, pst->u.pair.vr);
       lua_rawseti(L,-2,1);
-
       lua_createtable(L,0,4);
       handle_vr (L, pst->u.pair.vr+1);
       lua_rawseti(L,-2,2);
-
       lua_rawset(L,-3);
     }
-    lua_rawset(L,-3);
-
   } else if (pst->type == pst_substitution) {
-
-	lua_pushstring(L,"subs");
-    lua_newtable(L);
     dump_stringfield(L,"variant",pst->u.subs.variant);
-    lua_rawset(L,-3);
-
   } else if (pst->type == pst_alternate) {
-
-	lua_pushstring(L,"alt");
-    lua_newtable(L);
     dump_stringfield(L,"components",pst->u.mult.components);
-    lua_rawset(L,-3);
-
   } else if (pst->type == pst_multiple) {
-
-	lua_pushstring(L,"mult");
-    lua_newtable(L);
     dump_stringfield(L,"components",pst->u.alt.components);
-    lua_rawset(L,-3);
-
   } else if (pst->type == pst_ligature) {
-    
-    lua_newtable(L);
     dump_stringfield(L,"components",pst->u.lig.components);
     if (pst->u.lig.lig != NULL) {
       dump_char_ref(L,pst->u.lig.lig);
     }
-    lua_setfield(L,-2,"lig");
-
   } else if (pst->type == pst_lcaret) {
-
-    lua_newtable(L);
     for (k=0;k<pst->u.lcaret.cnt;k++) {
       lua_pushnumber(L,(k+1));
       lua_pushnumber(L,pst->u.lcaret.carets[k]);
       lua_rawset(L,-3);
     }
-    lua_setfield(L,-2,"lcaret");
   }
+  lua_rawset(L,-3);
 }
 
 
