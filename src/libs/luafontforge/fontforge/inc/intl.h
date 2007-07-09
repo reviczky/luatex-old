@@ -27,18 +27,18 @@
 #ifndef _INTL_H
 #define _INTL_H
 
-#undef HAVE_LIBINTL_H
-
 #if !defined( HAVE_LIBINTL_H )
 # define _(str)			(str)
 # define P_(str1,str_non1,n)	((n)==1?str1:str_non1)
 # define U_(str)		(str)
 
+#ifndef __sun__
 # define bindtextdomain(domain,dir)
 # define bind_textdomain_codeset(domain,enc)
 # define textdomain(domain)
 
 # define dgettext(domain,str)	(str)
+#endif
 
 #elif defined( NODYNAMIC ) || defined ( _STATIC_LIBINTL )
 
