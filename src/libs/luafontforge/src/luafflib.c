@@ -31,7 +31,7 @@ char *possub_type_enum[] = {
 char *otf_lookup_type_enum[] = { 
   "gsub_start", "gsub_single", "gsub_multiple", "gsub_alternate", 
   "gsub_ligature", "gsub_context",  "gsub_context_chain", NULL, 
-  "gsub_reversecchain", NULL, NULL, NULL,  NULL, NULL, NULL, NULL, /*0x00F */
+  "gsub_reversechain", NULL, NULL, NULL,  NULL, NULL, NULL, NULL, /*0x00F */
   eight_nulls(),eight_nulls(),
   eight_nulls(),eight_nulls(),
   eight_nulls(),eight_nulls(),
