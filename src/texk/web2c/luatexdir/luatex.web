@@ -37642,14 +37642,7 @@ if dir_dir(p)>=0 then
 else begin
   pop_dir_node;
   dvi_direction:=dir_dir(dir_ptr);
-  if dir_opposite(dir_secondary[dir_dir(dir_ptr)])(dir_secondary[dvi_direction])
-  then begin
-	@<(PDF) Calculate the needed width to the matching |enddir|, and store it in |w|, as
-      well as in the enddir's |dir_dvi_h|@>;
-    end
-  else begin
-    pdf_dvicmd_right(dir_dvi_h(p));
-    end
+  pdf_dvicmd_right(dir_dvi_h(p));
   end
 end
 
