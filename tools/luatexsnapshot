@@ -1,0 +1,11 @@
+#!/bin/sh
+a=$1
+cd /opt/tex/luatex
+ln -s trunk luatex-snapshot-$a
+find trunk -name \*~ -exec rm \{\} \;
+tar cvj --exclude={.svn,build,build-windows,linux,windows} -f luatex-snapshot-$a.tar.bz2 luatex-snapshot-$a/*
+zip -j luatex-snapshot-$a-win32.zip trunk/windows/texk/web2c/luatex.exe
+cd trunk/linux/texk/web2c
+tar cjvf ../../../../luatex-snapshot-$a-linux-i386.tar.bz2 luatex
+cd ../../../..
+rm -f luatex-snapshot-$a
