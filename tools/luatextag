@@ -1,0 +1,19 @@
+#!/bin/sh
+a=$1
+shift
+cd /opt/tex/luatex/tags
+if  test -d $a ; then
+  find $a -name \*~ -exec rm \{\} \;
+  rm -rf $a/build $a/build-windows $a/linux $a/windows
+  ln -s $a luatex-$a
+  tar cvj --exclude=.svn -f ../../luatex-$a.tar.bz2 luatex-$a/*
+  cd luatex-$a
+  ./build.sh.linux "$@"
+  ./build.sh.cross "$@"
+  zip -j ../../../luatex-$a-win32.zip windows/texk/web2c/luatex.exe
+  cd linux/texk/web2c
+  tar cjvf ../../../../../../luatex-$a-linux-i386.tar.bz2 luatex
+  cd ../../../..
+  rm -rf $a/build $a/build-windows $a/linux $a/windows
+  rm luatex-$a
+fi
