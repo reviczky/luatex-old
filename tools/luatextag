@@ -10,9 +10,9 @@ if  test -d $a ; then
   cd luatex-$a
   ./build.sh.linux "$@"
   ./build.sh.cross "$@"
-  zip -j ../../../luatex-$a-win32.zip windows/texk/web2c/luatex.exe
+  zip -j ../../../luatex-$a-win32-mingw.zip windows/texk/web2c/luatex.exe
   cd linux/texk/web2c
-  tar cjvf ../../../../../../luatex-$a-linux-i386.tar.bz2 luatex
+  tar cjvf ../../../../../../luatex-$a-linux2.6-i386.tar.bz2 luatex
   cd ../../../..
   rm -rf $a/build $a/build-windows $a/linux $a/windows
   rm luatex-$a
