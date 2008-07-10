@@ -1,29 +1,9 @@
-/* textoken.c
-   
-   Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
-
-   This file is part of LuaTeX.
-
-   LuaTeX is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your
-   option) any later version.
-
-   LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-   License for more details.
-
-   You should have received a copy of the GNU General Public License along
-   with LuaTeX; if not, see <http://www.gnu.org/licenses/>. */
+/* $Id$ */
 
 #include "luatex-api.h"
 #include <ptexlib.h>
 
 #include "tokens.h"
-
-static const char _svn_version[] =
-    "$Id$ $URL$";
 
 /* Integer parameters and other command-related defines. This needs it's own header file! */
 
@@ -73,11 +53,11 @@ static const char _svn_version[] =
 
 extern void insert_vj_template(void);
 
-#define do_get_cat_code(a) do {                                         \
-    if (local_catcode_table)                                            \
-      a=get_cat_code(line_catcode_table,cur_chr);                       \
-    else                                                                \
-      a=get_cat_code(cat_code_table,cur_chr);                           \
+#define do_get_cat_code(a) do {						\
+    if (local_catcode_table)						\
+      a=get_cat_code(line_catcode_table,cur_chr);			\
+    else								\
+      a=get_cat_code(cat_code_table,cur_chr);				\
   } while (0)
 
 
@@ -99,8 +79,7 @@ static boolean process_sup_mark(void);  /* below */
 static int scan_control_sequence(void); /* below */
 
 typedef enum { next_line_ok, next_line_return,
-    next_line_restart
-} next_line_retval;
+        next_line_restart } next_line_retval;
 
 static next_line_retval next_line(void);        /* below */
 
@@ -152,66 +131,6 @@ static integer qbuffer_to_unichar(integer * k)
     return (val);
 }
 
-/* This is a very basic helper */
-
-char *u2s(unsigned unic)
-{
-    char *buf = xmalloc(5);
-    char *pt = buf;
-	if ( unic<0x80 )
-	    *pt++ = unic;
-	else if ( unic<0x800 ) {
-	    *pt++ = 0xc0 | (unic>>6);
-	    *pt++ = 0x80 | (unic&0x3f);
-	} else if ( unic >= 0x110000 ) {
-        *pt++ = unic - 0x110000;
-	} else if ( unic < 0x10000 ) {
-	    *pt++ = 0xe0 | (unic>>12);
-	    *pt++ = 0x80 | ((unic>>6)&0x3f);
-	    *pt++ = 0x80 | (unic&0x3f);
-	} else {
-        int u,z,y,x;
-	    unsigned val = unic-0x10000;
-	    u = ((val&0xf0000)>>16)+1;
-        z = (val&0x0f000)>>12;
-        y = (val&0x00fc0)>>6;
-        x = val&0x0003f;
-	    *pt++ = 0xf0 | (u>>2);
-	    *pt++ = 0x80 | ((u&3)<<4) | z;
-	    *pt++ = 0x80 | y;
-	    *pt++ = 0x80 | x;
-	}
-    *pt = '\0';
-    return buf;
-}
-
-/* We can not return |undefined_control_sequence| under some conditions
- * (inside |shift_case|, for example). This needs thinking.
- */
-
-halfword active_to_cs (int curchr, int force) 
-{
-    int nncs = no_new_control_sequence;
-    str_number activetext;
-    halfword curcs;
-    char *a, *b;
-    char *utfbytes = xmalloc(10);
-    a = u2s (0xFFFF);
-    b = u2s (curchr);
-    utfbytes = strcpy(utfbytes,a);
-    utfbytes = strcat(utfbytes,b);
-    activetext = maketexstring(utfbytes);
-    if (force) 
-      no_new_control_sequence = false;
-    curcs = string_lookup(activetext);
-    no_new_control_sequence = nncs;
-    flush_str(activetext);
-    free (a); 
-    free (b);
-    free (utfbytes);
-    return curcs;
-}
-
 static boolean get_next_file(void)
 {
   SWITCH:
@@ -250,7 +169,7 @@ static boolean get_next_file(void)
         case mid_line + active_char:
         case new_line + active_char:
         case skip_blanks + active_char:        /* @<Process an active-character  */
-          cur_cs = active_to_cs(cur_chr, false);
+            cur_cs = cur_chr + active_base;
             cur_cmd = eq_type(cur_cs);
             cur_chr = equiv(cur_cs);
             state = mid_line;
@@ -363,30 +282,30 @@ static boolean get_next_file(void)
 
 #define is_hex(a) ((a>='0'&&a<='9')||(a>='a'&&a<='f'))
 
-#define add_nybble(a)   do {                                            \
-    if (a<='9') cur_chr=(cur_chr<<4)+a-'0';                             \
-    else        cur_chr=(cur_chr<<4)+a-'a'+10;                          \
+#define add_nybble(a)	do {						\
+    if (a<='9') cur_chr=(cur_chr<<4)+a-'0';				\
+    else        cur_chr=(cur_chr<<4)+a-'a'+10;				\
   } while (0)
 
-#define hex_to_cur_chr do {                                             \
-    if (c<='9')  cur_chr=c-'0';                                         \
-    else         cur_chr=c-'a'+10;                                      \
-    add_nybble(cc);                                                     \
+#define hex_to_cur_chr do {						\
+    if (c<='9')  cur_chr=c-'0';						\
+    else         cur_chr=c-'a'+10;					\
+    add_nybble(cc);							\
   } while (0)
 
-#define four_hex_to_cur_chr do {                                        \
-    hex_to_cur_chr;                                                     \
-    add_nybble(ccc); add_nybble(cccc);                                  \
+#define four_hex_to_cur_chr do {					\
+    hex_to_cur_chr;							\
+    add_nybble(ccc); add_nybble(cccc);					\
   } while (0)
 
-#define five_hex_to_cur_chr  do {                                       \
-    four_hex_to_cur_chr;                                                \
-    add_nybble(ccccc);                                                  \
+#define five_hex_to_cur_chr  do {					\
+    four_hex_to_cur_chr;						\
+    add_nybble(ccccc);							\
   } while (0)
 
-#define six_hex_to_cur_chr do {                                         \
-    five_hex_to_cur_chr;                                                \
-    add_nybble(cccccc);                                                 \
+#define six_hex_to_cur_chr do {						\
+    five_hex_to_cur_chr;						\
+    add_nybble(cccccc);							\
   } while (0)
 
 

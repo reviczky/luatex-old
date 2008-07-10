@@ -1,28 +1,8 @@
-/* postlinebreak.c
-   
-   Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
-
-   This file is part of LuaTeX.
-
-   LuaTeX is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your
-   option) any later version.
-
-   LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-   License for more details.
-
-   You should have received a copy of the GNU General Public License along
-   with LuaTeX; if not, see <http://www.gnu.org/licenses/>. */
+/* $Id$ */
 
 #include "luatex-api.h"
 #include <ptexlib.h>
 #include "nodes.h"
-
-static const char _svn_version[] =
-    "$Id$ $URL$";
 
 /* So far we have gotten a little way into the |line_break| routine, having
 covered its important |try_break| subroutine. Now let's consider the
@@ -75,7 +55,7 @@ and begin direction instructions at the beginnings of lines.
 
 #define next_break prev_break   /*new name for |prev_break| after links are reversed */
 
-#define append_list(a,b)                                                \
+#define append_list(a,b)						\
   { vlink(cur_list.tail_field)=vlink((a)); cur_list.tail_field = b; }
 
 #define left_skip_code 7        /*glue at left of justified lines */
@@ -171,7 +151,7 @@ void ext_post_line_break(boolean d,
             halfword tmp = new_dir(dir_dir(q));
             halfword nxt = vlink(temp_head);
             couple_nodes(temp_head, tmp);
-            try_couple_nodes(tmp, nxt); /* \break\par */
+            couple_nodes(tmp, nxt);
         }
         if (dir_ptr != null) {
             flush_node_list(dir_ptr);
@@ -213,8 +193,8 @@ void ext_post_line_break(boolean d,
             /* |r| refers to the node after which the dir nodes should be closed */
         } else if (type(r) == disc_node) {
             halfword a = alink(r);
-            halfword v = vlink(r);
             assert(a != null);
+            halfword v = vlink(r);
             if (v == null) {    /* nested disc, let's unfold */
                 fprintf(stderr, "Nested disc [%d]<-[%d]->null\n", (int) a,
                         (int) r);
@@ -516,8 +496,9 @@ void ext_post_line_break(boolean d,
                 q = vlink(r);
                 if (q == cur_break(cur_p) || is_char_node(q))
                     break;
-                if (!((type(q) == whatsit_node)
-                      && (subtype(q) == local_par_node))) {
+                if (!
+                    ((type(q) == whatsit_node)
+                     && (subtype(q) == local_par_node))) {
                     if (non_discardable(q)
                         || (type(q) == kern_node && subtype(q) != explicit))
                         break;

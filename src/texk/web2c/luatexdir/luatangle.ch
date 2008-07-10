@@ -1,13 +1,12 @@
-% luatangle.ch: web2c changes to file tangle.ch
-% $Id$
+% otangle.ch: web2c changes to file tangle.ch
 % 
-% This file is part of LuaTeX.
+% This file is part of the Omega project, which
+% is based in the web2c distribution of TeX.
 %
 % Copyright (c) 1994--1998 John Plaice and Yannis Haralambous
-% Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
 % applies only to the changes to the original tangle.ch.
 %
-% luatangle.ch for C compilation with web2c.
+% otangle.ch for C compilation with web2c.
 %
 %  10/9/82 (HT) Original version
 %  11/29   (HT) New version, with conversion to lowercase handled properly

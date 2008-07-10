@@ -25,11 +25,7 @@
 #include <kpathsea/tilde.h>
 
 #ifdef HAVE_PWD_H
-#ifdef _WIN32
-#include <pwd_nt.h>
-#else
 #include <pwd.h>
-#endif
 #endif
 
 

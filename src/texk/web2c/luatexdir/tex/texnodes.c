@@ -1,28 +1,8 @@
-/* texnodes.c
-   
-   Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
-
-   This file is part of LuaTeX.
-
-   LuaTeX is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your
-   option) any later version.
-
-   LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-   License for more details.
-
-   You should have received a copy of the GNU General Public License along
-   with LuaTeX; if not, see <http://www.gnu.org/licenses/>. */
+/* $Id$ */
 
 #include "luatex-api.h"
 #include <ptexlib.h>
 #include "nodes.h"
-
-static const char _svn_version[] =
-    "$Id$ $URL$";
 
 #define MAX_CHAIN_SIZE 12
 
@@ -37,7 +17,7 @@ halfword rover = 0;
 
 halfword free_chain[MAX_CHAIN_SIZE] = { null };
 
-static int my_prealloc = 0;
+static int prealloc = 0;
 
 int fix_node_lists = 1;
 
@@ -153,7 +133,7 @@ char *node_fields_whatsit_pdf_start_thread[] =
 };
 char *node_fields_whatsit_pdf_end_thread[] = { "attr", NULL };
 char *node_fields_whatsit_pdf_save_pos[] = { "attr", NULL };
-char *node_fields_whatsit_late_lua[] = { "attr", "reg", "data", "name", NULL };
+char *node_fields_whatsit_late_lua[] = { "attr", "reg", "data", NULL };
 char *node_fields_whatsit_close_lua[] = { "attr", "reg", NULL };
 char *node_fields_whatsit_pdf_colorstack[] =
     { "attr", "stack", "cmd", "data", NULL };
@@ -276,7 +256,7 @@ node_info whatsit_node_data[] = {
     {fake_node, fake_node_size, NULL, fake_node_name},
     {fake_node, fake_node_size, NULL, fake_node_name},
     {fake_node, fake_node_size, NULL, fake_node_name},
-    {late_lua_node, late_lua_node_size, node_fields_whatsit_late_lua, "late_lua"},
+    {late_lua_node, write_node_size, node_fields_whatsit_late_lua, "late_lua"},
     {close_lua_node, write_node_size, node_fields_whatsit_close_lua,
      "close_lua"},
     {fake_node, fake_node_size, NULL, fake_node_name},
@@ -522,8 +502,6 @@ halfword copy_node(const halfword p)
             add_token_ref(pdf_setmatrix_data(p));
             break;
         case late_lua_node:
-            if (late_lua_name(p)>0) 
-              add_token_ref(late_lua_name(p));
             add_token_ref(late_lua_data(p));
             break;
         case pdf_annot_node:
@@ -553,9 +531,6 @@ halfword copy_node(const halfword p)
             case 't':
                 add_token_ref(user_node_value(p));
                 break;
-            case 's':
-              /* |add_string_ref(user_node_value(p));| */ /* if this was mpost .. */
-                break;
             case 'n':
                 s = copy_node_list(user_node_value(p));
                 user_node_value(r) = s;
@@ -572,7 +547,7 @@ halfword copy_node(const halfword p)
 
 int valid_node(halfword p)
 {
-    if (p > my_prealloc) {
+    if (p > prealloc) {
         if (p < var_mem_max) {
             if (varmem_sizes[p] > 0)
                 return 1;
@@ -585,10 +560,10 @@ int valid_node(halfword p)
 
 static void do_free_error(halfword p)
 {
-    halfword r;
     char errstr[255] = { 0 };
-    char *errhlp[] = {
-        "When I tried to free the node mentioned in the error message, it turned",
+    char *errhlp[] =
+        {
+"When I tried to free the node mentioned in the error message, it turned",
         "out it was not (or no longer) actually in use.",
         "Errors such as these are often caused by Lua node list alteration,",
         "but could also point to a bug in the executable. It should be safe to continue.",
@@ -599,7 +574,7 @@ static void do_free_error(halfword p)
     if (free_error_seen)
         return;
 
-    r = null;
+    halfword r = null;
     free_error_seen = 1;
     if (type(p) == glyph_node) {
         snprintf(errstr, 255,
@@ -610,13 +585,13 @@ static void do_free_error(halfword p)
                  get_node_name(type(p), subtype(p)), (int) p);
     }
     tex_error(errstr, errhlp);
-    for (r = my_prealloc + 1; r < var_mem_max; r++) {
+    for (r = prealloc + 1; r < var_mem_max; r++) {
         if (vlink(r) == p) {
             halfword s = r;
-            while (s > my_prealloc && varmem_sizes[s] == 0)
+            while (s > prealloc && varmem_sizes[s] == 0)
                 s--;
             if (s != null
-                && s != my_prealloc
+                && s != prealloc
                 && s != var_mem_max
                 && (r - s) < get_node_size(type(s), subtype(s))
                 && alink(s) != p) {
@@ -674,7 +649,7 @@ static void do_free_error(halfword p)
 
 int free_error(halfword p)
 {
-    assert(p > my_prealloc);
+    assert(p > prealloc);
     assert(p < var_mem_max);
     if (varmem_sizes[p] == 0) {
         do_free_error(p);
@@ -687,8 +662,9 @@ int free_error(halfword p)
 static void do_copy_error(halfword p)
 {
     char errstr[255] = { 0 };
-    char *errhlp[] = {
-        "When I tried to copy the node mentioned in the error message, it turned",
+    char *errhlp[] =
+        {
+"When I tried to copy the node mentioned in the error message, it turned",
         "out it was not (or no longer) actually in use.",
         "Errors such as these are often caused by Lua node list alteration,",
         "but could also point to a bug in the executable. It should be safe to continue.",
@@ -715,7 +691,7 @@ int copy_error(halfword p)
 {
     assert(p >= 0);
     assert(p < var_mem_max);
-    if (p > my_prealloc && varmem_sizes[p] == 0) {
+    if (p > prealloc && varmem_sizes[p] == 0) {
         do_copy_error(p);
         return 1;               /* copy free node */
     }
@@ -792,8 +768,6 @@ void flush_node(halfword p)
             delete_token_ref(pdf_setmatrix_data(p));
             break;
         case late_lua_node:
-            if (late_lua_name(p)>0) 
-              delete_token_ref(late_lua_name(p));
             delete_token_ref(late_lua_data(p));
             break;
         case pdf_annot_node:
@@ -833,11 +807,6 @@ void flush_node(halfword p)
                 break;
             case 'n':
                 flush_node_list(user_node_value(p));
-                break;
-            case 's':
-                /* |delete_string_ref(user_node_value(p));| */ /* if this was mpost .. */
-                break;
-            case 'd':
                 break;
             default:
                 tconfusion("extuser");
@@ -959,18 +928,18 @@ void flush_node_list(halfword pp)
 
 static int test_count = 1;
 
-#define dorangetest(a,b,c)  do {                                        \
+#define dorangetest(a,b,c)  do {					\
     if (!(b>=0 && b<c)) {                                               \
       fprintf(stdout,"For node p:=%d, 0<=%d<%d (l.%d,r.%d)\n",          \
               (int)a, (int)b, (int)c, __LINE__,test_count);             \
-      tconfusion("dorangetest");                                        \
+      tconfusion("dorangetest");					\
     } } while (0)
 
-#define dotest(a,b,c) do {                                              \
+#define dotest(a,b,c) do {						\
     if (b!=c) {                                                         \
       fprintf(stdout,"For node p:=%d, %d==%d (l.%d,r.%d)\n",            \
               (int)a, (int)b, (int)c, __LINE__,test_count);             \
-      tconfusion("dotest");                                             \
+      tconfusion("dotest");						\
     } } while (0)
 
 #define check_action_ref(a)     { dorangetest(p,a,var_mem_max); }
@@ -1015,8 +984,6 @@ void check_node(halfword p)
             check_token_ref(pdf_setmatrix_data(p));
             break;
         case late_lua_node:
-            if (late_lua_name(p)>0) 
-              check_token_ref(late_lua_name(p));
             check_token_ref(late_lua_data(p));
             break;
         case pdf_annot_node:
@@ -1048,9 +1015,6 @@ void check_node(halfword p)
                 break;
             case 'n':
                 dorangetest(p, user_node_value(p), var_mem_max);
-                break;
-            case 's':
-            case 'd':
                 break;
             default:
                 tconfusion("extuser");
@@ -1201,7 +1165,7 @@ void check_node_mem(void)
     int i;
     check_static_node_mem();
 
-    for (i = (my_prealloc + 1); i < var_mem_max; i++) {
+    for (i = (prealloc + 1); i < var_mem_max; i++) {
         if (varmem_sizes[i] > 0) {
             check_node(i);
         }
@@ -1249,7 +1213,7 @@ void print_free_chain(int c)
     halfword p = free_chain[c];
     fprintf(stdout, "\nfree chain[%d] =\n  ", c);
     while (p != null) {
-        fprintf(stdout, "%d,", (int) p);
+	  fprintf(stdout, "%d,", (int)p);
         p = vlink(p);
     }
     fprintf(stdout, "null;\n");
@@ -1258,7 +1222,7 @@ void print_free_chain(int c)
 void free_node(halfword p, integer s)
 {
 
-    if (p <= my_prealloc) {
+    if (p <= prealloc) {
         fprintf(stdout, "node %d (type %d) should not be freed!\n", (int) p,
                 type(p));
         return;
@@ -1302,7 +1266,7 @@ void free_node_chain(halfword q, integer s)
 
 void init_node_mem(halfword prealloced, halfword t)
 {
-    my_prealloc = prealloced;
+    prealloc = prealloced;
     assert(whatsit_node_data[user_defined_node].id == user_defined_node);
     assert(node_data[passive_node].id == passive_node);
 
@@ -1336,7 +1300,7 @@ void dump_node_mem(void)
 #endif
     dump_things(free_chain[0], MAX_CHAIN_SIZE);
     dump_int(var_used);
-    dump_int(my_prealloc);
+    dump_int(prealloc);
 }
 
 /* it makes sense to enlarge the varmem array immediately */
@@ -1357,7 +1321,7 @@ void undump_node_mem(void)
 #endif
     undump_things(free_chain[0], MAX_CHAIN_SIZE);
     undump_int(var_used);
-    undump_int(my_prealloc);
+    undump_int(prealloc);
     if (var_mem_max > x) {
         /* todo ? it is perhaps possible to merge the new node with an existing rover */
         vlink(x) = rover;
@@ -1486,7 +1450,7 @@ char *sprint_node_mem_usage(void)
     char msg[256];
     int node_counts[last_normal_node + last_whatsit_node + 2] = { 0 };
 
-    for (i = (var_mem_max - 1); i > my_prealloc; i--) {
+    for (i = (var_mem_max - 1); i > prealloc; i--) {
         if (varmem_sizes[i] > 0) {
             if (type(i) > last_normal_node + last_whatsit_node) {
                 node_counts[last_normal_node + last_whatsit_node + 1]++;
@@ -1521,7 +1485,7 @@ halfword list_node_mem_usage(void)
     halfword p = null, q = null;
     char *saved_varmem_sizes = xmallocarray(char, var_mem_max);
     memcpy(saved_varmem_sizes, varmem_sizes, var_mem_max);
-    for (i = my_prealloc + 1; i < (var_mem_max - 1); i++) {
+    for (i = prealloc + 1; i < (var_mem_max - 1); i++) {
         if (saved_varmem_sizes[i] > 0) {
             j = copy_node(i);
             if (p == null) {
@@ -1545,7 +1509,7 @@ void print_node_mem_stats(int num, int online)
     integer free_chain_counts[MAX_CHAIN_SIZE] = { 0 };
 
     snprintf(msg, 255, "node memory in use: %d words out of %d",
-             (int) (var_used + my_prealloc), (int) var_mem_max);
+             (int) (var_used + prealloc), (int) var_mem_max);
     tprint_nl(msg);
     tprint_nl("rapidly available: ");
     b = 0;
@@ -1715,7 +1679,7 @@ halfword do_set_attribute(halfword p, int i, int val)
         vlink(q) = p;
         return q;
     }
-    q=p;
+
     assert(vlink(p) != null);
     while (vlink(p) != null) {
         int t = attribute_id(vlink(p));

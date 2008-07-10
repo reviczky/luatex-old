@@ -1,28 +1,26 @@
-{  luatex.defines
-   
-   Copyright 1996-2006 Han The Thanh <thanh@pdftex.org>
-   Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
+{
+Copyright (c) 1996-2006 Han The Thanh, <thanh@pdftex.org>
 
-   This file is part of LuaTeX.
+This file is part of pdfTeX.
 
-   LuaTeX is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your
-   option) any later version.
+pdfTeX is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-   LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-   License for more details.
+pdfTeX is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with LuaTeX; if not, see <http://www.gnu.org/licenses/>. }
+You should have received a copy of the GNU General Public License
+along with pdfTeX; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-{ $Id$ }
+$Id $
+}
 
 { luatex.defines: additions for luaTeX }
-
-@define function simple_advance_width(); 
 
 @define function new_node();
 @define function new_glyph_node;
@@ -77,16 +75,10 @@
 @define procedure dump_language_data;
 @define procedure undump_language_data;
 @define function insert_discretionary();
-@define function compound_word_break();
 @define procedure set_pre_hyphen_char();
 @define procedure set_post_hyphen_char();
-@define procedure set_pre_exhyphen_char();
-@define procedure set_post_exhyphen_char();
 @define function get_pre_hyphen_char();
 @define function get_post_hyphen_char();
-@define function get_pre_exhyphen_char();
-@define function get_post_exhyphen_char();
-
 
 { macros from luatex.h }
 @define function pdf_char_marked();
@@ -234,6 +226,8 @@
 @define procedure dump_ocp_table ();
 @define procedure undump_ocp_table ();
 @define procedure run_external_ocp ();
+
+@define function loadpoolstrings();
 
 { 'texfont' library definitions }
 
@@ -453,9 +447,6 @@
 @define function getlly;
 @define function geturx;
 @define function getury;
-@define function pdf_do_page_divert();
-@define procedure pdf_do_page_undivert();
-@define function output_pages_tree;
 
 {functions from texpdf.c }
 
@@ -468,7 +459,6 @@
 {functions from textoken.c }
 
 @define function get_next;
-@define function active_to_cs();
 
 { functions from vfpacket.c }
 @define function new_vf_packet();
@@ -483,8 +473,6 @@
 @define function check_image_b();
 @define function check_image_c();
 @define function check_image_i();
-@define function epdf_xsize();
-@define function epdf_ysize();
 @define function epdf_orig_x();
 @define function epdf_orig_y();
 @define function image_pages();
@@ -506,6 +494,7 @@
 @define procedure out_image();
 
 { functions from limglib.c }
+@define procedure lua_setximage();
 
 { functions from writet3.c }
 @define function get_pk_char_width();

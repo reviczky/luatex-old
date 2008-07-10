@@ -1117,9 +1117,7 @@ image/pdftoepdf.o:  \
   \
   \
   \
-  \
-  ../../../../src/texk/web2c/luatexdir/image/../avlstuff.h \
-  ../../../../src/texk/web2c/luatexdir/image/../avl.h
+ 
 image/writeimg.o: ../../../../src/texk/web2c/luatexdir/image/writeimg.c \
   ../../../../src/texk/web2c/luatexdir/ptexlib.h ../luatexd.h \
   ../../../../src/texk/web2c/luatexdir/../texmfmp.h \
@@ -2256,33 +2254,7 @@ lua/limglib.o: ../../../../src/texk/web2c/luatexdir/lua/limglib.c \
   ../../../../src/texk/web2c/luatexdir/hyphen.h \
   ../../../../src/texk/web2c/luatexdir/ptexlib.h \
   ../../../../src/texk/web2c/luatexdir/nodes.h \
-  ../../../../src/texk/web2c/luatexdir/lua/../image/image.h \
-  ../../../../src/texk/web2c/luatexdir/lua/../luatex-api.h \
- 
-lua/mp.o: lua/mp.c ../../../../src/texk/web2c/luatexdir/../config.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/config.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-auto.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-std.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-unistd.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/systypes.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-memstr.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-errno.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-minmax.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-limits.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-proto.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/debug.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/types.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/lib.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/progname.h \
-  ../../web2c/c-auto.h \
-  ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-fopen.h mplib.h \
-  psout.h mpmp.h mppsout.h
-lua/psout.o: lua/psout.c ../../../../src/texk/web2c/luatexdir/avl.h \
-  mplib.h psout.h mpmp.h mppsout.h
-lua/lmplib.o: ../../../../src/texk/web2c/luatexdir/lua/lmplib.c \
-  \
-  \
-  mplib.h psout.h
+  ../../../../src/texk/web2c/luatexdir/lua/../image/image.h
 lang/hnjalloc.o: ../../../../src/texk/web2c/luatexdir/lang/hnjalloc.c
 lang/hyphen.o: ../../../../src/texk/web2c/luatexdir/lang/hyphen.c \
   ../../../../src/texk/web2c/luatexdir/lang/hnjalloc.h \
@@ -2803,10 +2775,6 @@ textcodes.o: ../../../../src/texk/web2c/luatexdir/textcodes.c \
   ../../../../src/texk/web2c/luatexdir/managed-sa.h
 utils.o: ../../../../src/texk/web2c/luatexdir/utils.c \
   \
-  \
-  \
-  \
-  \
   ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-proto.h \
   ../../../../src/texk/web2c/luatexdir/../../kpathsea/c-stat.h \
   ../../../../src/texk/web2c/luatexdir/../../kpathsea/systypes.h \
@@ -2846,10 +2814,15 @@ utils.o: ../../../../src/texk/web2c/luatexdir/utils.c \
   \
   \
   \
+  \
+  \
+  \
+  \
   ../../../../src/texk/web2c/luatexdir/font/texfont.h \
   ../../../../src/texk/web2c/luatexdir/../luatexdir/managed-sa.h \
   ../../../../src/texk/web2c/luatexdir/hyphen.h \
   ../../../../src/texk/web2c/luatexdir/nodes.h \
+  ../../../../src/texk/web2c/luatexdir/svnversion.h \
   \
  
 writezip.o: ../../../../src/texk/web2c/luatexdir/writezip.c \

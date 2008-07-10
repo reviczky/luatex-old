@@ -1,5 +1,4 @@
 # Makefile for luatex.
-# Public domain.
 # $Id$
 
 kpse_include ../make/common.mk

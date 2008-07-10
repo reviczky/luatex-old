@@ -29,7 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 /* Emulate getpwuid, getpwnam and others.  */
 
-#include <pwd_nt.h>
+#include <pwd.h>
 #include <kpathsea/config.h>
 #include <kpathsea/c-proto.h>
 #include <kpathsea/win32lib.h>

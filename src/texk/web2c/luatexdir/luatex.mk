@@ -1,10 +1,6 @@
 # Makefile fragment for pdfeTeX and web2c. --infovore@xs4all.nl. Public domain.
 # This fragment contains the parts of the makefile that are most likely to
 # differ between releases of pdfeTeX.
-# $Id$
-
-# This is temporary
-makecpool=$(native)/$(luatexdir)/makecpool
 
 # We build luatex
 luatex = @LTEX@ luatex
@@ -45,7 +41,7 @@ luatex_o = luatexini.o luatex0.o luatex1.o luatex2.o luatex3.o luatexextra.o loa
 
 # Making luatex
 luatex: luatexd.h $(luatex_o) $(luatexextra_o) $(luatexlibsdep)
-	@CXXHACKLINK@ $(luatex_o) $(luatexextra_o) $(luatexlibs) $(socketlibs) $(SOCKETHACK) @CXXHACKLDLIBS@ @CXXLDEXTRA@
+	@CXXHACKLINK@ $(luatex_o) $(luatexextra_o) $(luatexlibs) $(socketlibs) @CXXHACKLDLIBS@ @CXXLDEXTRA@
 
 # C file dependencies.
 $(luatex_c) luatexcoerce.h luatexd.h: luatex.p $(web2c_texmf) $(srcdir)/$(luatexdir)/luatex.defines $(srcdir)/$(luatexdir)/luatex.h
@@ -57,8 +53,8 @@ $(luatexdir)/luatexextra.h: $(luatexdir)/luatexextra.in $(luatexdir)/luatex.vers
 	test -d $(luatexdir) || mkdir $(luatexdir)
 	sed -e s/LUATEX-VERSION/`cat $(luatexdir)/luatex.version`/ \
 	  $(srcdir)/$(luatexdir)/luatexextra.in >$@
-loadpool.c: luatex.pool $(makecpool)
-	$(makecpool) luatex.pool luatexdir/ptexlib.h >$@ || rm -f $@
+loadpool.c: luatex.pool $(luatexdir)/makecpool
+	$(native)/$(luatexdir)/makecpool luatex.pool luatexdir/ptexlib.h > loadpool.c
 
 # luatangle we need a private version of tangle
 
@@ -95,7 +91,7 @@ luatex.p luatex.pool: luatangle $(srcdir)/$(luatexdir)/luatex.web $(srcdir)/$(lu
 #luatex-all.pdf: luatex-all.tex
 #	$(luatex) luatex-all.tex
 
-check: @LTEX@ luatex-check
+check: @PETEX@ luatex-check
 luatex-check: luatex luatex.fmt
 
 clean:: luatex-clean
@@ -123,10 +119,25 @@ luatex.fmt: luatex
 # 
 # Installation.
 install-luatex: install-luatex-exec
+install-luatex-exec: install-luatex-links
 
-install-programs: @LTEX@ install-luatex-exec
-install-luatex-exec: $(luatex) $(bindir)
+# The actual binary executables and pool files.
+install-programs: @PETEX@ install-luatex-programs
+install-luatex-programs: $(luatex) $(bindir)
 	for p in luatex; do $(INSTALL_LIBTOOL_PROG) $$p $(bindir); done
+
+install-links: @PETEX@ install-luatex-links
+install-luatex-links: install-luatex-programs
+	#cd $(bindir) && (rm -f luainitex luavirtex; \
+	#  $(LN) luatex luainitex; $(LN) luatex luavirtex)
+
+install-fmts: @PETEX@ install-luatex-fmts
+install-luatex-fmts: luafmts $(luafmtdir)
+	luafmts="$(all_luafmts)"; \
+	  for f in $$luafmts; do $(INSTALL_DATA) $$f $(luafmtdir)/$$f; done
+	luafmts="$(luafmts)"; \
+	  for f in $$luafmts; do base=`basename $$f .fmt`; \
+	    (cd $(bindir) && (rm -f $$base; $(LN) luatex $$base)); done
 
 # 
 # luatex binaries archive

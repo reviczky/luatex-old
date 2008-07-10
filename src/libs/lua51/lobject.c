@@ -197,18 +197,18 @@ void luaO_chunkid (char *out, const char *source, size_t bufflen) {
       }
       strcat(out, source);
     }
-    else {  /* out = <string> */
+    else {  /* out = [string "string"] */
       size_t len = strcspn(source, "\n\r");  /* stop at first newline */
-      bufflen -= sizeof(" <...> ");
+      bufflen -= sizeof(" [string \"...\"] ");
       if (len > bufflen) len = bufflen;
-      strcpy(out, "<");
+      strcpy(out, "[string \"");
       if (source[len] != '\0') {  /* must truncate? */
         strncat(out, source, len);
         strcat(out, "...");
       }
       else
         strcat(out, source);
-      strcat(out, ">");
+      strcat(out, "\"]");
     }
   }
 }

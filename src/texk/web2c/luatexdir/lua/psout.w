@@ -1,20 +1,10 @@
-% $Id$
-%
-% Copyright 2008 Taco Hoekwater.
-%
-% This program is free software: you can redistribute it and/or modify
-% it under the terms of the GNU General Public License as published by
-% the Free Software Foundation, either version 2 of the License, or
-% (at your option) any later version.
-%
-% This program is distributed in the hope that it will be useful,
-% but WITHOUT ANY WARRANTY; without even the implied warranty of
-% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-% GNU General Public License for more details.
-%
-% You should have received a copy of the GNU General Public License
-% along with this program.  If not, see <http://www.gnu.org/licenses/>.
-%
+% $Id: mp.web,v 1.8 2005/08/24 10:54:02 taco Exp $
+% MetaPost, by John Hobby.  Public domain.
+
+% Much of this program was copied with permission from MF.web Version 1.9
+% It interprets a language very similar to D.E. Knuth's METAFONT, but with
+% changes designed to make it more suitable for PostScript output.
+
 % TeX is a trademark of the American Mathematical Society.
 % METAFONT is a trademark of Addison-Wesley Publishing Company.
 % PostScript is a trademark of Adobe Systems Incorporated.
@@ -75,7 +65,6 @@
 #include <assert.h>
 #include "avl.h"
 #include "mplib.h"
-#include "psout.h" /* external header */
 #include "mpmp.h" /* internal header */
 #include "mppsout.h" /* internal header */
 @h
@@ -143,7 +132,7 @@ void mp_ps_print_ln (MP mp) { /* prints an end-of-line */
 } 
 
 @ @c
-void mp_ps_print_char (MP mp, int s) { /* prints a single character */
+void mp_ps_print_char (MP mp, ASCII_code s) { /* prints a single character */
   if ( s==13 ) {
     wps_cr; mp->ps->ps_offset=0;
   } else {
@@ -152,8 +141,8 @@ void mp_ps_print_char (MP mp, int s) { /* prints a single character */
 }
 
 @ @c
-void mp_ps_do_print (MP mp, const char *ss, size_t len) { /* prints string |s| */
-  size_t j = 0;
+void mp_ps_do_print (MP mp, const char *ss, unsigned int len) { /* prints string |s| */
+  unsigned int j = 0;
   while ( j<len ){ 
     mp_ps_print_char(mp, ss[j]); incr(j);
   }
@@ -183,7 +172,7 @@ void mp_ps_print_nl (MP mp, const char *s) { /* prints string |s| at beginning o
 @ An array of digits in the range |0..9| is printed by |print_the_digs|.
 
 @c
-void mp_ps_print_the_digs (MP mp, int k) {
+void mp_ps_print_the_digs (MP mp, eight_bits k) {
   /* prints |dig[k-1]|$\,\ldots\,$|dig[0]| */
   while ( k-->0 ){ 
     mp_ps_print_char(mp, '0'+mp->dig[k]);
@@ -207,14 +196,14 @@ void mp_ps_print_int (MP mp,integer n) { /* prints an integer in decimal form */
     } else  { 
 	  m=-1-n; n=m / 10; m=(m % 10)+1; k=1;
       if ( m<10 ) {
-        mp->dig[0]=(unsigned char)m;
+        mp->dig[0]=m;
       } else { 
         mp->dig[0]=0; incr(n);
       }
     }
   }
   do {  
-    mp->dig[k]=(unsigned char)n % 10; n=n / 10; incr(k);
+    mp->dig[k]=n % 10; n=n / 10; incr(k);
   } while (n!=0);
   mp_ps_print_the_digs(mp, k);
 }
@@ -276,7 +265,7 @@ First, here are a few helpers for parsing files
 @d check_buf(size, buf_size)
     if ((unsigned)(size) > (unsigned)(buf_size)) {
       char S[128];
-      mp_snprintf(S,128,"buffer overflow: (%d,%d) at file %s, line %d",
+      snprintf(S,128,"buffer overflow: (%d,%d) at file %s, line %d",
                size,buf_size, __FILE__,  __LINE__ );
       mp_fatal_error(mp,S);
     }
@@ -378,7 +367,7 @@ static void mp_load_enc (MP mp, char *enc_name,
   char buf[ENC_BUF_SIZE], *p, *r;
   int names_count;
   char *myname;
-  unsigned save_selector = mp->selector;
+  int save_selector = mp->selector;
   if (!mp_enc_open (mp,enc_name)) {
       mp_print (mp,"cannot open encoding file for reading");
       return;
@@ -452,7 +441,8 @@ static void mp_read_enc (MP mp, enc_entry * e) {
 @c
 static void mp_write_enc (MP mp, enc_entry * e) {
     int i;
-    size_t s, foffset;
+    int s;
+    int foffset;
     char **g;
     if (e->objnum != 0)     /* the encoding has been written already */
        return;
@@ -573,13 +563,13 @@ static void enc_free (MP mp);
 void mp_reload_encodings (MP mp) ;
 
 @ @<Declarations@>=
-static void mp_font_encodings (MP mp, font_number lastfnum, int encodings_only) ;
+static void mp_font_encodings (MP mp, int lastfnum, int encodings_only) ;
 
 @ @c void mp_reload_encodings (MP mp) {
-  font_number f;
+  int f;
   enc_entry *e;
   fm_entry *fm_cur;
-  font_number lastfnum = mp->last_fnum;
+  int lastfnum = mp->last_fnum;
   for (f=null_font+1;f<=lastfnum;f++) {
     if (mp->font_enc_name[f]!=NULL ) {
        mp_xfree(mp->font_enc_name[f]);
@@ -593,8 +583,8 @@ static void mp_font_encodings (MP mp, font_number lastfnum, int encodings_only) 
     }
   }
 }
-static void mp_font_encodings (MP mp, font_number lastfnum, int encodings_only) {
-  font_number f;
+static void mp_font_encodings (MP mp, int lastfnum, int encodings_only) {
+  int f;
   enc_entry *e;
   fm_entry *fm;
   for (f=null_font+1;f<=lastfnum;f++) {
@@ -846,13 +836,13 @@ static int avl_do_entry (MP mp, fm_entry * fp, int mode) {
         p = (fm_entry *) avl_find (mp->ps->tfm_tree, fp);
         if (p != NULL) {
             if (mode == FM_DUPIGNORE) {
-               mp_snprintf(s,128,"fontmap entry for `%s' already exists, duplicates ignored",
+               snprintf(s,128,"fontmap entry for `%s' already exists, duplicates ignored",
                      fp->tfm_name);
                 mp_warn(mp,s);
                 goto exit;
             } else {            /* mode == |FM_REPLACE| / |FM_DELETE| */
                 if (mp_has_font_size(mp,p->tfm_num)) {
-                    mp_snprintf(s,128,
+                    snprintf(s,128,
                         "fontmap entry for `%s' has been used, replace/delete not allowed",
                          fp->tfm_name);
                     mp_warn(mp,s);
@@ -879,7 +869,7 @@ static int avl_do_entry (MP mp, fm_entry * fp, int mode) {
         p = (fm_entry *) avl_find (mp->ps->ps_tree, fp);
         if (p != NULL) {
             if (mode == FM_DUPIGNORE) {
-                mp_snprintf(s,128,
+                snprintf(s,128,
                     "ps_name entry for `%s' already exists, duplicates ignored",
                      fp->ps_name);
                 mp_warn(mp,s);
@@ -887,7 +877,7 @@ static int avl_do_entry (MP mp, fm_entry * fp, int mode) {
             } else {            /* mode == |FM_REPLACE| / |FM_DELETE| */
                 if (mp_has_font_size(mp,p->tfm_num)) {
                     /* REPLACE/DELETE not allowed */
-                    mp_snprintf(s,128,
+                    snprintf(s,128,
                         "fontmap entry for `%s' has been used, replace/delete not allowed",
                          p->tfm_name);
                     mp_warn(mp,s);
@@ -924,7 +914,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
         if (is_basefont (fm)) {
             if (is_fontfile (fm) && !is_included (fm)) {
                 if (warn) {
-                    mp_snprintf(s,128, "invalid entry for `%s': "
+                    snprintf(s,128, "invalid entry for `%s': "
                          "font file must be included or omitted for base fonts",
                          fm->tfm_name);
                     mp_warn(mp,s);
@@ -935,7 +925,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
             /* if no font file given, drop this entry */
             /* |if (!is_fontfile (fm)) {
 	         if (warn) {
-                   mp_snprintf(s,128, 
+                   snprintf(s,128, 
                         "invalid entry for `%s': font file missing",
 						fm->tfm_name);
                     mp_warn(mp,s);
@@ -947,7 +937,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
     }
     if (is_truetype (fm) && is_reencoded (fm) && !is_subsetted (fm)) {
         if (warn) {
-            mp_snprintf(s,128, 
+            snprintf(s,128, 
                 "invalid entry for `%s': only subsetted TrueType font can be reencoded",
                  fm->tfm_name);
                     mp_warn(mp,s);
@@ -957,7 +947,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
     if ((fm->slant != 0 || fm->extend != 0) &&
         (is_truetype (fm))) {
         if (warn) { 
-           mp_snprintf(s,128, 
+           snprintf(s,128, 
                  "invalid entry for `%s': " 
                  "SlantFont/ExtendFont can be used only with embedded T1 fonts",
                  fm->tfm_name);
@@ -967,7 +957,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
     }
     if (abs (fm->slant) > 1000) {
         if (warn) {
-            mp_snprintf(s,128, 
+            snprintf(s,128, 
                 "invalid entry for `%s': too big value of SlantFont (%g)",
                  fm->tfm_name, fm->slant / 1000.0);
                     mp_warn(mp,s);
@@ -976,7 +966,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
     }
     if (abs (fm->extend) > 2000) {
         if (warn) {
-            mp_snprintf(s,128, 
+            snprintf(s,128, 
                 "invalid entry for `%s': too big value of ExtendFont (%g)",
                  fm->tfm_name, fm->extend / 1000.0);
                     mp_warn(mp,s);
@@ -987,7 +977,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
         !(is_truetype (fm) && is_included (fm) &&
           is_subsetted (fm) && !is_reencoded (fm))) {
         if (warn) {
-            mp_snprintf(s,128, 
+            snprintf(s,128, 
                 "invalid entry for `%s': "
                  "PidEid can be used only with subsetted non-reencoded TrueType fonts",
                  fm->tfm_name);
@@ -1118,7 +1108,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
                              r++); /* jump over name */
                         c = *r; /* remember char for temporary end of string */
                         *r = '\0';
-                        mp_snprintf(warn_s,128,
+                        snprintf(warn_s,128,
                             "invalid entry for `%s': unknown name `%s' ignored",
                              fm->tfm_name, s);
                         mp_warn(mp,warn_s);
@@ -1131,7 +1121,7 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
             if (*r == '"')      /* closing quote */
                 r++;
             else {
-                mp_snprintf(warn_s,128,
+                snprintf(warn_s,128,
                     "invalid entry for `%s': closing quote missing",
                      fm->tfm_name);
                 mp_warn(mp,warn_s);
@@ -1210,10 +1200,10 @@ static int check_fm_entry (MP mp, fm_entry * fm, boolean warn) {
         n = mp->ps->mitem->map_line;
         mp->ps->fm_file = (mp->open_file)(mp, n, "r", mp_filetype_fontmap);
         if (!mp->ps->fm_file) {
-            mp_snprintf(s,256,"cannot open font map file %s",n);
+            snprintf(s,256,"cannot open font map file %s",n);
             mp_warn(mp,s);
         } else {
-            unsigned save_selector = mp->selector;
+            int save_selector = mp->selector;
             mp_normalize_selector(mp);
             mp_print (mp, "{");
             mp_print (mp, n);
@@ -1502,6 +1492,7 @@ mp->ps->job_id_string = NULL;
 void mp_set_job_id (MP mp) {
     char *name_string, *format_string, *s;
     size_t slen;
+    int i;
     if (mp->ps->job_id_string != NULL)
        return;
     if ( mp->job_name==NULL )
@@ -1512,13 +1503,14 @@ void mp_set_job_id (MP mp) {
         strlen (name_string) +
         strlen (format_string);
     s = mp_xmalloc (mp,slen, sizeof (char));
-    sprintf (s,"%.4d/%.2d/%.2d %.2d:%.2d %s %s",
-               (mp->internal[mp_year]>>16),
-               (mp->internal[mp_month]>>16), 
-               (mp->internal[mp_day]>>16), 
-               (mp->internal[mp_time]>>16) / 60, 
-               (mp->internal[mp_time]>>16) % 60,
-                name_string, format_string);
+    i = snprintf (s, slen,
+                  "%.4d/%.2d/%.2d %.2d:%.2d %s %s",
+                  (mp->internal[mp_year]>>16),
+                  (mp->internal[mp_month]>>16), 
+                  (mp->internal[mp_day]>>16), 
+                  (mp->internal[mp_time]>>16) / 60, 
+                  (mp->internal[mp_time]>>16) % 60,
+                  name_string, format_string);
     mp->ps->job_id_string = mp_xstrdup (mp,s);
     mp_xfree (s);
     mp_xfree (name_string);
@@ -1541,11 +1533,11 @@ mp_xfree(mp->ps->job_id_string);
   subsets prefixes somewhat disjunct
 
 @c
-static unsigned long crc32 (unsigned long oldcrc, const Byte *buf, size_t len) {
+static unsigned long crc32 (int oldcrc, const Byte *buf, int len) {
   unsigned long ret = 0;
-  size_t i;
+  int i;
   if (oldcrc==0)
-	ret = (unsigned long)((23<<24)+(45<<16)+(67<<8)+89);
+	ret = (23<<24)+(45<<16)+(67<<8)+89;
   else 
       for (i=0;i<len;i++)
 	  ret = (ret<<2)+buf[i];
@@ -1560,7 +1552,7 @@ static boolean mp_char_marked (MP mp,font_number f, eight_bits c) {
     return false;
 }
 
-static void make_subset_tag (MP mp, fm_entry * fm_cur, char **glyph_names, font_number tex_font)
+static void make_subset_tag (MP mp, fm_entry * fm_cur, char **glyph_names, int tex_font)
 {
     char tag[7];
     unsigned long crc;
@@ -1587,7 +1579,7 @@ static void make_subset_tag (MP mp, fm_entry * fm_cur, char **glyph_names, font_
         fnstr_append (mp,"built-in");
     fnstr_append (mp," CharSet: ");
     for (i = 0; i < 256; i++)
-        if (mp_char_marked (mp,tex_font, (eight_bits)i) && glyph_names[i] != notdef) {
+        if (mp_char_marked (mp,tex_font, i) && glyph_names[i] != notdef) {
 			if (glyph_names[i]!=NULL) {
 			  fnstr_append (mp,"/");
 			  fnstr_append (mp,glyph_names[i]);
@@ -1617,7 +1609,7 @@ static void make_subset_tag (MP mp, fm_entry * fm_cur, char **glyph_names, font_
 
 @ 
 @d external_enc()      (fm_cur->encoding)->glyph_names
-@d is_used_char(c)     mp_char_marked (mp, tex_font, (eight_bits)c)
+@d is_used_char(c)     mp_char_marked (mp, tex_font, c)
 @d end_last_eexec_line() 
     mp->ps->hexline_length = HEXLINE_WIDTH;
     end_hexline(mp); 
@@ -1652,7 +1644,7 @@ mp->ps->t1_byte_waiting=0;
 @c
 int t1_getchar (MP mp) {
   size_t len = 1;
-  int abyte=0;
+  unsigned char abyte=0;
   void *byte_ptr = &abyte;  
   if (mp->ps->t1_byte_waiting) {
     abyte = mp->ps->t1_byte_waiting;
@@ -1762,14 +1754,15 @@ typedef struct {
     boolean valid;
 } cs_entry;
 
-@ 
-@d t1_c1 52845
-@d t1_c2 22719
-
-@<Glob...@>=
+@ @<Glob...@>=
 unsigned short t1_dr, t1_er;
+unsigned short t1_c1, t1_c2;
 unsigned short t1_cslen;
 short t1_lenIV;
+
+@ @<Set initial...@>=
+mp->ps->t1_c1 = 52845; 
+mp->ps->t1_c2 = 22719;
 
 @ @<Types...@>=
 typedef char t1_line_entry;
@@ -1881,30 +1874,30 @@ static byte edecrypt (MP mp, byte cipher) {
     byte plain;
     if (mp->ps->t1_pfa) {
         while (cipher == 10 || cipher == 13)
-            cipher = (byte)t1_getbyte (mp);
-        mp->ps->last_hexbyte = cipher = (byte)((hexval (cipher) << 4) + hexval (t1_getbyte (mp)));
+            cipher = t1_getbyte (mp);
+        mp->ps->last_hexbyte = cipher = (hexval (cipher) << 4) + hexval (t1_getbyte (mp));
     }
     plain = (cipher ^ (mp->ps->t1_dr >> 8));
-    mp->ps->t1_dr = (cipher + mp->ps->t1_dr) * t1_c1 + t1_c2;
+    mp->ps->t1_dr = (cipher + mp->ps->t1_dr) * mp->ps->t1_c1 + mp->ps->t1_c2;
     return plain;
 }
-static byte cdecrypt (byte cipher, unsigned short *cr)
+static byte cdecrypt (MP mp, byte cipher, unsigned short *cr)
 {
     const byte plain = (cipher ^ (*cr >> 8));
-    *cr = (cipher + *cr) * t1_c1 + t1_c2;
+    *cr = (cipher + *cr) * mp->ps->t1_c1 + mp->ps->t1_c2;
     return plain;
 }
 static byte eencrypt (MP mp, byte plain)
 {
     const byte cipher = (plain ^ (mp->ps->t1_er >> 8));
-    mp->ps->t1_er = (cipher + mp->ps->t1_er) * t1_c1 + t1_c2;
+    mp->ps->t1_er = (cipher + mp->ps->t1_er) * mp->ps->t1_c1 + mp->ps->t1_c2;
     return cipher;
 }
 
-static byte cencrypt (byte plain, unsigned short *cr)
+static byte cencrypt (MP mp, byte plain, unsigned short *cr)
 {
     const byte cipher = (plain ^ (*cr >> 8));
-    *cr = (cipher + *cr) * t1_c1 + t1_c2;
+    *cr = (cipher + *cr) * mp->ps->t1_c1 + mp->ps->t1_c2;
     return cipher;
 }
 
@@ -1923,7 +1916,7 @@ static float t1_scan_num (MP mp, char *p, char **r)
     skip (p, ' ');
     if (sscanf (p, "%g", &f) != 1) {
         remove_eol (p, mp->ps->t1_line_array); 
- 	    mp_snprintf(s,128, "a number expected: `%s'", mp->ps->t1_line_array);
+ 	    snprintf(s,128, "a number expected: `%s'", mp->ps->t1_line_array);
         mp_fatal_error(mp,s);
     }
     if (r != NULL) {
@@ -1952,17 +1945,17 @@ static boolean str_suffix (const char *begin_buf, const char *end_buf,
 @d alloc_array(T, n, s) do {
     if (mp->ps->T##_array == NULL) {
         mp->ps->T##_limit = (s);
-        if ((size_t)(n) > mp->ps->T##_limit)
-            mp->ps->T##_limit = (size_t)(n);
+        if ((unsigned)(n) > mp->ps->T##_limit)
+            mp->ps->T##_limit = (n);
         mp->ps->T##_array = mp_xmalloc (mp,mp->ps->T##_limit,sizeof(T##_entry));
         mp->ps->T##_ptr = mp->ps->T##_array;
     }
-    else if ((size_t)(mp->ps->T##_ptr - mp->ps->T##_array + (n)) > mp->ps->T##_limit) {
+    else if ((unsigned)(mp->ps->T##_ptr - mp->ps->T##_array + (n)) > mp->ps->T##_limit) {
         size_t last_ptr_index;
-        last_ptr_index = (size_t)(mp->ps->T##_ptr - mp->ps->T##_array);
+        last_ptr_index = mp->ps->T##_ptr - mp->ps->T##_array;
         mp->ps->T##_limit *= 2;
-        if ((size_t)(mp->ps->T##_ptr - mp->ps->T##_array + (n)) > mp->ps->T##_limit)
-            mp->ps->T##_limit = (size_t)(mp->ps->T##_ptr - mp->ps->T##_array + (n));
+        if ((unsigned)(mp->ps->T##_ptr - mp->ps->T##_array + (n)) > mp->ps->T##_limit)
+            mp->ps->T##_limit = mp->ps->T##_ptr - mp->ps->T##_array + (n);
         mp->ps->T##_array = mp_xrealloc(mp,mp->ps->T##_array,mp->ps->T##_limit, sizeof(T##_entry));
         mp->ps->T##_ptr = mp->ps->T##_array + last_ptr_index;
     }
@@ -1996,7 +1989,7 @@ static void t1_getline (MP mp) {
         goto EXIT;
     while (!t1_eof ()) {
         if (mp->ps->t1_in_eexec == 1)
-            c = edecrypt (mp,(byte)c);
+            c = edecrypt (mp,c);
         alloc_array (t1_line, 1, T1_BUF_SIZE);
         append_char_to_buf (c, mp->ps->t1_line_ptr, mp->ps->t1_line_array, mp->ps->t1_line_limit);
         if (mp->ps->t1_in_eexec == 0 && eexec_scan >= 0 && eexec_scan < eexec_len) {
@@ -2013,13 +2006,12 @@ static void t1_getline (MP mp) {
             p = mp->ps->t1_line_ptr - 5;
             while (*p != ' ')
                 p--;
-            l = (int)t1_scan_num (mp, p + 1, 0);
-            mp->ps->t1_cslen = (unsigned short)l;
+            mp->ps->t1_cslen = l = t1_scan_num (mp, p + 1, 0);
             mp->ps->cs_start = mp->ps->t1_line_ptr - mp->ps->t1_line_array;     
                   /* |mp->ps->cs_start| is an index now */
             alloc_array (t1_line, l, T1_BUF_SIZE);
             while (l-- > 0)
-                *mp->ps->t1_line_ptr++ = (t1_line_entry)edecrypt (mp,(byte)t1_getbyte (mp));
+                *mp->ps->t1_line_ptr++ = edecrypt (mp,t1_getbyte (mp));
         }
         c = t1_getbyte (mp);
     }
@@ -2042,7 +2034,7 @@ static void t1_putline (MP mp)
         return;
     if (mp->ps->t1_eexec_encrypt) {
         while (p < mp->ps->t1_line_ptr)
-            out_eexec_char (eencrypt (mp,(byte)*p++));
+            out_eexec_char (eencrypt (mp,*p++));
     } else {
         while (p < mp->ps->t1_line_ptr)
             t1_putchar (*p++);
@@ -2066,7 +2058,7 @@ static void t1_printf (MP mp, const char *fmt, ...)
     va_end (args);
 }
 
-static void t1_init_params (MP mp, const char *open_name_prefix,
+static void t1_init_params (MP mp, char *open_name_prefix,
                            char *cur_file_name) {
   if ((open_name_prefix != NULL) && strlen(open_name_prefix)) {
     t1_log (open_name_prefix);
@@ -2097,10 +2089,10 @@ static void  t1_check_block_len (MP mp, boolean decrypt) {
         return;
     c = t1_getbyte (mp);
     if (decrypt)
-        c = edecrypt (mp,(byte)c);
+        c = edecrypt (mp,c);
     l = mp->ps->t1_block_length;
     if (!(l == 0 && (c == 10 || c == 13))) {
-        mp_snprintf(s,128,"%i bytes more than expected were ignored", l+ 1);
+        snprintf(s,128,"%i bytes more than expected were ignored", l+ 1);
         mp_warn(mp,s);
         while (l-- > 0)
           t1_getbyte (mp);
@@ -2111,7 +2103,7 @@ static void  t1_start_eexec (MP mp, fm_entry *fm_cur) {
     if (!mp->ps->t1_pfa)
      t1_check_block_len (mp, false);
     for (mp->ps->t1_line_ptr = mp->ps->t1_line_array, i = 0; i < 4; i++) {
-      (void)edecrypt (mp, (byte)t1_getbyte (mp));
+      edecrypt (mp, t1_getbyte (mp));
       *mp->ps->t1_line_ptr++ = 0;
     }
     mp->ps->t1_eexec_encrypt = true;
@@ -2125,7 +2117,7 @@ static void  t1_stop_eexec (MP mp) {
     if (!mp->ps->t1_pfa)
       t1_check_block_len (mp,true);
     else {
-        c = edecrypt (mp, (byte)t1_getbyte (mp));
+        c = edecrypt (mp, t1_getbyte (mp));
         if (!(c == 10 || c == 13)) {
            if (mp->ps->last_hexbyte == 0)
               t1_puts (mp,"00");
@@ -2186,7 +2178,7 @@ static key_entry font_keys[FONT_KEYS_NUM] = {
 @d MAX_KEY_CODE (FONTBBOX1_CODE + 1)
 
 @c
-static void  t1_scan_keys (MP mp, font_number tex_font,fm_entry *fm_cur) {
+static void  t1_scan_keys (MP mp, int tex_font,fm_entry *fm_cur) {
     int i, k;
     char *p, *r;
     key_entry *key;
@@ -2202,9 +2194,9 @@ static void  t1_scan_keys (MP mp, font_number tex_font,fm_entry *fm_cur) {
     }
     if (t1_prefix ("/FontType")) {
         p = mp->ps->t1_line_array + strlen ("FontType") + 1;
-        if ((i = (int)t1_scan_num (mp,p, 0)) != 1) {
+        if ((i = t1_scan_num (mp,p, 0)) != 1) {
             char s[128];
-            mp_snprintf(s,125,"Type%d fonts unsupported by metapost", i);
+            snprintf(s,125,"Type%d fonts unsupported by metapost", i);
             mp_fatal_error(mp,s);
         }
         return;
@@ -2221,7 +2213,7 @@ static void  t1_scan_keys (MP mp, font_number tex_font,fm_entry *fm_cur) {
         if (*p != '/') {
           char s[128];
       	  remove_eol (p, mp->ps->t1_line_array);
-          mp_snprintf(s,128,"a name expected: `%s'", mp->ps->t1_line_array);
+          snprintf(s,128,"a name expected: `%s'", mp->ps->t1_line_array);
           mp_fatal_error(mp,s);
         }
         r = ++p;                /* skip the slash */
@@ -2263,13 +2255,13 @@ static void  t1_scan_keys (MP mp, font_number tex_font,fm_entry *fm_cur) {
     }
     key->value = t1_scan_num (mp, p, 0);
 }
-static void  t1_scan_param (MP mp, font_number tex_font,fm_entry *fm_cur)
+static void  t1_scan_param (MP mp, int tex_font,fm_entry *fm_cur)
 {
     static const char *lenIV = "/lenIV";
     if (!mp->ps->t1_scan || *mp->ps->t1_line_array != '/')
         return;
     if (t1_prefix (lenIV)) {
-        mp->ps->t1_lenIV = (short int)t1_scan_num (mp,mp->ps->t1_line_array + strlen (lenIV), 0);
+        mp->ps->t1_lenIV = t1_scan_num (mp,mp->ps->t1_line_array + strlen (lenIV), 0);
         return;
     }
     t1_scan_keys (mp, tex_font,fm_cur);
@@ -2301,7 +2293,7 @@ static void  t1_builtin_enc (MP mp) {
             mp->ps->t1_encoding = ENC_STANDARD;
         } else {
             char s[128];
-            mp_snprintf(s,128, "cannot subset font (unknown predefined encoding `%s')",
+            snprintf(s,128, "cannot subset font (unknown predefined encoding `%s')",
                         mp->ps->t1_buf_array);
             mp_fatal_error(mp,s);
         }
@@ -2351,7 +2343,7 @@ static void  t1_builtin_enc (MP mp) {
                 else {
                     char s[128];
                     remove_eol (r, mp->ps->t1_line_array);
-                    mp_snprintf(s,128,"a name or `] def' or `] readonly def' expected: `%s'",
+                    snprintf(s,128,"a name or `] def' or `] readonly def' expected: `%s'",
                                     mp->ps->t1_line_array);
                     mp_fatal_error(mp,s);
                 }
@@ -2440,12 +2432,12 @@ static boolean t1_open_fontfile (MP mp, fm_entry *fm_cur,const char *open_name_p
         mp_warn (mp, "cannot open Type 1 font file for reading");
         return false;
     }
-    t1_init_params (mp,open_name_prefix,fm_cur->ff_name);
+    t1_init_params (mp,(char *)open_name_prefix,fm_cur->ff_name);
     mp->ps->fontfile_found = true;
     return true;
 }
 
-static void  t1_scan_only (MP mp, font_number tex_font, fm_entry *fm_cur) {
+static void  t1_scan_only (MP mp, int tex_font, fm_entry *fm_cur) {
     do {
         t1_getline (mp);
         t1_scan_param (mp,tex_font, fm_cur);
@@ -2459,7 +2451,7 @@ static void  t1_scan_only (MP mp, font_number tex_font, fm_entry *fm_cur) {
     while (!(t1_charstrings () || t1_subrs ()));
 }
 
-static void  t1_include (MP mp, font_number tex_font, fm_entry *fm_cur) {
+static void  t1_include (MP mp, int tex_font, fm_entry *fm_cur) {
     do {
         t1_getline (mp);
         t1_scan_param (mp,tex_font, fm_cur);
@@ -2493,7 +2485,7 @@ static void  t1_include (MP mp, font_number tex_font, fm_entry *fm_cur) {
 @
 @d check_subr(SUBR) if (SUBR >= mp->ps->subr_size || SUBR < 0) {
         char s[128];
-        mp_snprintf(s,128,"Subrs array: entry index out of range (%i)",SUBR);
+        snprintf(s,128,"Subrs array: entry index out of range (%i)",SUBR);
         mp_fatal_error(mp,s);
   }
 
@@ -2514,14 +2506,14 @@ static void cs_store (MP mp, boolean is_subr) {
          *mp->ps->t1_buf_ptr++ = *p++);
     *mp->ps->t1_buf_ptr = 0;
     if (is_subr) {
-        subr = (int)t1_scan_num (mp, p + 1, 0);
+        subr = t1_scan_num (mp, p + 1, 0);
         check_subr (subr);
         ptr = mp->ps->subr_tab + subr;
     } else {
         ptr = mp->ps->cs_ptr++;
         if (mp->ps->cs_ptr - mp->ps->cs_tab > mp->ps->cs_size) {
           char s[128];
-          mp_snprintf(s,128,"CharStrings dict: more entries than dict size (%i)",mp->ps->cs_size);
+          snprintf(s,128,"CharStrings dict: more entries than dict size (%i)",mp->ps->cs_size);
           mp_fatal_error(mp,s);
         }
         if (strcmp (mp->ps->t1_buf_array + 1, notdef) == 0)     /* skip the slash */
@@ -2538,7 +2530,7 @@ static void cs_store (MP mp, boolean is_subr) {
     *mp->ps->t1_buf_ptr++ = 10;
     if (is_subr && mp->ps->cs_token_pair == NULL)
         mp->ps->cs_token_pair = check_cs_token_pair (mp);
-    ptr->len = (unsigned short)(mp->ps->t1_buf_ptr - mp->ps->t1_buf_array);
+    ptr->len = mp->ps->t1_buf_ptr - mp->ps->t1_buf_array;
     ptr->cslen = mp->ps->t1_cslen;
     ptr->data = mp_xmalloc (mp,ptr->len , sizeof (byte));
     memcpy (ptr->data, mp->ps->t1_buf_array, ptr->len);
@@ -2562,7 +2554,7 @@ static boolean is_cc_init = false;
 
 #define stack_error(N) {                \
     char s[256];                        \
-    mp_snprintf(s,255,"CharString: invalid access (%i) to stack (%i entries)", \
+    snprintf(s,255,"CharString: invalid access (%i) to stack (%i entries)", \
                  (int) N, (int)(stack_ptr - cc_stack));                  \
     mp_warn(mp,s);                    \
     goto cs_error;                    \
@@ -2619,7 +2611,7 @@ static void cc_init (void) {
 
 @
 
-@d cs_getchar(mp)    cdecrypt(*data++, &cr)
+@d cs_getchar(mp)    cdecrypt(mp,*data++, &cr)
 
 @d mark_subr(mp,n)    cs_mark(mp,0, n)
 @d mark_cs(mp,s)      cs_mark(mp,s, 0)
@@ -2634,9 +2626,9 @@ static void cs_warn (MP mp, const char *cs_name, int subr, const char *fmt, ...)
     vsprintf (buf, fmt, args);
     va_end (args);
     if (cs_name == NULL) {
-        mp_snprintf(s,299,"Subr (%i): %s", (int) subr, buf);
+        snprintf(s,299,"Subr (%i): %s", (int) subr, buf);
     } else {
-       mp_snprintf(s,299,"CharString (/%s): %s", cs_name, buf);
+       snprintf(s,299,"CharString (/%s): %s", cs_name, buf);
     }
     mp_warn(mp,s);
 }
@@ -2666,7 +2658,7 @@ static void cs_mark (MP mp, const char *cs_name, int subr)
                     break;
             if (ptr == mp->ps->cs_ptr) {
                 char s[128];
-                mp_snprintf (s,128,"glyph `%s' undefined", cs_name);
+                snprintf (s,128,"glyph `%s' undefined", cs_name);
                 mp_warn(mp,s);
                 return;
             }
@@ -2680,10 +2672,10 @@ static void cs_mark (MP mp, const char *cs_name, int subr)
         return;
     ptr->is_used = true;
     cr = 4330;
-    cs_len = (int)ptr->cslen;
+    cs_len = ptr->cslen;
     data = ptr->data + 4;
     for (i = 0; i < mp->ps->t1_lenIV; i++, cs_len--)
-        (void)cs_getchar (mp);
+        cs_getchar (mp);
     while (cs_len > 0) {
         --cs_len;
         b = cs_getchar (mp);
@@ -2778,7 +2770,7 @@ static void cs_mark (MP mp, const char *cs_name, int subr)
     ptr->is_used = false;
 }
 
-static void t1_subset_ascii_part (MP mp, font_number tex_font, fm_entry *fm_cur)
+static void t1_subset_ascii_part (MP mp, int tex_font, fm_entry *fm_cur)
 {
     int i, j;
     t1_getline (mp);
@@ -2848,9 +2840,9 @@ static void init_cs_entry ( cs_entry * cs) {
     cs->valid = false;
 }
 
-static void t1_mark_glyphs (MP mp, font_number tex_font);
+static void t1_mark_glyphs (MP mp, int tex_font);
 
-static void t1_read_subrs (MP mp, font_number tex_font, fm_entry *fm_cur)
+static void t1_read_subrs (MP mp, int tex_font, fm_entry *fm_cur)
 {
     int i, s;
     cs_entry *ptr;
@@ -2865,16 +2857,16 @@ static void t1_read_subrs (MP mp, font_number tex_font, fm_entry *fm_cur)
     mp->ps->t1_scan = false;
     if (!t1_subrs ())
         return;
-    mp->ps->subr_size_pos = (int)(strlen ("/Subrs") + 1);
+    mp->ps->subr_size_pos = strlen ("/Subrs") + 1;
     /* |subr_size_pos| points to the number indicating dict size after "/Subrs" */
-    mp->ps->subr_size = (int)t1_scan_num (mp,mp->ps->t1_line_array + mp->ps->subr_size_pos, 0);
+    mp->ps->subr_size = t1_scan_num (mp,mp->ps->t1_line_array + mp->ps->subr_size_pos, 0);
     if (mp->ps->subr_size == 0) {
         while (!t1_charstrings ())
             t1_getline (mp);
         return;
     }
 	/*    |subr_tab = xtalloc (subr_size, cs_entry);| */
-	mp->ps->subr_tab = (cs_entry *)mp_xmalloc (mp,(size_t)mp->ps->subr_size, sizeof (cs_entry));
+	mp->ps->subr_tab = (cs_entry *)mp_xmalloc (mp,mp->ps->subr_size, sizeof (cs_entry));
     for (ptr = mp->ps->subr_tab; ptr - mp->ps->subr_tab < mp->ps->subr_size; ptr++)
         init_cs_entry (ptr);
     mp->ps->subr_array_start = mp_xstrdup (mp,mp->ps->t1_line_array);
@@ -2951,7 +2943,7 @@ static void t1_flush_cs (MP mp, boolean is_subr)
         *mp->ps->t1_line_ptr++ = *p++;
     while (isdigit (*p))
         p++;
-    sprintf (mp->ps->t1_line_ptr, "%u", (unsigned)count);
+    sprintf (mp->ps->t1_line_ptr, "%u", count);
     strcat (mp->ps->t1_line_ptr, p);
     mp->ps->t1_line_ptr = eol (mp->ps->t1_line_array);
     t1_putline (mp);
@@ -2960,12 +2952,11 @@ static void t1_flush_cs (MP mp, boolean is_subr)
     if (is_subr) {
         cr = 4330;
         cs_len = 0;
-        return_cs = mp_xmalloc (mp, (size_t)(mp->ps->t1_lenIV + 1) , sizeof(byte));
+        return_cs = mp_xmalloc (mp, (mp->ps->t1_lenIV + 1) , sizeof(byte));
         if ( mp->ps->t1_lenIV > 0) {
-            for (cs_len = 0, r = return_cs; 
-                 cs_len<(unsigned short)mp->ps->t1_lenIV; cs_len++, r++)
-                *r = cencrypt (0x00, &cr);
-            *r = cencrypt (CS_RETURN, &cr);
+            for (cs_len = 0, r = return_cs; cs_len <  mp->ps->t1_lenIV; cs_len++, r++)
+                *r = cencrypt (mp,0x00, &cr);
+            *r = cencrypt (mp,CS_RETURN, &cr);
         } else {
             *return_cs = CS_RETURN;
         }
@@ -3011,7 +3002,7 @@ static void t1_flush_cs (MP mp, boolean is_subr)
     mp_xfree (line_end);
 }
 
-static void t1_mark_glyphs (MP mp, font_number tex_font)
+static void t1_mark_glyphs (MP mp, int tex_font)
 {
     int i;
     char *charset = extra_charset ();
@@ -3035,7 +3026,7 @@ static void t1_mark_glyphs (MP mp, font_number tex_font)
         if (is_used_char (i)) {
             if (mp->ps->t1_glyph_names[i] == notdef) {
                 char S[128];
-                mp_snprintf(S,128, "character %i is mapped to %s", i, notdef);
+                snprintf(S,128, "character %i is mapped to %s", i, notdef);
                 mp_warn(mp,S);
             } else
                 mark_cs (mp,mp->ps->t1_glyph_names[i]);
@@ -3060,7 +3051,7 @@ static void t1_mark_glyphs (MP mp, font_number tex_font)
                 mp->ps->subr_max = ptr - mp->ps->subr_tab;
 }
 
-static void t1_subset_charstrings (MP mp, font_number tex_font) 
+static void t1_subset_charstrings (MP mp, int tex_font) 
 {
     cs_entry *ptr;
     mp->ps->cs_size_pos =
@@ -3068,8 +3059,8 @@ static void t1_subset_charstrings (MP mp, font_number tex_font)
         - mp->ps->t1_line_array + 1;
     /* |cs_size_pos| points to the number indicating
        dict size after "/CharStrings" */
-    mp->ps->cs_size = (int)t1_scan_num (mp,mp->ps->t1_line_array + mp->ps->cs_size_pos, 0);
-    mp->ps->cs_ptr = mp->ps->cs_tab = mp_xmalloc (mp,(size_t)mp->ps->cs_size, sizeof(cs_entry));
+    mp->ps->cs_size = t1_scan_num (mp,mp->ps->t1_line_array + mp->ps->cs_size_pos, 0);
+    mp->ps->cs_ptr = mp->ps->cs_tab = mp_xmalloc (mp,mp->ps->cs_size, sizeof(cs_entry));
     for (ptr = mp->ps->cs_tab; ptr - mp->ps->cs_tab < mp->ps->cs_size; ptr++)
         init_cs_entry (ptr);
     mp->ps->cs_notdef = NULL;
@@ -3119,7 +3110,7 @@ static void t1_subset_end (MP mp)
     }
 }
 
-static int t1_updatefm (MP mp, font_number f, fm_entry *fm)
+static int t1_updatefm (MP mp, int f, fm_entry *fm)
 {
   char *s, *p;
   mp->ps->read_encoding_only = true;
@@ -3138,8 +3129,8 @@ static int t1_updatefm (MP mp, font_number f, fm_entry *fm)
 }
 
 
-static void  writet1 (MP mp, font_number tex_font, fm_entry *fm_cur) {
-	unsigned save_selector = mp->selector;
+static void  writet1 (MP mp, int tex_font, fm_entry *fm_cur) {
+	int save_selector = mp->selector;
     mp_normalize_selector(mp);
     mp->ps->read_encoding_only = false;
     if (!is_included (fm_cur)) {        /* scan parameters from font file */
@@ -3240,12 +3231,12 @@ char fontname_buf[FONTNAME_BUF_SIZE];
 @d fm_fontfile(fm)     (fm)->ff_name
 
 @<Declarations@>=
-static boolean mp_font_is_reencoded (MP mp, font_number f);
-static boolean mp_font_is_included (MP mp, font_number f);
-static boolean mp_font_is_subsetted (MP mp, font_number f);
+static boolean mp_font_is_reencoded (MP mp, int f);
+static boolean mp_font_is_included (MP mp, int f);
+static boolean mp_font_is_subsetted (MP mp, int f);
 
 @ @c
-static boolean mp_font_is_reencoded (MP mp, font_number f) {
+static boolean mp_font_is_reencoded (MP mp, int f) {
   fm_entry *fm;
   if (mp_has_font_size(mp,f) && mp_has_fm_entry (mp, f, &fm)) { 
     if (fm != NULL 
@@ -3255,7 +3246,7 @@ static boolean mp_font_is_reencoded (MP mp, font_number f) {
   }
   return 0;
 }
-static boolean mp_font_is_included (MP mp, font_number f) {
+static boolean mp_font_is_included (MP mp, int f) {
   fm_entry *fm;
   if (mp_has_font_size(mp,f) && mp_has_fm_entry (mp, f, &fm)) { 
     if (fm != NULL 
@@ -3265,7 +3256,7 @@ static boolean mp_font_is_included (MP mp, font_number f) {
   }
   return 0;
 }
-static boolean mp_font_is_subsetted (MP mp, font_number f) {
+static boolean mp_font_is_subsetted (MP mp, int f) {
   fm_entry *fm;
   if (mp_has_font_size(mp,f) && mp_has_fm_entry (mp, f,&fm)) { 
     if (fm != NULL 
@@ -3277,14 +3268,14 @@ static boolean mp_font_is_subsetted (MP mp, font_number f) {
 }
 
 @ @<Exported function headers@>=
-char * mp_fm_encoding_name (MP mp, font_number f);
-char * mp_fm_font_name (MP mp, font_number f);
+char * mp_fm_encoding_name (MP mp, int f);
+char * mp_fm_font_name (MP mp, int f);
 
 @ @<Declarations@>=
-static char * mp_fm_font_subset_name (MP mp, font_number f);
+static char * mp_fm_font_subset_name (MP mp, int f);
 
 @ 
-@c char * mp_fm_encoding_name (MP mp, font_number f) {
+@c char * mp_fm_encoding_name (MP mp, int f) {
   enc_entry *e;
   fm_entry *fm;
   if (mp_has_fm_entry (mp, f, &fm)) { 
@@ -3303,7 +3294,7 @@ static char * mp_fm_font_subset_name (MP mp, font_number f);
   mp_error(mp); 
   return NULL;
 }
-char * mp_fm_font_name (MP mp, font_number f) {
+char * mp_fm_font_name (MP mp, int f) {
   fm_entry *fm;
   if (mp_has_fm_entry (mp, f,&fm)) { 
     if (fm != NULL && (fm->ps_name != NULL)) {
@@ -3326,13 +3317,13 @@ char * mp_fm_font_name (MP mp, font_number f) {
   return NULL;
 }
 
-static char * mp_fm_font_subset_name (MP mp, font_number f) {
+static char * mp_fm_font_subset_name (MP mp, int f) {
   fm_entry *fm;
   if (mp_has_fm_entry (mp, f, &fm)) { 
     if (fm != NULL && (fm->ps_name != NULL)) {
       if (is_subsetted(fm)) {
   	    char *s = mp_xmalloc(mp,strlen(fm->ps_name)+8,1);
-       	mp_snprintf(s,(int)strlen(fm->ps_name)+8,"%s-%s",fm->subset_tag,fm->ps_name);
+       	snprintf(s,strlen(fm->ps_name)+8,"%s-%s",fm->subset_tag,fm->ps_name);
  	    return s;
       } else {
         return mp_xstrdup(mp,fm->ps_name);
@@ -3346,11 +3337,11 @@ static char * mp_fm_font_subset_name (MP mp, font_number f) {
 }
 
 @ @<Declarations@>=
-static integer mp_fm_font_slant (MP mp, font_number f);
-static integer mp_fm_font_extend (MP mp, font_number f);
+static integer mp_fm_font_slant (MP mp, int f);
+static integer mp_fm_font_extend (MP mp, int f);
 
 @ 
-@c static integer mp_fm_font_slant (MP mp, font_number f) {
+@c static integer mp_fm_font_slant (MP mp, int f) {
   fm_entry *fm;
   if (mp_has_fm_entry (mp, f, &fm)) { 
     if (fm != NULL && (fm->ps_name != NULL)) {
@@ -3359,7 +3350,7 @@ static integer mp_fm_font_extend (MP mp, font_number f);
   }
   return 0;
 }
-static integer mp_fm_font_extend (MP mp, font_number f) {
+static integer mp_fm_font_extend (MP mp, int f) {
   fm_entry *fm;
   if (mp_has_fm_entry (mp, f, &fm)) { 
     if (fm != NULL && (fm->ps_name != NULL)) {
@@ -3405,7 +3396,7 @@ static void mp_list_used_resources (MP mp, int prologues, int procset);
 @ @c static void mp_list_used_resources (MP mp, int prologues, int procset) {
   font_number f; /* fonts used in a text node or as loop counters */
   int ff;  /* a loop counter */
-  int ldf; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
+  font_number ldf; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
   boolean firstitem;
   if ( procset>0 )
     mp_ps_print_nl(mp, "%%DocumentResources: procset mpost");
@@ -3416,7 +3407,7 @@ static void mp_list_used_resources (MP mp, int prologues, int procset);
   for (f=null_font+1;f<=mp->last_fnum;f++) {
     if ( (mp_has_font_size(mp,f))&&(mp_font_is_reencoded(mp,f)) ) {
 	  for (ff=ldf;ff>=null_font;ff--) {
-        if ( mp_has_font_size(mp,(font_number)ff) )
+        if ( mp_has_font_size(mp,ff) )
           if ( mp_xstrcmp(mp->font_enc_name[f],mp->font_enc_name[ff])==0 )
             goto FOUND;
       }
@@ -3431,7 +3422,7 @@ static void mp_list_used_resources (MP mp, int prologues, int procset);
       }
       mp_ps_print_char(mp, ' ');
       mp_ps_print(mp, mp->font_enc_name[f]);
-      ldf=(int)f;
+      ldf=f;
     }
   FOUND:
     ;
@@ -3441,7 +3432,7 @@ static void mp_list_used_resources (MP mp, int prologues, int procset);
   for (f=null_font+1;f<=mp->last_fnum;f++) {
     if ( mp_has_font_size(mp,f) ) {
       for (ff=ldf;ff>=null_font;ff--) {
-        if ( mp_has_font_size(mp,(font_number)ff) )
+        if ( mp_has_font_size(mp,ff) )
           if ( mp_xstrcmp(mp->font_name[f],mp->font_name[ff])==0 )
             goto FOUND2;
       }
@@ -3458,7 +3449,7 @@ static void mp_list_used_resources (MP mp, int prologues, int procset);
         mp_ps_print(mp, mp_fm_font_subset_name(mp,f));
       else
         mp_ps_print(mp, mp->font_ps_name[f]);
-      ldf=(int)f;
+      ldf=f;
     }
   FOUND2:
     ;
@@ -3472,7 +3463,7 @@ static void mp_list_supplied_resources (MP mp, int prologues, int procset);
 @ @c static void mp_list_supplied_resources (MP mp, int prologues, int procset) {
   font_number f; /* fonts used in a text node or as loop counters */
   int ff; /* a loop counter */
-  int ldf; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
+  font_number ldf; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
   boolean firstitem;
   if ( procset>0 )
     mp_ps_print_nl(mp, "%%DocumentSuppliedResources: procset mpost");
@@ -3483,7 +3474,7 @@ static void mp_list_supplied_resources (MP mp, int prologues, int procset);
   for (f=null_font+1;f<=mp->last_fnum;f++) {
     if ( (mp_has_font_size(mp,f))&&(mp_font_is_reencoded(mp,f)) )  {
        for (ff=ldf;ff>= null_font;ff++) {
-         if ( mp_has_font_size(mp,(font_number)ff) )
+         if ( mp_has_font_size(mp,ff) )
            if ( mp_xstrcmp(mp->font_enc_name[f],mp->font_enc_name[ff])==0 )
              goto FOUND;
         }
@@ -3497,7 +3488,7 @@ static void mp_list_supplied_resources (MP mp, int prologues, int procset);
       }
       mp_ps_print_char(mp, ' ');
       mp_ps_print(mp, mp->font_enc_name[f]);
-      ldf=(int)f;
+      ldf=f;
     }
   FOUND:
     ;
@@ -3508,7 +3499,7 @@ static void mp_list_supplied_resources (MP mp, int prologues, int procset);
     for (f=null_font+1;f<=mp->last_fnum;f++) {
       if ( mp_has_font_size(mp,f) ) {
         for (ff=ldf;ff>= null_font;ff--) {
-          if ( mp_has_font_size(mp,(font_number)ff) )
+          if ( mp_has_font_size(mp,ff) )
             if ( mp_xstrcmp(mp->font_name[f],mp->font_name[ff])==0 )
                goto FOUND2;
         }
@@ -3525,7 +3516,7 @@ static void mp_list_supplied_resources (MP mp, int prologues, int procset);
           mp_ps_print(mp, mp_fm_font_subset_name(mp,f));
         else
           mp_ps_print(mp, mp->font_ps_name[f]);
-        ldf=(int)f;
+        ldf=f;
       }
     FOUND2:
       ;
@@ -3540,14 +3531,14 @@ static void mp_list_needed_resources (MP mp, int prologues);
 @ @c static void mp_list_needed_resources (MP mp, int prologues) {
   font_number f; /* fonts used in a text node or as loop counters */
   int ff; /* a loop counter */
-  int ldf; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
+  font_number ldf; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
   boolean firstitem;
   ldf=null_font;
   firstitem=true;
   for (f=null_font+1;f<=mp->last_fnum;f++ ) {
     if ( mp_has_font_size(mp,f)) {
       for (ff=ldf;ff>=null_font;ff--) {
-        if ( mp_has_font_size(mp,(font_number)ff) )
+        if ( mp_has_font_size(mp,ff) )
           if ( mp_xstrcmp(mp->font_name[f],mp->font_name[ff])==0 )
              goto FOUND;
       };
@@ -3561,7 +3552,7 @@ static void mp_list_needed_resources (MP mp, int prologues);
       }
       mp_ps_print_char(mp, ' ');
       mp_ps_print(mp, mp->font_ps_name[f]);
-      ldf=(int)f;
+      ldf=f;
     }
   FOUND:
     ;
@@ -3573,7 +3564,7 @@ static void mp_list_needed_resources (MP mp, int prologues);
     for (f=null_font+1;f<= mp->last_fnum;f++) {
       if ( mp_has_font_size(mp,f) ) {
         for (ff=ldf;ff>=null_font;ff-- ) {
-          if ( mp_has_font_size(mp,(font_number)ff) )
+          if ( mp_has_font_size(mp,ff) )
             if ( mp_xstrcmp(mp->font_name[f],mp->font_name[ff])==0 )
               goto FOUND2;
         }
@@ -3582,7 +3573,7 @@ static void mp_list_needed_resources (MP mp, int prologues);
         mp_ps_print(mp, "%%IncludeResource: font ");
         mp_ps_print(mp, mp->font_ps_name[f]);
         mp_ps_print_ln(mp);
-        ldf=(int)f;
+        ldf=f;
       }
     FOUND2:
       ;
@@ -3646,26 +3637,26 @@ static void mp_write_font_definition (MP mp, font_number f, int prologues);
 static void mp_ps_print_defined_name (MP mp, font_number f, int prologues);
 
 @ 
-@c static void mp_ps_print_defined_name(MP mp, font_number f, int prologues) {
+@c static void mp_ps_print_defined_name(MP mp, font_number A, int prologues) {
   mp_ps_print(mp, " /");
-  if ((mp_font_is_subsetted(mp,f))&&
-      (mp_font_is_included(mp,f))&&(prologues==3))
-    mp_ps_print(mp, mp_fm_font_subset_name(mp,f));
+  if ((mp_font_is_subsetted(mp,(A)))&&
+      (mp_font_is_included(mp,(A)))&&(prologues==3))
+    mp_ps_print(mp, mp_fm_font_subset_name(mp,(A)));
   else 
-    mp_ps_print(mp, mp->font_ps_name[f]);
-  if ( mp_xstrcmp(mp->font_name[f],"psyrgo")==0 )
+    mp_ps_print(mp, mp->font_ps_name[(A)]);
+  if ( mp_xstrcmp(mp->font_name[(A)],"psyrgo")==0 )
     mp_ps_print(mp, "-Slanted");
-  if ( mp_xstrcmp(mp->font_name[f],"zpzdr-reversed")==0 ) 
+  if ( mp_xstrcmp(mp->font_name[(A)],"zpzdr-reversed")==0 ) 
     mp_ps_print(mp, "-Reverse");
-  if ( applied_reencoding(f) ) { 
+  if ( applied_reencoding((A)) ) { 
     mp_ps_print(mp, "-");
-    mp_ps_print(mp, mp->font_enc_name[f]); 
+    mp_ps_print(mp, mp->font_enc_name[(A)]); 
   }
-  if ( mp_fm_font_slant(mp,f)!=0 ) {
-    mp_ps_print(mp, "-Slant_"); mp_ps_print_int(mp, mp_fm_font_slant(mp,f)) ;
+  if ( mp_fm_font_slant(mp,(A))!=0 ) {
+    mp_ps_print(mp, "-Slant_"); mp_ps_print_int(mp, mp_fm_font_slant(mp,(A))) ;
   }
-  if ( mp_fm_font_extend(mp,f)!=0 ) {
-    mp_ps_print(mp, "-Extend_"); mp_ps_print_int(mp, mp_fm_font_extend(mp,f)); 
+  if ( mp_fm_font_extend(mp,(A))!=0 ) {
+    mp_ps_print(mp, "-Extend_"); mp_ps_print_int(mp, mp_fm_font_extend(mp,(A))); 
   }
 }
 
@@ -3724,9 +3715,9 @@ void mp_mark_string_chars (MP mp,font_number f, char *s) {
   b=mp->char_base[f];
   bc=mp->font_bc[f];
   ec=mp->font_ec[f];
-  k=s;
+  k=s; /* str_stop */
   while (*k){ 
-    if ( (*k>=(char)bc)&&(*k<=(char)ec) )
+    if ( (*k>=bc)&&(*k<=ec) )
       mp->font_info[b+*k].qqqq.b3=mp_used;
     k++;
   }
@@ -3792,7 +3783,7 @@ void mp_print_improved_prologue (MP mp, mp_edge_object *h, int prologues, int pr
         mp_ps_print(mp, " def");
       } else {
 	    char s[256];
-        mp_snprintf(s,256,"font %s cannot be found in any fontmapfile!", mp->font_name[f]);
+        snprintf(s,256,"font %s cannot be found in any fontmapfile!", mp->font_name[f]);
       	mp_warn(mp,s);
         mp_ps_name_out(mp, mp->font_name[f],true);
         mp_ps_name_out(mp, mp->font_name[f],true);
@@ -3820,7 +3811,7 @@ static font_number mp_print_font_comments (MP mp , mp_edge_object *h, int prolog
   boolean done_fonts; /* have we finished listing the fonts in the header? */
   font_number f; /* a font number for loops */
   scaled ds; /* design size and scale factor for a text node */
-  int ldf=0; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
+  font_number ldf=0; /* the last \.{DocumentFont} listed (otherwise |null_font|) */
   cur_fsize = mp_xmalloc(mp,(mp->font_max+1),sizeof(pointer));
   if ( prologues>0 ) {
     @<Give a \.{DocumentFonts} comment listing all fonts with non-null
@@ -3842,7 +3833,7 @@ static font_number mp_print_font_comments (MP mp , mp_edge_object *h, int prolog
     } while (! done_fonts);
   }
   mp_xfree(cur_fsize);
-  return (font_number)ldf;
+  return ldf;
 }
 
 @ @<Make |cur_fsize| a copy of the |font_sizes| array@>=
@@ -3869,7 +3860,7 @@ search.
         mp_ps_print_nl(mp, "%%+");
       mp_ps_print_char(mp, ' ');
       mp_ps_print(mp, mp->font_ps_name[f]);
-      ldf=(int)f;
+      ldf=f;
     FOUND:
       ;
     }
@@ -3877,7 +3868,7 @@ search.
 }
 
 @ @c
-static void mp_hex_digit_out (MP mp,quarterword d) { 
+static void mp_hex_digit_out (MP mp,small_number d) { 
   if ( d<10 ) mp_ps_print_char(mp, d+'0');
   else mp_ps_print_char(mp, d+'a'-10);
 }
@@ -3922,7 +3913,7 @@ p=mp->char_base[f]+bc;
 while ( (mp->font_info[p].qqqq.b3==mp_unused)&&(bc<ec) ) {
   p++; bc++;
 }
-if ( ec>=(eight_bits)(bc+lim)) ec=(eight_bits)(bc+lim-1);
+if ( ec>=bc+lim ) ec=bc+lim-1;
 p=mp->char_base[f]+ec;
 while ( (mp->font_info[p].qqqq.b3==mp_unused)&&(bc<ec) ) { 
   p--; ec--;
@@ -3930,8 +3921,8 @@ while ( (mp->font_info[p].qqqq.b3==mp_unused)&&(bc<ec) ) {
 
 @ @<Print the initial label indicating that the bitmap starts at |bc|@>=
 mp_ps_print_char(mp, ' ');
-mp_hex_digit_out(mp, (quarterword)bc / 16);
-mp_hex_digit_out(mp, (quarterword)bc % 16);
+mp_hex_digit_out(mp, bc / 16);
+mp_hex_digit_out(mp, bc % 16);
 mp_ps_print_char(mp, ':')
 
 @ 
@@ -3990,7 +3981,7 @@ TODO: these two defines are also defined in mp.w!
     mp_ps_print_char(mp, ' ');
     mp_ps_print_scaled(mp, ds);
     if ( mp->ps->ps_offset+5>emergency_line_length ) break;
-    t=mp_ps_marks_out(mp, f, (eight_bits)t);
+    t=mp_ps_marks_out(mp, f,t);
   }
   cur_fsize[f]=link(cur_fsize[f]);
 }
@@ -4098,7 +4089,7 @@ void mp_ps_print_cmd (MP mp, const char *l, const char *s) ;
 void mp_ps_string_out (MP mp, const char *s) {
   ASCII_code k; /* bits to be converted to octal */
   mp_ps_print(mp, "(");
-  while ((k=(ASCII_code)*s++)) {
+  while ((k=*s++)) {
     if ( mp->ps->ps_offset+5>mp->max_print_line ) {
       mp_ps_print_char(mp, '\\');
       mp_ps_print_ln(mp);
@@ -4127,7 +4118,7 @@ void mp_ps_string_out (MP mp, const char *s) ;
 @c
 static boolean mp_do_is_ps_name (char *s) {
   ASCII_code k; /* the character being checked */
-  while ((k=(ASCII_code)*s++)) {
+  while ((k=*s++)) {
     if ( (k<=' ')||(k>'~') ) return false;
     if ( (k=='(')||(k==')')||(k=='<')||(k=='>')||
        (k=='{')||(k=='}')||(k=='/')||(k=='%') ) return false;
@@ -4192,7 +4183,7 @@ void mp_print_initial_comment(MP mp,mp_edge_object *hh, int prologues) {
     mp_ps_pair_out(mp, hh->_maxx,hh->_maxy);
   }
   mp_ps_print_nl(mp, "%%Creator: MetaPost ");
-  mp_ps_print(mp, mp_metapost_version());
+  mp_ps_print(mp, mp_metapost_version(mp));
   mp_ps_print_nl(mp, "%%CreationDate: ");
   mp_ps_print_int(mp, mp_round_unscaled(mp, mp->internal[mp_year])); 
   mp_ps_print_char(mp, '.');
@@ -4209,21 +4200,7 @@ void mp_print_initial_comment(MP mp,mp_edge_object *hh, int prologues) {
 @ The most important output procedure is the one that gives the \ps\ version of
 a \MP\ path.
 
-@(psout.h@>=
-typedef struct mp_knot {
-  unsigned short left_type_field;
-  unsigned short right_type_field;
-  signed int x_coord_field;
-  signed int y_coord_field;
-  signed int left_x_field;
-  signed int left_y_field;
-  signed int right_x_field;
-  signed int right_y_field;
-  struct mp_knot * next_field;
-  unsigned char originator_field;
-} mp_knot;
-
-@ @<Types...@>=
+@<Types...@>=
 #define gr_left_type(A)  (A)->left_type_field 
 #define gr_right_type(A) (A)->right_type_field
 #define gr_x_coord(A)    (A)->x_coord_field   
@@ -4234,6 +4211,18 @@ typedef struct mp_knot {
 #define gr_right_y(A)    (A)->right_y_field   
 #define gr_next_knot(A)  (A)->next_field
 #define gr_originator(A) (A)->originator_field
+typedef struct mp_knot {
+  unsigned short left_type_field;
+  unsigned short right_type_field;
+  scaled x_coord_field;
+  scaled y_coord_field;
+  scaled left_x_field;
+  scaled left_y_field;
+  scaled right_x_field;
+  scaled right_y_field;
+  struct mp_knot * next_field;
+  quarterword originator_field;
+} mp_knot;
 
 @ @c
 mp_knot * mp_gr_insert_knot (MP mp, mp_knot *q, scaled x, scaled y) {
@@ -4313,7 +4302,7 @@ mp_knot * mp_gr_htap_ypoc (MP mp,  mp_knot *p) {
     gr_originator(qq)=gr_originator(pp);
     if ( gr_next_knot(pp)==p ) { 
       gr_next_knot(q)=qq; 
-      /* |mp->path_tail=pp;| */ /* ? */
+      /* mp->path_tail=pp; */ /* ? */
       return q;
     }
     rr=mp_xmalloc(mp, 1, sizeof (mp_knot));
@@ -4406,9 +4395,9 @@ if ( abs(gr_right_x(p)-gr_x_coord(p)-d)<=bend_tolerance )
 
 @ The colored objects use a struct with anonymous fields to express the color parts:
 
-@(psout.h@>=
+@<Types...@>=
 typedef struct {
-   int _a_val, _b_val, _c_val, _d_val;
+   scaled _a_val, _b_val, _c_val, _d_val;
 } mp_color;
 
 @ The exported form of a dash pattern is simpler than the internal
@@ -4416,10 +4405,10 @@ format, it is closely modelled to the PostScript model. The array of
 dashes is ended by a single negative value, because this is not
 allowed in PostScript.
 
-@(psout.h@>=
+@<Types...@>=
 typedef struct {
-  int offset_field;
-  int *array_field;
+  scaled offset_field;
+  scaled *array_field;
 } mp_dash_object ;
 
 
@@ -4447,7 +4436,7 @@ mp_dash_object *mp_gr_copy_dashes(MP mp, mp_dash_object *dl) {
 	q = mp_xmalloc(mp, 1, sizeof (mp_dash_object));
 	memcpy (q,dl,sizeof(mp_dash_object));
 	if (dl->array_field != NULL) {
-  	  size_t i = 0;
+  	  int i = 0;
       while (*(dl->array_field+i) != -1) i++;
    	  q->array_field = mp_xmalloc(mp, i, sizeof (scaled));
 	  memcpy(q->array_field,dl->array_field, (i*sizeof(scaled)));
@@ -4497,9 +4486,8 @@ structures and access macros.
 #define gr_tyx_val(A)      ((mp_text_object *)A)->tyx_field
 #define gr_tyy_val(A)      ((mp_text_object *)A)->tyy_field
 
-@ @(psout.h@>=
 #define GRAPHIC_BODY                      \
-  int _type_field;                   \
+  halfword _type_field;                   \
   struct mp_graphic_object * _link_field
 
 typedef struct mp_graphic_object {
@@ -4511,21 +4499,21 @@ typedef struct mp_text_object {
   char *pre_script_field;
   char *post_script_field;
   mp_color color_field;
-  unsigned char color_model_field;
-  unsigned char name_type_field;
+  quarterword color_model_field;
+  quarterword name_type_field;
   char *text_p_field;
   char *font_name_field ;   
-  unsigned int font_dsize_field ;
-  unsigned int font_n_field ;   
-  int width_field ;
-  int height_field ;
-  int depth_field ;
-  int tx_field ;
-  int ty_field ;
-  int txx_field ;
-  int txy_field ;
-  int tyx_field ;
-  int tyy_field ;
+  scaled font_dsize_field ;
+  font_number font_n_field ;   
+  scaled width_field ;
+  scaled height_field ;
+  scaled depth_field ;
+  scaled tx_field ;
+  scaled ty_field ;
+  scaled txx_field ;
+  scaled txy_field ;
+  scaled tyx_field ;
+  scaled tyy_field ;
 } mp_text_object;
 
 typedef struct mp_fill_object {
@@ -4533,12 +4521,12 @@ typedef struct mp_fill_object {
   char *pre_script_field;
   char *post_script_field;
   mp_color color_field;
-  unsigned char color_model_field;
-  unsigned char ljoin_field ;   
+  quarterword color_model_field;
+  quarterword ljoin_field ;   
   mp_knot * path_p_field;
   mp_knot * htap_p_field;
   mp_knot * pen_p_field;
-  int miterlim_field ;
+  scaled miterlim_field ;
 } mp_fill_object;
 
 typedef struct mp_stroked_object {
@@ -4546,12 +4534,12 @@ typedef struct mp_stroked_object {
   char *pre_script_field;
   char *post_script_field;
   mp_color color_field;
-  unsigned char color_model_field;
-  unsigned char ljoin_field ;   
-  unsigned char lcap_field ;   
+  quarterword color_model_field;
+  quarterword ljoin_field ;   
+  quarterword lcap_field ;   
   mp_knot * path_p_field;
   mp_knot * pen_p_field;
-  int miterlim_field ;
+  scaled miterlim_field ;
   mp_dash_object *dash_p_field;
 } mp_stroked_object;
 
@@ -4575,9 +4563,7 @@ typedef struct mp_edge_object {
   struct mp_edge_object * _next;
   char * _filename;
   MP _parent;
-  int _minx, _miny, _maxx, _maxy;
-  int _width, _height, _depth, _ital_corr;
-  int _charcode;
+  scaled _minx, _miny, _maxx, _maxy;
 } mp_edge_object;
 
 @ @<Exported function headers@>=
@@ -4586,7 +4572,7 @@ mp_graphic_object *mp_new_graphic_object(MP mp, int type);
 @ @c
 mp_graphic_object *mp_new_graphic_object (MP mp, int type) {
   mp_graphic_object *p;
-  size_t size ;
+  int size ;
   switch (type) {
   case mp_fill_code:         size = sizeof(mp_fill_object);    break;
   case mp_stroked_code:      size = sizeof(mp_stroked_object); break;
@@ -4744,23 +4730,23 @@ void mp_gr_fix_graphics_state (MP mp, mp_graphic_object *p) {
 if ( gr_type(p)==mp_stroked_code ) {
   mp_stroked_object *ts = (mp_stroked_object *)p;
   if ( (gr_left_type(gr_path_p(ts))==mp_endpoint)||(gr_dash_p(ts)!=NULL) )
-    if ( gs_lcap!=(quarterword)gr_lcap_val(ts) ) {
+    if ( gs_lcap!=gr_lcap_val(ts) ) {
       ps_room(13);
       mp_ps_print_char(mp, ' ');
       mp_ps_print_char(mp, '0'+gr_lcap_val(ts)); 
       mp_ps_print_cmd(mp, " setlinecap"," lc");
-      gs_lcap=(quarterword)gr_lcap_val(ts);
+      gs_lcap=gr_lcap_val(ts);
     }
 }
 
 @ 
 @d set_ljoin_miterlim(p) 
-  if ( gs_ljoin!=(quarterword)gr_ljoin_val(p) ) {
+  if ( gs_ljoin!=gr_ljoin_val(p) ) {
     ps_room(14);
     mp_ps_print_char(mp, ' ');
     mp_ps_print_char(mp, '0'+gr_ljoin_val(p)); 
     mp_ps_print_cmd(mp, " setlinejoin"," lj");
-    gs_ljoin=(quarterword)gr_ljoin_val(p);
+    gs_ljoin=gr_ljoin_val(p);
   }
   if ( gs_miterlim!=gr_miterlim_val(p) ) {
     ps_room(27);
@@ -4935,11 +4921,11 @@ bounding-box computation.
 
 @<Declarations@>=
 boolean mp_gr_coord_rangeOK (mp_knot *h, 
-                          quarterword  zoff, scaled dz);
+                          small_number  zoff, scaled dz);
 
 @ @c
 boolean mp_gr_coord_rangeOK (mp_knot *h, 
-                          quarterword  zoff, scaled dz) {
+                          small_number  zoff, scaled dz) {
   mp_knot *p; /* for scanning the path form |h| */
   scaled zlo,zhi; /* coordinate range so far */
   scaled z; /* coordinate currently being tested */
@@ -5348,7 +5334,7 @@ void mp_apply_mark_string_chars(MP mp, mp_edge_object *h, int next_size) {
   while ( p!= NULL ) {
     if ( gr_type(p)==mp_text_code ) {
       if ( gr_font_n(p)!=null_font ) { 
-        if ( gr_name_type(p)==(unsigned char)next_size )
+        if ( gr_name_type(p)==next_size )
           mp_mark_string_chars(mp, gr_font_n(p),gr_text_p(p));
       }
     }
@@ -5385,7 +5371,7 @@ while ( p!=null ) {
         mp->font_sizes[f]=mp_void;
         break;
       default: 
-        gr_name_type(p)=(unsigned char)mp_size_index(mp, f,mp_choose_scale(mp, p));
+        gr_name_type(p)=mp_size_index(mp, f,mp_choose_scale(mp, p));
         if ( gr_name_type(p)==0 )
           mp_mark_string_chars(mp, f, gr_text_p(p));
       }
@@ -5398,32 +5384,21 @@ while ( p!=null ) {
 @ 
 @d pen_is_elliptical(A) ((A)==gr_next_knot((A)))
 
-@<Exported function ...@>=
-int mp_gr_ship_out (mp_edge_object *hh, int prologues, int procset, int standalone) ;
+@<Exported function headers@>=
+void mp_gr_ship_out (mp_edge_object *hh, int prologues, int procset) ;
 
 @ @c 
-int mp_gr_ship_out (mp_edge_object *hh, int qprologues, int qprocset, int standalone) {
+void mp_gr_ship_out (mp_edge_object *hh, int prologues, int procset) {
   mp_graphic_object *p;
   scaled ds,scf; /* design size and scale factor for a text node */
   font_number f; /* for loops over fonts while (un)marking characters */
   boolean transformed; /* is the coordinate system being transformed? */
-  int prologues, procset;
   MP mp = hh->_parent;
-  if (standalone) {
-     jmp_buf buf;
-     mp->jump_buf = &buf;
-     if (setjmp(*(mp->jump_buf)))
-       return 0;
-  }
-  if (mp->history >= mp_fatal_error_stop ) return 1;
-  if (qprologues<0) 
+  if (mp->history >= mp_fatal_error_stop ) return;
+  if (prologues<0) 
 	prologues = (mp->internal[mp_prologues]>>16);
-  else
-   prologues=qprologues;
-  if (qprocset<0) 
+  if (procset<0) 
 	procset = (mp->internal[mp_procset]>>16);
-  else
-    procset=qprocset;
   mp_open_output_file(mp);
   mp_print_initial_comment(mp, hh, prologues);
   p = hh->body;
@@ -5475,7 +5450,7 @@ int mp_gr_ship_out (mp_edge_object *hh, int qprologues, int qprocset, int standa
         if ( prologues>0 )
           scf=mp_gr_choose_scale(mp, p);
         else 
-          scf=mp_indexed_size(mp, gr_font_n(p), (quarterword)gr_name_type(p));
+          scf=mp_indexed_size(mp, gr_font_n(p), gr_name_type(p));
         @<Shift or transform as necessary before outputting text node~|p| at scale
           factor~|scf|; set |transformed:=true| if the original transformation must
           be restored@>;
@@ -5522,20 +5497,7 @@ int mp_gr_ship_out (mp_edge_object *hh, int qprologues, int qprocset, int standa
   (mp->close_file)(mp,mp->ps_file);
   if ( prologues<=0 ) 
     mp_clear_sizes(mp);
-  return 1;
 }
-
-@ @(psout.h@>=
-int mp_ps_ship_out (mp_edge_object *hh, int prologues, int procset) ;
-
-@ @c
-int mp_ps_ship_out (mp_edge_object *hh, int prologues, int procset) {
-  return mp_gr_ship_out (hh, prologues, procset, true);
-}
-
-
-
-
 
 @ 
 @d do_write_prescript(a,b) {
@@ -5593,7 +5555,8 @@ if ( transformed ) {
 }
 mp_ps_print_ln(mp)
 
-@ @(psout.h@>=
+
+@ @<Exported function headers@>=
 void mp_gr_toss_objects ( mp_edge_object *hh) ;
 void mp_gr_toss_object (mp_graphic_object *p) ;
 
@@ -5656,7 +5619,7 @@ void mp_gr_toss_objects (mp_edge_object *hh) {
   mp_xfree(hh);
 }
 
-@ @(psout.h@>=
+@ @<Exported function headers@>=
 mp_graphic_object *mp_gr_copy_object (MP mp, mp_graphic_object *p) ;
 
 @ @c

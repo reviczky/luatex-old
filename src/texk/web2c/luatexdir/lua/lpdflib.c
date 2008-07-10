@@ -1,27 +1,8 @@
-/* lpdflib.c
-   
-   Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
-
-   This file is part of LuaTeX.
-
-   LuaTeX is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your
-   option) any later version.
-
-   LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-   License for more details.
-
-   You should have received a copy of the GNU General Public License along
-   with LuaTeX; if not, see <http://www.gnu.org/licenses/>. */
+/* $Id$ */
 
 #include "luatex-api.h"
 #include <ptexlib.h>
 
-static const char _svn_version[] =
-    "$Id$ $URL$";
 
 static int findcurv(lua_State * L)
 {
@@ -76,7 +57,6 @@ int luapdfprint(lua_State * L)
             lua_error(L);
         }
     }
-    check_pdfminorversion();
     switch (literal_mode) {
     case (set_origin):
         pdf_end_text();
@@ -100,7 +80,6 @@ int luapdfprint(lua_State * L)
     return 0;
 }
 
-/* DANGER! this should go into some header file */
 #define obj_type_others 0
 
 static int l_immediateobj(lua_State * L)

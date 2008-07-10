@@ -1,24 +1,23 @@
-/* image.h
-   
-   Copyright 1996-2006 Han The Thanh <thanh@pdftex.org>
-   Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
+/*
+Copyright (c) 1996-2002 Han The Thanh, <thanh@pdftex.org>
 
-   This file is part of LuaTeX.
+This file is part of pdfTeX.
+pdfTeX is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-   LuaTeX is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your
-   option) any later version.
+pdfTeX is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-   LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-   License for more details.
+You should have received a copy of the GNU General Public License
+along with pdfTeX; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-   You should have received a copy of the GNU General Public License along
-   with LuaTeX; if not, see <http://www.gnu.org/licenses/>. */
-
-/* $Id$ */
+$Id$
+*/
 
 #ifndef IMAGE_H
 #  define IMAGE_H
@@ -35,7 +34,6 @@
 
 extern integer zround(double);  /* from zround.c */
 #  define bp2int(p)       zround(p * (one_hundred_bp / 100.0))
-#  define int2bp(i)       (i * 100.0 / one_hundred_bp)
 
 #  define TYPE_IMG        "image"
 #  define TYPE_IMG_DICT   "image-dict"
@@ -43,10 +41,6 @@ extern integer zround(double);  /* from zround.c */
 #  define scaled          integer
 
 /**********************************************************************/
-
-typedef struct {
-    char *stream;
-} pdf_stream_struct;
 
 typedef struct {
     png_structp png_ptr;
@@ -58,21 +52,19 @@ typedef struct {
     JPG_UINT32 length;          /* length of file/data */
 } jpg_img_struct;
 
-#  if 0
 typedef struct {                /* currently unused */
 } jb2_img_struct;
-#  endif
 
 typedef enum { DICT_NEW,        /* fresh dictionary */
     DICT_FILESCANNED,           /* image file scanned */
     DICT_REFERED,               /* pdf_refximage_node in node list --> read-only dict */
     DICT_OUTIMG,                /* /Im* appears in pagestream */
-    DICT_SCHEDULED,             /* image dict scheduled for writing (PONR) */
+    DICT_SCHEDULED,             /* image dict scheduled for writing */
     DICT_WRITTEN                /* image dict written to file */
 } dict_state;
 
-typedef enum { IMG_TYPE_NONE, IMG_TYPE_PDF, IMG_TYPE_PNG, IMG_TYPE_JPG,
-    IMG_TYPE_JBIG2, IMG_TYPE_PDFSTREAM, IMG_TYPE_SENTINEL
+typedef enum { IMAGE_TYPE_NONE, IMAGE_TYPE_PDF, IMAGE_TYPE_PNG, IMAGE_TYPE_JPG,
+    IMAGE_TYPE_JBIG2, IMAGE_TYPE_SENTINEL
 } imgtype_e;
 
 typedef enum { IMG_KEEPOPEN, IMG_CLOSEINBETWEEN } img_readtype_e;
@@ -93,7 +85,6 @@ typedef struct {
     integer y_orig;
     integer x_res;              /* pixel resolution as in JPG/PNG/JBIG2 file */
     integer y_res;
-    integer rotation;           /* rotation (multiples of 90 deg.) for PDF files */
     integer colorspace;         /* number of /ColorSpace object */
     integer total_pages;
     integer page_num;           /* requested page (by number) */
@@ -106,14 +97,11 @@ typedef struct {
     int color_space;            /* used color space. See JPG_ constants */
     int color_depth;            /* color depth */
     pdfboxspec_e page_box_spec; /* PDF page box spec.: media/crop/bleed/trim/art */
-    integer bbox[4];
     dict_state state;
-    integer flags;
     union {
-        pdf_stream_struct *pdfstream;
         png_img_struct *png;
         jpg_img_struct *jpg;
-        /* jb2_img_struct *jb2; */
+        jb2_img_struct *jb2;
     } img_struct;
 } image_dict;
 
@@ -125,7 +113,6 @@ typedef struct {
 #  define img_yorig(N)          ((N)->y_orig)
 #  define img_xres(N)           ((N)->x_res)
 #  define img_yres(N)           ((N)->y_res)
-#  define img_rotation(N)       ((N)->rotation)
 #  define img_colorspace(N)     ((N)->colorspace)
 #  define img_totalpages(N)     ((N)->total_pages)
 #  define img_pagenum(N)        ((N)->page_num)
@@ -138,11 +125,7 @@ typedef struct {
 #  define img_color(N)          ((N)->color_space)
 #  define img_colordepth(N)     ((N)->color_depth)
 #  define img_pagebox(N)        ((N)->page_box_spec)
-#  define img_bbox(N)           ((N)->bbox)
 #  define img_state(N)          ((N)->state)
-
-#  define img_pdfstream_ptr(N)  ((N)->img_struct.pdfstream)
-#  define img_pdfstream_stream(N) ((N)->img_struct.pdfstream->stream)
 
 #  define img_png_ptr(N)        ((N)->img_struct.png)
 #  define img_png_png_ptr(N)    ((N)->img_struct.png->png_ptr)
@@ -153,12 +136,6 @@ typedef struct {
 
 #  define img_jb2_ptr(N)        ((N)->img_struct.jb2)
 
-#  define F_FLAG_BBOX           (1 << 0)
-
-#  define img_set_bbox(N)       (img_flags(N) |= F_FLAG_BBOX)
-#  define img_unset_bbox(N)     (img_flags(N) &= ~F_FLAG_BBOX)
-#  define img_is_bbox(N)        ((img_flags(N) & F_FLAG_BBOX) != 0)
-
 /**********************************************************************/
 
 typedef struct {
@@ -168,7 +145,6 @@ typedef struct {
     integer transform;
     integer flags;
     image_dict *dict;
-    int array_idx;              /* index within img_array */
     int dict_ref;               /* luaL_ref() reference */
 } image;
 
@@ -178,17 +154,18 @@ typedef struct {
 #  define img_transform(N)      ((N)->transform)
 #  define img_flags(N)          ((N)->flags)
 #  define img_dict(N)           ((N)->dict)
-#  define img_arrayidx(N)       ((N)->array_idx)
 #  define img_dictref(N)        ((N)->dict_ref)
 
-#  define img_is_refered(N)     (img_arrayidx(N) != -1)
-
-#  define F_FLAG_SCALED         (1 << 0)
+#  define F_FLAG_SCALED         0x01
+#  define F_FLAG_REFERED        0x02
 
 #  define img_flags(N)          ((N)->flags)
 #  define img_set_scaled(N)     (img_flags(N) |= F_FLAG_SCALED)
+#  define img_set_refered(N)    (img_flags(N) |= F_FLAG_REFERED)
 #  define img_unset_scaled(N)   (img_flags(N) &= ~F_FLAG_SCALED)
+#  define img_unset_refered(N)  (img_flags(N) &= ~F_FLAG_REFERED)
 #  define img_is_scaled(N)      ((img_flags(N) & F_FLAG_SCALED) != 0)
+#  define img_is_refered(N)     ((img_flags(N) & F_FLAG_REFERED) != 0)
 
 #  define set_wd_running(N)     (img_width(N) = null_flag)
 #  define set_ht_running(N)     (img_height(N) = null_flag)
@@ -201,9 +178,6 @@ typedef struct {
 
 /* writeimg.c */
 
-void new_img_pdfstream_struct(image_dict *);
-void check_pdfstream_dict(image_dict *);
-void write_pdfstream(image_dict *);
 image *new_image();
 image_dict *new_image_dict();
 void init_image(image *);

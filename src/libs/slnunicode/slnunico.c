@@ -942,8 +942,6 @@ static int gmatch_aux (lua_State *L) {
 	ms.L = L;
 	ms.src_init = s;
 	ms.src_end = s+ls;
-    ms.mode = lua_tointeger(L, lua_upvalueindex(4));
-    ms.mb = MODE_MBYTE(ms.mode);
 	for (src = s + (size_t)lua_tointeger(L, lua_upvalueindex(3));
 			src <= ms.src_end;
 			src++)
@@ -968,8 +966,7 @@ static int gmatch (lua_State *L) {
 	luaL_checkstring(L, 2);
 	lua_settop(L, 2);
 	lua_pushinteger(L, 0);
-	lua_pushinteger(L, lua_upvalueindex(1));
-	lua_pushcclosure(L, gmatch_aux, 4);
+	lua_pushcclosure(L, gmatch_aux, 3);
 	return 1;
 }
 

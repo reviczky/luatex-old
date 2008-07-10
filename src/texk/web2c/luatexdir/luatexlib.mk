@@ -13,7 +13,7 @@ luapdflib = luatexdir/libpdf.a
 luapdflib_sources = $(srcdir)/luatexdir/*.c $(srcdir)/luatexdir/*.cc \
 	$(srcdir)/luatexdir/*.h
 
-$(luapdflib): $(luapdflib_sources) luatexdir/luatexextra.h ctangle
+$(luapdflib): $(pdflib_sources) luatexdir/luatexextra.h ctangle
 	cd luatexdir && mkdir -p font image lua lang tex && $(MAKE) $(common_makeargs) libpdf.a
 
 # makecpool:
@@ -102,19 +102,6 @@ $(LUAFSDEP): $(LUAFSDIR)/src/lfs.c $(LUAFSDIR)/src/lfs.h
 	mkdir -p $(LUAFSDIR) && cd $(LUAFSDIR) && cp -R $(LUAFSSRCDIR)/* . && \
     cd src && $(CC) $(CFLAGS) $(LUAFSINC) -g -o lfs.o -c lfs.c
 
-
-# luasocket
-
-LUASOCKETDIR=../../libs/luasocket
-LUASOCKETSRCDIR=$(srcdir)/$(LUASOCKETDIR)
-LUASOCKETDEP=$(LUASOCKETDIR)/src/socket.a
-LUASOCKETINC=-I../../lua51
-
-$(LUASOCKETDEP): $(LUASOCKETDIR)/src/luasocket.c $(LUASOCKETDIR)/src/luasocket.h
-	mkdir -p $(LUASOCKETDIR) && cd $(LUASOCKETDIR) && cp -R $(LUASOCKETSRCDIR)/* . && \
-    cd src && make
-
-
 # luapeg
 LUAPEGDIR=../../libs/luapeg
 LUAPEGSRCDIR=$(srcdir)/$(LUAPEGDIR)
@@ -155,11 +142,11 @@ $(LUAZLIBDEP): $(LUAZLIBDIR)/lgzip.c $(LUAZLIBDIR)/lzlib.c
 # Convenience variables.
 
 luatexlibs = $(luapdflib) $(LDLIBPNG) $(LDZLIB) $(LDLIBXPDF) $(LIBMD5DEP) $(LDLIBOBSD) \
-             $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP) $(LUAFSDEP) $(LUASOCKETDEP) \
+             $(LIBLUADEP) $(SLNUNICODEDEP)  $(LUAZIPDEP) $(ZZIPLIBDEP) $(LUAFSDEP) \
              $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP) $(LUAFFDEP)
 
 luatexlibsdep = $(luapdflib) $(LIBPNGDEP) $(ZLIBDEP) $(LIBXPDFDEP) $(LIBMD5DEP) $(LIBOBSDDEP) \
-                $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP)  $(LUAFSDEP) $(LUASOCKETDEP) \
+                $(LIBLUADEP) $(SLNUNICODEDEP) $(ZZIPLIBDEP) $(LUAZIPDEP)  $(LUAFSDEP) \
                 $(LUAPEGDEP) $(LUAMDVDEP)  $(LUAZLIBDEP) $(LUAFFDEP) $(makecpool)
 
 ## end of luatexlib.mk - Makefile fragment for libraries used by pdf[ex]tex.

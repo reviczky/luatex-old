@@ -43,8 +43,7 @@
 
 #if   defined ZZIP_HAVE_STRING_H
 #include <string.h>
-#endif
-#if defined ZZIP_HAVE_STRINGS_H
+#elif defined ZZIP_HAVE_STRINGS_H
 #include <strings.h>
 #endif
 

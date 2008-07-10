@@ -1,28 +1,8 @@
-/* linebreak.c
-   
-   Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
-
-   This file is part of LuaTeX.
-
-   LuaTeX is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your
-   option) any later version.
-
-   LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-   License for more details.
-
-   You should have received a copy of the GNU General Public License along
-   with LuaTeX; if not, see <http://www.gnu.org/licenses/>. */
+/* $Id$ */
 
 #include "luatex-api.h"
 #include <ptexlib.h>
 #include "nodes.h"
-
-static const char _svn_version[] =
-    "$Id$ $URL$";
 
 /* Glue nodes in a horizontal list that is being paragraphed are not supposed to
    include ``infinite'' shrinkability; that is why the algorithm maintains
@@ -1667,9 +1647,9 @@ ext_do_line_break(boolean d,
         /* /Create an active breakpoint representing the beginning of the paragraph */
         auto_breaking = true;
         cur_p = vlink(temp_head);
+        assert(alink(cur_p) == temp_head);
         /* LOCAL: Initialize with first |local_paragraph| node */
-        if ((cur_p != null) && (type(cur_p) == whatsit_node) && (subtype(cur_p) == local_par_node)) {
-            assert(alink(cur_p) == temp_head);
+        if ((type(cur_p) == whatsit_node) && (subtype(cur_p) == local_par_node)) {
             internal_pen_inter = local_pen_inter(cur_p);
             internal_pen_broken = local_pen_broken(cur_p);
             init_internal_left_box = local_box_left(cur_p);

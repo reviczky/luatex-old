@@ -1,24 +1,3 @@
-%  luatex.ch
-%  
-%  Copyright 2006-2008 Taco Hoekwater <taco@luatex.org>
-%
-%  This file is part of LuaTeX.
-%
-%  LuaTeX is free software; you can redistribute it and/or modify it under
-%  the terms of the GNU General Public License as published by the Free
-%  Software Foundation; either version 2 of the License, or (at your
-%  option) any later version.
-%
-%  LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-%  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-%  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-%  License for more details.
-%
-%  You should have received a copy of the GNU General Public License along
-%  with LuaTeX; if not, see <http://www.gnu.org/licenses/>.
-%
-% $Id$
-%
 @x
   \def\?##1]{\hbox to 1in{\hfil##1.\ }}
   }
@@ -150,7 +129,7 @@ versions of the program.
 {Larger values than 65536 cause the arrays consume much more memory.}
 
 @<Constants...@>=
-@!hash_offset=0; {smallest index in hash array, i.e., |hash_base| }
+@!hash_offset=514; {smallest index in hash array, i.e., |hash_base| }
   {Use |hash_offset=0| for compilers which cannot decrement pointers.}
 @!engine_name='luatex'; {the name of this engine}
 @#
@@ -595,6 +574,47 @@ end;
 @z
 
 @x
+line ready to be edited. But such an extension requires some system
+wizardry, so the present implementation simply types out the name of the
+file that should be
+edited and the relevant line number.
+@^system dependencies@>
+
+There is a secret `\.D' option available when the debugging routines haven't
+been commented~out.
+@^debugging@>
+@y
+line ready to be edited.
+We do this by calling the external procedure |calledit| with a pointer to
+the filename, its length, and the line number.
+However, here we just set up the variables that will be used as arguments,
+since we don't want to do the switch-to-editor until after TeX has closed
+its files.
+@^system dependencies@>
+
+There is a secret `\.D' option available when the debugging routines haven't
+been commented~out.
+@^debugging@>
+@d edit_file==input_stack[base_ptr]
+@z
+
+@x
+"E": if base_ptr>0 then
+  begin print_nl("You want to edit file ");
+@.You want to edit file x@>
+  slow_print(input_stack[base_ptr].name_field);
+  print(" at line "); print_int(line);
+  interaction:=scroll_mode; jump_out;
+@y
+"E": if base_ptr>0 then
+    begin edit_name_start:=str_start_macro(edit_file.name_field);
+    edit_name_length:=str_start_macro(edit_file.name_field+1) -
+                      str_start_macro(edit_file.name_field);
+    edit_line:=line;
+    jump_out;
+@z
+
+@x
 |remainder|, holds the remainder after a division.
 
 @<Glob...@>=
@@ -761,10 +781,10 @@ page_depth:=0; page_max_depth:=0;
 @z
 
 @x
-for k:=null_cs to undefined_control_sequence-1 do
+for k:=active_base to undefined_control_sequence-1 do
   eqtb[k]:=eqtb[undefined_control_sequence];
 @y
-for k:=null_cs to eqtb_top do
+for k:=active_base to eqtb_top do
   eqtb[k]:=eqtb[undefined_control_sequence];
 @z
 
@@ -803,7 +823,7 @@ else if (n<glue_base) or ((n>eqtb_size)and(n<=eqtb_top)) then
 @z
 
 @x
-@!eqtb:array[null_cs..eqtb_size] of memory_word;
+@!eqtb:array[active_base..eqtb_size] of memory_word;
 @y
 @!zeqtb:^memory_word;
 @z
@@ -858,33 +878,6 @@ begin if text(p)>0 then
       until text(hash_used)=0; {search for an empty location in |hash|}
     next(p):=hash_used; p:=hash_used;
     end;
-  end;
-@z
-
-
-@x
-@ @<Insert a control...@>=
-begin if text(p)>0 then
-  begin repeat if hash_is_full then overflow("hash size",hash_size);
-@:TeX capacity exceeded hash size}{\quad hash size@>
-  decr(hash_used);
-  until text(hash_used)=0; {search for an empty location in |hash|}
-  next(p):=hash_used; p:=hash_used;
-  end;
-@y
-@ @<Insert a control...@>=
-begin if text(p)>0 then
-  begin if hash_high<hash_extra then
-      begin incr(hash_high);
-      next(p):=hash_high+eqtb_size; p:=hash_high+eqtb_size;
-      end
-    else begin
-      repeat if hash_is_full then overflow("hash size",hash_size);
-@:TeX capacity exceeded hash size}{\quad hash size@>
-      decr(hash_used);
-      until text(hash_used)=0; {search for an empty location in |hash|}
-      next(p):=hash_used; p:=hash_used;
-      end;
   end;
 @z
 
@@ -1777,7 +1770,7 @@ if x<>@$ then goto bad_fmt; {check that strings are the same}
 @y
 @+Init
 libcfree(str_pool); libcfree(str_start);
-libcfree(yhash); libcfree(zeqtb); libcfree(fixmem); libcfree(varmemcast(varmem));
+libcfree(yhash); libcfree(zeqtb); libcfree(fixmem); libcfree(varmem);
 @+Tini
 undump_int(x);
 format_debug('format magic number')(x);
@@ -2068,8 +2061,8 @@ print(" (format="); print(job_name); print_char(" ");
 @d setup_bound_var(#)==bound_default:=#; setup_bound_var_end
 @d setup_bound_var_end(#)==bound_name:=#; setup_bound_var_end_end
 @d setup_bound_var_end_end(#)==if luainit>0 then begin
-        get_lua_number('texconfig',bound_name,addressof(#));
-        if #=0 then #:=bound_default;
+	get_lua_number('texconfig',bound_name,addressof(#));
+	if #=0 then #:=bound_default;
     end
   else
     setupboundvariable(addressof(#), bound_name, bound_default);

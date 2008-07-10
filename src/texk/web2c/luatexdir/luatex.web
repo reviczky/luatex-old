@@ -1,24 +1,19 @@
-%  luatex.web
-%  
-%  Copyright 2006-2008 Taco Hoekwater <taco@@luatex.org>
-%  Copyright 2006-2008 Hartmut Henkel <hartmut@@luatex.org>
-%
-%  This file is part of LuaTeX.
-%
-%  LuaTeX is free software; you can redistribute it and/or modify it under
-%  the terms of the GNU General Public License as published by the Free
-%  Software Foundation; either version 2 of the License, or (at your
-%  option) any later version.
-%
-%  LuaTeX is distributed in the hope that it will be useful, but WITHOUT
-%  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-%  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
-%  License for more details.
-%
-%  You should have received a copy of the GNU General Public License along
-%  with LuaTeX; if not, see <http://www.gnu.org/licenses/>.
-%
-% $Id$
+% Copyright (c) 2007 Hartmut Henkel, Taco Hoekwater
+
+% This file is part of luaTeX.
+
+% luaTeX is free software; you can redistribute it and/or modify it under the
+% terms of the GNU General Public License as published by the Free Software
+% Foundation; either version 2 of the License, or (at your option) any later
+% version.
+
+% luaTeX is distributed in the hope that it will be useful, but WITHOUT ANY
+% WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+% A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+% You should have received a copy of the GNU General Public License
+% along with luaTeX; if not, write to the Free Software Foundation, Inc.,
+% 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
 % pdfTeX is copyright (C) 1996-2006 Han The Thanh, <thanh@@pdftex.org>.
 % e-TeX is copyright (C) 1994,98 by Peter Breitenlohner.
@@ -247,9 +242,9 @@ known as `\eTeX'.
 @d pdftex_revision=="0" { \.{\\pdftexrevision} }
 @d pdftex_version_string=='-2.00.0' {current \pdfTeX\ version}
 @#
-@d luatex_version==28 { \.{\\luatexversion} }
-@d luatex_revision=="0" { \.{\\luatexrevision} }
-@d luatex_version_string=='snapshot-0.28.0' {current \LuaTeX\ version}
+@d luatex_version==25 { \.{\\luatexversion} }
+@d luatex_revision=="3" { \.{\\luatexrevision} }
+@d luatex_version_string=='snapshot-0.25.3' {current \LuaTeX\ version}
 @d luatex_date_info==-extra_version_info { the compile date is negated }
 @#
 @d luaTeX_banner=='This is LuaTeX, Version ',luatex_version_string,extra_version_info
@@ -520,6 +515,7 @@ emphasize this distinction.
 @d too_big_char=1114112 {2097152} {|biggest_char+1|}
 @d special_char=1114113 {2097153} {|biggest_char+2|}
 @d number_chars=1114112 {2097152} {|biggest_char+1|}
+@d number_active_chars=65536+65536 {to reduce the memory req. only two planes }
 @d string_offset=2097152
 @d font_biggest=5535 {the real biggest font}
 @d number_fonts=font_biggest-font_base+1
@@ -1026,13 +1022,13 @@ begin
     if (test)and(fnam<>0)and(length(fnam)>0) then begin
       @<Fixup |nameoffile| after callback@>;
       lua_a_open_out := do_a_open_out(f);
-          name_file_pointer := f;
+	  name_file_pointer := f;
       end
     else 
       lua_a_open_out := false;
     end 
   else begin
-        if openoutnameok(stringcast(nameoffile+1)) then begin
+	if openoutnameok(stringcast(nameoffile+1)) then begin
       lua_a_open_out := a_open_out(f);
       name_file_pointer := f;
       end
@@ -1054,13 +1050,13 @@ begin
     if (test)and(fnam<>0)and(length(fnam)>0) then begin
       @<Fixup |nameoffile| after callback@>;
       lua_b_open_out := do_b_open_out(f);
-          name_file_pointer := f;
+	  name_file_pointer := f;
       end
     else 
       lua_b_open_out := false;
     end 
   else begin
-        if openoutnameok(stringcast(nameoffile+1)) then begin
+	if openoutnameok(stringcast(nameoffile+1)) then begin
       lua_b_open_out := b_open_out(f);
       name_file_pointer := f;
       end
@@ -1214,9 +1210,9 @@ end;
 
 function lua_input_ln(var f:alpha_file;n:quarterword;@!bypass_eoln:boolean):boolean;
 var lua_result:boolean;
-        last_ptr:integer;
+	last_ptr:integer;
     callback_id:integer;
-        bypass_p:boolean;
+	bypass_p:boolean;
 begin
 if n=0 then
   callback_id:=input_file_callback_id[index]
@@ -1224,12 +1220,12 @@ else
   callback_id:=read_file_callback_id[n];
 if callback_id>0 then begin
     last:=first;
-        last_ptr := first;
+	last_ptr := first;
     lua_result := run_saved_callback(callback_id,'reader','->l', addressof(last_ptr));
-        if (lua_result=true)and(last_ptr<>0) then begin
-          last := last_ptr;
-          if last>max_buf_stack then max_buf_stack:=last; 
-          lua_input_ln := true;
+	if (lua_result=true)and(last_ptr<>0) then begin
+	  last := last_ptr;
+	  if last>max_buf_stack then max_buf_stack:=last; 
+	  lua_input_ln := true;
       @<Fix up the input buffer using callbacks@>; 
       end
     else 
@@ -1238,7 +1234,7 @@ if callback_id>0 then begin
   else begin
     bypass_p := bypass_eoln; {this is for -Wextra}
     lua_result := input_ln(f,bypass_p);
-        if lua_result=true then begin
+	if lua_result=true then begin
       lua_input_ln := true;
       @<Fix up the input buffer using callbacks@>; 
       end
@@ -1255,8 +1251,8 @@ if last>=first then begin
     last_ptr := first;
     lua_result := run_callback(callback_id, 'l->l', (last-first), addressof(last_ptr)); 
     if (lua_result=true)and(last_ptr<>0) then begin
-          last := last_ptr;
-          if last>max_buf_stack then max_buf_stack:=last; 
+	  last := last_ptr;
+	  if last>max_buf_stack then max_buf_stack:=last; 
       end;
     end;
   end
@@ -1470,12 +1466,12 @@ end
 
 @p procedure string_room(t:integer);
 begin
-        str_room(t);
+	str_room(t);
 end;
 @#
 procedure append_pool_char(c:ASCII_code);
 begin
-        append_char(c);
+	append_char(c);
 end;
 
 
@@ -1518,37 +1514,37 @@ begin
     if b<@"80 then
       a := b
     else if b>=@"F0 then begin
-          a := (b-@"F0) * 64;
-          b := buffer[k+1];
-          test_sequence_byte(b);
-          a := (a + (b-128)) * 64;
-          b := buffer[k+2];
-          test_sequence_byte(b);
-          a := (a + (b-128)) * 64;
-          b := buffer[k+3];
-          test_sequence_byte(b);
-          a := a + (b-128);
+	  a := (b-@"F0) * 64;
+	  b := buffer[k+1];
+	  test_sequence_byte(b);
+	  a := (a + (b-128)) * 64;
+	  b := buffer[k+2];
+	  test_sequence_byte(b);
+	  a := (a + (b-128)) * 64;
+	  b := buffer[k+3];
+	  test_sequence_byte(b);
+	  a := a + (b-128);
       end 
     else if b>=@"E0 then begin
-          a := (b-@"E0) * 64;
-          b := buffer[k+1];
-          test_sequence_byte(b);
-          a := (a + (b-128)) * 64;
-          b := buffer[k+2];
-          test_sequence_byte(b);
-          a := a + (b-128);
+	  a := (b-@"E0) * 64;
+	  b := buffer[k+1];
+	  test_sequence_byte(b);
+	  a := (a + (b-128)) * 64;
+	  b := buffer[k+2];
+	  test_sequence_byte(b);
+	  a := a + (b-128);
       end 
     else if b>=@"C0 then begin
-          a := (b-@"C0) * 64;
-          b := buffer[k+1];
-          test_sequence_byte(b);
-          a := a + (b-128);
+	  a := (b-@"C0) * 64;
+	  b := buffer[k+1];
+	  test_sequence_byte(b);
+	  a := a + (b-128);
       end
     else begin { NI: this is an encoding error }
-          print_err("Buffer contains an invalid utf-8 sequence");
+	  print_err("Buffer contains an invalid utf-8 sequence");
 @.Text line contains...@>
-          help2("A funny symbol somehow ended up in the input buffer.")@/
-           ("Just continue, I'll change it to 0xFFFD.");@/
+	  help2("A funny symbol somehow ended up in the input buffer.")@/
+    	   ("Just continue, I'll change it to 0xFFFD.");@/
       deletions_allowed:=false; error; deletions_allowed:=true;
       a:=@"FFFD;
       end;
@@ -1605,7 +1601,7 @@ if s<string_offset then begin
      if length(t)=1 then
        if str_pool[str_start_macro(t)]=s then
           goto found;
-        a := pool_to_unichar(str_start_macro(t));
+	a := pool_to_unichar(str_start_macro(t));
     if a<>s then goto not_found;
     end 
   else
@@ -1882,32 +1878,32 @@ begin
     if b<=@"7F then
       a := b
     else if b>=@"F0 then begin
-          a := (b-@"F0) * 64;
-          b := str_pool[t+1];
-          a := (a + (b-128)) * 64;
-          b := str_pool[t+2];
-          a := (a + (b-128)) * 64;
-          b := str_pool[t+3];
-          a := a + (b-128);
+	  a := (b-@"F0) * 64;
+	  b := str_pool[t+1];
+	  a := (a + (b-128)) * 64;
+	  b := str_pool[t+2];
+	  a := (a + (b-128)) * 64;
+	  b := str_pool[t+3];
+	  a := a + (b-128);
       end
     else if b>=@"E0 then begin
-          a := (b-@"E0) * 64;
-          b := str_pool[t+1];
-          a := (a + (b-128)) * 64;
-          b := str_pool[t+2];
-          a := a + (b-128);
+	  a := (b-@"E0) * 64;
+	  b := str_pool[t+1];
+	  a := (a + (b-128)) * 64;
+	  b := str_pool[t+2];
+	  a := a + (b-128);
       end 
     else if b>=@"C0 then begin
-          a := (b-@"C0) * 64;
-          b := str_pool[t+1];
-          a := a + (b-128);
+	  a := (b-@"C0) * 64;
+	  b := str_pool[t+1];
+	  a := a + (b-128);
       end
     else begin  { NI: this is an encoding error }
-          wlog_ln('! Pool contains an invalid utf-8 sequence');
-          wterm_ln('! Pool contains an invalid utf-8 sequence');
+	  wlog_ln('! Pool contains an invalid utf-8 sequence');
+	  wterm_ln('! Pool contains an invalid utf-8 sequence');
 @.Text line contains...@>
-          help2("A funny symbol somehow ended up in the string pool.")@/
-           ("Just continue, I'll change it to 0xFFFD.");@/
+	  help2("A funny symbol somehow ended up in the string pool.")@/
+    	   ("Just continue, I'll change it to 0xFFFD.");@/
       deletions_allowed:=false; error; deletions_allowed:=true;
       a:=@"FFFD;
       end;
@@ -1945,7 +1941,7 @@ else if s<string_offset then
       end 
     else begin 
       if s>=@"110000 then 
-            print_char(s-@"110000)
+	    print_char(s-@"110000)
       else begin
         print_char(@"F0 + (s div @"40000));
         print_char(@"80 + ((s mod @"40000) div @"1000));
@@ -1959,8 +1955,8 @@ j:=str_start_macro(s);
 while j<str_start_macro(s+1) do
   begin { 0x110000 in utf=8: 0xF4 0x90 0x80 0x80 }
     if (str_pool[j]=@"F4)and(j<str_start_macro(s+4))and(str_pool[j+1]=@"90) then begin
-          v := (((7*64+63)*64)+ (str_pool[j+2]-128))*64 +(str_pool[j+3]-128);
-          print_char(v-@"110000); j := j+4;
+	  v := (((7*64+63)*64)+ (str_pool[j+2]-128))*64 +(str_pool[j+3]-128);
+	  print_char(v-@"110000); j := j+4;
       end
     else begin
       print_char(str_pool[j]); incr(j);
@@ -2533,19 +2529,15 @@ end;
 
 @<Error hand...@>=
 procedure lua_norm_error(@!s:str_number); {lua found a problem}
-var saved_new_line_char: integer;
 begin
-saved_new_line_char:=new_line_char;
-new_line_char:=10;
 print_err("LuaTeX error "); print(s);
 help2("The lua interpreter ran into a problem, so the")@/
   ("remainder of this lua chunk will be ignored.");
 error;
-new_line_char:=saved_new_line_char;
 end;
 
 procedure lua_fatal_error(@!s:str_number); {lua found a problem}
-begin new_line_char:=10; normalize_selector;
+begin normalize_selector;
 print_err("LuaTeX fatal error "); print(s);
 succumb;
 end;
@@ -5291,11 +5283,11 @@ or what their current values are, for all quantities that are subject to
 the nesting structure provided by \TeX's grouping mechanism. There are six
 parts to |eqtb|:
 
-\yskip\hangg 1) |eqtb[null_cs]| holds the current equivalent of the 
-zero-length control sequence.
+\yskip\hangg 1) |eqtb[active_base..(hash_base-1)]| holds the current
+equivalents of single-character control sequences.
 
 \yskip\hangg 2) |eqtb[hash_base..(glue_base-1)]| holds the current
-equivalents of single- and multiletter control sequences.
+equivalents of multiletter control sequences.
 
 \yskip\hangg 3) |eqtb[glue_base..(local_base-1)]| holds the current
 equivalents of glue parameters like the current baselineskip.
@@ -5351,9 +5343,8 @@ things.
 paragraphs is to define these names, and to set up the initial values of the
 equivalents.
 
-In the first region we have a single entry for the `null csname' of
-length zero. In luatex, the active characters and and single-letter
-control sequence names are part of the next region.
+In the first region we have |number_active_chars| equivalents for ``active
+characters'' that act as control sequences.
 
 Then comes region~2, which corresponds to the hash table that we will
 define later.  The maximum address in this region is used for a dummy
@@ -5361,7 +5352,8 @@ control sequence that is perpetually undefined. There also are several
 locations for control sequences that are perpetually defined
 (since they are used in error recovery).
 
-@d null_cs=1 {equivalent of \.{\\csname\\endcsname}}
+@d active_base=1 {beginning of region 1, for active character equivalents}
+@d null_cs=active_base+number_active_chars {equivalent of \.{\\csname\\endcsname}}
 @d hash_base=null_cs+1 {beginning of region 2, for the hash table}
 @d frozen_control_sequence=hash_base+hash_size {for error recovery}
 @d frozen_protection=frozen_control_sequence {inaccessible but definable}
@@ -5396,7 +5388,7 @@ locations for control sequences that are perpetually defined
 eq_type(undefined_control_sequence):=undefined_cs;
 equiv(undefined_control_sequence):=null;
 eq_level(undefined_control_sequence):=level_zero;
-for k:=null_cs to undefined_control_sequence-1 do
+for k:=active_base to undefined_control_sequence-1 do
   eqtb[k]:=eqtb[undefined_control_sequence];
 
 @ Here is a routine that displays the current meaning of an |eqtb| entry
@@ -6647,7 +6639,7 @@ symbolically.
 
 @p@t\4@>@<Declare the procedure called |print_cmd_chr|@>@;@/
 @!stat procedure show_eqtb(@!n:pointer);
-begin if n<null_cs then print_char("?") {this can't happen}
+begin if n<active_base then print_char("?") {this can't happen}
 else if n<glue_base then @<Show equivalent |n|, in region 1 or 2@>
 else if n<local_base then @<Show equivalent |n|, in region 3@>
 else if n<int_base then @<Show equivalent |n|, in region 4@>
@@ -6663,8 +6655,8 @@ but \TeX\ needs to store the |eq_level| information in another array
 called |xeq_level|.
 
 @<Glob...@>=
-@!eqtb:array[null_cs..eqtb_size] of memory_word;
-@!xeq_level:array[null_cs..eqtb_size] of quarterword;
+@!eqtb:array[active_base..eqtb_size] of memory_word;
+@!xeq_level:array[int_base..eqtb_size] of quarterword;
 
 @ @<Set init...@>=
 for k:=int_base to eqtb_size do xeq_level[k]:=level_one;
@@ -6770,7 +6762,9 @@ begin
   get_equiv := equiv(p);
 end;
 function get_cs_text(cs:integer):str_number;
-begin if cs=null_cs then get_cs_text := "\csname\endcsname"
+begin if cs<hash_base then
+    if cs<null_cs then get_cs_text := cs-active_base
+      else  get_cs_text := "\csname\endcsname"
   else if (text(cs)<0)or(text(cs)>=str_ptr) then get_cs_text := ""
   else get_cs_text := text(cs);
 end;
@@ -6942,7 +6936,6 @@ end;
 function string_lookup(@!s:str_number):pointer; {search the primitives table}
 label found; {go here if you found it}
 var h:integer; {hash code}
-@!d:integer; {number of characters in incomplete current string}
 @!p:pointer; {index in |hash| array}
 @!k:pointer; {index in string pool}
 @!the_hash_prime: halfword;
@@ -6952,13 +6945,7 @@ the_hash_prime := hash_prime;
 if s<string_offset then begin
   p := s;
   if (p<0) or (eq_level(p)<>level_one) then
-    if no_new_control_sequence then
-       p:=undefined_control_sequence
-    else begin
-       if s<=@"7F        then l:=1 else if s<=@"7FF then l:=2
-       else if s<=@"FFFF then l:=3 else l:=4;
-       @<Insert a control sequence after |p|, |p| point to it@>;
-    end;
+    p := undefined_cs;
 end
 else begin
   j:=str_start_macro(s);
@@ -6969,10 +6956,7 @@ else begin
     if str_eq_str(text(p),s) then goto found;
     if next(p)=0 then
       begin 
-        if no_new_control_sequence then
-           p:=undefined_control_sequence
-        else 
-           @<Insert a control sequence after |p|, |p| point to it@>;
+     	p:=undefined_cs ;
         goto found;
       end;
     p:=next(p);
@@ -6991,24 +6975,6 @@ begin
        (eq_type(n)=get_prim_eq_type(m)) and
        (equiv(n)=get_prim_equiv(m)));
 end;
-
-@ @<Insert a control...@>=
-begin if text(p)>0 then
-  begin repeat if hash_is_full then overflow("hash size",hash_size);
-@:TeX capacity exceeded hash size}{\quad hash size@>
-  decr(hash_used);
-  until text(hash_used)=0; {search for an empty location in |hash|}
-  next(p):=hash_used; p:=hash_used;
-  end;
-str_room(l); d:=cur_length; j:=str_start_macro(s);
-while pool_ptr>str_start_macro(str_ptr) do
-  begin decr(pool_ptr); str_pool[pool_ptr+l]:=str_pool[pool_ptr];
-  end; {move current string up to make room for another}
-for k:=j to j+l-1 do append_char(str_pool[k]);
-text(p):=make_string; pool_ptr:=pool_ptr+d; 
-@!stat incr(cs_count);@+tats@;@/
-end
-
 
 @ @<Insert a new primitive...@>=
 begin if prim_text(p)>0 then
@@ -7044,38 +7010,28 @@ they may be unprintable.
    ((length(#)=3)and(str_pool[str_start_macro(#)]>=@"E0))or
    ((length(#)=2)and(str_pool[str_start_macro(#)]>=@"C0))
 
-@d is_active_csname(#)==((length(text(#))>3)and
-  (str_pool[str_start_macro(text(#))]=@"EF)and
-  (str_pool[str_start_macro(text(#))+1]=@"BF)and
-  (str_pool[str_start_macro(text(#))+2]=@"BF))
-
-@d active_csname_value(#)==pool_to_unichar(str_start_macro(text(#))+3)
-
 @<Basic printing...@>=
 procedure print_cs(@!p:integer); {prints a purported control sequence}
-begin if p<hash_base then { nullcs}
+begin if p<hash_base then {single character}
   if p=null_cs then
     begin print_esc("csname"); print_esc("endcsname");
     end
-  else print_esc("IMPOSSIBLE.")
+  else if p<active_base then print_esc("IMPOSSIBLE.")
 @.IMPOSSIBLE@>
+  else print(p-active_base)
 else if p>=undefined_control_sequence then print_esc("IMPOSSIBLE.")
 else if (text(p)<0)or(text(p)>=str_ptr) then print_esc("NONEXISTENT.")
 @.NONEXISTENT@>
-else begin 
-  if is_active_csname(p) then
-    print(active_csname_value(p))
-  else begin
-    print_esc(text(p));
-    if single_letter(text(p)) then begin
-       if get_cat_code(cat_code_table,pool_to_unichar(str_start_macro(text(p))))=letter then
-         print_char(" ")
-       else
-         do_nothing;
-       end
+else  begin 
+  print_esc(text(p));
+  if single_letter(text(p)) then begin
+   	if get_cat_code(cat_code_table,pool_to_unichar(str_start_macro(text(p))))=letter then
+      print_char(" ")
     else
-      print_char(" ");
+      do_nothing;
     end
+  else
+    print_char(" ");
   end;
 end;
 
@@ -7084,15 +7040,11 @@ prints a space after the control sequence.
 
 @<Basic printing procedures@>=
 procedure sprint_cs(@!p:pointer); {prints a control sequence}
-begin if p=null_cs then begin
-  print_esc("csname"); print_esc("endcsname");
-  end
-else begin
-  if is_active_csname(p) then
-    print(active_csname_value(p))
-  else
-    print_esc(text(p));
-  end;
+begin if p<hash_base then
+  if p<null_cs then print(p-active_base)
+  else  begin print_esc("csname"); print_esc("endcsname");
+    end
+else print_esc(text(p));
 end;
 
 @ We need to put \TeX's ``primitive'' control sequences into the hash
@@ -7822,7 +7774,7 @@ if (p<fix_mem_min) or (p>fix_mem_end) then
   end;
 if info(p)>=cs_token_flag then begin
   if not ((inhibit_par_tokens) and (info(p)=par_token)) then
-          print_cs(info(p)-cs_token_flag);
+	  print_cs(info(p)-cs_token_flag);
   end
 else  begin m:=info(p) div string_offset; c:=info(p) mod string_offset;
   if info(p)<0 then print_esc("BAD.")
@@ -9611,7 +9563,7 @@ var p:pointer; {tail of the backup list}
 @!k:pool_pointer; {index into |str_pool|}
 begin 
 if s<number_chars then begin 
-        @<Get the next non-blank non-call token@>;
+	@<Get the next non-blank non-call token@>;
     if (cur_cs=0)and((cur_chr=s)or(cur_chr=s-"a"+"A")) then
       scan_keyword:=true
     else 
@@ -9635,7 +9587,7 @@ else begin
          q:=get_avail; info(q):=cur_tok; link(q):=null;
          link(p) := q;
          back_list(link(backup_head));
-             end
+	     end
       else
          back_input;
       scan_keyword:=false; return;
@@ -10521,10 +10473,10 @@ if cur_tok<cs_token_flag then
     if cur_cmd=right_brace then incr(align_state)
     else decr(align_state);
   end
+else if cur_tok<cs_token_flag+null_cs then
+  cur_val:=cur_tok-cs_token_flag-active_base
 else begin {the value of a csname in this context is its name}
-  if is_active_csname(cur_tok-cs_token_flag) then
-    cur_val:=active_csname_value(cur_tok-cs_token_flag)
-  else if single_letter(text(cur_tok-cs_token_flag)) then
+  if single_letter(text(cur_tok-cs_token_flag)) then
     cur_val:=pool_to_unichar(str_start_macro(text(cur_tok-cs_token_flag)))
   else
     cur_val:=too_big_char;
@@ -11248,7 +11200,6 @@ p, q: pointer;
 @!j: integer; {second temp integer}
 @!b:pool_pointer; {base of temporary string}
 @!s: str_number; {first temp string}
-@!sn: str_number; {lua chunk name}
 @!u: str_number; {third temp string}
 @!junk: pointer;
 begin
@@ -11346,7 +11297,7 @@ uniform_deviate_code:     scan_int;
 normal_deviate_code:      do_nothing;
 lua_escape_string_code:
   begin
-        u:=0;
+	u:=0;
     { check if a string is already being built}
     if str_start_macro(str_ptr)<pool_ptr then u:=make_string;
     save_scanner_status := scanner_status;
@@ -11359,46 +11310,41 @@ lua_escape_string_code:
     warning_index := save_warning_index;
     scanner_status := save_scanner_status;
     junk := lua_str_toks(str_start_macro(s));
-        ins_list(link(temp_token_head));
+	ins_list(link(temp_token_head));
     flush_str(s);
-        if u<>0 then begin decr(str_ptr); u:=0; end; 
+	if u<>0 then begin decr(str_ptr); u:=0; end; 
     return;
   end;
 lua_code:
   begin
-        u:=0;
+	u:=0;
     { check if a string is already being built}
     if str_start_macro(str_ptr)<pool_ptr then u:=make_string;
     save_scanner_status := scanner_status;
     save_def_ref := def_ref;
     save_warning_index := warning_index;
-    sn:=null;
-        if scan_keyword("name") then begin
-           scan_pdf_ext_toks;
-       sn := def_ref;
-        end;
-        scan_register_num;
-        i := cur_val;
+	scan_register_num;
+	i := cur_val;
     scan_pdf_ext_toks;
     s := def_ref;
     warning_index := save_warning_index;
     def_ref := save_def_ref;
     scanner_status := save_scanner_status;
     luacstrings:=0;
-    luatokencall(i,s,sn);
+    luatokencall(i,s);
     delete_token_ref(s);
-        if u<>0 then begin
+	if u<>0 then begin
       if str_ptr=u+1 then 
         decr(str_ptr)
       else begin {copy old string to the top location}
          i:=0;
-             str_room(length(u));
+	     str_room(length(u));
          while i<length(u) do
            str_pool[pool_ptr+i]:=str_pool[str_start_macro(u)+i];
         end;
     end; 
-        if luacstrings>0 then
-          lua_string_start;
+	if luacstrings>0 then
+	  lua_string_start;
     return;
   end;
 pdf_insert_ht_code: scan_register_num;
@@ -11491,15 +11437,12 @@ pdf_insert_ht_code: begin
     print("pt");
 end;
 pdf_ximage_bbox_code: begin
-    if is_pdf_image(i) then begin
-        case j of
-        1: print_scaled(epdf_orig_x(i));
-        2: print_scaled(epdf_orig_y(i));
-        3: print_scaled(epdf_orig_x(i) + epdf_xsize(i));
-        4: print_scaled(epdf_orig_y(i) + epdf_ysize(i));
-        endcases;
-    end else
-        print_scaled(0);
+    case j of
+    1: print_scaled(epdf_orig_x(i));
+    2: print_scaled(epdf_orig_y(i));
+    3: print_scaled(epdf_orig_x(i) + image_width(i));
+    4: print_scaled(epdf_orig_y(i) + image_height(i));
+    endcases;
     print("pt");
 end;
 format_name_code: print(format_name);
@@ -11515,7 +11458,7 @@ end;
 
 function the_convert_string (c:halfword):str_number;
 var old_setting:0..max_selector; {saved |selector| setting}
-        is_known:boolean;
+	is_known:boolean;
 begin
   old_setting:=selector; 
   selector:=new_string;
@@ -12114,13 +12057,17 @@ else b:=(type(p)=vlist_node);
 end
 
 @ An active character will be treated as category 13 following
-\.{\\if\\noexpand} or following \.{\\ifcat\\noexpand}. 
+\.{\\if\\noexpand} or following \.{\\ifcat\\noexpand}. We use the fact that
+active characters have the smallest tokens, among all control sequences.
+
+The |(biggest_char-number_active_chars)| part is needed because only the
+bottom two planes are present as active characters in |eqtb|.
 
 @d get_x_token_or_active_char==@t@>@;
   begin get_x_token;
-  if cur_cmd=relax then if cur_chr=no_expand_flag then if is_active_csname(cur_cs) then
+  if cur_cmd=relax then if cur_chr=no_expand_flag then
     begin cur_cmd:=active_char;
-    cur_chr:=active_csname_value(cur_tok-cs_token_flag);
+    cur_chr:=cur_tok-cs_token_flag-active_base+(biggest_char-number_active_chars);
     end;
   end
 
@@ -12599,7 +12546,7 @@ ship out a box of stuff, we shall use the macro |ensure_dvi_open|.
   pack_job_name(".dvi");
   while not lua_b_open_out(dvi_file) do
     prompt_file_name("file name for output",".dvi");
-  dvi_file:=name_file_pointer   ;
+  dvi_file:=name_file_pointer	;
   output_file_name:=b_make_name_string(dvi_file);
   end
 
@@ -12930,7 +12877,7 @@ procedure add_ocp_stack(min_index:integer; min_value:scaled);
 var p:ocp_lstack_index;
     llstack_no:scaled;
     counter:integer;
-        m:scaled;
+	m:scaled;
 begin
 m:=min_value; { TH: whatever this is ..}
 p:=ocp_list_lstack(holding[min_index]);
@@ -15501,8 +15448,8 @@ pre_callback_id:integer;
 post_callback_id:integer;
 ret:boolean;
 begin 
-pre_callback_id:=callback_defined(start_page_number_callback);  
-post_callback_id:=callback_defined(stop_page_number_callback);  
+pre_callback_id:=callback_defined(start_page_number_callback);	
+post_callback_id:=callback_defined(stop_page_number_callback);	
 if (tracing_output>0)and(pre_callback_id=0) then
   begin print_nl(""); print_ln;
   print("Completed box being shipped out");
@@ -15831,6 +15778,11 @@ begin
   get_hash_base:= hash_base;
 end;
 
+function get_active_base: integer;
+begin
+  get_active_base:= active_base;
+end;
+
 function get_cur_font: internal_font_number;
 begin
   get_cur_font:= cur_font;
@@ -16001,18 +15953,19 @@ end
 @!pdf_save_offset: integer; {to save |pdf_offset|}
 @!zip_write_state: integer; {which state of compression we are in}
 @!fixed_pdf_minor_version: integer; {fixed minor part of the PDF version}
-@!fixed_pdf_minor_version_set: boolean; {flag if the PDF version has been set}
 @!fixed_pdf_objcompresslevel: integer; {fixed level for activating PDF object streams}
+@!pdf_minor_version_written: boolean; {flag if the PDF version has been written}
 @!fixed_pdfoutput: integer; {fixed output format}
 @!fixed_pdfoutput_set: boolean; {|fixed_pdfoutput| has been set?}
 @!fixed_gamma: integer;
 @!fixed_image_gamma: integer;
 @!fixed_image_hicolor: boolean;
 @!fixed_image_apply_gamma: integer;
-@!fixed_pdf_draftmode: integer; {fixed \\pdfdraftmode}
 @!epochseconds: integer;
 @!microseconds: integer;
-@!page_divert_val: integer;
+@!fixed_pdf_draftmode: integer; {fixed \\pdfdraftmode}
+@!fixed_pdf_draftmode_set: boolean; {|fixed_pdf_draftmode| has been set?}
+
 
 @ @<Set init...@>=
 pdf_gone := 0;
@@ -16027,9 +15980,9 @@ pdf_os_buf_size := inf_pdf_os_buf_size;
 pdf_buf := pdf_op_buf;
 pdf_seek_write_length := false;
 zip_write_state := no_zip;
-fixed_pdf_minor_version_set := false;
+pdf_minor_version_written := false;
 fixed_pdfoutput_set := false;
-page_divert_val := 0;
+fixed_pdf_draftmode_set := false;
 
 @ @p
 function fix_int(val, min, max: integer): integer;
@@ -16043,96 +15996,55 @@ begin
 end;
 
 @ This ensures that |pdfminorversion| is set only before any bytes have
-been written to the generated \.{PDF} file. Here also all variables for
-\.{PDF} output are initialized, the \.{PDF} file is opened by |ensure_pdf_open|,
-and the \.{PDF} header is written.
+been written to the generated PDF file. Here also the PDF file is opened
+by |ensure_pdf_open| and the PDF header is written.
 
 @p procedure check_pdfminorversion;
 begin
-    fix_pdfoutput;
-    pdfassert(fixed_pdfoutput > 0);
-    if not fixed_pdf_minor_version_set then begin
-        fixed_pdf_minor_version_set := true;
-        @<Initialize variables for \.{PDF} output@>;
-        @<Write \.{PDF} header@>;
+    if not pdf_minor_version_written then begin
+        pdf_minor_version_written := true;
+        if (pdf_minor_version < 0) or (pdf_minor_version > 9) then begin
+            print_err("pdfTeX error (illegal pdfminorversion)");
+            print_ln;
+            help2 ("The pdfminorversion must be between 0 and 9.")@/
+                ("I changed this to 4.");
+            int_error (pdf_minor_version);
+            pdf_minor_version := 4;
+        end;
+        fixed_pdf_minor_version := pdf_minor_version;
+        fixed_gamma             := fix_int(pdf_gamma, 0, 1000000);
+        fixed_image_gamma       := fix_int(pdf_image_gamma, 0, 1000000);
+        fixed_image_hicolor     := fix_int(pdf_image_hicolor, 0, 1);
+        fixed_image_apply_gamma := fix_int(pdf_image_apply_gamma, 0, 1);
+        fixed_pdf_objcompresslevel := fix_int(pdf_objcompresslevel, 0, 3);
+        fixed_pdf_draftmode     := fix_int(pdf_draftmode, 0, 1);
+		fixed_replace_font      := fix_int(pdf_replace_font, 0, 1);
+        if (fixed_pdf_minor_version >= 5) and (fixed_pdf_objcompresslevel > 0) then
+            pdf_os_enable := true
+        else begin
+            if fixed_pdf_objcompresslevel > 0 then begin
+                pdf_warning("Object streams", "\pdfobjcompresslevel > 0 requires \pdfminorversion > 4. Object streams disabled now.", true, true);
+                fixed_pdf_objcompresslevel := 0;
+            end;
+            pdf_os_enable := false;
+        end;
+        ensure_pdf_open;
+        fix_pdfoutput;
+        pdf_print("%PDF-1.");
+        pdf_print_int_ln(fixed_pdf_minor_version);
+        pdf_print("%");
+        pdf_out(208); {'P' + 128}
+        pdf_out(212); {'T' + 128}
+        pdf_out(197); {'E' + 128}
+        pdf_out(216); {'X' + 128}
+        pdf_print_nl;
     end
     else begin
-        @<Check that variables for \.{PDF} output are unchanged@>;
-    end;
-    if fixed_pdf_draftmode <> 0 then begin
-        pdf_compress_level := 0; {re-fix it, might have been changed inbetween}
-        fixed_pdf_objcompresslevel := 0;
+        if fixed_pdf_minor_version <> pdf_minor_version then
+            pdf_error("setup",
+               "\pdfminorversion cannot be changed after data is written to the PDF file");
     end;
 end;
-
-@ @<Initialize variables for \.{PDF} output@>=
-prepare_mag;
-if (pdf_minor_version < 0) or (pdf_minor_version > 9) then begin
-    print_err("pdfTeX error (illegal pdfminorversion)");
-    print_ln;
-    help2 ("The pdfminorversion must be between 0 and 9.")@/
-        ("I changed this to 4.");
-    int_error (pdf_minor_version);
-    pdf_minor_version := 4;
-end;
-fixed_pdf_minor_version := pdf_minor_version;
-fixed_decimal_digits    := fix_int(pdf_decimal_digits, 0, 4);
-fixed_gamma             := fix_int(pdf_gamma, 0, 1000000);
-fixed_image_gamma       := fix_int(pdf_image_gamma, 0, 1000000);
-fixed_image_hicolor     := fix_int(pdf_image_hicolor, 0, 1);
-fixed_image_apply_gamma := fix_int(pdf_image_apply_gamma, 0, 1);
-fixed_pdf_objcompresslevel := fix_int(pdf_objcompresslevel, 0, 3);
-fixed_pdf_draftmode     := fix_int(pdf_draftmode, 0, 1);
-fixed_replace_font      := fix_int(pdf_replace_font, 0, 1);
-fixed_pk_resolution     := fix_int(pdf_pk_resolution, 72, 8000);
-if (fixed_pdf_minor_version >= 5) and (fixed_pdf_objcompresslevel > 0) then
-    pdf_os_enable := true
-else begin
-    if fixed_pdf_objcompresslevel > 0 then begin
-        pdf_warning("Object streams",
-                    "\pdfobjcompresslevel > 0 requires \pdfminorversion > 4. Object streams disabled now.", true, true);
-        fixed_pdf_objcompresslevel := 0;
-    end;
-    pdf_os_enable := false;
-end;
-min_bp_val :=
-    divide_scaled(one_hundred_bp, ten_pow[fixed_decimal_digits + 2], 0);
-if pdf_pk_resolution = 0 then {if not set from format file or by user}
-    pdf_pk_resolution := pk_dpi; {take it from \.{texmf.cnf}}
-pk_scale_factor :=
-    divide_scaled(72, fixed_pk_resolution, 5 + fixed_decimal_digits);
-if not callback_defined(read_pk_file_callback) then begin
-    if pdf_pk_mode <> null then begin
-        kpseinitprog('PDFTEX', fixed_pk_resolution,
-                     makecstring(tokens_to_string(pdf_pk_mode)), nil);
-        flush_string;
-    end else
-        kpseinitprog('PDFTEX', fixed_pk_resolution, nil, nil);
-    if not kpsevarvalue('MKTEXPK') then
-         kpsesetprogramenabled (kpsepkformat, 1, kpsesrccmdline);
-    end;
-set_job_id(year, month, day, time);
-if (pdf_unique_resname > 0) and (pdf_resname_prefix = 0) then
-    pdf_resname_prefix := get_resname_prefix
-
-@ @<Check that variables for \.{PDF} output are unchanged@>=
-if fixed_pdf_minor_version <> pdf_minor_version then
-    pdf_error("setup",
-              "\pdfminorversion cannot be changed after data is written to the PDF file");
-if fixed_pdf_draftmode <> pdf_draftmode then
-    pdf_error("setup",
-              "\pdfdraftmode cannot be changed after data is written to the PDF file");
-
-@ @<Write \.{PDF} header@>=
-ensure_pdf_open;
-pdf_print("%PDF-1.");
-pdf_print_int_ln(fixed_pdf_minor_version);
-pdf_print("%");
-pdf_out(208); {'P' + 128}
-pdf_out(212); {'T' + 128}
-pdf_out(197); {'E' + 128}
-pdf_out(216); {'X' + 128}
-pdf_print_nl;
 
 @ Checks that we have a name for the generated PDF file and that it's open.
 
@@ -16143,9 +16055,9 @@ begin
     if job_name = 0 then
         open_log_file;
     pack_job_name(".pdf");
-    if fixed_pdf_draftmode = 0 then
-        while not lua_b_open_out(pdf_file) do
-            prompt_file_name("file name for output",".pdf");
+	if fixed_pdf_draftmode = 0 then
+    while not lua_b_open_out(pdf_file) do
+        prompt_file_name("file name for output",".pdf");
     pdf_file:=name_file_pointer;
     output_file_name := b_make_name_string(pdf_file);
 end;
@@ -16263,7 +16175,7 @@ begin
     print(": "); print(p);
     if append_nl then
         print_ln;
-        if history=spotless then history:=warning_issued;
+	if history=spotless then history:=warning_issued;
 end;
 
 procedure pdf_os_get_os_buf(s: integer); {check that |s| bytes more
@@ -16340,6 +16252,7 @@ accurary.
 @!ten_pow: array[0..9] of integer; {$10^0..10^9$}
 @!scaled_out: integer; {amount of |scaled| that was taken out in
 |divide_scaled|}
+@!init_pdf_output: boolean;
 
 @ @<Set init...@>=
 one_hundred_inch := 7227 * 65536; {exact, 473628672}
@@ -16349,6 +16262,8 @@ one_bp := (one_hundred_bp + 50) div 100; {rounded to 65782}
 ten_pow[0] := 1;
 for i := 1 to 9 do
     ten_pow[i] := 10*ten_pow[i - 1];
+init_pdf_output := false;
+
 
 @ The function |divide_scaled| divides |s| by |m| using |dd| decimal
 digits of precision. It is defined in C because it is a good candidate
@@ -16594,7 +16509,7 @@ begin
     {if |f| is auto expanded then ensure the base font is initialized}
     if pdf_font_auto_expand(f) and (pdf_font_blink(f) <> null_font) then begin
         b := pdf_font_blink(f);
-            {TODO: reinstate this check. disabled because wide fonts font have fmentries}
+	    {TODO: reinstate this check. disabled because wide fonts font have fmentries}
         if false and (not hasfmentry(b)) then
             pdf_error("font expansion", "auto expansion is only possible with scalable fonts");
         if not font_used(b) then
@@ -16822,11 +16737,12 @@ begin
     pdf_print_nl;
 end;
 
-procedure latelua(lua_id: quarterword; s: pointer; r: pointer);
-var b: pool_pointer; {current character code position}
+procedure latelua(lua_id: quarterword; s: str_number);
+var b, j: pool_pointer; {current character code position}
 begin
+    j:=str_start_macro(s);
     b := pool_ptr;
-    luacall(lua_id,s,r);
+    luacall(lua_id,(s-string_offset));
     while b<pool_ptr do begin
        pdf_out(str_pool[b]);
        incr(b);
@@ -16855,9 +16771,10 @@ The second field of |obj_entry| contains link to the next
 object in |obj_tab| if this object is linked in a list.
 
 The third field holds the byte offset of the object in the output PDF file,
-or the object number of the object stream to which the object belongs. As long
-as the object is not written, this field is used for flags about the write status
-of the object; then it has a negative value.
+or its byte offset within an object stream.
+Objects that have been not written yet have this field set to zero. However
+sometimes we have to use this field to store some info before the object is
+written out.
 
 The fourth field holds the object number of the object stream, into which
 the object is included.
@@ -16868,28 +16785,26 @@ well.
 
 @d obj_info(#) == obj_tab[#].int0 {information representing identifier of this object}
 @d obj_link(#) == obj_tab[#].int1 {link to the next entry in linked list}
-@d obj_offset(#) == obj_tab[#].int2 {negative (flags), or byte offset for this object in PDF output file, or object stream number for this object}
+@d obj_offset(#) == obj_tab[#].int2 {byte offset for this object in PDF output file, or object stream number for this object}
 @d obj_os_idx(#) == obj_tab[#].int3 {index of this object in object stream}
 @d obj_aux(#) == obj_tab[#].int4 {auxiliary pointer}
-
-@d set_obj_fresh(#) == obj_offset(#) := -2
-@d set_obj_scheduled(#) == if obj_offset(#) = -2 then obj_offset(#) := -1
-@d is_obj_scheduled(#) == (obj_offset(#) > -2)
-@d is_obj_written(#) == (obj_offset(#) > -1)
+@d is_obj_written(#) == (obj_offset(#) <> 0)
 
 @# {types of objects}
 @d obj_type_others              == 0 {objects which are not linked in any list}
 @d obj_type_page                == 1 {index of linked list of Page objects}
-@d obj_type_font                == 2 {index of linked list of Fonts objects}
-@d obj_type_outline             == 3 {index of linked list of outline objects}
-@d obj_type_dest                == 4 {index of linked list of destination objects}
-@d obj_type_obj                 == 5 {index of linked list of raw objects}
-@d obj_type_xform               == 6 {index of linked list of XObject forms}
-@d obj_type_ximage              == 7 {index of linked list of XObject image}
-@d obj_type_thread              == 8 {index of linked list of num article threads}
+@d obj_type_pages               == 2 {index of linked list of Pages objects}
+@d obj_type_font                == 3 {index of linked list of Fonts objects}
+@d obj_type_outline             == 4 {index of linked list of outline objects}
+@d obj_type_dest                == 5 {index of linked list of destination objects}
+@d obj_type_obj                 == 6 {index of linked list of raw objects}
+@d obj_type_xform               == 7 {index of linked list of XObject forms}
+@d obj_type_ximage              == 8 {index of linked list of XObject image}
+@d obj_type_thread              == 9 {index of linked list of num article threads}
 @d head_tab_max                 == obj_type_thread {max index of |head_tab|}
 
 @# {max number of kids for balanced trees}
+@d pages_tree_kids_max     == 6 {max number of kids of Pages tree node}
 @d name_tree_kids_max      == 6 {max number of kids of node of name tree for
 name destinations}
 
@@ -16946,7 +16861,6 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 @# {data structure for \.{\\latelua}}
 @d late_lua_data(#)        == vlink(#+2) {data}
 @d late_lua_reg(#)         == vinfo(#+2) {register id}
-@d late_lua_name(#)        == vlink(#+3) {name}
 
 @# {data structure for \.{\\pdfobj} and \.{\\pdfrefobj}}
 @d pdf_refobj_node_size    == 3 {size of whatsit node representing the raw object}
@@ -16980,7 +16894,7 @@ destination |pdf_left| and |pdf_top| are used for some types of destinations}
 @# {data structure for \.{\\pdfximage} and \.{\\pdfrefximage}}
 @d pdf_refximage_node_size == 6 {size of whatsit node for ximage; words 2..4
                                are image dimensions}
-@d pdf_ximage_idx(#)       == vinfo(# + 5) {image index in array}
+@d pdf_ximage_ref(#)       == vinfo(# + 5) {image reference number}
 
 @# {data structure of annotations; words 1..4 represent the coordinates of
     the annotation}
@@ -17166,7 +17080,7 @@ begin
     incr(sys_obj_ptr);
     obj_ptr := sys_obj_ptr;
     obj_info(obj_ptr) := i;
-    set_obj_fresh(obj_ptr);
+    obj_offset(obj_ptr) := 0;
     obj_aux(obj_ptr) := 0;
     avl_put_obj(obj_ptr, t);
     if t = obj_type_page then begin
@@ -17528,12 +17442,12 @@ end
 @p
 function get_default_hyphen_char:integer;
 begin
-        get_default_hyphen_char:=default_hyphen_char; 
+	get_default_hyphen_char:=default_hyphen_char; 
 end;
 @#
 function get_default_skew_char:integer;
 begin
-        get_default_skew_char:=default_skew_char; 
+	get_default_skew_char:=default_skew_char; 
 end;
 @#
 
@@ -17563,7 +17477,7 @@ begin
     else begin
         for k := 1 to max_font_id do
             if cmp_font_name(k, s) then begin
-                    flush_string; {|font_name|}
+	            flush_string; {|font_name|}
                 flush_str(s);
                 tfm_lookup := k;
                 return;
@@ -17585,7 +17499,7 @@ begin
     if k = null_font then begin
         if pdf_font_auto_expand(f) then begin
             k := auto_expand_font(f, e);
-                font_id_text(k) := font_id_text(f);
+	        font_id_text(k) := font_id_text(f);
             end
         else
            k := read_font_info(null_cs, s, "", font_size(f), font_natural_dir(f)); 
@@ -17735,14 +17649,21 @@ begin
     end;
 end;
 
-procedure new_letterspaced_font(a: small_number); 
+procedure new_letterspaced_font(a: small_number);
 {letter-space a font by creating a virtual font}
 var u:pointer; {user's font identifier}
 @!t:str_number; {name for the frozen font identifier}
+@!old_setting:0..max_selector; {holds |selector| setting}
 @!f, k:internal_font_number;
 begin
     get_r_token; u:=cur_cs;
-    if u>=hash_base then t:=text(u) else t:="FONT";
+    if u>=hash_base then t:=text(u)
+    else if u=null_cs then t:="FONT"
+    else  begin old_setting:=selector; selector:=new_string;
+      print("FONT"); print(u-active_base); selector:=old_setting;
+    @.FONTx@>
+      str_room(1); t:=make_string;
+      end;
     define(u,set_font,null_font); scan_optional_equals; scan_font_ident;
     k := cur_val;
     scan_int;
@@ -17903,8 +17824,15 @@ begin
 end;
 
 procedure do_late_lua(p: pointer);
+var old_setting:0..max_selector; {holds print |selector|}
+    s: str_number;
 begin
-    latelua(late_lua_reg(p), late_lua_data(p), late_lua_name(p));
+    old_setting:=selector; selector:=new_string;
+    show_token_list(link(late_lua_data(p)),null,pool_size-pool_ptr);
+    selector:=old_setting;
+    s := make_string;
+    latelua(late_lua_reg(p), s);
+    flush_str(s);
 end;
 
 procedure pdf_print_toks(p: pointer); {print tokens list |p|}
@@ -17961,7 +17889,6 @@ dvi_ptr,dir_ptr,dir_tmp:pointer;
 @!lx:scaled; {extra space between leader boxes}
 @!outer_doing_leaders:boolean; {were we doing leaders?}
 @!edge:scaled; {right edge of sub-box or leader space}
-@!border:scaled; {right edge of sub-box or leader space}
 @!prev_p:pointer; {one step behind |p|}
 @!glue_temp:real; {glue value before rounding}
 @!cur_glue:real; {glue seen so far}
@@ -18081,11 +18008,11 @@ if is_char_node(p) then
   else
     case font_direction(dvi_direction) of
     dir__LT: begin
-          if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
-          if y_displace(p)<>0 then pdf_dvicmd_up(-y_displace(p));
+	  if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_up(-y_displace(p));
       pdf_dvicmd_set(c);
-          if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
-          if y_displace(p)<>0 then pdf_dvicmd_down(-y_displace(p));
+	  if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_down(-y_displace(p));
       end;
     dir__LB: begin
       pdf_dvicmd_down(c_ht);
@@ -18093,12 +18020,12 @@ if is_char_node(p) then
       pdf_dvicmd_up(c_ht);
       end;
     dir__RT: begin
-          if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
-          if y_displace(p)<>0 then pdf_dvicmd_up(-y_displace(p));
+	  if x_displace(p)<>0 then pdf_dvicmd_left(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_up(-y_displace(p));
       pdf_dvicmd_left(c_wd);
       pdf_dvicmd_put(c);
-          if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
-          if y_displace(p)<>0 then pdf_dvicmd_down(-y_displace(p));
+	  if x_displace(p)<>0 then pdf_dvicmd_right(x_displace(p));
+	  if y_displace(p)<>0 then pdf_dvicmd_down(-y_displace(p));
       end;
     dir__RB: begin
       pdf_dvicmd_left(c_wd);
@@ -18254,23 +18181,23 @@ if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
   begin cur_v:=base_line+rule_dp;
   case font_direction(dvi_direction) of
   dir__LT: begin
-        pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+ 	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
     end;
   dir__LB: begin
     pdf_dvicmd_down(rule_ht);
-        pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
     pdf_dvicmd_up(rule_ht);
     end;
   dir__RT: begin
     pdf_dvicmd_left(rule_wd);
-        pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-        pdf_dvicmd_right(rule_wd);
+  	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_dvicmd_right(rule_wd);
     end;
   dir__RB: begin
     pdf_dvicmd_left(rule_wd);
     pdf_dvicmd_down(rule_ht);
     pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-        pdf_dvicmd_left(rule_wd);
+	pdf_dvicmd_left(rule_wd);
     pdf_dvicmd_up(rule_ht);
     end;
   dir__TL: begin
@@ -18285,12 +18212,12 @@ if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
     end;
   dir__BL: begin
     pdf_dvicmd_left(rule_ht);
-        pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
+	pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
     pdf_dvicmd_up(rule_wd);
     end;
   dir__BR: begin
     pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-        pdf_dvicmd_left(rule_ht);
+	pdf_dvicmd_left(rule_ht);
     pdf_dvicmd_up(rule_wd);
     end;
   end;
@@ -18334,28 +18261,23 @@ else
   leader_wd:=height(leader_box)+depth(leader_box);
 if (leader_wd>0)and(rule_wd>0) then
   begin
+  edge:=cur_h+rule_wd;
   {TODO this double |case| is a hack, and not quite the proper
    solution, but it produces the correct output for |xleaders|
    in TRT mode, which is important for KASHIDAH fills.}
   case box_direction(dvi_direction) of
   dir_TR_,dir_RT_: begin
-    border:=cur_h+leader_wd;
-    cur_h:=cur_h-rule_wd+leader_wd;
-    edge:=cur_h-leader_wd;
-    end;
-  othercases begin { |dir_TL_,dir_LT_| }
-    edge:=cur_h+rule_wd;
-    border:=edge;
+    edge:=cur_h;
+    cur_h:=cur_h-rule_wd;
     end;
   end;
   @<Let |cur_h| be the position of the first box, and set |leader_wd+lx|
     to the spacing between corresponding parts of boxes@>;
-  while cur_h+leader_wd<=border do
+  while cur_h+leader_wd<=edge do
     @<(\pdfTeX) Output a leader box at |cur_h|,
       then advance |cur_h| by |leader_wd+lx|@>;
   case box_direction(dvi_direction) of
-  dir_TR_,dir_RT_: cur_h:=edge;
-  dir_TL_,dir_LT_: cur_h:=edge;
+  dir_TR_,dir_RT_: cur_h:=cur_h-rule_wd;
   end;
   goto next_p;
   end;
@@ -18553,7 +18475,7 @@ if (rule_ht>0)and(rule_wd>0) then {we don't output empty rules}
   dir__LB: begin
     pdf_dvicmd_down(rule_ht);
     pdf_set_rule(cur_h, cur_v, rule_wd, rule_ht);
-        pdf_dvicmd_left(rule_wd);
+	pdf_dvicmd_left(rule_wd);
     pdf_dvicmd_up(rule_ht);
     end;
   dir__RT: begin
@@ -18645,8 +18567,8 @@ cur_h:=left_edge;
 cur_v:=save_v-height(leader_box)+leader_ht+lx;
 end
 
-@ |fix_pdfoutput| freezes |fixed_pdfoutput| as soon as anything has been written
-to the output file, be it \.{PDF} or \.{DVI}.
+@ |fix_pdfoutput| freezes |pdfoutput| when something has been written to
+the output.
 
 @p procedure fix_pdfoutput;
 begin
@@ -18657,6 +18579,25 @@ begin
     else if fixed_pdfoutput <> pdf_output then
         pdf_error("setup",
             "\pdfoutput can only be changed before anything is written to the output");
+    if fixed_pdfoutput_set then fix_pdf_draftmode;
+end;
+
+@ |fix_pdf_draftmode| freezes |pdfdraftmode| when something has been written to
+the output and also switches somes things off when draftmode is on.
+@p procedure fix_pdf_draftmode;
+begin
+    if not fixed_pdf_draftmode_set then begin
+        fixed_pdf_draftmode := pdf_draftmode;
+        fixed_pdf_draftmode_set := true;
+    end
+    else if fixed_pdf_draftmode <> pdf_draftmode then
+        pdf_error("setup",
+            "\pdfdraftmode can only be changed before anything is written to the output");
+    if fixed_pdf_draftmode_set and fixed_pdf_draftmode > 0 then begin
+        fixed_pdf_draftmode_set := true;
+        pdf_compress_level := 0;
+        fixed_pdf_objcompresslevel := 0;
+    end;
 end;
 
 @ |pdf_ship_out| is used instead of |ship_out| to shipout a box to PDF
@@ -18678,14 +18619,17 @@ pre_callback_id:integer;
 post_callback_id:integer;
 ret:boolean;
 begin 
-pre_callback_id:=callback_defined(start_page_number_callback);  
-post_callback_id:=callback_defined(stop_page_number_callback);  
+pre_callback_id:=callback_defined(start_page_number_callback);	
+post_callback_id:=callback_defined(stop_page_number_callback);	
 if (tracing_output>0)and(pre_callback_id=0) then
   begin print_nl(""); print_ln;
   print("Completed box being shipped out");
 @.Completed box...@>
   end;
-check_pdfminorversion;
+if not init_pdf_output then begin
+    @<Initialize variables for \.{PDF} output@>;
+    init_pdf_output := true;
+end;
 is_shipping_page := shipping_page;
 if shipping_page then begin
   if pre_callback_id>0 then 
@@ -18728,8 +18672,9 @@ cur_s:=-1;
 done:
 
 @ @<Initialize variables as |pdf_ship_out| begins@>=
-prepare_mag;
+fix_pdfoutput;
 temp_ptr:=p;
+prepare_mag;
 pdf_last_resources := pdf_new_objnum;
 @<Reset resource lists@>;
 dvi_direction:=page_direction;
@@ -18956,7 +18901,6 @@ pdf_print_ln(" ]")
 
 @ @<Write out page object@>=
 pdf_begin_dict(pdf_last_page, 1);
-pdf_last_pages := pdf_do_page_divert(pdf_last_page, page_divert_val);
 pdf_print_ln("/Type /Page");
 pdf_indirect_ln("Contents", pdf_last_stream);
 pdf_indirect_ln("Resources", pdf_last_resources);
@@ -18966,9 +18910,16 @@ pdf_print_mag_bp(cur_page_height);
 pdf_print_ln("]");
 if pdf_page_attr <> null then
     pdf_print_toks_ln(pdf_page_attr);
-pdf_indirect_ln("Parent", pdf_last_pages);
+@<Generate parent pages object@>;
 @<Generate array of annotations or beads in page@>;
 pdf_end_dict
+
+@ @<Generate parent pages object@>=
+if total_pages mod pages_tree_kids_max = 1 then begin
+    pdf_create_obj(obj_type_pages, pages_tree_kids_max);
+    pdf_last_pages := obj_ptr;
+end;
+pdf_indirect_ln("Parent", pdf_last_pages)
 
 @ @<Generate array of annotations or beads in page@>=
 if (pdf_annot_list <> null) or (pdf_link_list <> null) then begin
@@ -19008,7 +18959,7 @@ var s: str_number;
     file_opened:boolean;
     k:integer;
     res:boolean;
-        fnam: str_number;
+	fnam: str_number;
     callback_id:integer;
 begin
     s := tokens_to_string(obj_obj_data(n));
@@ -19026,14 +18977,14 @@ begin
     if obj_obj_is_file(n) > 0 then begin
         data_size:=0; data_cur:=0; data_buffer:=0;
         pack_file_name(s,"","");
-            callback_id:=callback_defined(find_data_file_callback);
-            if callback_id>0 then begin
-          res := run_callback(callback_id,'S->s',stringcast(nameoffile+1),addressof(fnam));
-              if (res)and(fnam<>0)and(length(fnam)>0) then begin
-                @<Fixup |nameoffile| after callback@>;
-                        end;
+	    callback_id:=callback_defined(find_data_file_callback);
+	    if callback_id>0 then begin
+    	  res := run_callback(callback_id,'S->s',stringcast(nameoffile+1),addressof(fnam));
+	      if (res)and(fnam<>0)and(length(fnam)>0) then begin
+	        @<Fixup |nameoffile| after callback@>;
+		 	end;
           end;
-                callback_id:=callback_defined(read_data_file_callback);
+		callback_id:=callback_defined(read_data_file_callback);
         if callback_id>0 then begin
           file_opened := false;
           res := run_callback(callback_id,'S->bSd',stringcast(nameoffile+1),
@@ -19054,7 +19005,7 @@ begin
             pdf_out(data_buffer[data_cur]);
             incr(data_cur);
             end;
-            if data_buffer<>0 then libcfree(data_buffer);
+	    if data_buffer<>0 then libcfree(data_buffer);
         print(">>");
     end
     else if obj_obj_is_stream(n) > 0 then
@@ -19163,13 +19114,14 @@ while k <> null do begin
     i := obj_annot_ptr(info(k));
     pdf_begin_dict(info(k), 1);
     pdf_print_ln("/Type /Annot");
-    if pdf_action_type(pdf_link_action(i)) <> pdf_action_user then
-        pdf_print_ln("/Subtype /Link");
     if pdf_link_attr(i) <> null then
         pdf_print_toks_ln(pdf_link_attr(i));
     pdf_rectangle(pdf_left(i), pdf_top(i), pdf_right(i), pdf_bottom(i));
-    if pdf_action_type(pdf_link_action(i)) <> pdf_action_user then
+    if pdf_action_type(pdf_link_action(i)) <> pdf_action_user
+    then begin
+        pdf_print_ln("/Subtype /Link");
         pdf_print("/A ");
+    end;
     write_action(pdf_link_action(i));
     pdf_end_dict;
     k := link(k);
@@ -19376,6 +19328,31 @@ begin
         dvi_ship_out(p);
 end;
 
+@ @<Initialize variables for \.{PDF} output@>=
+check_pdfminorversion;
+prepare_mag;
+fixed_decimal_digits := fix_int(pdf_decimal_digits, 0, 4);
+min_bp_val :=
+    divide_scaled(one_hundred_bp, ten_pow[fixed_decimal_digits + 2], 0);
+if pdf_pk_resolution = 0 then {if not set from format file or by user}
+    pdf_pk_resolution := pk_dpi; {take it from \.{texmf.cnf}}
+fixed_pk_resolution := fix_int(pdf_pk_resolution, 72, 8000);
+pk_scale_factor :=
+    divide_scaled(72, fixed_pk_resolution, 5 + fixed_decimal_digits);
+if not callback_defined(read_pk_file_callback) then begin
+  if pdf_pk_mode <> null then begin
+    kpseinitprog('PDFTEX', fixed_pk_resolution,
+                   makecstring(tokens_to_string(pdf_pk_mode)), nil);
+    flush_string;
+  end else
+    kpseinitprog('PDFTEX', fixed_pk_resolution, nil, nil);
+  if not kpsevarvalue('MKTEXPK') then
+     kpsesetprogramenabled (kpsepkformat, 1, kpsesrccmdline);
+  end;
+set_job_id(year, month, day, time);
+if (pdf_unique_resname > 0) and (pdf_resname_prefix = 0) then
+    pdf_resname_prefix := get_resname_prefix
+
 @ Finishing the PDF output file.
 
 The following procedures sort the table of destination names
@@ -19431,48 +19408,53 @@ are already written completely to PDF output file.
 
 @<Finish the PDF file@>=
 if total_pages=0 then begin
-    if callback_id=0 then
-        print_nl("No pages of output.")
+	if callback_id=0 then
+      print_nl("No pages of output.")
     else
-        res:=run_callback(callback_id,'->');
-    @.No pages of output@>
+      res:=run_callback(callback_id,'->');
+  @.No pages of output@>
     if pdf_gone > 0 then
         garbage_warning;
 end
 else begin
     if fixed_pdf_draftmode = 0 then begin
-        pdf_flush; {to make sure that the output file name has been already created}
-        flush_jbig2_page0_objects; {flush page 0 objects from JBIG2 images, if any}
-        @<Check for non-existing pages@>;
-        @<Check for non-existing destinations@>;
-        @<Output fonts definition@>;
-        pdf_last_pages := output_pages_tree;
-        @<Output outlines@>;
-        @<Output name tree@>;
-        @<Output article threads@>;
-        @<Output the catalog object@>;
-        pdf_print_info; {last candidate for object stream}
-        if pdf_os_enable then begin
-            pdf_os_switch(true);
-            pdf_os_write_objstream;
-            pdf_flush;
-            pdf_os_switch(false);
-            @<Output the cross-reference stream dictionary@>;
-            pdf_flush;
-        end else begin
-            @<Output the |obj_tab|@>;
-        end;
-        @<Output the trailer@>;
+    pdf_flush; {to make sure that the output file name has been already
+    created}
+    if total_pages mod pages_tree_kids_max <> 0 then
+        obj_info(pdf_last_pages) := total_pages mod pages_tree_kids_max;
+    {last pages object may have less than |pages_tree_kids_max| children}
+    flush_jbig2_page0_objects; {flush page 0 objects from JBIG2 images, if any}
+    @<Check for non-existing pages@>;
+    @<Reverse the linked list of Page and Pages objects@>;
+    @<Check for non-existing destinations@>;
+    @<Output fonts definition@>;
+    @<Output pages tree@>;
+    @<Output outlines@>;
+    @<Output name tree@>;
+    @<Output article threads@>;
+    @<Output the catalog object@>;
+    pdf_print_info; {last candidate for object stream}
+    if pdf_os_enable then begin
+        pdf_os_switch(true);
+        pdf_os_write_objstream;
         pdf_flush;
-        if callback_id=0 then begin
-            print_nl("Output written on "); print_file_name(0, output_file_name, 0);
-            @.Output written on x@>
-            print(" ("); print_int(total_pages); print(" page");
-            if total_pages<>1 then print_char("s");
-            print(", "); print_int(pdf_offset); print(" bytes).");
-        end
-        else
-            res:=run_callback(callback_id,'->');
+        pdf_os_switch(false);
+        @<Output the cross-reference stream dictionary@>;
+        pdf_flush;
+    end else begin
+        @<Output the |obj_tab|@>;
+    end;
+    @<Output the trailer@>;
+    pdf_flush;
+	if callback_id=0 then begin
+      print_nl("Output written on "); print_file_name(0, output_file_name, 0);
+  @.Output written on x@>
+      print(" ("); print_int(total_pages); print(" page");
+      if total_pages<>1 then print_char("s");
+      print(", "); print_int(pdf_offset); print(" bytes).");
+      end
+    else
+      res:=run_callback(callback_id,'->');
     end;
     libpdffinish;
     if fixed_pdf_draftmode = 0 then b_close(pdf_file)
@@ -19524,6 +19506,27 @@ while obj_aux(k) = 0 do begin
 end;
 head_tab[obj_type_page] := k
 
+@ @<Reverse the linked list of Page and Pages objects@>=
+k := head_tab[obj_type_page];
+l := 0;
+repeat
+    i := obj_link(k);
+    obj_link(k) := l;
+    l := k;
+    k := i;
+until k = 0;
+head_tab[obj_type_page] := l;
+k := head_tab[obj_type_pages];
+pages_tail := k;
+l := 0;
+repeat
+    i := obj_link(k);
+    obj_link(k) := l;
+    l := k;
+    k := i;
+until k = 0;
+head_tab[obj_type_pages] := l
+
 @ @<Output fonts definition@>=
 for k := 1 to max_font_id do
     if font_used(k) and (pdf_font_num(k) < 0) then begin
@@ -19555,12 +19558,77 @@ while k <> 0 do begin
 end;
 write_fontstuff
 
-@ @p
-procedure print_pdf_pages_attr;
-begin
-    if pdf_pages_attr <> null then
-        pdf_print_toks_ln(pdf_pages_attr);
+@ We will generate in each single step the parents of all Pages/Page objects in
+the previous level. These new generated Pages object will create a new level of
+Pages tree. We will repeat this until search only one Pages object. This one
+will be the Root object.
+
+@<Output pages tree@>=
+a := sys_obj_ptr + 1; {all Pages objects whose children are not Page objects
+                       should have index greater than |a|}
+l := head_tab[obj_type_pages]; {|l| is the index of current Pages object
+                                which is being output}
+k := head_tab[obj_type_page]; {|k| is the index of current child of |l|}
+b := 0;
+repeat
+    i := 0; {counter of Pages object in current level}
+    c := 0; {first Pages object in previous level}
+    if obj_link(l) = 0 then
+        is_root := true {only Pages object; total pages is
+                         not greater than |pages_tree_kids_max|}
+    else
+        is_root := false;
+    repeat
+        if not is_root then begin
+            if i mod pages_tree_kids_max = 0 then begin {create a new Pages object
+                                                         for next level}
+                pdf_last_pages := pdf_new_objnum;
+                if c = 0 then
+                    c := pdf_last_pages;
+                obj_link(pages_tail) := pdf_last_pages;
+                pages_tail := pdf_last_pages;
+                obj_link(pdf_last_pages) := 0;
+                obj_info(pdf_last_pages) := obj_info(l);
+            end
+            else
+                obj_info(pdf_last_pages) := obj_info(pdf_last_pages) +
+                    obj_info(l);
+        end;
+        @<Output the current Pages object in this level@>;
+        incr(i);
+        l := obj_link(l);
+    until (l = c);
+    b := c;
+    if l = 0 then
+        goto done;
+until false;
+done:
+
+@ @<Output the current Pages object in this level@>=
+pdf_begin_dict(l, 1);
+pdf_print_ln("/Type /Pages");
+pdf_int_entry_ln("Count", obj_info(l));
+if not is_root then
+    pdf_indirect_ln("Parent", pdf_last_pages);
+pdf_print("/Kids [");
+j := 0;
+repeat
+    pdf_print_int(k);
+    pdf_print(" 0 R ");
+    k := obj_link(k);
+    incr(j);
+until ((l < a) and (j = obj_info(l))) or
+    (k = 0) or ((k = b) and (b <> 0)) or
+    (j = pages_tree_kids_max);
+remove_last_space;
+pdf_print_ln("]");
+if k = 0 then begin
+    k := head_tab[obj_type_pages];
+    head_tab[obj_type_pages] := 0;
 end;
+if is_root and (pdf_pages_attr <> null) then
+    pdf_print_toks_ln(pdf_pages_attr);
+pdf_end_dict;
 
 @ The name tree is very similiar to Pages tree so its construction should be
 certain from Pages tree construction. For intermediate node |obj_info| will be
@@ -19773,7 +19841,7 @@ print_mod_date;
 @ @<Output the |obj_tab|@>=
 l := 0;
 for k := 1 to sys_obj_ptr do
-    if not is_obj_written(k) then begin
+    if obj_offset(k) = 0 then begin
         obj_link(l) := k;
         l := k;
     end;
@@ -19784,7 +19852,7 @@ pdf_print("0 "); pdf_print_int_ln(obj_ptr + 1);
 pdf_print_fw_int(obj_link(0), 10);
 pdf_print_ln(" 65535 f ");
 for k := 1 to obj_ptr do begin
-    if not is_obj_written(k) then begin
+    if obj_offset(k) = 0 then begin
         pdf_print_fw_int(obj_link(k), 10);
         pdf_print_ln(" 00000 f ");
     end
@@ -19806,7 +19874,7 @@ else
     xref_offset_width := 1;
 l := 0;
 for k := 1 to sys_obj_ptr do
-    if not is_obj_written(k) then begin
+    if obj_offset(k) = 0 then begin
         obj_link(l) := k;
         l := k;
     end;
@@ -19829,7 +19897,7 @@ print_ID(output_file_name);
 pdf_print_nl;
 pdf_begin_stream;
 for k := 0 to sys_obj_ptr do begin
-    if not is_obj_written(k) then begin {a free object}
+    if obj_offset(k) = 0 then begin {a free object}
         pdf_out(0);
         pdf_out_bytes(obj_link(k), xref_offset_width);
         pdf_out(255);
@@ -19935,9 +20003,9 @@ continue:
     scan_register_num; i:=cur_val;
     scan_optional_equals;
     scan_int; v:=cur_val;
-        if (attr_list<>null) and (attr_list=attr_list_cache) then begin
+	if (attr_list<>null) and (attr_list=attr_list_cache) then begin
       attr_list:=copy_attribute_list(attr_list_cache);
-          add_node_attr_ref(attr_list); {will be used once}
+	  add_node_attr_ref(attr_list); {will be used once}
       end;
     attr_list:=do_set_attribute(attr_list,i,v);
     goto continue;
@@ -20161,7 +20229,7 @@ begin
     else begin
         {|short_display_n(p, 5);|}
         pdf_error("font expansion", "invalid node type");
-            return;
+	    return;
     end;
     f := font(r);
     ef := get_ef_code(f, character(r));
@@ -20292,7 +20360,7 @@ exit:
 if (m = cal_expand_ratio) and (font_expand_ratio <> 0) then begin
     font_expand_ratio := fix_int(font_expand_ratio, -1000, 1000);
     q := list_ptr(r);
-        list_ptr(r):=null; flush_node(r);
+	list_ptr(r):=null; flush_node(r);
     r:=hpack(q, w, subst_ex_font);
 end;
 while dir_ptr<>null do pop_dir_node;
@@ -20301,6 +20369,7 @@ end;
 
 function filtered_hpack(@!p:pointer;@!qt:pointer;@!w:scaled;@!m:small_number;@!grp:integer):pointer;
 var q:pointer;
+  d:integer; { a direction }
 begin
   new_hyphenation(p,qt);
   call_func(new_ligkern(p,qt)); {don't care about the tail in this case}
@@ -21952,7 +22021,7 @@ simple ones.
 procedure make_over(@!q:pointer);
 var p:pointer;
 begin p:=overbar(clean_box(nucleus(q),cramped_style(cur_style)),@|
-          3*default_rule_thickness,default_rule_thickness);
+  	  3*default_rule_thickness,default_rule_thickness);
 vinfo(nucleus(q)):=p;
 math_type(nucleus(q)):=sub_box;
 end;
@@ -22299,7 +22368,7 @@ begin
 if disable_lig=0 and has_lig(cur_f,a) then begin
   lig:=get_ligature(cur_f,a,cur_c);
   if is_valid_ligature(lig) then begin
-        check_interrupt; {allow a way out of infinite ligature loop}
+	check_interrupt; {allow a way out of infinite ligature loop}
     case lig_type(lig) of
     qi(1),qi(5): mcharacter(nucleus(q)):=lig_replacement(lig); {\.{=:\?}, \.{=:\?>}}
     qi(2),qi(6): mcharacter(nucleus(p)):=lig_replacement(lig); {\.{\?=:}, \.{\?=:>}}
@@ -22324,7 +22393,7 @@ if disable_kern=0 and has_kern(cur_f,a) then begin
   k:=get_kern(cur_f,a,cur_c);
   if k<>0 then begin 
     p:=new_kern(k); vlink(p):=vlink(q); vlink(q):=p; return;
-        end;
+	end;
   end;
 end
 
@@ -23636,26 +23705,28 @@ else begin
   end;
 final_par_glue:=new_param_glue(par_fill_skip_code);
 couple_nodes(tail,final_par_glue);
-lua_node_filter(pre_linebreak_filter_callback,
-      line_break_context,temp_head,addressof(tail));
+if not output_active then 
+  lua_node_filter(pre_linebreak_filter_callback,
+	line_break_context,temp_head,addressof(tail));
 last_line_fill:=vlink(tail);
 pop_nest;
 start_of_par:=tail;
 ext_do_line_break(d,pretolerance,tracing_paragraphs,tolerance,emergency_stretch,
-                   looseness,hyphen_penalty,ex_hyphen_penalty,
-                   pdf_adjust_spacing, par_shape_ptr, adj_demerits,
-                   pdf_protrude_chars, line_penalty, last_line_fit, 
-                   double_hyphen_demerits, final_hyphen_demerits,
-                   hang_indent, hsize, hang_after, left_skip, right_skip,
-                   pdf_each_line_height,pdf_each_line_depth,
-                   pdf_first_line_height, pdf_last_line_depth,
-                   inter_line_penalties_ptr, inter_line_penalty,
-                   club_penalty, club_penalties_ptr,
-                   display_widow_penalties_ptr,widow_penalties_ptr,
-                   display_widow_penalty, widow_penalty,
-                   broken_penalty, final_par_glue);
-lua_node_filter(post_linebreak_filter_callback,
-      line_break_context,start_of_par,addressof(tail));
+		   looseness,hyphen_penalty,ex_hyphen_penalty,
+		   pdf_adjust_spacing, par_shape_ptr, adj_demerits,
+		   pdf_protrude_chars, line_penalty, last_line_fit, 
+		   double_hyphen_demerits, final_hyphen_demerits,
+		   hang_indent, hsize, hang_after, left_skip, right_skip,
+		   pdf_each_line_height,pdf_each_line_depth,
+		   pdf_first_line_height, pdf_last_line_depth,
+		   inter_line_penalties_ptr, inter_line_penalty,
+		   club_penalty, club_penalties_ptr,
+		   display_widow_penalties_ptr,widow_penalties_ptr,
+		   display_widow_penalty, widow_penalty,
+		   broken_penalty, final_par_glue);
+if not output_active then 
+  lua_node_filter(post_linebreak_filter_callback,
+	line_break_context,start_of_par,addressof(tail));
 pack_begin_line:=0;
 end;
 @#
@@ -23666,7 +23737,13 @@ end;
 The choice between |check_head_filter| and |check_contrib_filter| is not
 quite clear to me yet, but it seems that the latter is the better choice.
 
-@d check_filter(#)==if not output_active then lua_node_filter_s(buildpage_filter_callback,#)
+@d check_head_filter(#)==if (not output_active) and (vlink(head)<>null) then
+lua_node_filter_s(buildpage_filter_callback,#,head,addressof(tail))
+
+@d check_contrib_filter(#)==if (not output_active) and (vlink(contrib_head)<>null) then
+lua_node_filter_s(buildpage_filter_callback,#,contrib_head,addressof(garbage))
+
+@d check_filter==check_head_filter
 
 @* \[39] Breaking paragraphs into lines, continued.
 
@@ -23712,21 +23789,6 @@ procedure new_post_hyphen_char;
 begin scan_optional_equals; scan_int;
    set_post_hyphen_char(language,cur_val);
 end;
-
-@ `\.{\\preexhyphenchar}', sets the |pre_break| character, and
-`\.{\\postexhyphenchar}' the |post_break| character. Their 
-defaults are both zero (nul).
-
-@p procedure new_pre_exhyphen_char;
-begin scan_optional_equals; scan_int;
-   set_pre_exhyphen_char(language,cur_val);
-end;
-@#
-procedure new_post_exhyphen_char;
-begin scan_optional_equals; scan_int;
-   set_post_exhyphen_char(language,cur_val);
-end;
-
 
 @* \[43] Initializing the hyphenation tables.
 
@@ -24888,7 +24950,7 @@ if vlink(page_head)<>null then {and both go before heldover contributions}
   vlink(page_head):=null; page_tail:=page_head;
   end;
 flush_node_list(page_disc); page_disc:=null;
-pop_nest; check_filter('after_output'); build_page;
+pop_nest; build_page;
 end
 
 @ @<Recover from an unbalanced output routine@>=
@@ -24992,7 +25054,7 @@ hmode+no_boundary: begin @<Append a |cancel_boundary_node| @>;
 hmode+char_ghost: begin t:=cur_chr; get_x_token;
   if (cur_cmd=letter)or(cur_cmd=other_char)or(cur_cmd=char_given)or
    (cur_cmd=char_num) then begin 
-        p:=new_glyph(cur_font,cur_chr);
+	p:=new_glyph(cur_font,cur_chr);
     if t=0 then begin set_is_leftghost(p); end
     else begin set_is_rightghost(p); end;
     tail_append(p);
@@ -25057,15 +25119,13 @@ if (cur_cmd=letter)or(cur_cmd=other_char)or
     scan_char_num; cur_chr:=cur_val; 
     end;
   if (chr_stack=ex_hyphen_char)and(cur_chr<>ex_hyphen_char)and(mode>0) then begin 
-    tail:=compound_word_break(tail,cur_lang);
-    subtype(tail):=automatic_disc;
+    tail_append(new_disc); subtype(tail):=automatic_disc; 
     end;
   goto continue;
   end 
 else begin
   if (chr_stack=ex_hyphen_char) and (mode>0) then begin 
-    tail:=compound_word_break(tail,cur_lang);
-    subtype(tail):=automatic_disc;
+    tail_append(new_disc); subtype(tail):=automatic_disc; 
     end;
   chr_stack:=-1;
   goto reswitch;
@@ -25280,7 +25340,7 @@ begin if privileged then
   width(tail):=hsize;
   tail_append(new_glue(fill_glue));
   tail_append(new_penalty(-@'10000000000));@/
-  check_filter('end'); build_page; {append \.{\\hbox to \\hsize\{\}\\vfill\\penalty-'10000000000}}
+  build_page; {append \.{\\hbox to \\hsize\{\}\\vfill\\penalty-'10000000000}}
   end;
 its_all_over:=false;
 exit:end;
@@ -25976,6 +26036,8 @@ var p,q,dir_graf_tmp:pointer;
 begin prev_graf:=0;
 if (mode=vmode)or(head<>tail) then begin
   tail_append(new_param_glue(par_skip_code));
+  if nest_ptr=0 then
+    check_filter('begin_of_par'); 
   end;
 push_nest; mode:=hmode; space_factor:=1000; 
 @<LOCAL: Add local paragraph node@>;
@@ -26000,7 +26062,7 @@ while vlink(q)<>null do q:=vlink(q);
 tail:=q;
 if every_par<>null then begin_token_list(every_par,every_par_text);
 if nest_ptr=1 then begin 
-  check_filter('new_graf'); build_page; {put |par_skip| glue on current page}
+  build_page; {put |par_skip| glue on current page}
   end;
 end;
 
@@ -26031,7 +26093,7 @@ vmode+par_end: begin normal_paragraph;
 hmode+par_end: begin if align_state<0 then off_save; {this tries to
     recover from an alignment that didn't end properly}
   if (mode>0) and (nest[(nest_ptr-1)].mode_field=vmode) then
-          line_break_context:=bottom_level;
+	  line_break_context:=bottom_level;
   end_graf; {this takes us to the enclosing mode, if |mode>0|}
   if mode=vmode then begin check_filter('hmode_par');  build_page; end;
   end;
@@ -26342,9 +26404,9 @@ subtype(tail):=cur_chr;
 if cur_chr=explicit_disc then begin 
     c:=get_pre_hyphen_char(cur_lang);
     if c<>0 then begin 
-          vlink(pre_break(tail)):=new_char(cur_font,c);
+   	  vlink(pre_break(tail)):=new_char(cur_font,c);
       alink(vlink(pre_break(tail))):=pre_break(tail);
-          tlink(pre_break(tail)):=vlink(pre_break(tail));
+   	  tlink(pre_break(tail)):=vlink(pre_break(tail));
       end;
     c:=get_post_hyphen_char(cur_lang);
     if c<>0 then begin
@@ -26752,7 +26814,7 @@ eq_word_define(dimen_base+pre_display_size_code,w);
 eq_word_define(dimen_base+display_width_code,l);
 eq_word_define(dimen_base+display_indent_code,s);
 if every_display<>null then begin_token_list(every_display,every_display_text);
-if nest_ptr=1 then begin check_filter('before_display'); build_page; end;
+if nest_ptr=1 then begin check_contrib_filter('before_display'); build_page; end;
 end
 
 @ @<Calculate the natural width, |w|, by which...@>=
@@ -26902,7 +26964,7 @@ exit:end;
 @ An active character that is an |outer_call| is allowed here.
 
 @<Treat |cur_chr|...@>=
-begin cur_cs:=active_to_cs(cur_chr,true);
+begin cur_cs:=(cur_chr mod number_active_chars)+active_base;
 cur_cmd:=eq_type(cur_cs); cur_chr:=equiv(cur_cs);
 x_token; back_input;
 end
@@ -27804,7 +27866,7 @@ exit:end;
 begin print_err("You can't use a prefix with `");
 @.You can't use a prefix with x@>
 print_cmd_chr(cur_cmd,cur_chr); print_char("'");
-help1("I'll pretend you didn't say \long or \outer or \global or \protected.");
+help1("I'll pretend you didn't say \long or \outer or \global.");
 back_error; return;
 end
 
@@ -28552,10 +28614,6 @@ primitive("prehyphenchar",hyph_data,2);
 @!@:prehyphenchar_}{\.{\\prehyphenchar} primitive@>
 primitive("posthyphenchar",hyph_data,3);
 @!@:posthyphenchar_}{\.{\\posthyphenchar} primitive@>
-primitive("preexhyphenchar",hyph_data,4);
-@!@:preexhyphenchar_}{\.{\\preexhyphenchar} primitive@>
-primitive("postexhyphenchar",hyph_data,5);
-@!@:postexhyphenchar_}{\.{\\postexhyphenchar} primitive@>
 
 @ @<Cases of |print_cmd_chr|...@>=
 hyph_data: case cur_chr of 
@@ -28563,8 +28621,6 @@ hyph_data: case cur_chr of
     1: print_esc("patterns"); 
     2: print_esc("prehyphenchar"); 
     3: print_esc("posthyphenchar");
-    4: print_esc("preexhyphenchar"); 
-    5: print_esc("postexhyphenchar");
     endcases;
 
 @ @<Assignments@>=
@@ -28574,8 +28630,6 @@ hyph_data: begin
     1: new_patterns; 
     2: new_pre_hyphen_char; 
     3: new_post_hyphen_char;
-    4: new_pre_exhyphen_char; 
-    5: new_post_exhyphen_char;
     endcases;
   goto done;
   end;
@@ -28652,7 +28706,13 @@ begin if job_name=0 then open_log_file;
   {avoid confusing \.{texput} with the font name}
 @.texput@>
 get_r_token; u:=cur_cs;
-if u>=null_cs then t:=text(u) else t:="FONT";
+if u>=hash_base then t:=text(u)
+else if u=null_cs then t:="FONT"
+else  begin old_setting:=selector; selector:=new_string;
+  print("FONT"); print(u-active_base); selector:=old_setting;
+@.FONTx@>
+  str_room(1); t:=make_string;
+  end;
 define(u,set_font,null_font); scan_optional_equals; 
 @<Get the next non-blank non-call token@>;
 if cur_cmd<>left_brace then begin
@@ -28931,26 +28991,22 @@ back_list(link(def_ref)); free_avail(def_ref); {omit reference count}
 end;
 
 @ When the case of a |chr_code| changes, we don't change the |cmd|.
-We also change active characters.
+We also change active characters, using the fact that
+|cs_token_flag+active_base| is a multiple of~|string_offset|.
+@^data structure assumptions@>
 
 @<Change the case of the token in |p|, if a change is appropriate@>=
 t:=info(p);
-if t<cs_token_flag then begin 
+if t<cs_token_flag+null_cs then
+  begin 
   c:=t mod string_offset;
-  if b=uc_code_base then 
-    i:=get_uc_code(c)
-  else
-    i:=get_lc_code(c);
-  if i<>0 then info(p):=t-c+i; 
+  if b=uc_code_base then begin 
+     i:=get_uc_code(c);
+	 if i<>0 then info(p):=t-c+i; 
+     end
+  else 
+     begin if get_lc_code(c)<>0 then info(p):=t-c+get_lc_code(c); end;
   end
-else if is_active_csname(t-cs_token_flag) then begin 
-  c:=active_csname_value(t-cs_token_flag);
-  if b=uc_code_base then
-     i:=get_uc_code(c)
-  else
-     i:= get_lc_code(c);
-  if i<>0 then info(p):=active_to_cs(i,true)+cs_token_flag; 
-end
 
 @ We come finally to the last pieces missing from |main_control|, namely the
 `\.{\\show}' commands that are useful when debugging.
@@ -29310,7 +29366,7 @@ format file represents $n+m$ consecutive entries of |eqtb|, with |m| extra
 copies of $x_n$, namely $(x_1,\ldots,x_n,x_n,\ldots,x_n)$.
 
 @<Dump regions 1 to 4 of |eqtb|@>=
-k:=null_cs;
+k:=active_base;
 repeat j:=k;
 while j<int_base-1 do
   begin if (equiv(j)=equiv(j+1))and(eq_type(j)=eq_type(j+1))and@|
@@ -29352,7 +29408,7 @@ k:=j+1; dump_int(k-l);
 until k>eqtb_size
 
 @ @<Undump regions 1 to 6 of |eqtb|@>=
-k:=null_cs;
+k:=active_base;
 repeat undump_int(x);
 if (x<1)or(k+x>eqtb_size+1) then goto bad_fmt;
 for j:=k to k+x-1 do undump_wd(eqtb[j]);
@@ -29662,45 +29718,46 @@ This program doesn't bother to close the input files that may still be open.
 @<Last-minute...@>=
 procedure close_files_and_terminate;
 label done, done1;
-var a, b, i, j, k, l: integer; {all-purpose index}
+var a, b, c, i, j, k, l: integer; {all-purpose index}
+    is_root: boolean; {|pdf_last_pages| is root of Pages tree?}
     is_names: boolean; {flag for name tree output: is it Names or Kids?}
     root, outlines, threads, names_tree, dests: integer;
     xref_offset_width, names_head, names_tail: integer;
-        callback_id:integer;
-        res:boolean;
+	callback_id:integer;
+	res:boolean;
 begin 
 callback_id:=callback_defined(stop_run_callback);
 @<Finish the extensions@>;
 @!stat if tracing_stats>0 then
   if callback_id=0 then @<Output statistics about this job@>;@;@+tats@/
 wake_up_terminal;
-if not fixed_pdfoutput_set then {else there will be an infinite loop in error case}
+if not fixed_pdfoutput_set then
     fix_pdfoutput;
 if fixed_pdfoutput > 0 then begin
     if history = fatal_error_stop then begin
         remove_pdffile;
         print_err(" ==> Fatal error occurred, no output PDF file produced!")
-    end
+        end
     else begin
         @<Finish the PDF file@>;
-        if callback_id=0 then begin
-            if log_opened then
-                begin wlog_cr;
-                wlog_ln('PDF statistics:');
-                wlog_ln(' ',obj_ptr:1,' PDF objects out of ',obj_tab_size:1,
-                    ' (max. ',sup_obj_tab_size:1,')');
-                if pdf_os_cntr > 0 then begin
-                    wlog(' ',((pdf_os_cntr - 1) * pdf_os_max_objs + pdf_os_objidx + 1):1,
-                        ' compressed objects within ',pdf_os_cntr:1,' object stream');
-                    if pdf_os_cntr > 1 then
-                        wlog('s');
-                    wlog_cr;
-                end;
-                wlog_ln(' ',pdf_dest_names_ptr:1,' named destinations out of ',dest_names_size:1,
-                    ' (max. ',sup_dest_names_size:1,')');
-                wlog_ln(' ',pdf_mem_ptr:1,' words of extra memory for PDF output out of ',pdf_mem_size:1,
-                    ' (max. ',sup_pdf_mem_size:1,')');
+	    if callback_id=0 then begin
+        if log_opened then
+            begin wlog_cr;
+            wlog_ln('PDF statistics:');
+            wlog_ln(' ',obj_ptr:1,' PDF objects out of ',obj_tab_size:1,
+                ' (max. ',sup_obj_tab_size:1,')');
+            if pdf_os_cntr > 0 then begin
+                wlog(' ',((pdf_os_cntr - 1) * pdf_os_max_objs + pdf_os_objidx + 1):1,
+                    ' compressed objects within ',pdf_os_cntr:1,' object stream');
+                if pdf_os_cntr > 1 then
+                    wlog('s');
+                wlog_cr;
             end;
+            wlog_ln(' ',pdf_dest_names_ptr:1,' named destinations out of ',dest_names_size:1,
+                ' (max. ',sup_dest_names_size:1,')');
+            wlog_ln(' ',pdf_mem_ptr:1,' words of extra memory for PDF output out of ',pdf_mem_size:1,
+                ' (max. ',sup_pdf_mem_size:1,')');
+        end;
         end;
     end;
 end
@@ -29765,8 +29822,8 @@ while input_ptr>0 do
   if state=token_list then end_token_list@+else end_file_reading;
 while open_parens>0 do
   begin 
-        if tracefilenames then print(" )"); 
-        decr(open_parens);
+	if tracefilenames then print(" )"); 
+	decr(open_parens);
   end;
 if cur_level>level_one then
   begin print_nl("("); print_esc("end occurred ");
@@ -30458,7 +30515,7 @@ begin
         new_whatsit(pdf_colorstack_node);
         pdf_colorstack_stack(tail) := cur_val;
         pdf_colorstack_cmd(tail)   := i;
-            pdf_colorstack_data(tail)  := null;
+	    pdf_colorstack_data(tail)  := null;
         if i <= colorstack_data then begin
             scan_pdf_ext_toks;
             pdf_colorstack_data(tail) := def_ref;
@@ -30499,10 +30556,6 @@ end
 begin
     check_pdfoutput("\latelua", true);
     new_whatsit(late_lua_node);
-    if scan_keyword("name") then begin
-       scan_pdf_ext_toks;
-       late_lua_name(tail) := def_ref;
-    end;
     scan_register_num;
     late_lua_reg(tail) := cur_val;
     scan_pdf_ext_toks;
@@ -30513,8 +30566,8 @@ end
 begin
     check_pdfoutput("\closelua", true);
     new_whatsit(close_lua_node);
-        scan_register_num;
-        late_lua_reg(tail) := cur_val;
+	scan_register_num;
+	late_lua_reg(tail) := cur_val;
 end
 
 @ The \.{\\pdfobj} primitive is used to create a ``raw'' object in the PDF
@@ -30639,14 +30692,14 @@ begin
     else
         obj_xform_resources(k) := null;
     scan_int;
-        p:=box(cur_val);
+	p:=box(cur_val);
     if p = null then
         pdf_error("ext1", "\pdfxform cannot be used with a void box");
     obj_xform_width(k) := width(p);
     obj_xform_height(k) := height(p);
     obj_xform_depth(k) := depth(p);
     obj_xform_box(k) := p; {save pointer to the box}
-        box(cur_val):=null;
+	box(cur_val):=null;
     pdf_last_xform := k;
 end
 
@@ -30722,7 +30775,7 @@ end;
 
 procedure scan_image;
 label reswitch;
-var k, img_wd, img_ht, img_dp, ref: integer;
+var i, k, img_wd, img_ht, img_dp, ref: integer;
     named, attr: str_number;
     s: str_number;
     page, pagebox, colorspace: integer;
@@ -30810,7 +30863,7 @@ begin
     pdf_check_obj(obj_type_ximage, cur_val);
     new_whatsit(pdf_refximage_node);
     j := obj_data_ptr(cur_val);
-    pdf_ximage_idx(tail) := j;
+    pdf_ximage_ref(tail) := j;
     pdf_width(tail) := image_width(j);
     pdf_height(tail) := image_height(j);
     pdf_depth(tail) := image_depth(j);
@@ -31001,7 +31054,7 @@ begin
         pdf_error("ext1", "\pdfstartlink cannot be used in vertical mode");
     k := pdf_new_objnum;
     new_annot_whatsit(pdf_start_link_node);
-            pdf_link_attr(tail) := null;
+	    pdf_link_attr(tail) := null;
         if scan_keyword("attr") then begin
             scan_pdf_ext_toks;
             pdf_link_attr(tail) := def_ref;
@@ -31341,13 +31394,13 @@ end
 begin
   scan_int;
   if (cur_val<0)or(cur_val>@"FFFFFFF) then begin
-        print_err("Invalid \catcode table");
-        help1("All \catcode table ids must be between 0 and 0xFFFFFFF");
-        error;
+	print_err("Invalid \catcode table");
+	help1("All \catcode table ids must be between 0 and 0xFFFFFFF");
+	error;
     end 
   else begin if cur_val=cat_code_table then begin
       print_err("Invalid \catcode table");
-          help1("You cannot overwrite the current \catcode table");
+  	  help1("You cannot overwrite the current \catcode table");
       error;
       end
     else
@@ -31359,14 +31412,14 @@ end
 begin
   scan_int;
   if (cur_val<0)or(cur_val>@"FFFFFFF) then begin
-        print_err("Invalid \catcode table");
-        help1("All \catcode table ids must be between 0 and 0xFFFFFFF");
-        error;
+	print_err("Invalid \catcode table");
+	help1("All \catcode table ids must be between 0 and 0xFFFFFFF");
+	error;
     end 
   else begin if cur_val=cat_code_table then begin
     print_err("Invalid \catcode table");
-        help1("You cannot overwrite the current \catcode table");
-        error;
+  	help1("You cannot overwrite the current \catcode table");
+	error;
     end
   else
     initex_cat_codes(cur_val);
@@ -31663,7 +31716,7 @@ late_lua_node: begin
 end;
 close_lua_node: begin
     print_esc("closelua");
-        print_int(late_lua_reg(p));
+	print_int(late_lua_reg(p));
 end;
 pdf_refobj_node: begin
     print_esc("pdfrefobj");
@@ -31806,7 +31859,7 @@ pdf_end_thread_node: print_esc("pdfendthread");
 pdf_save_pos_node: print_esc("pdfsavepos");
 user_defined_node: begin
     print_esc("whatsit");
-        print_int(user_node_id(p));
+	print_int(user_node_id(p));
     print_char("=");
     case user_node_type(p) of 
     "a": print("<>");
@@ -31816,7 +31869,7 @@ user_defined_node: begin
     othercases  { only d }
       print_int(user_node_value(p));
     endcases;
-        end;
+	end;
 othercases print("whatsit?")
 endcases
 
@@ -32025,7 +32078,7 @@ if cur_cmd=extension then begin
     else case cur_chr of
       close_lua_node: begin
         scan_register_num;
-            closelua(cur_val);
+	    closelua(cur_val);
       end;
         pdf_obj_code: begin
             do_extension; {scan object and set |pdf_last_obj|}
@@ -32297,9 +32350,9 @@ else begin
   pop_dir_node;
   synch_h; synch_v;
   if dir_ptr<>null then
-         dvi_direction:=dir_dir(dir_ptr)
+	 dvi_direction:=dir_dir(dir_ptr)
   else
-        dvi_direction:=0;
+	dvi_direction:=0;
  if dir_opposite(dir_secondary[dir_dir(p)+64])(dir_secondary[dvi_direction])
   then begin
     dvi_temp_ptr:=dvi_ptr;
@@ -32337,7 +32390,7 @@ if dir_dir(p)>=0 then begin
   push_dir_node(p);
   if dir_opposite(dir_secondary[dir_dir(dir_ptr)])(dir_secondary[dvi_direction])
   then begin
-        @<(PDF) Calculate the needed width to the matching |enddir|, and store it in |w|, as
+	@<(PDF) Calculate the needed width to the matching |enddir|, and store it in |w|, as
       well as in the enddir's |dir_dvi_h|@>;
     case box_direction(dvi_direction) of
     dir_TL_,dir_BL_: pdf_dvicmd_right(w);
@@ -32365,34 +32418,7 @@ this segment, it stores the accumulated with in the |dir_dvi_h| field
 of that end node, so that when that node is found later in the
 processing, the correct glue correction can be applied.
 
-@p
-function simple_advance_width(p:halfword):scaled;
-var q:halfword;
-@!w:scaled;
-begin
-  q:=p; w:=0; 
-  while (q<>null) and (vlink(q)<>null) do begin
-    q:=vlink(q);
-    if is_char_node(q) then begin
-      w:=w+glyph_width(q);
-      end
-    else begin
-      case type(q) of
-      hlist_node,vlist_node,rule_node,
-      margin_kern_node,kern_node:
-        w:=w+width(q);
-      disc_node: if vlink(no_break(q))<>null then begin
-        w:=w+simple_advance_width(no_break(q));
-        end;
-      othercases do_nothing;
-      endcases;
-    end;
-  end; 
-  simple_advance_width:=w; 
-end;
-
-
-@ @<(PDF) Calculate the needed width to the matching |enddir|...@>=
+@<(PDF) Calculate the needed width to the matching |enddir|...@>=
 begin
   q:=p; w:=0; 
   save_cur_g:=cur_g;
@@ -32402,7 +32428,7 @@ begin
   {|w:=w-cur_g; cur_glue:=0;|}
   dir_nest:=1;
   while (q<>null) and (vlink(q)<>null) do begin
-        q:=vlink(q);
+	q:=vlink(q);
     if is_char_node(q) then begin
       w:=w+glyph_width(q); {TODO no vertical support for now}
       end 
@@ -32410,7 +32436,7 @@ begin
       case type(q) of
       hlist_node,vlist_node,rule_node,
       margin_kern_node,kern_node:w:=w+width(q);
-      glue_node: begin 
+	  glue_node: begin 
         g:=glue_ptr(q);
         w:=w+width(g)-cur_g; 
         if g_sign<>normal then
@@ -32428,9 +32454,6 @@ begin
              end;
           end;
         w:=w+cur_g; 
-        end;
-      disc_node: if vlink(no_break(q))<>null then begin
-        w:=w+simple_advance_width(no_break(q));
         end;
       math_node: w:=w+surround(q);
       whatsit_node: begin
@@ -32628,16 +32651,13 @@ begin
         pdf_error("ext4", "annotations cannot be inside an XForm");
     if doing_leaders then
         return;
-    if is_obj_scheduled(pdf_annot_objnum(p)) then
-        pdf_annot_objnum(p) := pdf_new_objnum;
     set_rect_dimens(p, parent_box, x, y,
                     pdf_width(p), pdf_height(p), pdf_depth(p), 0);
     obj_annot_ptr(pdf_annot_objnum(p)) := p;
     pdf_append_list(pdf_annot_objnum(p))(pdf_annot_list);
-    set_obj_scheduled(pdf_annot_objnum(p));
 end;
 
-@ To implement nested link annotations, we need a stack to hold copy of
+@ To implement nesting link annotations, we need a stack to hold copy of
 |pdf_start_link_node|'s that are being written out, together with their box
 nesting level.
 
@@ -32686,8 +32706,6 @@ begin
     if not is_shipping_page then
         pdf_error("ext4", "link annotations cannot be inside an XForm");
     pdfassert(type(parent_box) = hlist_node);
-    if is_obj_scheduled(pdf_link_objnum(p)) then
-        pdf_link_objnum(p) := pdf_new_objnum;
     push_link_level(p);
     set_rect_dimens(p, parent_box, x, y,
                     pdf_width(p), pdf_height(p), pdf_depth(p),
@@ -32695,7 +32713,6 @@ begin
     obj_annot_ptr(pdf_link_objnum(p)) := p; {the reference for the pdf annot object
                                              must be set here}
     pdf_append_list(pdf_link_objnum(p))(pdf_link_list);
-    set_obj_scheduled(pdf_link_objnum(p));
 end;
 
 procedure end_link;
@@ -32927,13 +32944,6 @@ begin
     pdf_print_ln("Q");
 end;
 
-procedure output_image(idx: integer);
-begin
-    out_image(idx, cur_h-pdf_origin_h, pdf_origin_v-cur_v);
-    if pdf_lookup_list(pdf_ximage_list, image_objnum(idx)) = null then
-        pdf_append_list(image_objnum(idx))(pdf_ximage_list);
-end;
-
 @ @<Output the whatsit node |p| in |pdf_vlist_out|@>=
 case subtype(p) of
 pdf_literal_node:
@@ -32951,10 +32961,7 @@ late_lua_node:
 close_lua_node:
     closelua(late_lua_reg(p));
 pdf_refobj_node:
-    if not is_obj_scheduled(pdf_obj_objnum(p)) then begin
-        pdf_append_list(pdf_obj_objnum(p))(pdf_obj_list);
-        set_obj_scheduled(pdf_obj_objnum(p));
-    end;
+    pdf_append_list(pdf_obj_objnum(p))(pdf_obj_list);
 pdf_refxform_node:
     @<Output a Form node in a vlist@>;
 pdf_refximage_node:
@@ -32991,7 +32998,9 @@ end
 @ @<Output a Image node in a vlist@>=
 begin cur_v:=cur_v+pdf_height(p)+pdf_depth(p);
   cur_h:=left_edge;
-  output_image(pdf_ximage_idx(p));
+  out_image(pdf_ximage_ref(p), cur_h-pdf_origin_h, pdf_origin_v-cur_v);
+  if pdf_lookup_list(pdf_ximage_list, image_objnum(pdf_ximage_ref(p))) = null then
+      pdf_append_list(image_objnum(pdf_ximage_ref(p)))(pdf_ximage_list);
 end
 
 @ @<Output a Form node in a vlist@>=
@@ -33016,12 +33025,9 @@ pdf_restore_node:
 late_lua_node:
     do_late_lua(p);
 close_lua_node:
-        closelua(late_lua_reg(p));
+	closelua(late_lua_reg(p));
 pdf_refobj_node:
-    if not is_obj_scheduled(pdf_obj_objnum(p)) then begin
-        pdf_append_list(pdf_obj_objnum(p))(pdf_obj_list);
-        set_obj_scheduled(pdf_obj_objnum(p));
-    end;
+    pdf_append_list(pdf_obj_objnum(p))(pdf_obj_list);
 pdf_refxform_node:
     @<Output a Form node in a hlist@>;
 pdf_refximage_node:
@@ -33051,7 +33057,9 @@ endcases
 @ @<Output a Image node in a hlist@>=
 begin
   cur_v:=base_line+pdf_depth(p);
-  output_image(pdf_ximage_idx(p));
+  out_image(pdf_ximage_ref(p), cur_h-pdf_origin_h, pdf_origin_v-cur_v);
+  if pdf_lookup_list(pdf_ximage_list, image_objnum(pdf_ximage_ref(p))) = null then
+      pdf_append_list(image_objnum(pdf_ximage_ref(p)))(pdf_ximage_list);
   edge:=cur_h+pdf_width(p); cur_h:=edge; cur_v:=base_line;
 end
 
@@ -33806,7 +33814,7 @@ end;
 
 @<Declare \eTeX\ procedures for tr...@>=
 procedure pseudo_close; {close the top level pseudo file}
-var p: pointer;
+var p,@!q: pointer;
 begin p:=vlink(pseudo_files);
 flush_node(pseudo_files); 
 pseudo_files:=p;
@@ -34729,8 +34737,6 @@ function set_tex_attribute_register (j:integer;v:scaled):integer;
 var a:small_number;
 begin  {return non-nil for error}
 a:=0;
-if (j)>max_used_attr then max_used_attr:=(j);
-attr_list_cache:=cache_disabled;
 word_define(j+attribute_base,v);
 set_tex_attribute_register := 0;
 end;
@@ -34740,7 +34746,7 @@ var s:str_number;
 begin
   s:="";
   if toks(j) <> min_halfword then begin
-        s := tokens_to_string(toks(j));
+	s := tokens_to_string(toks(j));
   end;
   get_tex_toks_register := s;
 end;
@@ -35058,19 +35064,19 @@ last:=start;
 loc:=start;
 for otp_counter:=1 to otp_output_end do begin
     { convert back to utf-8 }
-        t := otp_output_buf[otp_counter];
-        if otp_counter < otp_output_end then
+	t := otp_output_buf[otp_counter];
+	if otp_counter < otp_output_end then
        if ((t>=@"D800) and (t<@"DC00)) then 
-             if (otp_output_buf[otp_counter+1]>=@"DC00)
+	     if (otp_output_buf[otp_counter+1]>=@"DC00)
           and (otp_output_buf[otp_counter+1]<@"E000) then begin
              incr(otp_counter);
-                 t := (t-@"D800) * @"400 + (otp_output_buf[otp_counter]-@"DC00) + @"10000;
+	         t := (t-@"D800) * @"400 + (otp_output_buf[otp_counter]-@"DC00) + @"10000;
            end
        else if ((t>=@"DC00) and (t<@"E000)) then 
-             if (otp_output_buf[otp_counter+1]>=@"D800)
+	     if (otp_output_buf[otp_counter+1]>=@"D800)
            and (otp_output_buf[otp_counter+1]<@"DC00) then begin
              incr(otp_counter);
-                 t := (otp_output_buf[otp_counter]-@"D800) * @"400 + (t-@"DC00) + @"10000;
+	         t := (otp_output_buf[otp_counter]-@"D800) * @"400 + (t-@"DC00) + @"10000;
            end;
     if t <= @"7F then
       buffer[last]:= t
@@ -35081,7 +35087,7 @@ for otp_counter:=1 to otp_output_end do begin
         @<Report overflow of the input buffer, and abort@>;
       buffer[last]:=@"80 + t mod @"40;
       end
-    else if t<=@"FFFF then      begin
+    else if t<=@"FFFF then	begin
       buffer[last]:=@"E0 + t div @"1000;
       incr(last);
       if last=buf_size-2 then
@@ -35600,6 +35606,7 @@ label common_ending;
 var u:pointer; {user's ocp identifier}
 @!f:internal_ocp_number; {runs through existing ocps}
 @!t:str_number; {name for the frozen ocp identifier}
+@!old_setting:0..max_selector; {holds |selector| setting}
 @!flushable_string:str_number; {string not yet referenced}
 @!external_ocp:boolean; {external binary file}
 begin if job_name=0 then open_log_file;
@@ -35608,7 +35615,13 @@ begin if job_name=0 then open_log_file;
 if cur_chr=1 then external_ocp:=true
 else external_ocp:=false;
 get_r_token; u:=cur_cs;
-if u>=hash_base then t:=text(u) else t:="OCP";
+if u>=hash_base then t:=text(u)
+else if u=null_cs then t:="OCP"
+else  begin old_setting:=selector; selector:=new_string;
+  print("OCP"); print(u-active_base); selector:=old_setting;
+@.OCPx@>
+  str_room(1); t:=make_string;
+  end;
 define(u,set_ocp,null_ocp); scan_optional_equals; scan_file_name;
 @<If this ocp has already been loaded, set |f| to the internal
   ocp number and |goto common_ending|@>;
@@ -35641,11 +35654,18 @@ procedure new_ocp_list(@!a:small_number);
 var u:pointer; {user's ocp list identifier}
 @!f:internal_ocp_list_number; {runs through existing ocp lists}
 @!t:str_number; {name for the frozen ocp list identifier}
+@!old_setting:0..max_selector; {holds |selector| setting}
 begin if job_name=0 then open_log_file;
   {avoid confusing \.{texput} with the ocp list name}
 @.texput@>
 get_r_token; u:=cur_cs;
-if u>=hash_base then t:=text(u) else t:="OCPLIST";
+if u>=hash_base then t:=text(u)
+else if u=null_cs then t:="OCPLIST"
+else  begin old_setting:=selector; selector:=new_string;
+  print("OCPLIST"); print(u-active_base); selector:=old_setting;
+@.OCPx@>
+  str_room(1); t:=make_string;
+  end;
 define(u,set_ocp_list,null_ocp_list); scan_optional_equals; 
 f:=read_ocp_list;
     equiv(u) := f; eqtb[ocp_list_id_base+f] := eqtb[u];
