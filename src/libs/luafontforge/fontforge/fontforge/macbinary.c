@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,7 +24,7 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "pfaeditui.h"
+#include "fontforgevw.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -43,35 +43,6 @@
 #undef __Mac
 #define __Mac 0
 #endif
-
-
-#ifdef LUA_FF_LIB
-/* no need for iconv here, since PS is 8-bit legacy */
-#define Isspace(a) ((a)==' '|| ((a) >= '\t' &&  (a) <= '\r'))
-#define Isdigit(a) ((a)>='0' && (a)<='9')
-#define Isalpha(a) (((a)>='a' && (a)<='z') || ((a)>='A' && (a)<='Z'))
-#define Islower(a) ((a)>='a' && (a)<='z')
-#define Isupper(a) ((a)>='A' && (a)<='Z')
-#define Isalnum(a) (Isalpha(a)||Isdigit(a))
-#define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
-static int Tolower (int c) {
-  if (Isupper(c))
-    return c-32;
-  else 
-    return c;
-}
-#else
-#define Islower islower
-#define Tolower tolower
-#define Isspace isspace
-#define Isdigit isdigit
-#define Isalpha isalpha
-#define Isalnum isalnum
-#define Ishexdigit ishexdigit
-#endif
-
-
-
 
 const int mac_dpi = 72;
 /* I had always assumed that the mac still believed in 72dpi screens, but I */
@@ -136,7 +107,6 @@ extern unsigned long binhex_crc(unsigned char *buffer,int size);
 
 /* ******************************** Creation ******************************** */
 
-#ifndef LUA_FF_LIB
 static uint16 HashToId(char *fontname,SplineFont *sf,EncMap *map) {
     int low = 128, high = 0x3fff;
     /* A FOND ID should be between these two numbers for roman script (I think) */
@@ -660,7 +630,6 @@ static struct resource *BuildDummyNFNTfamilyList(FILE *res, struct sflist *sfs,
     }
 return(resstarts);
 }
-#endif
 
 enum psstyle_flags { psf_bold = 1, psf_italic = 2, psf_outline = 4,
 	psf_shadow = 0x8, psf_condense = 0x10, psf_extend = 0x20 };
@@ -742,7 +711,6 @@ return( sf->macstyle );
 return( _MacStyleCode(styles,sf,psstylecode));
 }
 
-#ifndef LUA_FF_LIB
 static uint32 SFToFOND(FILE *res,SplineFont *sf,uint32 id,int dottf,
 	int32 *sizes, EncMap *map) {
     uint32 rlenpos = ftell(res), widoffpos, widoffloc, kernloc, styleloc, end;
@@ -860,12 +828,12 @@ static uint32 SFToFOND(FILE *res,SplineFont *sf,uint32 id,int dottf,
     if ( strcnt==1 ) {
 	putc(strlen(sf->fontname),res);	/* basename is full name */
 	/* Mac expects this to be upper case */
-	if ( Islower(*sf->fontname)) putc(toupper(*sf->fontname),res);
+	if ( islower(*sf->fontname)) putc(toupper(*sf->fontname),res);
 	else putc(*sf->fontname,res);
 	fwrite(sf->fontname+1,1,strlen(sf->fontname+1),res);
     } else {
 	putc(strlen(sf->familyname),res);/* basename */
-	if ( Islower(*sf->familyname)) putc(toupper(*sf->familyname),res);
+	if ( islower(*sf->familyname)) putc(toupper(*sf->familyname),res);
 	else putc(*sf->familyname,res);
 	fwrite(sf->familyname+1,1,strlen(sf->familyname+1),res);
 	if ( strcnt==3 ) {
@@ -893,9 +861,7 @@ static uint32 SFToFOND(FILE *res,SplineFont *sf,uint32 id,int dottf,
     if ( strmatch(map->enc->enc_name,"mac")!=0 &&
 	    strmatch(map->enc->enc_name,"macintosh")!=0 &&
 	    strmatch(map->enc->enc_name,"macroman")!=0 ) {
-#if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
 	if ( !dottf ) ff_post_notice(_("The generated font won't work with ATM"),_("ATM requires that fonts be encoded with the Macintosh Latin encoding. This postscript font will print fine, but only the bitmap versions will be displayed on the screen"));
-#endif
 	glyphenc = ftell( res );
 	fseek(res,geoffset,SEEK_SET);
 	putlong(res,glyphenc-geoffset+2);
@@ -929,7 +895,7 @@ return(rlenpos);
 static void putpnsstring(FILE *res,char *fontname,int len) {
     putc(len,res);
     if ( *fontname && len>0 ) {
-	if ( Islower(*fontname))
+	if ( islower(*fontname))
 	    putc(toupper(*fontname),res);
 	else
 	    putc(*fontname,res);
@@ -1247,9 +1213,7 @@ static uint32 SFsToFOND(FILE *res,struct sflist *sfs,uint32 id,int format,int bf
 	    strmatch(psfaces[0]->map->enc->enc_name,"macintosh")!=0 &&
 	    strmatch(psfaces[0]->map->enc->enc_name,"macroman")!=0 ) {
 	if ( format==ff_pfbmacbin )
-#if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
 	    ff_post_notice(_("The generated font won't work with ATM"),_("ATM requires that fonts be encoded with the Macintosh Latin encoding. This postscript font will print fine, but only the bitmap versions will be displayed on the screen"));
-#endif
 	glyphenc = ftell( res );
 	fseek(res,geoffset,SEEK_SET);
 	putlong(res,glyphenc-geoffset+2);
@@ -1501,12 +1465,25 @@ return( true );
     if ( ret!=noErr )
 return( false );
 
-    pt = strrchr(fname,'/');
-    filename = def2u_copy(pt==NULL?fname:pt+1);
+    memset(&info,0,sizeof(info));
     ((FInfo *) (info.finderInfo))->fdType = mb->type;
     ((FInfo *) (info.finderInfo))->fdCreator = mb->creator;
+    pt = strrchr(fname,'/');
+    filename = def2u_copy(pt==NULL?fname:pt+1);
+#ifdef UNICHAR_16
     ret = FSCreateFileUnicode(&parentref,u_strlen(filename), (UniChar *) filename,
     		kFSCatInfoFinderInfo, &info, &ref, NULL);
+#else
+    { UniChar *ucs2fn = galloc((u_strlen(filename)+1) * sizeof(UniChar));
+      int i;
+	for ( i=0; filename[i]!=0; ++i )
+	    ucs2fn[i] = filename[i];
+	ucs2fn[i] = 0;
+	ret = FSCreateFileUnicode(&parentref,u_strlen(filename), ucs2fn,
+		    kFSCatInfoFinderInfo, &info, &ref, NULL);
+	free(ucs2fn);
+    }
+#endif
     free(filename);
     if ( ret==dupFNErr ) {
     	/* File already exists, create failed, didn't get an FSRef */
@@ -1567,18 +1544,17 @@ static void MakeMacPSName(char buffer[63],SplineFont *sf) {
     char *pt, *spt, *lcpt;
 
     for ( pt = buffer, spt = sf->fontname; *spt && pt<buffer+63-1; ++spt ) {
-	if ( Isupper(*spt) || spt==sf->fontname ) {
+	if ( isupper(*spt) || spt==sf->fontname ) {
 	    *pt++ = *spt;
 	    lcpt = (spt==sf->fontname?spt+5:spt+3);
-	} else if ( (Islower(*spt) || Isdigit(*spt)) && spt<lcpt )
+	} else if ( (islower(*spt) || isdigit(*spt)) && spt<lcpt )
 	    *pt++ = *spt;
     }
     *pt = '\0';
 }
 
 int WriteMacPSFont(char *filename,SplineFont *sf,enum fontformat format,
-	int flags,EncMap *map) {
-#ifndef LUA_FF_LIB
+	int flags,EncMap *map,int layer) {
     FILE *res, *temppfb;
     int ret = 1;
     struct resourcetype resources[2];
@@ -1604,13 +1580,13 @@ return( 0 );
 	/* So Times-Bold => TimesBol, HelveticaDemiBold => HelveDemBol */
 	/* MacBinary limits the name to 63 characters, I dunno what happens if */
 	/*  we excede that */
-    if ( Islower(*sf->fontname)) { *sf->fontname = toupper(*sf->fontname); lcfn = true; }
-    if ( Islower(*sf->familyname)) { *sf->familyname = toupper(*sf->familyname); lcfam = true; }
+    if ( islower(*sf->fontname)) { *sf->fontname = toupper(*sf->fontname); lcfn = true; }
+    if ( islower(*sf->familyname)) { *sf->familyname = toupper(*sf->familyname); lcfam = true; }
     MakeMacPSName(buffer,sf);
 
-    ret = _WritePSFont(temppfb,sf,ff_pfb,flags,map,NULL);
-    if ( lcfn ) *sf->fontname = Tolower(*sf->fontname);
-    if ( lcfam ) *sf->familyname = Tolower(*sf->familyname);
+    ret = _WritePSFont(temppfb,sf,ff_pfb,flags,map,NULL,layer);
+    if ( lcfn ) *sf->fontname = tolower(*sf->fontname);
+    if ( lcfam ) *sf->familyname = tolower(*sf->familyname);
     if ( ret==0 || ferror(temppfb) ) {
 	fclose(temppfb);
 return( 0 );
@@ -1657,13 +1633,10 @@ return( 0 );
     free(header.macfilename);
 #endif
 return( ret );
-#else
-return( 0 );
-#endif
 }
 
 int WriteMacTTFFont(char *filename,SplineFont *sf,enum fontformat format,
-	int32 *bsizes, enum bitmapformat bf,int flags,EncMap *map) {
+	int32 *bsizes, enum bitmapformat bf,int flags,EncMap *map,int layer) {
     FILE *res, *tempttf;
     int ret = 1, r;
     struct resourcetype resources[4];
@@ -1676,14 +1649,14 @@ return( 0 );
 
     if ( _WriteTTFFont(tempttf,sf,format==ff_none?ff_none:
 				  format==ff_ttfmacbin?ff_ttf:
-			          format-1,bsizes,bf,flags,map)==0 || ferror(tempttf) ) {
+			          format-1,bsizes,bf,flags,map,layer)==0 || ferror(tempttf) ) {
 	fclose(tempttf);
 return( 0 );
     }
     if ( bf!=bf_ttf && bf!=bf_sfnt_dfont )
 	bsizes = NULL;		/* as far as the FOND for the truetype is concerned anyway */
 
-    if ( __Mac && format==ff_ttfmacbin )
+    if ( (__Mac && format==ff_ttfmacbin) || strstr(filename,"://")!=NULL )
 	res = tmpfile();
     else
 	res = fopen(filename,"wb+");
@@ -1730,6 +1703,8 @@ return( 0 );
 	ret = DumpMacBinaryHeader(res,&header);
     }
     if ( ferror(res) ) ret = false;
+    if ( ret && strstr(filename,"://")!=NULL )
+	ret = URLFromFile(filename,res);
     if ( fclose(res)==-1 ) ret = 0;
 return( ret );
 }
@@ -1808,7 +1783,7 @@ return( ret );
 */
 
 int WriteMacFamily(char *filename,struct sflist *sfs,enum fontformat format,
-	enum bitmapformat bf,int flags, EncMap *map) {
+	enum bitmapformat bf,int flags, EncMap *map,int layer) {
     FILE *res;
     int ret = 1, r, i;
     struct resourcetype resources[4];
@@ -1847,7 +1822,7 @@ int WriteMacFamily(char *filename,struct sflist *sfs,enum fontformat format,
 		strcpy(pt-1,".fam.bin");
 #endif
 	    }
-	    if ( WriteMacPSFont(tempname,sfi->sf,format,flags,sfi->map)==0 )
+	    if ( WriteMacPSFont(tempname,sfi->sf,format,flags,sfi->map,layer)==0 )
 return( 0 );
 	    free(tempname);
 	}
@@ -1857,7 +1832,7 @@ return( 0 );
 	    if ( sfi->tempttf==NULL ||
 		    _WriteTTFFont(sfi->tempttf,sfi->sf,format==ff_none?ff_none:
 					  format==ff_ttfmacbin?ff_ttf:
-					  format-1,sfi->sizes,bf,flags,sfi->map)==0 ||
+					  format-1,sfi->sizes,bf,flags,sfi->map,layer)==0 ||
 		    ferror(sfi->tempttf) ) {
 		for ( sfsub=sfs; sfsub!=sfi; sfsub=sfsub->next )
 		    fclose( sfsub->tempttf );
@@ -1958,7 +1933,6 @@ void SfListFree(struct sflist *sfs) {
 	sfs = sfi;
     }
 }
-#endif
 
 /* ******************************** Reading ********************************* */
 
@@ -2098,7 +2072,7 @@ static SplineFont *SearchTtfResources(FILE *f,long rlistpos,int subcnt,long rdat
     SplineFont *sf;
     int which = 0;
     char **names;
-    char *pt,*lparen;
+    char *pt,*lparen, *rparen;
     char *chosenname=NULL;
 
     fseek(f,rlistpos,SEEK_SET);
@@ -2124,7 +2098,12 @@ static SplineFont *SearchTtfResources(FILE *f,long rlistpos,int subcnt,long rdat
 return( (SplineFont *) names );
 	}
 	if ((pt = strrchr(filename,'/'))==NULL ) pt = filename;
-	if ( (lparen = strchr(pt,'('))!=NULL && strchr(lparen,')')!=NULL ) {
+	/* Someone gave me a font "Nafees Nastaleeq(Updated).ttf" and complained */
+	/*  that ff wouldn't open it */
+	/* Now someone will complain about "Nafees(Updated).ttc(fo(ob)ar)" */
+	if ( (lparen = strrchr(pt,'('))!=NULL &&
+		(rparen = strrchr(lparen,')'))!=NULL &&
+		rparen[1]=='\0' ) {
 	    char *find = copy(lparen+1);
 	    pt = strchr(find,')');
 	    if ( pt!=NULL ) *pt='\0';
@@ -2132,23 +2111,22 @@ return( (SplineFont *) names );
 		if ( strcmp(names[which],find)==0 )
 	    break;
 	    if ( which==-1 ) {
+		char *end;
+		which = strtol(find,&end,10);
+		if ( *end!='\0' )
+		    which = -1;
+	    }
+	    if ( which==-1 ) {
 		char *fn = copy(filename);
 		fn[lparen-filename] = '\0';
-#if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
-		gwwv_post_error(_("Not in Collection"),_("%s is not in %.100s"),find,fn);
-#endif
+		ff_post_error(_("Not in Collection"),_("%s is not in %.100s"),find,fn);
 		free(fn);
 	    }
 	    free(find);
-#if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
 	} else if ( no_windowing_ui )
 	    which = 0;
 	else
-	    which = gwwv_choose(_("Pick a font, any font..."),(const char **) names,subcnt,0,_("There are multiple fonts in this file, pick one"));
-#else
-	} else
-	    which = 0;
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
+	    which = ff_choose(_("Pick a font, any font..."),(const char **) names,subcnt,0,_("There are multiple fonts in this file, pick one"));
 	if ( lparen==NULL && which!=-1 )
 	    chosenname = copy(names[which]);
 	for ( i=0; i<subcnt; ++i )
@@ -2330,7 +2308,7 @@ static FOND *BuildFondList(FILE *f,long rlistpos,int subcnt,long rdata_pos,
 	cur->last = getushort(f);
 /* on a 1 point font... */
 	/* ascent = */ getushort(f);
-	/* descent = */ getushort(f);
+	/* descent = (short) */ getushort(f);
 	/* leading = */ getushort(f);
 	/* widmax = */ getushort(f);
 	if ( (widoff = getlong(f))!=0 ) widoff += offset;
@@ -2575,10 +2553,10 @@ static FOND *PickFOND(FOND *fondlist,char *filename,char **name, int *style) {
     FOND *test;
     uint8 stylesused[96];
     char **names;
+    FOND **fonds, *fond;
+    int *styles;
     int cnt, which;
     char *pt, *lparen;
-    FOND **fonds = NULL, *fond = NULL;
-    int *styles = NULL;
     char *find = NULL;
 
     if ((pt = strrchr(filename,'/'))!=NULL ) pt = filename;
@@ -2632,24 +2610,17 @@ return( test );
 	if ( which==-1 ) {
 	    char *fn = copy(filename);
 	    fn[lparen-filename] = '\0';
-#if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
-	    gwwv_post_error(_("Not in Collection"),_("%s is not in %.100s"),find,fn);
-#endif
+	    ff_post_error(_("Not in Collection"),_("%s is not in %.100s"),find,fn);
 	    free(fn);
 	}
 	free(find);
     } else if ( cnt==1 )
 	which = 0;
-#if !defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
     else if ( no_windowing_ui )
 	which = 0;
     else
-	which = gwwv_choose(_("Pick a font, any font..."),(const char **) names,cnt,0,
+	which = ff_choose(_("Pick a font, any font..."),(const char **) names,cnt,0,
 		_("There are multiple fonts in this file, pick one"));
-#elif defined(FONTFORGE_CONFIG_NO_WINDOWING_UI)
-    else
-	which = 0;
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 
     if ( which!=-1 ) {
 	fond = fonds[which];
@@ -2717,8 +2688,7 @@ return( NULL );
 		sc->width = ((widths[j-fond->first]*1000L+(1<<11))>>12);
 		sc->widthset = true;
 	    }
-	    sc = SplineCharCreate();
-	    sc->parent = sf;
+	    sc = SFSplineCharCreate(sf);
 	    sc->orig_pos = sf->glyphcnt;
 	    sf->glyphs[sf->glyphcnt++] = sc;
 	    sc->name = copy(".notdef");
@@ -2840,10 +2810,10 @@ static SplineFont *IsResourceFork(FILE *f, long offset,char *filename,int flags,
     unsigned char buffer[16], buffer2[16];
     long rdata_pos, map_pos, type_list, name_list, rpos;
     int32 rdata_len, map_len;
+    uint32 nfnt_pos, font_pos, fond_pos;
     unsigned long tag;
     int i, cnt, subcnt, nfnt_subcnt=0, font_subcnt=0, fond_subcnt=0;
     SplineFont *sf;
-    uint32 nfnt_pos=0, font_pos=0, fond_pos=0;
     FOND *fondlist=NULL;
 
     fseek(f,offset,SEEK_SET);
@@ -2942,10 +2912,15 @@ static SplineFont *HasResourceFork(char *filename,int flags,enum openflags openf
 	tempfn = copy(filename);
 	tempfn[lparen-filename] = '\0';
     }
-    respath = galloc(strlen(tempfn)+strlen("/rsrc")+1);
+    respath = galloc(strlen(tempfn)+strlen("/..namedfork/rsrc")+1);
     strcpy(respath,tempfn);
-    strcat(respath,"/rsrc");
+    strcat(respath,"/..namedfork/rsrc");
     resfork = fopen(respath,"r");
+    if ( resfork==NULL ) {
+	strcpy(respath,tempfn);
+	strcat(respath,"/rsrc");
+	resfork = fopen(respath,"r");
+    }
     free(respath);
     if ( tempfn!=filename )
 	free(tempfn);
@@ -3025,7 +3000,7 @@ return( NULL );
     while ( (ch=getc(f))!=':' );	/* There may be comments before file start */
     cnt = val = 0;
     while ( (ch=getc(f))!=':' ) {
-	if ( Isspace(ch))
+	if ( isspace(ch))
     continue;
 	for ( pt=sixbit; *pt!=ch && *pt!='\0'; ++pt );
 	if ( *pt=='\0' ) {
@@ -3157,8 +3132,8 @@ return( sf );
     /*  names are always lower case 8.3, do some simple things to check */
     spt = strrchr(buffer,'/')+1;
     for ( pt=spt; *pt; ++pt )
-	if ( Isupper( *pt ))
-	    *pt = Tolower( *pt );
+	if ( isupper( *pt ))
+	    *pt = tolower( *pt );
     dpt = strchr(spt,'.');
     if ( dpt==NULL ) dpt = spt+strlen(spt);
     if ( dpt-spt>8 || strlen(dpt)>4 ) {
@@ -3186,7 +3161,21 @@ SplineFont *SFReadMacBinary(char *filename,int flags,enum openflags openflags) {
 return( sf );
 }
 
+int LoadKerningDataFromMacFOND(SplineFont *sf, char *filename,EncMap *map) {
+    if ( FindResourceFile(filename,ttf_onlykerns,0,sf,map)==NULL )
+return ( false );
+
+return( true );
+}
+
+char **NamesReadMacBinary(char *filename) {
+return( (char **) FindResourceFile(filename,ttf_onlynames,0,NULL,NULL));
+}
+
+
 #ifdef LUA_FF_LIB
+
+/* should try to optimize this */
 SplineFont *SFReadMacBinaryInfo(char *filename,int flags,enum openflags openflags) {
     SplineFont *sf = FindResourceFile(filename,flags,openflags,NULL,NULL);
 
@@ -3198,15 +3187,5 @@ SplineFont *SFReadMacBinaryInfo(char *filename,int flags,enum openflags openflag
     }
 return( sf );
 }
+
 #endif
-
-int LoadKerningDataFromMacFOND(SplineFont *sf, char *filename,EncMap *map) {
-    if ( FindResourceFile(filename,ttf_onlykerns,0,sf,map)==NULL )
-return ( false );
-
-return( true );
-}
-
-char **NamesReadMacBinary(char *filename) {
-return( (char **) FindResourceFile(filename,ttf_onlynames,0,NULL,NULL));
-}

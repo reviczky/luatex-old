@@ -1,4 +1,4 @@
-/* Copyright (C) 2003-2007 by George Williams */
+/* Copyright (C) 2003-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,261 +30,6 @@
 #include <ustring.h>
 #include <gkeysym.h>
 
-static void FPSTRuleContentsFree(struct fpst_rule *r, enum fpossub_format format) {
-    int j;
-
-    switch ( format ) {
-      case pst_glyphs:
-	free(r->u.glyph.names);
-	free(r->u.glyph.back);
-	free(r->u.glyph.fore);
-      break;
-      case pst_class:
-	free(r->u.class.nclasses);
-	free(r->u.class.bclasses);
-	free(r->u.class.fclasses);
-      break;
-      case pst_reversecoverage:
-	free(r->u.rcoverage.replacements);
-      case pst_coverage:
-	for ( j=0 ; j<r->u.coverage.ncnt ; ++j )
-	    free(r->u.coverage.ncovers[j]);
-	free(r->u.coverage.ncovers);
-	for ( j=0 ; j<r->u.coverage.bcnt ; ++j )
-	    free(r->u.coverage.bcovers[j]);
-	free(r->u.coverage.bcovers);
-	for ( j=0 ; j<r->u.coverage.fcnt ; ++j )
-	    free(r->u.coverage.fcovers[j]);
-	free(r->u.coverage.fcovers);
-      break;
-    case pst_formatmax:
-      break;
-    }
-    free(r->lookups);
-}
-
-#ifndef LUA_FF_LIB
-static void FPSTRulesFree(struct fpst_rule *r, enum fpossub_format format, int rcnt) {
-    int i;
-    for ( i=0; i<rcnt; ++i )
-	FPSTRuleContentsFree(&r[i],format);
-    free(r);
-}
-#endif
-
-static struct fpst_rule *RulesCopy(struct fpst_rule *from, int cnt,
-	enum fpossub_format format ) {
-    int i, j;
-    struct fpst_rule *to, *f, *t;
-    if ( cnt==0 )
-return( NULL );
-
-    t = NULL;
-    to = gcalloc(cnt,sizeof(struct fpst_rule));
-    for ( i=0; i<cnt; ++i ) {
-	f = from+i; t = to+i;
-	switch ( format ) {
-	  case pst_glyphs:
-	    t->u.glyph.names = copy(f->u.glyph.names);
-	    t->u.glyph.back = copy(f->u.glyph.back);
-	    t->u.glyph.fore = copy(f->u.glyph.fore);
-	  break;
-	  case pst_class:
-	    t->u.class.ncnt = f->u.class.ncnt;
-	    t->u.class.bcnt = f->u.class.bcnt;
-	    t->u.class.fcnt = f->u.class.fcnt;
-	    t->u.class.nclasses = galloc( f->u.class.ncnt*sizeof(uint16));
-	    memcpy(t->u.class.nclasses,f->u.class.nclasses,
-		    f->u.class.ncnt*sizeof(uint16));
-	    if ( t->u.class.bcnt!=0 ) {
-		t->u.class.bclasses = galloc( f->u.class.bcnt*sizeof(uint16));
-		memcpy(t->u.class.bclasses,f->u.class.bclasses,
-			f->u.class.bcnt*sizeof(uint16));
-	    }
-	    if ( t->u.class.fcnt!=0 ) {
-		t->u.class.fclasses = galloc( f->u.class.fcnt*sizeof(uint16));
-		memcpy(t->u.class.fclasses,f->u.class.fclasses,
-			f->u.class.fcnt*sizeof(uint16));
-	    }
-	  break;
-	  case pst_reversecoverage:
-	    t->u.rcoverage.replacements = copy(f->u.rcoverage.replacements);
-	  case pst_coverage:
-	    t->u.coverage.ncnt = f->u.coverage.ncnt;
-	    t->u.coverage.bcnt = f->u.coverage.bcnt;
-	    t->u.coverage.fcnt = f->u.coverage.fcnt;
-	    t->u.coverage.ncovers = galloc( f->u.coverage.ncnt*sizeof(char *));
-	    for ( j=0; j<t->u.coverage.ncnt; ++j )
-		t->u.coverage.ncovers[j] = copy(f->u.coverage.ncovers[j]);
-	    if ( t->u.coverage.bcnt!=0 ) {
-		t->u.coverage.bcovers = galloc( f->u.coverage.bcnt*sizeof(char *));
-		for ( j=0; j<t->u.coverage.bcnt; ++j )
-		    t->u.coverage.bcovers[j] = copy(f->u.coverage.bcovers[j]);
-	    }
-	    if ( t->u.coverage.fcnt!=0 ) {
-		t->u.coverage.fcovers = galloc( f->u.coverage.fcnt*sizeof(char *));
-		for ( j=0; j<t->u.coverage.fcnt; ++j )
-		    t->u.coverage.fcovers[j] = copy(f->u.coverage.fcovers[j]);
-	    }
-	    break;
-	case pst_formatmax:
-	  break;
-	}
-	if ( f->lookup_cnt!=0 ) {
-	    t->lookup_cnt = f->lookup_cnt;
-	    t->lookups = galloc(t->lookup_cnt*sizeof(struct seqlookup));
-	    memcpy(t->lookups,f->lookups,t->lookup_cnt*sizeof(struct seqlookup));
-	}
-    }
-return( t );
-}
-
-FPST *FPSTCopy(FPST *fpst) {
-    FPST *nfpst;
-    int i;
-
-    nfpst = chunkalloc(sizeof(FPST));
-    *nfpst = *fpst;
-    nfpst->next = NULL;
-    if ( nfpst->nccnt!=0 ) {
-	nfpst->nclass = galloc(nfpst->nccnt*sizeof(char *));
-	for ( i=0; i<nfpst->nccnt; ++i )
-	    nfpst->nclass[i] = copy(fpst->nclass[i]);
-    }
-    if ( nfpst->bccnt!=0 ) {
-	nfpst->bclass = galloc(nfpst->bccnt*sizeof(char *));
-	for ( i=0; i<nfpst->bccnt; ++i )
-	    nfpst->bclass[i] = copy(fpst->bclass[i]);
-    }
-    if ( nfpst->fccnt!=0 ) {
-	nfpst->fclass = galloc(nfpst->fccnt*sizeof(char *));
-	for ( i=0; i<nfpst->fccnt; ++i )
-	    nfpst->fclass[i] = copy(fpst->fclass[i]);
-    }
-    nfpst->rules = RulesCopy(fpst->rules,fpst->rule_cnt,fpst->format);
-return( nfpst );
-}
-
-void FPSTFree(FPST *fpst) {
-    FPST *next;
-    int i;
-
-    while ( fpst!=NULL ) {
-	next = fpst->next;
-	for ( i=0; i<fpst->nccnt; ++i )
-	    free(fpst->nclass[i]);
-	for ( i=0; i<fpst->bccnt; ++i )
-	    free(fpst->bclass[i]);
-	for ( i=0; i<fpst->fccnt; ++i )
-	    free(fpst->fclass[i]);
-	free(fpst->nclass); free(fpst->bclass); free(fpst->fclass);
-	for ( i=0; i<fpst->rule_cnt; ++i ) {
-	    FPSTRuleContentsFree( &fpst->rules[i],fpst->format );
-	}
-	free(fpst->rules);
-	chunkfree(fpst,sizeof(FPST));
-	fpst = next;
-    }
-}
-
-int ClassesMatch(int cnt1,char **classes1,int cnt2,char **classes2) {
-    int i;
-
-    if ( cnt1!=cnt2 )
-return( false );
-    for ( i=1; i<cnt2; ++i )
-	if ( strcmp(classes1[i],classes2[i])!=0 )
-return( false );
-
-return( true );
-}
-
-static char **classcopy(char **names,int nextclass) {
-    char **ret;
-    int i;
-
-    if ( nextclass <= 1 )
-return( NULL );
-
-    ret = galloc(nextclass*sizeof(char *));
-    ret[0] = NULL;
-    for ( i=1; i<nextclass; ++i )
-	ret[i] = copy(names[i]);
-return( ret );
-}
-
-FPST *FPSTGlyphToClass(FPST *fpst) {
-    FPST *new;
-    int nextclass=0, i,j,k, max, cnt, ch;
-    char *pt, *end;
-    char **names;
-
-    if ( fpst->format!=pst_glyphs )
-return( NULL );
-
-    new = chunkalloc(sizeof(FPST));
-    new->type = fpst->type;
-    new->format = pst_class;
-    new->subtable = fpst->subtable;
-    new->rule_cnt = fpst->rule_cnt;
-    new->rules = gcalloc(fpst->rule_cnt,sizeof(struct fpst_rule));
-
-    max = 100; nextclass=1;
-    names = galloc(max*sizeof(char *));
-    names[0] = NULL;
-    for ( i=0; i<fpst->rule_cnt; ++i ) {
-	for ( j=0; j<3; ++j ) {
-	    cnt = 0;
-	    if ( (&fpst->rules[i].u.glyph.names)[j]!=NULL && *(&fpst->rules[i].u.glyph.names)[j]!='\0' ) {
-		cnt = 1;
-		for ( pt=(&fpst->rules[i].u.glyph.names)[j]; *pt; ++pt ) {
-		    if ( *pt==' ' ) {
-			++cnt;
-			while ( *pt==' ' ) ++pt;
-			--pt;
-		    }
-		}
-	    }
-	    (&new->rules[i].u.class.ncnt)[j] = cnt;
-	    if ( cnt!=0 ) {
-		(&new->rules[i].u.class.nclasses)[j] = galloc(cnt*sizeof(uint16));
-		cnt = 0;
-		for ( pt=(&fpst->rules[i].u.glyph.names)[j]; *pt; pt=end ) {
-		    while ( *pt==' ' ) ++pt;
-		    if ( *pt=='\0' )
-		break;
-		    for ( end=pt ; *end!=' ' && *end!='\0'; ++end );
-		    ch = *end; *end='\0';
-		    for ( k=1; k<nextclass; ++k )
-			if ( strcmp(pt,names[k])==0 )
-		    break;
-		    if ( k==nextclass ) {
-			if ( nextclass>=max )
-			    names = grealloc(names,(max+=100)*sizeof(char *));
-			names[nextclass++] = copy(pt);
-		    }
-		    *end = ch;
-		    (&new->rules[i].u.class.nclasses)[j][cnt++] = k;
-		}
-	    }
-	}
-	new->rules[i].lookup_cnt = fpst->rules[i].lookup_cnt;
-	new->rules[i].lookups = galloc(fpst->rules[i].lookup_cnt*sizeof(struct seqlookup));
-	memcpy(new->rules[i].lookups,fpst->rules[i].lookups,
-		fpst->rules[i].lookup_cnt*sizeof(struct seqlookup));
-    }
-    new->nccnt = nextclass;
-    new->nclass = names;
-    if ( fpst->type==pst_chainpos || fpst->type==pst_chainsub ) {
-	/* our class set has one "class" for each glyph used anywhere */
-	/*  all three class sets are the same */
-	new->bccnt = new->fccnt = nextclass;
-	new->bclass = classcopy(names,nextclass);
-	new->fclass = classcopy(names,nextclass);
-    }
-return( new );
-}
-
 /* ************************************************************************** */
 /* ************************ Context/Chaining Dialog ************************* */
 /* ************************************************************************** */
@@ -294,12 +39,10 @@ struct contextchaindlg {
     FPST *fpst;
     unichar_t *newname;
     int isnew;
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     GWindow gw;
     GWindow formats, coverage, glist, glyphs, cselect, class, classbuild, classnumber;
     enum activewindow { aw_formats, aw_coverage, aw_glist, aw_glyphs, aw_cselect,
 	    aw_class, aw_classbuild, aw_classnumber } aw;
-#endif
     uint16 wasedit;
     uint16 wasoffset;
     uint8 foredefault;
@@ -349,8 +92,6 @@ struct contextchaindlg {
 #define CID_ClassType		2002
 #define CID_SameAsClasses	2003
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
-
 GTextInfo stdclasses[] = {
     { (unichar_t *) N_("None"), NULL, 0, 0, "None", NULL, 0, 0, 0, 0, 0, 0, 1},
     { (unichar_t *) N_("0-9"), NULL, 0, 0, "0-9", NULL, 0, 0, 0, 0, 0, 0, 1},
@@ -362,8 +103,6 @@ GTextInfo stdclasses[] = {
     { NULL }
 };
 
-#endif
-
 char *cu_copybetween(const unichar_t *start, const unichar_t *end) {
     char *ret = galloc(end-start+1);
     cu_strncpy(ret,start,end-start);
@@ -371,7 +110,6 @@ char *cu_copybetween(const unichar_t *start, const unichar_t *end) {
 return( ret );
 }
 
-#ifndef LUA_FF_LIB
 static char *ccd_cu_copy(const unichar_t *start) {
     char *ret, *pt;
 
@@ -595,7 +333,6 @@ return;
     parseseqlookups(sf,pt+2,r);
 }
 
-
 static GTextInfo **glistlist(FPST *fpst) {
     GTextInfo **ti;
     int i;
@@ -611,7 +348,6 @@ return(NULL);
     }
 return( ti );
 }
-
 
 static unichar_t *clslistitem(struct fpst_rule *r) {
     unichar_t *ret, *pt;
@@ -770,7 +506,6 @@ return(NULL);
 return( ti );
 }
 
-
 static void CCD_ParseLookupList(SplineFont *sf, struct fpst_rule *r,GGadget *list) {
     int32 len, i;
     GTextInfo **ti = GGadgetGetList(list,&len);
@@ -792,7 +527,6 @@ static void CCD_ParseLookupList(SplineFont *sf, struct fpst_rule *r,GGadget *lis
 	free(name);
     }
 }
-
 
 static void CCD_EnableNextPrev(struct contextchaindlg *ccd) {
     /* Cancel is always enabled */
@@ -869,20 +603,15 @@ int CCD_NameListCheck(SplineFont *sf,const char *ret,int empty_bad,char *title) 
     int ans;
 
     if ( !CCD_ValidNameList(ret,empty_bad) ) {
-	gwwv_post_error(title,
+	ff_post_error(title,
 		strcmp(title,_("Bad Class"))==0? _("A class must contain at least one glyph name, glyph names must be valid postscript names, and no glyphs may appear in any other class") :
 		strcmp(title,_("Bad Coverage"))==0? _("A coverage table must contain at least one glyph name, and glyph names must be valid postscript names") :
 		    _("A glyph list must contain at least one glyph name, and glyph names must be valid postscript names") );
 return(false);
     }
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     if ( (missingname=CCD_NonExistantName(sf,ret))!=NULL ) {
-#if defined(FONTFORGE_CONFIG_GDRAW)
 	char *buts[3];
 	buts[0] = _("_Yes"); buts[1] = _("_No"); buts[2] = NULL;
-#elif defined(FONTFORGE_CONFIG_GTK)
-	static char *buts[] = { GTK_STOCK_YES, GTK_STOCK_NO, NULL };
-#endif
 	ans = gwwv_ask(title,(const char **) buts,0,1,
 		strcmp(title,_("Bad Class"))==0? _("The class member \"%.20s\" is not in this font.\nIs that what you want?") :
 		strcmp(title,_("Bad Coverage"))==0? _("The coverage table member \"%.20s\" is not in this font.\nIs that what you want?") :
@@ -890,12 +619,8 @@ return(false);
 	free(missingname);
 return(!ans);
     }
-#endif
 return( true );
 }
-#endif
-
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 
 int CCD_InvalidClassList(char *ret,GGadget *list,int wasedit) {
     int32 len;
@@ -920,7 +645,7 @@ int CCD_InvalidClassList(char *ret,GGadget *list,int wasedit) {
 		/* have the same length for an ASCII string */
 		if ( tend-tpt==end-pt && uc_strncmp(tpt,pt,end-pt)==0 ) {
 		    char *dupname = copyn(pt,end-pt);
-		    gwwv_post_error(_("Bad Class"),_("No glyphs from another class may appear here, but %.30s does"), dupname);
+		    ff_post_error(_("Bad Class"),_("No glyphs from another class may appear here, but %.30s does"), dupname);
 		    free(dupname);
 return( true );
 		}
@@ -952,17 +677,17 @@ static int CCD_ReasonableClassNum(const unichar_t *match,GGadget *mlist,
 	if ( isdigit( *pt )) ++any;
 	val = u_strtol(pt,&end,10);
 	if ( *end!=' ' && *end!='\0' ) {
-	    gwwv_post_error(_("Bad Match Class Number"),_("The list of class numbers should only contain digits and spaces"));
+	    ff_post_error(_("Bad Match Class Number"),_("The list of class numbers should only contain digits and spaces"));
 return( false );
 	}
 	if ( val>=mlen || val<0) {
-	    gwwv_post_error(_("Bad Match Class Number"),_("There are only %d classes in this class set, yet you are trying to use %d."),mlen,val);
+	    ff_post_error(_("Bad Match Class Number"),_("There are only %d classes in this class set, yet you are trying to use %d."),mlen,val);
 return( false );
 	}
     }
     r->u.class.ncnt = any;
     if ( any==0 ) {
-	gwwv_post_error(_("Bad Match Class Number"),_("There are no class numbers listed to be matched. There must be at least one."));
+	ff_post_error(_("Bad Match Class Number"),_("There are no class numbers listed to be matched. There must be at least one."));
 return( false );
     }
 
@@ -974,11 +699,11 @@ return( false );
 	if ( isdigit( *pt )) ++any;
 	val = u_strtol(pt,&end,10);
 	if ( *end!=' ' && *end!='\0' ) {
-	    gwwv_post_error(_("Bad Backtrack Class Number"),_("The list of class numbers should only contain digits and spaces"));
+	    ff_post_error(_("Bad Backtrack Class Number"),_("The list of class numbers should only contain digits and spaces"));
 return( false );
 	}
 	if ( val>=blen || val<0) {
-	    gwwv_post_error(_("Bad Backtrack Class Number"),_("There are only %d classes in this class set, yet you are trying to use %d."),blen,val);
+	    ff_post_error(_("Bad Backtrack Class Number"),_("There are only %d classes in this class set, yet you are trying to use %d."),blen,val);
 return( false );
 	}
     }
@@ -992,11 +717,11 @@ return( false );
 	if ( isdigit( *pt )) ++any;
 	val = u_strtol(pt,&end,10);
 	if ( *end!=' ' && *end!='\0' ) {
-	    gwwv_post_error(_("Bad Lookahead Class Number"),_("The list of class numbers should only contain digits and spaces"));
+	    ff_post_error(_("Bad Lookahead Class Number"),_("The list of class numbers should only contain digits and spaces"));
 return( false );
 	}
 	if ( val>=flen || val<0) {
-	    gwwv_post_error(_("Bad Lookahead Class Number"),_("There are only %d classes in this class set, yet you are trying to use %d."),flen,val);
+	    ff_post_error(_("Bad Lookahead Class Number"),_("There are only %d classes in this class set, yet you are trying to use %d."),flen,val);
 return( false );
 	}
     }
@@ -1040,12 +765,8 @@ static void CCD_FinishEditNew(struct contextchaindlg *ccd) {
     struct fpst_rule dummy;
     GGadget *list = GWidgetGetControl(ccd->gw,CID_GList+ccd->wasoffset);
     int i,tot;
-#if defined(FONTFORGE_CONFIG_GDRAW)
     char *buts[3];
     buts[0] = _("_Yes"); buts[1] = _("_No"); buts[2] = NULL;
-#elif defined(FONTFORGE_CONFIG_GTK)
-    static char *buts[] = { GTK_STOCK_YES, GTK_STOCK_NO, NULL };
-#endif
 
     if ( ccd->wasoffset>=300 ) {		/* It's a class */
 	char *ret = GGadgetGetTitle8(GWidgetGetControl(ccd->gw,CID_GlyphList+300));
@@ -1086,7 +807,7 @@ return;
 	}
 	for ( i=0; i<dummy.lookup_cnt; ++i ) {
 	    if ( dummy.lookups[i].seq >= dummy.u.class.ncnt ) {
-		gwwv_post_error(_("Bad Sequence/Lookup List"),_("Sequence number out of bounds, must be less than %d (number of classes in list above)"), dummy.u.class.ncnt );
+		ff_post_error(_("Bad Sequence/Lookup List"),_("Sequence number out of bounds, must be less than %d (number of classes in list above)"), dummy.u.class.ncnt );
 return;
 	    }
 	}
@@ -1149,7 +870,7 @@ return;
 	tot = CCD_GlyphNameCnt(_GGadgetGetTitle(GWidgetGetControl(ccd->gw,CID_GlyphList)));
 	for ( i=0; i<dummy.lookup_cnt; ++i ) {
 	    if ( dummy.lookups[i].seq >= tot ) {
-		gwwv_post_error(_("Bad Sequence/Lookup List"),_("Sequence number out of bounds, must be less than %d (number of glyphs, classes or coverage tables)"),  tot );
+		ff_post_error(_("Bad Sequence/Lookup List"),_("Sequence number out of bounds, must be less than %d (number of glyphs, classes or coverage tables)"),  tot );
 return;
 	    }
 	}
@@ -1168,6 +889,16 @@ return;
 	GDrawSetVisible(ccd->glyphs,false);
 	GDrawSetVisible(ccd->glist,true);
     }
+}
+
+static int isEverythingElse(unichar_t *text) {
+    /* GT: The string "{Everything Else}" is used in the context of a list */
+    /* GT: of classes (a set of kerning classes) where class 0 designates the */
+    /* GT: default class containing all glyphs not specified in the other classes */
+    unichar_t *everything_else = utf82u_copy( _("{Everything Else}") );
+    int ret = u_strcmp(text,everything_else);
+    free(everything_else);
+return( ret==0 );
 }
 
 static void _CCD_DoEditNew(struct contextchaindlg *ccd,int off,int isedit) {
@@ -1225,7 +956,11 @@ return;
 	    i = GGadgetGetFirstListSelectedItem(list);
 	    if ( i==-1 )
 return;
-	    GGadgetSetTitle(GWidgetGetControl(ccd->gw,CID_GlyphList+to_off),old[i]->text);
+	    if ( off==300 && i==0 && GTabSetGetSel(GWidgetGetControl(ccd->gw,CID_MatchType+300))==0 &&
+		    isEverythingElse(old[i]->text))
+		GGadgetSetTitle8(GWidgetGetControl(ccd->gw,CID_GlyphList+to_off),"");
+	    else
+		GGadgetSetTitle(GWidgetGetControl(ccd->gw,CID_GlyphList+to_off),old[i]->text);
 	} else {
 	    GGadgetSetTitle(GWidgetGetControl(ccd->gw,CID_GlyphList+to_off),nulstr);
 	}
@@ -1281,23 +1016,23 @@ return;
 static void _CCD_ToSelection(struct contextchaindlg *ccd,int cid,int order_matters ) {
     const unichar_t *ret = _GGadgetGetTitle(GWidgetGetControl(ccd->gw,cid));
     SplineFont *sf = ccd->sf;
-    FontView *fv = sf->fv;
+    FontView *fv = (FontView *) sf->fv;
     const unichar_t *end;
     int i,pos, found=-1;
     char *nm;
 
     GDrawRaise(fv->gw);
     GDrawSetVisible(fv->gw,true);
-    memset(fv->selected,0,fv->map->enccount);
+    memset(fv->b.selected,0,fv->b.map->enccount);
     i=1;
     while ( *ret ) {
 	end = u_strchr(ret,' ');
 	if ( end==NULL ) end = ret+u_strlen(ret);
 	nm = cu_copybetween(ret,end);
 	for ( ret = end; isspace(*ret); ++ret);
-	if (( pos = SFFindSlot(sf,fv->map,-1,nm))!=-1 ) {
+	if (( pos = SFFindSlot(sf,fv->b.map,-1,nm))!=-1 ) {
 	    if ( found==-1 ) found = pos;
-	    fv->selected[pos] = i;
+	    fv->b.selected[pos] = i;
 	    if ( order_matters && i<255 ) ++i;
 	}
 	free(nm);
@@ -1328,9 +1063,6 @@ static int CCD_ToSelection2(GGadget *g, GEvent *e) {
     }
 return( true );
 }
-#endif
-
-#ifndef LUA_FF_LIB
 
 static int BaseEnc(SplineChar *sc) {
     int uni = sc->unicodeenc;
@@ -1374,9 +1106,6 @@ static char *addglyph(char *results,char *name) {
 return( results );
 }
 
-#endif
-
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static int CCD_StdClass(GGadget *g, GEvent *e) {
     if ( e->type==et_controlevent && e->u.control.subtype == et_listselected ) {
 	struct contextchaindlg *ccd = GDrawGetUserData(GGadgetGetWindow(g));
@@ -1438,20 +1167,18 @@ return( true );
     }
 return( true );
 }
-#endif
 
-#ifndef LUA_FF_LIB
 static void _CCD_FromSelection(struct contextchaindlg *ccd,int cid,int order_matters ) {
     SplineFont *sf = ccd->sf;
-    FontView *fv = sf->fv;
+    FontView *fv = (FontView *) sf->fv;
     unichar_t *vals, *pt;
     int i, j, len, max;
     SplineChar *sc;
 
-    for ( i=len=max=0; i<fv->map->enccount; ++i ) if ( fv->selected[i]) {
-	sc = SFMakeChar(sf,fv->map,i);
+    for ( i=len=max=0; i<fv->b.map->enccount; ++i ) if ( fv->b.selected[i]) {
+	sc = SFMakeChar(sf,fv->b.map,i);
 	len += strlen(sc->name)+1;
-	if ( fv->selected[i]>max ) max = fv->selected[i];
+	if ( fv->b.selected[i]>max ) max = fv->b.selected[i];
     }
     pt = vals = galloc((len+1)*sizeof(unichar_t));
     *pt = '\0';
@@ -1459,8 +1186,8 @@ static void _CCD_FromSelection(struct contextchaindlg *ccd,int cid,int order_mat
 	/* in a glyph string the order of selection is important */
 	/* also in replacement list */
 	for ( j=1; j<=max; ++j ) {
-	    for ( i=0; i<fv->map->enccount; ++i ) if ( fv->selected[i]==j ) {
-		int gid = fv->map->map[i];
+	    for ( i=0; i<fv->b.map->enccount; ++i ) if ( fv->b.selected[i]==j ) {
+		int gid = fv->b.map->map[i];
 		if ( gid!=-1 && sf->glyphs[gid]!=NULL ) {
 		    uc_strcpy(pt,sf->glyphs[gid]->name);
 		    pt += u_strlen(pt);
@@ -1470,8 +1197,8 @@ static void _CCD_FromSelection(struct contextchaindlg *ccd,int cid,int order_mat
 	}
     } else {
 	/* in a coverage table (or class) the order of selection is irrelevant */
-	for ( i=0; i<fv->map->enccount; ++i ) if ( fv->selected[i] ) {
-	    int gid = fv->map->map[i];
+	for ( i=0; i<fv->b.map->enccount; ++i ) if ( fv->b.selected[i] ) {
+	    int gid = fv->b.map->map[i];
 	    if ( gid!=-1 && sf->glyphs[gid]!=NULL ) {
 		uc_strcpy(pt,sf->glyphs[gid]->name);
 		pt += u_strlen(pt);
@@ -1481,14 +1208,10 @@ static void _CCD_FromSelection(struct contextchaindlg *ccd,int cid,int order_mat
     }
     if ( pt>vals ) pt[-1]='\0';
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     GGadgetSetTitle(GWidgetGetControl(ccd->gw,cid),vals);
-#endif
     free(vals);
 }
-#endif
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static int CCD_FromSelection(GGadget *g, GEvent *e) {
     if ( e->type==et_controlevent && e->u.control.subtype == et_buttonactivate ) {
 	struct contextchaindlg *ccd = GDrawGetUserData(GGadgetGetWindow(g));
@@ -1588,7 +1311,8 @@ static int CCD_GlyphSelected(GGadget *g, GEvent *e) {
 	GGadgetSetEnabled(GWidgetGetControl(ccd->gw,CID_Delete+off),i!=-1 &&
 		(i!=0 || off<300));
 	GGadgetSetEnabled(GWidgetGetControl(ccd->gw,CID_Edit+off),i!=-1 &&
-		(i!=0 || off<300));
+		(i!=0 || off<300 ||
+		 (off>=300 && GTabSetGetSel(GWidgetGetControl(ccd->gw,CID_MatchType+300))==0 )));
     } else if ( e->type==et_controlevent && e->u.control.subtype == et_listdoubleclick ) {
 	struct contextchaindlg *ccd = GDrawGetUserData(GGadgetGetWindow(g));
 	int off = GGadgetGetCid(g)-CID_GList;
@@ -1715,7 +1439,7 @@ static void _CCD_DoLEditNew(struct contextchaindlg *ccd,int off,int isedit) {
     GRect pos;
     GWindow gw;
     GWindowAttrs wattrs;
-    GGadgetCreateData gcd[8];
+    GGadgetCreateData gcd[8], boxes[3], *hvarray[7][3], *barray[8];
     GTextInfo label[8], **ti;
     const unichar_t *pt;
     unichar_t *line;
@@ -1747,6 +1471,7 @@ static void _CCD_DoLEditNew(struct contextchaindlg *ccd,int off,int isedit) {
 
     memset(&label,0,sizeof(label));
     memset(&gcd,0,sizeof(gcd));
+    memset(&boxes,0,sizeof(boxes));
 
     label[0].text = (unichar_t *) _("Sequence Number:");
     label[0].text_is_1byte = true;
@@ -1754,6 +1479,7 @@ static void _CCD_DoLEditNew(struct contextchaindlg *ccd,int off,int isedit) {
     gcd[0].gd.pos.x = 5; gcd[0].gd.pos.y = 6;
     gcd[0].gd.flags = gg_visible | gg_enabled;
     gcd[0].creator = GLabelCreate;
+    hvarray[0][0] = &gcd[0]; hvarray[0][1] = GCD_ColSpan; hvarray[0][2] = NULL;
 
     sprintf(cbuf,"%d",seq);
     label[1].text = (unichar_t *) cbuf;
@@ -1763,6 +1489,7 @@ static void _CCD_DoLEditNew(struct contextchaindlg *ccd,int off,int isedit) {
     gcd[1].gd.flags = gg_visible | gg_enabled;
     gcd[1].gd.cid = 1000;
     gcd[1].creator = GTextFieldCreate;
+    hvarray[1][0] = GCD_HPad10; hvarray[1][1] = &gcd[1]; hvarray[1][2] = NULL;
 
     label[2].text = (unichar_t *) _("Lookup:");
     label[2].text_is_1byte = true;
@@ -1771,44 +1498,62 @@ static void _CCD_DoLEditNew(struct contextchaindlg *ccd,int off,int isedit) {
     gcd[2].gd.pos.x = 5; gcd[2].gd.pos.y = gcd[1].gd.pos.y+25;
     gcd[2].gd.flags = gg_visible | gg_enabled;
     gcd[2].creator = GLabelCreate;
+    hvarray[2][0] = &gcd[2]; hvarray[2][1] = GCD_ColSpan; hvarray[2][2] = NULL;
 
     gcd[3].gd.pos.x = 10; gcd[3].gd.pos.y = gcd[2].gd.pos.y+13;
     gcd[3].gd.pos.width = 140;
     gcd[3].gd.flags = gg_visible | gg_enabled;
     gcd[3].creator = GListButtonCreate;
+    hvarray[3][0] = GCD_HPad10; hvarray[3][1] = &gcd[3]; hvarray[3][2] = NULL;
 
-    gcd[4].gd.pos.x = 20-3; gcd[4].gd.pos.y = 130-35-3;
-    gcd[4].gd.pos.width = -1; gcd[4].gd.pos.height = 0;
+    gcd[4].gd.pos.width = 10; gcd[4].gd.pos.height = 10;
     gcd[4].gd.flags = gg_visible | gg_enabled | gg_but_default;
-    label[4].text = (unichar_t *) _("_OK");
-    label[4].text_is_1byte = true;
-    label[4].text_in_resource = true;
-    gcd[4].gd.label = &label[4];
-    gcd[4].gd.cid = true;
-    gcd[4].creator = GButtonCreate;
+    gcd[4].creator = GSpacerCreate;
+    hvarray[4][0] = &gcd[4]; hvarray[4][1] = GCD_ColSpan; hvarray[4][2] = NULL;
 
-    gcd[5].gd.pos.x = -20; gcd[5].gd.pos.y = 130-35;
+    gcd[5].gd.pos.x = 20-3; gcd[5].gd.pos.y = 130-35-3;
     gcd[5].gd.pos.width = -1; gcd[5].gd.pos.height = 0;
-    gcd[5].gd.flags = gg_visible | gg_enabled | gg_but_cancel;
-    label[5].text = (unichar_t *) _("_Cancel");
+    gcd[5].gd.flags = gg_visible | gg_enabled | gg_but_default;
+    label[5].text = (unichar_t *) _("_OK");
     label[5].text_is_1byte = true;
     label[5].text_in_resource = true;
     gcd[5].gd.label = &label[5];
+    gcd[5].gd.cid = true;
     gcd[5].creator = GButtonCreate;
+    barray[0] = GCD_Glue; barray[1] = &gcd[5]; barray[2] = GCD_Glue;
 
-    gcd[6].gd.pos.x = 2; gcd[6].gd.pos.y = 2;
-    gcd[6].gd.pos.width = pos.width-4; gcd[6].gd.pos.height = pos.height-2;
-    gcd[6].gd.flags = gg_enabled | gg_visible | gg_pos_in_pixels;
-    gcd[6].creator = GGroupCreate;
+    gcd[6].gd.pos.width = -1; gcd[6].gd.pos.height = 0;
+    gcd[6].gd.flags = gg_visible | gg_enabled | gg_but_cancel;
+    label[6].text = (unichar_t *) _("_Cancel");
+    label[6].text_is_1byte = true;
+    label[6].text_in_resource = true;
+    gcd[6].gd.label = &label[6];
+    gcd[6].creator = GButtonCreate;
+    barray[3] = GCD_Glue; barray[4] = &gcd[6]; barray[5] = GCD_Glue;
+    barray[6] = NULL;
 
-    GGadgetsCreate(gw,gcd);
+    boxes[2].gd.flags = gg_enabled|gg_visible;
+    boxes[2].gd.u.boxelements = barray;
+    boxes[2].creator = GHBoxCreate;
+
+    hvarray[5][0] = &boxes[2]; hvarray[5][1] = GCD_ColSpan; hvarray[5][2] = NULL;
+    hvarray[6][0] = NULL;
+
+    boxes[0].gd.pos.x = boxes[0].gd.pos.y = 2;
+    boxes[0].gd.flags = gg_enabled|gg_visible;
+    boxes[0].gd.u.boxelements = hvarray[0];
+    boxes[0].creator = GHVGroupCreate;
+
+    GGadgetsCreate(gw,boxes);
     isgpos = ( ccd->fpst->type==pst_contextpos || ccd->fpst->type==pst_chainpos );
-    GGadgetSetList(gcd[3].ret, ti = SFLookupListFromType(ccd->sf,ot_undef),false);
-    for ( i=0; ti[i]->text!=NULL; ++i )
-	if ( u_strcmp(lstr,ti[i]->text)==0 ) {
+    GGadgetSetList(gcd[3].ret, ti = SFLookupListFromType(ccd->sf,isgpos?gpos_start:gsub_start),false);
+    for ( i=0; ti[i]->text!=NULL; ++i ) {
+	if ( u_strcmp(lstr,ti[i]->text)==0 )
 	    GGadgetSelectOneListItem(gcd[3].ret,i);
-    break;
-	}
+	if ( ccd->fpst!=NULL && ti[i]->userdata == ccd->fpst->subtable->lookup )
+	    ti[i]->disabled = true;
+    }
+    GHVBoxFitWindow(boxes[0].ret);
     GDrawSetVisible(gw,true);
 
   retry:
@@ -1822,8 +1567,8 @@ static void _CCD_DoLEditNew(struct contextchaindlg *ccd,int off,int isedit) {
 	if ( err )
   goto retry;
 	pt = _GGadgetGetTitle(gcd[3].ret);
-	if ( *pt=='\0' ) {
-	    gwwv_post_error("Please select a lookup", "Please select a lookup");
+	if ( pt==NULL || *pt=='\0' ) {
+	    ff_post_error("Please select a lookup", "Please select a lookup");
   goto retry;
 	}
 	sprintf(cbuf,"%d ",seq);
@@ -1910,22 +1655,18 @@ static void CoverageReverse(char **bcovers,int bcnt) {
 
 static void _CCD_Ok(struct contextchaindlg *ccd) {
     FPST *fpst = ccd->fpst;
-    int32 len, i, k;
+    int32 len, i, k, had_class0;
     GTextInfo **old, **classes;
     struct fpst_rule dummy;
     int has[3];
-#if defined(FONTFORGE_CONFIG_GDRAW)
     char *buts[3];
     buts[0] = _("_Yes"); buts[1] = _("_No"); buts[2] = NULL;
-#elif defined(FONTFORGE_CONFIG_GTK)
-    static char *buts[] = { GTK_STOCK_YES, GTK_STOCK_NO, NULL };
-#endif
 
     switch ( ccd->aw ) {
       case aw_glist: {
 	old = GGadgetGetList(GWidgetGetControl(ccd->gw,CID_GList),&len);
 	if ( len==0 ) {
-	    gwwv_post_error(_("Missing rules"),_(" There must be at least one contextual rule"));
+	    ff_post_error(_("Missing rules"),_(" There must be at least one contextual rule"));
 return;
 	}
 	FPSTRulesFree(fpst->rules,fpst->format,fpst->rule_cnt);
@@ -1938,7 +1679,7 @@ return;
       case aw_class: {
 	old = GGadgetGetList(GWidgetGetControl(ccd->gw,CID_GList+200),&len);
 	if ( len==0 ) {
-	    gwwv_post_error(_("Missing rules"),_(" There must be at least one contextual rule"));
+	    ff_post_error(_("Missing rules"),_(" There must be at least one contextual rule"));
 return;
 	}
 	FPSTRulesFree(fpst->rules,fpst->format,fpst->rule_cnt);
@@ -1963,24 +1704,25 @@ return;
 	    (&fpst->nccnt)[i] = len;
 	    (&fpst->nclass)[i] = galloc(len*sizeof(char*));
 	    (&fpst->nclass)[i][0] = NULL;
-	    for ( k=1; k<len; ++k )
+	    had_class0 = i==0 && !isEverythingElse(classes[0]->text);
+	    for ( k=had_class0 ? 0 : 1 ; k<len; ++k )
 		(&fpst->nclass)[i][k] = cu_copy(classes[k]->text);
 	}
       } break;
       case aw_coverage:
 	old = GGadgetGetList(GWidgetGetControl(ccd->gw,CID_GList+100),&len);
 	if ( len==0 ) {
-	    gwwv_post_error(_("Bad Coverage Table"),_("There must be at least one match coverage table"));
+	    ff_post_error(_("Bad Coverage Table"),_("There must be at least one match coverage table"));
 return;
 	}
 	if ( fpst->format==pst_reversecoverage ) {
 	    if ( len!=1 ) {
-		gwwv_post_error(_("Bad Coverage Table"),_("In a Reverse Chaining Substitution there must be exactly one coverage table to match"));
+		ff_post_error(_("Bad Coverage Table"),_("In a Reverse Chaining Substitution there must be exactly one coverage table to match"));
 return;
 	    }
 	    if ( CCD_GlyphNameCnt(old[0]->text)!=CCD_GlyphNameCnt(
 		    _GGadgetGetTitle(GWidgetGetControl(ccd->gw,CID_RplList+100))) ) {
-		gwwv_post_error(_("Replacement mismatch"),_("In a Reverse Chaining Substitution there must be exactly as many replacements as there are glyph names in the match coverage table"));
+		ff_post_error(_("Replacement mismatch"),_("In a Reverse Chaining Substitution there must be exactly as many replacements as there are glyph names in the match coverage table"));
 return;
 	    }
 	    dummy.u.rcoverage.replacements = ccd_cu_copy(
@@ -2010,7 +1752,7 @@ return;
 	    fpst->rules[0].lookups = dummy.lookups;
 	    for ( i=0; i<dummy.lookup_cnt; ++i ) {
 		if ( dummy.lookups[i].seq >= fpst->rules[0].u.coverage.ncnt ) {
-		    gwwv_post_error(_("Bad Sequence/Lookup List"),
+		    ff_post_error(_("Bad Sequence/Lookup List"),
 			    _("Sequence number out of bounds, must be less than %d (number of classes in list above)"),
 			    fpst->rules[0].u.coverage.ncnt );
 return;
@@ -2207,11 +1949,11 @@ static int subccd_e_h(GWindow gw, GEvent *event) {
 	if ( event->u.chr.keysym == GK_F1 || event->u.chr.keysym == GK_Help ) {
 	    help("contextchain.html");
 return( true );
-	} else if ( event->u.chr.keysym=='q' && (event->u.chr.state&ksm_control)) {
-	    if ( event->u.chr.state&ksm_shift )
+	} else if ( GMenuIsCommand(event,H_("Quit|Ctl+Q") )) {
+	    MenuExit(NULL,NULL,NULL);
+return( true );
+	} else if ( GMenuIsCommand(event,H_("Close|Ctl+Shft+Q") )) {
 		CCD_Close(GDrawGetUserData(gw));
-	    else
-		MenuExit(NULL,NULL,NULL);
 return( true );
 	} else if ( event->u.chr.chars[0]=='\r' ) {
 	    CCD_SimulateDefaultButton( (struct contextchaindlg *) GDrawGetUserData(gw));
@@ -2235,11 +1977,11 @@ static int ccd_e_h(GWindow gw, GEvent *event) {
 	if ( event->u.chr.keysym == GK_F1 || event->u.chr.keysym == GK_Help ) {
 	    help("contextchain.html");
 return( true );
-	} else if ( event->u.chr.keysym=='q' && (event->u.chr.state&ksm_control)) {
-	    if ( event->u.chr.state&ksm_shift )
-		CCD_Close(GDrawGetUserData(gw));
-	    else
-		MenuExit(NULL,NULL,NULL);
+	} else if ( GMenuIsCommand(event,H_("Quit|Ctl+Q") )) {
+	    MenuExit(NULL,NULL,NULL);
+return( true );
+	} else if ( GMenuIsCommand(event,H_("Close|Ctl+Shft+Q") )) {
+	    CCD_Close(GDrawGetUserData(gw));
 return( true );
 	} else if ( event->u.chr.chars[0]=='\r' ) {
 	    CCD_SimulateDefaultButton( (struct contextchaindlg *) GDrawGetUserData(gw));
@@ -2567,12 +2309,10 @@ static void CCD_AddReplacements(GGadgetCreateData *gcd, GTextInfo *label,
     gcd[k].gd.cid = CID_RplList+off;
     gcd[k++].creator = GTextAreaCreate;
 }
-#endif
 
 struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	struct gfi_data *gfi, unichar_t *newname) {
     struct contextchaindlg *ccd;
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     int i,j,k, space;
     static char *titles[2][5] = {
 	{ N_("Edit Contextual Position"), N_("Edit Contextual Substitution"),
@@ -2593,8 +2333,8 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	cllabel[10];
     GGadgetCreateData bgcd[6], rgcd[15];
     GTextInfo blabel[4], rlabel[15];
-    int blen = GIntGetResource(_NUM_Buttonsize)*100/GGadgetScale(100);
     struct fpst_rule *r=NULL;
+    int blen = GIntGetResource(_NUM_Buttonsize)*100/GGadgetScale(100);
     char *text[] = {
 /* GT: The following strings should be concatenated together, the result */
 /* GT: translated, and then broken into lines by hand. I'm sure it would */
@@ -2608,7 +2348,6 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	    N_("For chaining subtables you may also specify backtrack and"),
 	    N_(" lookahead lists."), 0 };
     FPST *tempfpst;
-#endif
 
     ccd = chunkalloc(sizeof(struct contextchaindlg));
     ccd->gfi = gfi;
@@ -2617,7 +2356,6 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
     ccd->newname = newname;
     ccd->isnew = newname!=NULL;
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     memset(&wattrs,0,sizeof(wattrs));
     wattrs.mask = wam_events|wam_cursor|wam_utf8_wtitle|wam_undercursor|wam_isdlg|wam_restrict;
     wattrs.event_masks = ~(1<<et_charup);
@@ -2931,7 +2669,10 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	GGadgetSetList(GWidgetGetControl(ccd->class,CID_GList+200),clslistlist(tempfpst),false);
 	for ( i=0; i<3; ++i ) {
 	    GGadget *list = GWidgetGetControl(ccd->class,CID_GList+300+i*20);
-	    GListAppendLine8(list,_("{Everything Else}"),false);
+	    if ( i!=0 || tempfpst->nclass[0]==NULL )
+		GListAppendLine8(list,_("{Everything Else}"),false);
+	    else
+		GListAppendLine8(list,(&tempfpst->nclass)[i][0],false);
 	    for ( k=1; k<(&tempfpst->nccnt)[i]; ++k ) {
 		GListAppendLine8(list,(&tempfpst->nclass)[i][k],false);
 	    }
@@ -3027,6 +2768,6 @@ struct contextchaindlg *ContextChainEdit(SplineFont *sf,FPST *fpst,
 	GDrawSetVisible(ccd->coverage,true);
 
     GDrawSetVisible(gw,true);
-#endif
+
 return( ccd );
 }

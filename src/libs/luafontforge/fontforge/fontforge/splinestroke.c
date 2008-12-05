@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,10 +27,7 @@
 #include "pfaedit.h"
 #include "splinefont.h"
 #include <math.h>
-#if defined(FONTFORGE_CONFIG_GTK)
-#else
 #include <gwidget.h>
-#endif
 
 #define PI	3.1415926535897932
 
@@ -331,6 +328,24 @@ static SplinePoint *ChordMid(double angle,BasePoint *center,BasePoint *from,
 return( sp );
 }
 
+static int IntersectionTooFar(BasePoint *inter,SplinePoint *from,SplinePoint *to,StrokeInfo *si) {
+    /* Things look really ugly when we try to miter acute angles -- we get */
+    /* huge spikes. So if mitering is going to give bad results, just bevel */
+    double len, xoff, yoff;
+
+    xoff = inter->x-from->me.x; yoff = inter->y-from->me.y;
+    len = xoff*xoff + yoff*yoff;
+    if ( len > (5*si->radius * 5*si->radius) )
+return( true );
+
+    xoff = inter->x-to->me.x; yoff = inter->y-to->me.y;
+    len = xoff*xoff + yoff*yoff;
+    if ( len > (5*si->radius * 5*si->radius) )
+return( true );
+
+return( false );
+}
+
 static void MakeJoints(SplinePoint *from,SplinePoint *to,StrokeInfo *si,
 	BasePoint *inter, BasePoint *center,
 	int incr,double pangle, double nangle, real factor) {
@@ -364,13 +379,15 @@ static void MakeJoints(SplinePoint *from,SplinePoint *to,StrokeInfo *si,
 	    }
 	    SplineMake3(mid,to);
 	}
-    } else if ( si->join==lj_bevel ) {
-	SplineMake3(from,to);
-    } else if ( si->join == lj_miter ) {
+    } else if ( si->join == lj_miter && !IntersectionTooFar(inter,from,to,si)) {
 	mid = SplinePointCreate(inter->x,inter->y);
 	mid->pointtype = pt_corner;
 	SplineMake3(from,mid);
 	SplineMake3(mid,to);
+	if ( from->ptindex == to->ptindex )
+	    mid->ptindex = from->ptindex;
+    } else if ( si->join==lj_bevel ) {
+	SplineMake3(from,to);
     } else {
 	double cplen = CircleCpDist(nangle-pangle);
 	mid = NULL;
@@ -858,6 +875,7 @@ static int DoIntersect_Splines(struct strokedspline *before,
 	    after->minusfrom = SplineCopyAfter(afterat,&after->minusto);
 	    SplineFreeBetween(before->minusfrom,before->minusto,false/*keep minusfrom*/,true);
 	    before->minusto = SplinePointCreate(afterat->me.x,afterat->me.y);
+	    before->minusto->ptindex = afterat->ptindex;
 	    before->minusfrom->nextcp = before->minusfrom->me;
 	    before->minusfrom->nonextcp = true;
 	    SplineMake3(before->minusfrom,before->minusto);	/* This line goes backwards */
@@ -884,6 +902,7 @@ static int DoIntersect_Splines(struct strokedspline *before,
 	    /* No intersection everything can stay as it is */
 	    if ( force_connect && BasePtDistance(&after->minusfrom->me,&before->minusto->me)>3 ) {
 		beforeat = SplinePointCreate(after->minusfrom->me.x,after->minusfrom->me.y);
+		beforeat->ptindex = after->minusfrom->ptindex;
 		if ( si->join==lj_round )
 		    SplineMakeRound(before->minusto,beforeat,si->radius);
 		else
@@ -899,7 +918,7 @@ static int DoIntersect_Splines(struct strokedspline *before,
 	si->gottoobig = si->gottoobiglocal = true;
 	if ( !si->toobigwarn ) {
 	    si->toobigwarn = true;
-	    gwwv_post_error( _("Bad Stroke"), _("The stroke width is so big that the generated path\nmay intersect itself in %.100s"),
+	    ff_post_error( _("Bad Stroke"), _("The stroke width is so big that the generated path\nmay intersect itself in %.100s"),
 		    sc==NULL?"<nameless char>": sc->name );
 	}
     }
@@ -999,7 +1018,6 @@ static int SplineSolveForPen(Spline *s,StrokeInfo *si,double *ts,int *pinners,
     Spline1D *xsp = &s->splines[0], *ysp = &s->splines[1];
     BasePoint pp, pm, np, nm, testp, testm;
 
-	a =0;b =0;c =0;
     ts[cnt++] = tstart;
     for ( i=0; i<2; ++i ) {
 	if ( i==0 ) {
@@ -1105,33 +1123,14 @@ static void SplineSetFixCPs(SplineSet *ss) {
     SPLCatagorizePoints(ss);
 }
 
-static SplineSet *SSFixupOverlap(StrokeInfo *si,SplineChar *sc,
-	SplineSet *ssplus,SplineSet *ssminus, int reversed) {
-    ssplus->next = ssminus;
-    ssplus = SplineSetRemoveOverlap(sc,ssplus,over_remove);
-    if ( si->removeinternal || si->removeexternal ) {
-	SplineSet *prev, *spl, *next;
-	prev = NULL;
-	for ( spl=ssplus; spl!=NULL; spl = next ) {
-	    int clock = SplinePointListIsClockwise(spl) ^ reversed;
-	    next = spl->next;
-	    if (( !clock && si->removeinternal ) || ( clock && si->removeexternal )) {
-		SplinePointListFree(spl);
-		if ( prev==NULL )
-		    ssplus = next;
-		else
-		    prev->next = next;
-	    } else
-		prev = spl;
-	}
-    }
-return( ssplus );
-}
-
 static SplinePoint *SPNew(SplinePoint *base,BasePoint *pos,BasePoint *cp,int isnext) {
     SplinePoint *sp = SplinePointCreate(pos->x,pos->y);
 
     sp->pointtype = base->pointtype;
+    /* Embolden wants these three preserved */
+    sp->ptindex = base->ptindex;
+    sp->ttfindex = base->ttfindex;
+    sp->nextcpindex = base->nextcpindex;
     if ( isnext ) {
 	sp->nextcp.x = pos->x + (cp->x-base->me.x);
 	sp->nextcp.y = pos->y + (cp->y-base->me.y);
@@ -1407,7 +1406,7 @@ static struct strokedspline *_SplineSetApprox(SplineSet *spl,StrokeInfo *si,Spli
 		si->gottoobig = si->gottoobiglocal = true;
 		if ( !si->toobigwarn ) {
 		    si->toobigwarn = true;
-		    gwwv_post_error( _("Bad Stroke"), _("The stroke width is so big that the generated path\nmay intersect itself in %.100s"),
+		    ff_post_error( _("Bad Stroke"), _("The stroke width is so big that the generated path\nmay intersect itself in %.100s"),
 			    sc==NULL?"<nameless char>": sc->name );
 		}
 	    }
@@ -1524,6 +1523,7 @@ static SplineSet *_SplineSetStroke(SplineSet *spl,StrokeInfo *si,SplineChar *sc)
     SplineSet *ssplus, *ssminus;
     int reversed = false;
     struct strokedspline *head, *cur, *first, *lastp, *lastm;
+    Spline *s1, *s2;
 
     si->gottoobiglocal = false;
 
@@ -1620,15 +1620,10 @@ return( ssplus );
 	    ssplus = ssminus;
 	    ssminus = temp;
 	}
-	/* I can't always detect an overlap, so let's always do the remove */
-		/* Sigh, no. That is still too dangerous */
-	/* Note: SSFixupOverlap will remove internal/external as needed */
 	SplineSetReverse(ssminus);
 	if ( ssplus != NULL )
 	    SplineSetReverse(ssplus);
-	if ( si->removeoverlapifneeded && si->gottoobiglocal && ssplus!=NULL )
-	    ssplus = SSFixupOverlap(si,sc,ssplus,ssminus,reversed);
-	else if ( si->removeinternal && ssplus!=NULL ) {
+	if ( si->removeinternal && ssplus!=NULL ) {
 	    SplinePointListFree(ssminus);
 	} else if ( si->removeexternal ) {
 	    SplinePointListFree(ssplus);
@@ -1643,6 +1638,10 @@ return( ssplus );
 	    /*  that doesn't work always if a contour self intersects */
 	    /* I think it should always be correct */
 	}
+	/* I can't always detect an overlap, so let's always do the remove */
+		/* Sigh, no. That is still too dangerous */
+	if ( si->removeoverlapifneeded && ssplus!=NULL && SplineSetIntersect(ssplus,&s1,&s2))
+	    ssplus = SplineSetRemoveOverlap(sc,ssplus,over_remove);
 	if ( reversed )		/* restore original, just in case we want it */
 	    SplineSetReverse(spl);
     } else if ( si->stroke_type==si_std || si->stroke_type==si_elipse )
@@ -1840,12 +1839,12 @@ static SplineSet *SSRemoveUTurns(SplineSet *base, StrokeInfo *si) {
 	    if ( offx+offy<1 || linear ) {
 		s->from->nextcp = s->from->me;
 		s->from->nonextcp = true;
-		if ( s->from->pointtype == pt_curve )
+		if ( s->from->pointtype == pt_curve || s->from->pointtype == pt_hvcurve )
 		    s->from->pointtype = pt_corner;
 		if ( s->order2 ) {
 		    s->to->prevcp = s->to->me;
 		    s->to->noprevcp = true;
-		    if ( s->to->pointtype==pt_curve )
+		    if ( s->to->pointtype==pt_curve || s->to->pointtype == pt_hvcurve )
 			s->to->pointtype = pt_corner;
 		}
 		SplineRefigure(s);
@@ -1861,12 +1860,12 @@ static SplineSet *SSRemoveUTurns(SplineSet *base, StrokeInfo *si) {
 	    if ( offx+offy<1 || linear ) {
 		s->to->prevcp = s->to->me;
 		s->to->noprevcp = true;
-		if ( s->to->pointtype==pt_curve )
+		if ( s->to->pointtype==pt_curve || s->to->pointtype == pt_hvcurve )
 		    s->to->pointtype = pt_corner;
 		if ( s->order2 ) {
 		    s->from->nextcp = s->from->me;
 		    s->from->nonextcp = true;
-		    if ( s->from->pointtype == pt_curve )
+		    if ( s->from->pointtype == pt_curve || s->from->pointtype == pt_hvcurve )
 			s->from->pointtype = pt_corner;
 		}
 		SplineRefigure(s);
@@ -1909,6 +1908,68 @@ static SplineSet *SSRemoveUTurns(SplineSet *base, StrokeInfo *si) {
     BisectTurners(spl);
 #endif
 return( base );
+}
+
+static void SSRemoveColinearPoints(SplineSet *ss) {
+    SplinePoint *sp, *nsp, *nnsp;
+    BasePoint dir, ndir;
+    double len;
+    int removed;
+
+    sp = ss->first;
+    if ( sp->prev==NULL )
+return;
+    nsp = sp->next->to;
+    if ( nsp==sp )
+return;
+    dir.x = nsp->me.x - sp->me.x; dir.y = nsp->me.y - sp->me.y;
+    len = dir.x*dir.x + dir.y*dir.y;
+    if ( len!=0 ) {
+	len = sqrt(len);
+	dir.x /= len; dir.y /= len;
+    }
+    nnsp = nsp->next->to;
+    if ( nnsp==sp )
+return;
+    memset(&ndir,0,sizeof(ndir));
+    forever {
+	removed = false;
+	if ( nsp->next->islinear ) {
+	    ndir.x = nnsp->me.x - nsp->me.x; ndir.y = nnsp->me.y - nsp->me.y;
+	    len = ndir.x*ndir.x + ndir.y*ndir.y;
+	    if ( len!=0 ) {
+		len = sqrt(len);
+		ndir.x /= len; ndir.y /= len;
+	    }
+	}
+	if ( sp->next->islinear && nsp->next->islinear ) {
+	    double dot =dir.x*ndir.y - dir.y*ndir.x;
+	    if ( dot<.001 && dot>-.001 ) {
+		sp->next->to = nnsp;
+		nnsp->prev = sp->next;
+		SplineRefigure(sp->next);
+		SplineFree(nsp->next);
+		SplinePointFree(nsp);
+		if ( ss->first==nsp ) ss->first = sp;
+		if ( ss->last ==nsp ) ss->last  = sp;
+		removed = true;
+	    } else
+		sp = nsp;
+	} else
+	    sp = nsp;
+	dir = ndir;
+	nsp = nnsp;
+	nnsp = nsp->next->to;
+	if ( !removed && sp==ss->first )
+    break;
+    }
+}
+
+static void SSesRemoveColinearPoints(SplineSet *ss) {
+    while ( ss!=NULL ) {
+	SSRemoveColinearPoints(ss);
+	ss = ss->next;
+    }
 }
 
 SplineSet *SplineSetStroke(SplineSet *spl,StrokeInfo *si,SplineChar *sc) {
@@ -1954,6 +2015,11 @@ SplineSet *SplineSetStroke(SplineSet *spl,StrokeInfo *si,SplineChar *sc) {
 	SplinePointListFree(order3);
 	ret = temp;
     }
+    /* We tend to get (small) rounding errors */
+    SplineSetsRound2Int(ret,1024.,false,false);
+    /* If we use butt line caps or miter joins then we will likely have */
+    /*  some spurious colinear points. If we do, remove them */
+    SSesRemoveColinearPoints(ret);
 return( ret );
 }
 
@@ -1967,21 +2033,55 @@ SplineSet *SSStroke(SplineSet *spl,StrokeInfo *si,SplineChar *sc) {
     /*int was_clock = true;*/
 
     for ( ; spl!=NULL; spl = spl->next ) {
-#if 0
-	if ( si->removeinternal || si->removeexternal )
-	    was_clock = SplinePointListIsClockwise(spl);
-#endif
 	cur = SplineSetStroke(spl,si,sc);
+	if ( cur==NULL )		/* Can happen if stroke overlaps itself into nothing */
+    continue;
 	if ( head==NULL )
 	    head = cur;
 	else
 	    last->next = cur;
-#if 0
-	if ( was_clock==0 ) 	/* there'd better be only one spl in cur */
-	    SplineSetReverse(cur);
-#endif
 	while ( cur->next!=NULL ) cur = cur->next;
 	last = cur;
     }
 return( head );
+}
+
+#include "baseviews.h"
+
+void FVStrokeItScript(void *_fv, StrokeInfo *si) {
+    FontViewBase *fv = _fv;
+    int layer = fv->active_layer;
+    SplineSet *temp;
+    int i, cnt=0, gid;
+    SplineChar *sc;
+
+    for ( i=0; i<fv->map->enccount; ++i ) if ( (gid=fv->map->map[i])!=-1 && fv->sf->glyphs[gid]!=NULL && fv->selected[i] )
+	++cnt;
+    ff_progress_start_indicator(10,_("Stroking..."),_("Stroking..."),0,cnt,1);
+
+    SFUntickAll(fv->sf);
+    for ( i=0; i<fv->map->enccount; ++i ) {
+	if ( (gid=fv->map->map[i])!=-1 && (sc = fv->sf->glyphs[gid])!=NULL &&
+		!sc->ticked && fv->selected[i] ) {
+	    sc->ticked = true;
+	    if ( sc->parent->multilayer ) {
+		SCPreserveState(sc,false);
+		for ( layer = ly_fore; layer<sc->layer_cnt; ++layer ) {
+		    temp = SSStroke(sc->layers[layer].splines,si,sc);
+		    SplinePointListsFree( sc->layers[layer].splines );
+		    sc->layers[layer].splines = temp;
+		}
+		SCCharChangedUpdate(sc,ly_all);
+	    } else {
+		SCPreserveLayer(sc,layer,false);
+		temp = SSStroke(sc->layers[layer].splines,si,sc);
+		SplinePointListsFree( sc->layers[layer].splines );
+		sc->layers[layer].splines = temp;
+		SCCharChangedUpdate(sc,layer);
+	    }
+	    if ( !ff_progress_next())
+    break;
+	}
+    }
+    ff_progress_end_indicator();
 }

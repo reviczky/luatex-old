@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,14 +24,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "pfaeditui.h"
+#include "fontforgevw.h"
 #include <math.h>
 #include "psfont.h"
 #include "ustring.h"
 #include "utype.h"
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 #include "views.h"		/* for FindSel structure */
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 #ifdef HAVE_IEEEFP_H
 # include <ieeefp.h>		/* Solaris defines isnan in ieeefp rather than math.h */
 #endif
@@ -187,7 +185,7 @@ char *strconcat3(const char *str1,const char *str2, const char *str3) {
     char *ret = galloc(len1+len2+strlen(str3)+1);
     strcpy(ret,str1);
     strcpy(ret+len1,str2);
-    strcpy(ret+len1+len2,str2);
+    strcpy(ret+len1+len2,str3);
 return( ret );
 }
 
@@ -283,6 +281,27 @@ return;
     }
 }
 
+void SplineSetBeziersClear(SplinePointList *spl) {
+    Spline *first, *spline, *next;
+    int nonext;
+
+    if ( spl==NULL )
+return;
+    if ( spl->first!=NULL ) {
+	nonext = spl->first->next==NULL;
+	first = NULL;
+	for ( spline = spl->first->next; spline!=NULL && spline!=first; spline = next ) {
+	    next = spline->to->next;
+	    SplinePointFree(spline->to);
+	    SplineFree(spline);
+	    if ( first==NULL ) first = spline;
+	}
+	if ( spl->last!=spl->first || nonext )
+	    SplinePointFree(spl->first);
+    }
+    spl->first = spl->last = NULL;
+}
+
 void SplinePointListFree(SplinePointList *spl) {
     Spline *first, *spline, *next;
     int nonext;
@@ -301,6 +320,8 @@ return;
 	if ( spl->last!=spl->first || nonext )
 	    SplinePointFree(spl->first);
     }
+    free(spl->spiros);
+    free(spl->contour_name);
     chunkfree(spl,sizeof(SplinePointList));
 }
 
@@ -322,6 +343,8 @@ return;
 	if ( freefirst )
 	    SplinePointMDFree(sc,spl->first);
     }
+    free(spl->spiros);
+    free(spl->contour_name);
     chunkfree(spl,sizeof(SplinePointList));
 }
 
@@ -344,6 +367,12 @@ void SplinePointListsFree(SplinePointList *head) {
     }
 }
 
+void SplineSetSpirosClear(SplineSet *spl) {
+    free(spl->spiros);
+    spl->spiros = NULL;
+    spl->spiro_cnt = spl->spiro_max = 0;
+}
+
 void ImageListsFree(ImageList *imgs) {
     ImageList *inext;
 
@@ -355,7 +384,6 @@ void ImageListsFree(ImageList *imgs) {
 }
 
 void RefCharFree(RefChar *ref) {
-#ifdef FONTFORGE_CONFIG_TYPE3
     int i;
 
     if ( ref==NULL )
@@ -363,20 +391,22 @@ return;
     for ( i=0; i<ref->layer_cnt; ++i ) {
 	SplinePointListsFree(ref->layers[i].splines);
 	ImageListsFree(ref->layers[i].images);
+#ifdef FONTFORGE_CONFIG_TYPE3
+	GradientFree(ref->layers[i].fill_brush.gradient);
+	GradientFree(ref->layers[i].stroke_pen.brush.gradient);
+	PatternFree(ref->layers[i].fill_brush.pattern);
+	PatternFree(ref->layers[i].stroke_pen.brush.pattern);
+#endif
     }
     free(ref->layers);
-#else
-    if ( ref==NULL )
-return;
-    SplinePointListsFree(ref->layers[0].splines);
-#endif
     chunkfree(ref,sizeof(RefChar));
 }
 
 RefChar *RefCharCreate(void) {
     RefChar *ref = chunkalloc(sizeof(RefChar));
-#ifdef FONTFORGE_CONFIG_TYPE3
+    ref->layer_cnt = 1;
     ref->layers = gcalloc(1,sizeof(struct reflayer));
+#ifdef FONTFORGE_CONFIG_TYPE3
     ref->layers[0].fill_brush.opacity = ref->layers[0].stroke_pen.brush.opacity = 1.0;
     ref->layers[0].fill_brush.col = ref->layers[0].stroke_pen.brush.col = COLOR_INHERITED;
     ref->layers[0].stroke_pen.width = WIDTH_INHERITED;
@@ -384,7 +414,6 @@ RefChar *RefCharCreate(void) {
     ref->layers[0].stroke_pen.linejoin = lj_inherited;
     ref->layers[0].dofill = true;
 #endif
-    ref->layer_cnt = 1;
     ref->round_translation_to_grid = true;
 return( ref );
 }
@@ -397,60 +426,6 @@ void RefCharsFree(RefChar *ref) {
 	RefCharFree(ref);
 	ref = rnext;
     }
-}
-
-static extended SolveCubic(extended a, extended b, extended c, extended d, double err, extended t0) {
-    /* find t between t0 and .5 where at^3+bt^2+ct+d == +/- err */
-    extended t, val, offset;
-    int first;
-
-    offset=a;
-    if ( a<0 ) offset = -a;
-    if ( b<0 ) offset -= b; else offset += b;
-    if ( c<0 ) offset -= c; else offset += c;
-    offset += 1;		/* Make sure it isn't 0 */
-    offset = err/(10.*offset);
-    if ( offset<.00001 ) offset = .00001; else if ( offset>.01 ) offset = .01;
-
-    first = 1;
-    for ( t=t0+offset; t<.5; t += offset ) {
-	val = ((a*t+b)*t+c)*t+d;
-	if ( val>=err || val<=-err )
-    break;
-	first = 0;
-    }
-    if ( !first )
-	t -= offset;
-    if ( t>.5 ) t=.5;
-
-return( t );
-}
-
-static extended SolveCubicBack(extended a, extended b, extended c, extended d, double err, extended t0) {
-    /* find t between .5 and t0 where at^3+bt^2+ct+d == +/- err */
-    extended t, val, offset;
-    int first;
-
-    offset=a;
-    if ( a<0 ) offset = -a;
-    if ( b<0 ) offset -= b; else offset += b;
-    if ( c<0 ) offset -= c; else offset += c;
-    offset += 1;		/* Make sure it isn't 0 */
-    offset = err/(10.*offset);
-    if ( offset<.00001 ) offset = .00001; else if ( offset>.01 ) offset = .01;
-
-    first = 1;
-    for ( t=t0-offset; t>.5; t -= offset ) {
-	val = ((a*t+b)*t+c)*t+d;
-	if ( val>=err || val<=-err )
-    break;
-	first = 0;
-    }
-    if ( !first )
-	t -= offset;
-    if ( t<.5 ) t=.5;
-
-return( t );
 }
 
 /* Remove line segments which are just one point long */
@@ -499,12 +474,114 @@ return;
     }
 }
 
+typedef struct spline1 {
+    Spline1D sp;
+    real s0, s1;
+    real c0, c1;
+} Spline1;
+
+static void FigureSpline1(Spline1 *sp1,bigreal t0, bigreal t1, Spline1D *sp ) {
+    bigreal s = (t1-t0);
+    if ( sp->a==0 && sp->b==0 ) {
+	sp1->sp.d = sp->d + t0*sp->c;
+	sp1->sp.c = s*sp->c;
+	sp1->sp.b = sp1->sp.a = 0;
+    } else {
+	sp1->sp.d = sp->d + t0*(sp->c + t0*(sp->b + t0*sp->a));
+	sp1->sp.c = s*(sp->c + t0*(2*sp->b + 3*sp->a*t0));
+	sp1->sp.b = s*s*(sp->b+3*sp->a*t0);
+	sp1->sp.a = s*s*s*sp->a;
+#if 0		/* Got invoked once on a perfectly good spline */
+	sp1->s1 = sp1->sp.a+sp1->sp.b+sp1->sp.c+sp1->sp.d;
+	if ( ((sp1->s1>.001 || sp1->s1<-.001) && !RealNear((double) sp1->sp.a+sp1->sp.b+sp1->sp.c+sp1->sp.d,sp1->s1)) ||
+		!RealNear(sp1->sp.d,sp1->s0))
+	    IError( "Created spline does not work in FigureSpline1");
+#endif
+    }
+    sp1->c0 = sp1->sp.c/3 + sp1->sp.d;
+    sp1->c1 = sp1->c0 + (sp1->sp.b+sp1->sp.c)/3;
+}
+
+static LineList *SplineSegApprox(LineList *last, Spline *spline, double start, double end, real scale) {
+    /* Divide into n equal segments */
+    /* (first point is already on the line list) */
+    /* what's a good value for n? Perhaps the normal distance of the control */
+    /*  points to the line between the end points. */
+    int i,n;
+    double t, diff, len;
+    double x,y;
+    LineList *cur;
+    BasePoint startp, endp, slope, off;
+    double temp;
+
+    n = 6;
+    if ( start==0 && end==1 ) {
+	/* No different from the latter case, except we can optimize here */
+	/*  and it's easier to understand what is happening in the simple */
+	/*  case */
+	slope.x = spline->to->me.x - spline->from->me.x;
+	slope.y = spline->to->me.y - spline->from->me.y;
+	len = slope.x*slope.x + slope.y*slope.y;
+	if ( len==0 )
+return( last );
+	len = sqrt(len);
+	slope.x /= len; slope.y /= len;
+	off.x = spline->from->nextcp.x - spline->from->me.x;
+	off.y = spline->from->nextcp.y - spline->from->me.y;
+	temp = (off.x*slope.y - off.y*slope.x) * scale;
+	if ( temp<0 ) temp = -temp;
+	if ( temp>n ) n = temp;
+	off.x = spline->to->prevcp.x - spline->from->me.x;
+	off.y = spline->to->prevcp.y - spline->from->me.y;
+	temp = (off.x*slope.y - off.y*slope.x) * scale;
+	if ( temp<0 ) temp = -temp;
+	if ( temp>n ) n = temp;
+    } else {
+	Spline1 xsp, ysp;
+	startp.x = ((spline->splines[0].a*start+spline->splines[0].b)*start+spline->splines[0].c)*start + spline->splines[0].d;
+	startp.y = ((spline->splines[1].a*start+spline->splines[1].b)*start+spline->splines[1].c)*start + spline->splines[1].d;
+	endp.x = ((spline->splines[0].a*end+spline->splines[0].b)*end+spline->splines[0].c)*end + spline->splines[0].d;
+	endp.y = ((spline->splines[1].a*end+spline->splines[1].b)*end+spline->splines[1].c)*end + spline->splines[1].d;
+	slope.x = endp.x - startp.x;
+	slope.y = endp.y - startp.y;
+	FigureSpline1(&xsp,start,end,&spline->splines[0]);
+	FigureSpline1(&ysp,start,end,&spline->splines[1]);
+	len = slope.x*slope.x + slope.y*slope.y;
+	if ( len==0 )
+return( last );
+	len = sqrt(len);
+	slope.x /= len; slope.y /= len;
+	off.x = xsp.c0 - startp.x;
+	off.y = ysp.c0 - startp.y;
+	temp = (off.x*slope.y - off.y*slope.x) * scale;
+	if ( temp<0 ) temp = -temp;
+	if ( temp>n ) n = temp;
+	off.x = xsp.c1 - endp.x;
+	off.y = ysp.c1 - endp.y;
+	temp = (off.x*slope.y - off.y*slope.x) * scale;
+	if ( temp<0 ) temp = -temp;
+	if ( temp>n ) n = temp;
+    }
+
+    diff = (end-start)/n;
+    for ( t=start+diff, i=1; i<=n; ++i, t+=diff ) {
+	if ( i==n ) t = end;		/* Avoid rounding errors */
+	cur = chunkalloc(sizeof(LineList) );
+	x = ((spline->splines[0].a*t+spline->splines[0].b)*t+spline->splines[0].c)*t + spline->splines[0].d;
+	y = ((spline->splines[1].a*t+spline->splines[1].b)*t+spline->splines[1].c)*t + spline->splines[1].d;
+	cur->here.x = rint(x*scale);
+	cur->here.y = rint(y*scale);
+	last->next = cur;
+	last = cur;
+    }
+return( last );
+}
+
 LinearApprox *SplineApproximate(Spline *spline, real scale) {
     LinearApprox *test;
-    LineList *cur, *last=NULL, *prev;
-    double tx,ty,t;
-    double slpx, slpy;
-    double intx, inty;
+    LineList *cur, *last=NULL;
+    extended poi[2], lastt;
+    int i,n;
 
     for ( test = spline->approx; test!=NULL && test->scale!=scale; test = test->next );
     if ( test!=NULL )
@@ -519,68 +596,24 @@ return( test );
     cur->here.x = rint(spline->from->me.x*scale);
     cur->here.y = rint(spline->from->me.y*scale);
     test->lines = last = cur;
+
     if ( spline->knownlinear ) {
 	cur = chunkalloc(sizeof(LineList) );
 	cur->here.x = rint(spline->to->me.x*scale);
 	cur->here.y = rint(spline->to->me.y*scale);
 	last->next = cur;
+    } else if ( spline->isquadratic ) {
+	last = SplineSegApprox(last,spline,0,1,scale);
     } else {
-	/* find t so that (xt,yt) is a half pixel off from (cx*t+dx,cy*t+dy) */
-	/* min t of scale*(ax*t^3+bx*t^2)==.5, scale*(ay*t^3+by*t^2)==.5 */
-	/* I do this from both ends in. this is because I miss essential */
-	/*  symmetry if I go from one end to the other. */
-	/* first start at 0 and go to .5, the first linear approximation is easy */
-	/*  it's just the function itself ignoring higher orders, so the error*/
-	/*  is just the higher orders */
-	tx = SolveCubic(spline->splines[0].a,spline->splines[0].b,0,0,.5/scale,0);
-	ty = SolveCubic(spline->splines[1].a,spline->splines[1].b,0,0,.5/scale,0);
-	t = (tx<ty)?tx:ty;
-	cur = chunkalloc(sizeof(LineList) );
-	cur->here.x = rint( (((spline->splines[0].a*t+spline->splines[0].b)*t+spline->splines[0].c)*t + spline->splines[0].d)*scale );
-	cur->here.y = rint( (((spline->splines[1].a*t+spline->splines[1].b)*t+spline->splines[1].c)*t + spline->splines[1].d)*scale );
-	last->next = cur;
-	last = cur;
-	while ( t<.5 ) {
-	    slpx = (3*spline->splines[0].a*t+2*spline->splines[0].b)*t+spline->splines[0].c;
-	    slpy = (3*spline->splines[1].a*t+2*spline->splines[1].b)*t+spline->splines[1].c;
-	    intx = ((spline->splines[0].a*t+spline->splines[0].b)*t+spline->splines[0].c-slpx)*t + spline->splines[0].d;
-	    inty = ((spline->splines[1].a*t+spline->splines[1].b)*t+spline->splines[1].c-slpy)*t + spline->splines[1].d;
-	    tx = SolveCubic(spline->splines[0].a,spline->splines[0].b,spline->splines[0].c-slpx,spline->splines[0].d-intx,.5/scale,t);
-	    ty = SolveCubic(spline->splines[1].a,spline->splines[1].b,spline->splines[1].c-slpy,spline->splines[1].d-inty,.5/scale,t);
-	    t = (tx<ty)?tx:ty;
-	    cur = chunkalloc(sizeof(LineList));
-	    cur->here.x = rint( (((spline->splines[0].a*t+spline->splines[0].b)*t+spline->splines[0].c)*t + spline->splines[0].d)*scale );
-	    cur->here.y = rint( (((spline->splines[1].a*t+spline->splines[1].b)*t+spline->splines[1].c)*t + spline->splines[1].d)*scale );
-	    last->next = cur;
-	    last = cur;
+	n = Spline2DFindPointsOfInflection(spline,poi);
+	lastt=0;
+	for ( i=0; i<n; ++i ) {
+	    last = SplineSegApprox(last,spline,lastt,poi[i],scale);
+	    lastt = poi[i];
 	}
-
-	/* Now start at t=1 and work back to t=.5 */
-	prev = NULL;
-	cur = chunkalloc(sizeof(LineList) );
-	cur->here.x = rint(spline->to->me.x*scale);
-	cur->here.y = rint(spline->to->me.y*scale);
-	prev = cur;
-	t=1.0;
-	while ( 1 ) {
-	    slpx = (3*spline->splines[0].a*t+2*spline->splines[0].b)*t+spline->splines[0].c;
-	    slpy = (3*spline->splines[1].a*t+2*spline->splines[1].b)*t+spline->splines[1].c;
-	    intx = ((spline->splines[0].a*t+spline->splines[0].b)*t+spline->splines[0].c-slpx)*t + spline->splines[0].d;
-	    inty = ((spline->splines[1].a*t+spline->splines[1].b)*t+spline->splines[1].c-slpy)*t + spline->splines[1].d;
-	    tx = SolveCubicBack(spline->splines[0].a,spline->splines[0].b,spline->splines[0].c-slpx,spline->splines[0].d-intx,.5/scale,t);
-	    ty = SolveCubicBack(spline->splines[1].a,spline->splines[1].b,spline->splines[1].c-slpy,spline->splines[1].d-inty,.5/scale,t);
-	    t = (tx>ty)?tx:ty;
-	    cur = chunkalloc(sizeof(LineList) );
-	    cur->here.x = rint( (((spline->splines[0].a*t+spline->splines[0].b)*t+spline->splines[0].c)*t + spline->splines[0].d)*scale );
-	    cur->here.y = rint( (((spline->splines[1].a*t+spline->splines[1].b)*t+spline->splines[1].c)*t + spline->splines[1].d)*scale );
-	    cur->next = prev;
-	    prev = cur;
-	    if ( t<=.5 )
-	break;
-	}
-	last->next = cur;
-	SimplifyLineList(test->lines);
+	last = SplineSegApprox(last,spline,lastt,1,scale);
     }
+    SimplifyLineList(test->lines);
     if ( test->lines->next==NULL ) {
 	test->oneline = 1;
 	test->onepoint = 1;
@@ -668,9 +701,63 @@ static void _SplineSetFindBounds(const SplinePointList *spl, DBounds *bounds) {
     }
 }
 
+#ifdef FONTFORGE_CONFIG_TYPE3
+static void _SplineSetFindClippedBounds(const SplinePointList *spl, DBounds *bounds,DBounds *clipb) {
+    Spline *spline, *first;
+    /* Ignore contours consisting of a single point (used for hinting, anchors */
+    /*  for mark to base, etc. */
+
+    for ( ; spl!=NULL; spl = spl->next ) if ( spl->first->next!=NULL && spl->first->next->to != spl->first ) {
+	first = NULL;
+	if ( !spl->is_clip_path ) {
+	    if ( bounds->minx==0 && bounds->maxx==0 && bounds->miny==0 && bounds->maxy == 0 ) {
+		bounds->minx = bounds->maxx = spl->first->me.x;
+		bounds->miny = bounds->maxy = spl->first->me.y;
+	    } else {
+		if ( spl->first->me.x<bounds->minx ) bounds->minx = spl->first->me.x;
+		if ( spl->first->me.x>bounds->maxx ) bounds->maxx = spl->first->me.x;
+		if ( spl->first->me.y<bounds->miny ) bounds->miny = spl->first->me.y;
+		if ( spl->first->me.y>bounds->maxy ) bounds->maxy = spl->first->me.y;
+	    }
+	    for ( spline = spl->first->next; spline!=NULL && spline!=first; spline=spline->to->next ) {
+		SplineFindBounds(spline,bounds);
+		if ( first==NULL ) first = spline;
+	    }
+	} else {
+	    if ( clipb->minx==0 && clipb->maxx==0 && clipb->miny==0 && clipb->maxy == 0 ) {
+		clipb->minx = clipb->maxx = spl->first->me.x;
+		clipb->miny = clipb->maxy = spl->first->me.y;
+	    } else {
+		if ( spl->first->me.x<clipb->minx ) clipb->minx = spl->first->me.x;
+		if ( spl->first->me.x>clipb->maxx ) clipb->maxx = spl->first->me.x;
+		if ( spl->first->me.y<clipb->miny ) clipb->miny = spl->first->me.y;
+		if ( spl->first->me.y>clipb->maxy ) clipb->maxy = spl->first->me.y;
+	    }
+	    for ( spline = spl->first->next; spline!=NULL && spline!=first; spline=spline->to->next ) {
+		SplineFindBounds(spline,clipb);
+		if ( first==NULL ) first = spline;
+	    }
+	}
+    }
+}
+#endif
+
 void SplineSetFindBounds(const SplinePointList *spl, DBounds *bounds) {
+#ifdef FONTFORGE_CONFIG_TYPE3
+    DBounds clipb;
+    memset(bounds,'\0',sizeof(*bounds));
+    memset(&clipb,'\0',sizeof(clipb));
+    _SplineSetFindClippedBounds(spl, bounds,&clipb);
+    if ( clipb.minx!=0 || clipb.miny!=0 || clipb.maxx!=0 || clipb.maxy!=0 ) {
+	if ( bounds->minx<clipb.minx ) bounds->minx = clipb.minx;
+	if ( bounds->miny<clipb.miny ) bounds->miny = clipb.miny;
+	if ( bounds->maxx>clipb.maxx ) bounds->maxx = clipb.maxx;
+	if ( bounds->maxy>clipb.maxy ) bounds->maxy = clipb.maxy;
+    }
+#else
     memset(bounds,'\0',sizeof(*bounds));
     _SplineSetFindBounds(spl,bounds);
+#endif
 }
 
 #ifdef FONTFORGE_CONFIG_TYPE3
@@ -686,43 +773,44 @@ static void _ImageFindBounds(ImageList *img,DBounds *bounds) {
 }
 #endif
 
-void SplineCharFindBounds(SplineChar *sc,DBounds *bounds) {
+static void _SplineCharLayerFindBounds(SplineChar *sc,int layer, DBounds *bounds) {
     RefChar *rf;
-    int i;
 #ifdef FONTFORGE_CONFIG_TYPE3
     ImageList *img;
     real e;
-    DBounds b;
+    DBounds b, clipb;
 #endif
 
-    /* a char with no splines (ie. a space) must have an lbearing of 0 */
-    bounds->minx = bounds->maxx = 0;
-    bounds->miny = bounds->maxy = 0;
-
-    for ( i=ly_fore; i<sc->layer_cnt; ++i ) {
-	for ( rf=sc->layers[i].refs; rf!=NULL; rf = rf->next ) {
-	    if ( bounds->minx==0 && bounds->maxx==0 && bounds->miny==0 && bounds->maxy == 0 )
-		*bounds = rf->bb;
-	    else if ( rf->bb.minx!=0 || rf->bb.maxx != 0 || rf->bb.maxy != 0 || rf->bb.miny!=0 ) {
-		if ( rf->bb.minx < bounds->minx ) bounds->minx = rf->bb.minx;
-		if ( rf->bb.miny < bounds->miny ) bounds->miny = rf->bb.miny;
-		if ( rf->bb.maxx > bounds->maxx ) bounds->maxx = rf->bb.maxx;
-		if ( rf->bb.maxy > bounds->maxy ) bounds->maxy = rf->bb.maxy;
-	    }
+    for ( rf=sc->layers[layer].refs; rf!=NULL; rf = rf->next ) {
+	if ( bounds->minx==0 && bounds->maxx==0 && bounds->miny==0 && bounds->maxy == 0 )
+	    *bounds = rf->bb;
+	else if ( rf->bb.minx!=0 || rf->bb.maxx != 0 || rf->bb.maxy != 0 || rf->bb.miny!=0 ) {
+	    if ( rf->bb.minx < bounds->minx ) bounds->minx = rf->bb.minx;
+	    if ( rf->bb.miny < bounds->miny ) bounds->miny = rf->bb.miny;
+	    if ( rf->bb.maxx > bounds->maxx ) bounds->maxx = rf->bb.maxx;
+	    if ( rf->bb.maxy > bounds->maxy ) bounds->maxy = rf->bb.maxy;
 	}
+    }
 #ifdef FONTFORGE_CONFIG_TYPE3
-	memset(&b,0,sizeof(b));
-	_SplineSetFindBounds(sc->layers[i].splines,&b);
-	for ( img=sc->layers[i].images; img!=NULL; img=img->next )
-	    _ImageFindBounds(img,bounds);
-	if ( sc->layers[i].dostroke ) {
-	    if ( sc->layers[i].stroke_pen.width!=WIDTH_INHERITED )
-		e = sc->layers[i].stroke_pen.width*sc->layers[i].stroke_pen.trans[0];
-	    else
-		e = sc->layers[i].stroke_pen.trans[0];
-	    b.minx -= e; b.maxx += e;
-	    b.miny -= e; b.maxy += e;
-	}
+    memset(&b,0,sizeof(b));
+    memset(&clipb,0,sizeof(clipb));
+    _SplineSetFindClippedBounds(sc->layers[layer].splines,&b,&clipb);
+    for ( img=sc->layers[layer].images; img!=NULL; img=img->next )
+	_ImageFindBounds(img,bounds);
+    if ( sc->layers[layer].dostroke ) {
+	if ( sc->layers[layer].stroke_pen.width!=WIDTH_INHERITED )
+	    e = sc->layers[layer].stroke_pen.width*sc->layers[layer].stroke_pen.trans[0];
+	else
+	    e = sc->layers[layer].stroke_pen.trans[0];
+	b.minx -= e; b.maxx += e;
+	b.miny -= e; b.maxy += e;
+    }
+    if ( clipb.minx!=0 || clipb.miny!=0 || clipb.maxx!=0 || clipb.maxy!=0 ) {
+	if ( b.minx<clipb.minx ) b.minx = clipb.minx;
+	if ( b.miny<clipb.miny ) b.miny = clipb.miny;
+	if ( b.maxx>clipb.maxx ) b.maxx = clipb.maxx;
+	if ( b.maxy>clipb.maxy ) b.maxy = clipb.maxy;
+    }
     if ( bounds->minx==0 && bounds->maxx==0 && bounds->miny==0 && bounds->maxy == 0 )
 	*bounds = b;
     else if ( b.minx!=0 || b.maxx != 0 || b.maxy != 0 || b.miny!=0 ) {
@@ -732,9 +820,9 @@ void SplineCharFindBounds(SplineChar *sc,DBounds *bounds) {
 	if ( b.maxy > bounds->maxy ) bounds->maxy = b.maxy;
     }
 #else
-	_SplineSetFindBounds(sc->layers[i].splines,bounds);
+    _SplineSetFindBounds(sc->layers[layer].splines,bounds);
 #endif
-    }
+
     if ( sc->parent!=NULL && sc->parent->strokedfont &&
 	    (bounds->minx!=bounds->maxx || bounds->miny!=bounds->maxy)) {
 	real sw = sc->parent->strokewidth;
@@ -743,13 +831,42 @@ void SplineCharFindBounds(SplineChar *sc,DBounds *bounds) {
     }
 }
 
-void SplineFontFindBounds(SplineFont *sf,DBounds *bounds) {
-    RefChar *rf;
-    int i, k;
-#ifdef FONTFORGE_CONFIG_TYPE3
-    real extra=0,e;
-    ImageList *img;
-#endif
+void SplineCharLayerFindBounds(SplineChar *sc,int layer,DBounds *bounds) {
+
+    if ( sc->parent!=NULL && sc->parent->multilayer ) {
+	SplineCharFindBounds(sc,bounds);
+return;
+    }
+
+    /* a char with no splines (ie. a space) must have an lbearing of 0 */
+    bounds->minx = bounds->maxx = 0;
+    bounds->miny = bounds->maxy = 0;
+
+    _SplineCharLayerFindBounds(sc,layer,bounds);
+}
+
+void SplineCharFindBounds(SplineChar *sc,DBounds *bounds) {
+    int i;
+    int first,last;
+
+    /* a char with no splines (ie. a space) must have an lbearing of 0 */
+    bounds->minx = bounds->maxx = 0;
+    bounds->miny = bounds->maxy = 0;
+
+    first = last = ly_fore;
+    if ( sc->parent!=NULL && sc->parent->multilayer )
+	last = sc->layer_cnt-1;
+    for ( i=first; i<=last; ++i )
+	_SplineCharLayerFindBounds(sc,i,bounds);
+}
+
+void SplineFontLayerFindBounds(SplineFont *sf,int layer,DBounds *bounds) {
+    int i, k, first, last;
+
+    if ( sf->multilayer ) {
+	SplineFontFindBounds(sf,bounds);
+return;
+    }
 
     bounds->minx = bounds->maxx = 0;
     bounds->miny = bounds->maxy = 0;
@@ -757,40 +874,34 @@ void SplineFontFindBounds(SplineFont *sf,DBounds *bounds) {
     for ( i = 0; i<sf->glyphcnt; ++i ) {
 	SplineChar *sc = sf->glyphs[i];
 	if ( sc!=NULL ) {
-	    for ( k=ly_fore; k<sc->layer_cnt; ++k ) {
-		for ( rf=sc->layers[k].refs; rf!=NULL; rf = rf->next ) {
-		    if ( bounds->minx==0 && bounds->maxx==0 && bounds->miny==0 && bounds->maxy == 0 )
-			*bounds = rf->bb;
-		    else if ( rf->bb.minx!=0 || rf->bb.maxx != 0 || rf->bb.maxy != 0 || rf->bb.miny!=0 ) {
-			if ( rf->bb.minx < bounds->minx ) bounds->minx = rf->bb.minx;
-			if ( rf->bb.miny < bounds->miny ) bounds->miny = rf->bb.miny;
-			if ( rf->bb.maxx > bounds->maxx ) bounds->maxx = rf->bb.maxx;
-			if ( rf->bb.maxy > bounds->maxy ) bounds->maxy = rf->bb.maxy;
-		    }
-		}
-
-		_SplineSetFindBounds(sc->layers[k].splines,bounds);
-#ifdef FONTFORGE_CONFIG_TYPE3
-		for ( img=sc->layers[k].images; img!=NULL; img=img->next )
-		    _ImageFindBounds(img,bounds);
-		if ( sc->layers[k].dostroke ) {
-		    if ( sc->layers[k].stroke_pen.width!=WIDTH_INHERITED )
-			e = sc->layers[k].stroke_pen.width*sc->layers[k].stroke_pen.trans[0];
-		    else
-			e = sc->layers[k].stroke_pen.trans[0];
-		    if ( e>extra ) extra = e;
-		}
-#endif
-	    }
+	    first = last = ly_fore;
+	    if ( sc->parent != NULL && sc->parent->multilayer )
+		last = sc->layer_cnt-1;
+	    for ( k=first; k<=last; ++k )
+		_SplineCharLayerFindBounds(sc,k,bounds);
 	}
     }
-#ifdef FONTFORGE_CONFIG_TYPE3
-    bounds->minx -= extra; bounds->miny -= extra;
-    bounds->maxx += extra; bounds->maxy += extra;
-#endif
 }
 
-void CIDFindBounds(SplineFont *cidmaster,DBounds *bounds) {
+void SplineFontFindBounds(SplineFont *sf,DBounds *bounds) {
+    int i, k, first, last;
+
+    bounds->minx = bounds->maxx = 0;
+    bounds->miny = bounds->maxy = 0;
+
+    for ( i = 0; i<sf->glyphcnt; ++i ) {
+	SplineChar *sc = sf->glyphs[i];
+	if ( sc!=NULL ) {
+	    first = last = ly_fore;
+	    if ( sf->multilayer )
+		last = sc->layer_cnt-1;
+	    for ( k=first; k<=last; ++k )
+		_SplineCharLayerFindBounds(sc,k,bounds);
+	}
+    }
+}
+
+void CIDLayerFindBounds(SplineFont *cidmaster,int layer,DBounds *bounds) {
     SplineFont *sf;
     int i;
     DBounds b;
@@ -799,17 +910,17 @@ void CIDFindBounds(SplineFont *cidmaster,DBounds *bounds) {
     if ( cidmaster->cidmaster )
 	cidmaster = cidmaster->cidmaster;
     if ( cidmaster->subfonts==NULL ) {
-	SplineFontFindBounds(cidmaster,bounds);
+	SplineFontLayerFindBounds(cidmaster,layer,bounds);
 return;
     }
 
     sf = cidmaster->subfonts[0];
-    SplineFontFindBounds(sf,bounds);
+    SplineFontLayerFindBounds(sf,layer,bounds);
     factor = 1000.0/(sf->ascent+sf->descent);
     bounds->maxx *= factor; bounds->minx *= factor; bounds->miny *= factor; bounds->maxy *= factor;
     for ( i=1; i<cidmaster->subfontcnt; ++i ) {
 	sf = cidmaster->subfonts[i];
-	SplineFontFindBounds(sf,&b);
+	SplineFontLayerFindBounds(sf,layer,&b);
 	factor = 1000.0/(sf->ascent+sf->descent);
 	b.maxx *= factor; b.minx *= factor; b.miny *= factor; b.maxy *= factor;
 	if ( b.maxx>bounds->maxx ) bounds->maxx = b.maxx;
@@ -869,7 +980,7 @@ void SplineSetQuickBounds(SplineSet *ss,DBounds *b) {
 
 void SplineCharQuickBounds(SplineChar *sc, DBounds *b) {
     RefChar *ref;
-    int i;
+    int i,first, last;
     DBounds temp;
 #ifdef FONTFORGE_CONFIG_TYPE3
     real e;
@@ -877,7 +988,10 @@ void SplineCharQuickBounds(SplineChar *sc, DBounds *b) {
 #endif
 
     memset(b,0,sizeof(*b));
-    for ( i=ly_fore; i<sc->layer_cnt; ++i ) {
+    first = last = ly_fore;
+    if ( sc->parent!=NULL && sc->parent->multilayer )
+	last = sc->layer_cnt-1;
+    for ( i=first; i<=last; ++i ) {
 	SplineSetQuickBounds(sc->layers[i].splines,&temp);
 #ifdef FONTFORGE_CONFIG_TYPE3
 	for ( img=sc->layers[i].images; img!=NULL; img=img->next )
@@ -909,7 +1023,8 @@ void SplineCharQuickBounds(SplineChar *sc, DBounds *b) {
 	    }
 	}
     }
-    if ( sc->parent->strokedfont && (b->minx!=b->maxx || b->miny!=b->maxy)) {
+    if ( sc->parent!=NULL && sc->parent->strokedfont &&
+	    (b->minx!=b->maxx || b->miny!=b->maxy)) {
 	real sw = sc->parent->strokewidth;
 	b->minx -= sw; b->miny -= sw;
 	b->maxx += sw; b->maxy += sw;
@@ -950,7 +1065,7 @@ void SplineSetQuickConservativeBounds(SplineSet *ss,DBounds *b) {
 
 void SplineCharQuickConservativeBounds(SplineChar *sc, DBounds *b) {
     RefChar *ref;
-    int i;
+    int i, first,last;
     DBounds temp;
 #ifdef FONTFORGE_CONFIG_TYPE3
     real e;
@@ -958,7 +1073,10 @@ void SplineCharQuickConservativeBounds(SplineChar *sc, DBounds *b) {
 #endif
 
     memset(b,0,sizeof(*b));
-    for ( i=ly_fore; i<sc->layer_cnt; ++i ) {
+    first = last = ly_fore;
+    if ( sc->parent!=NULL && sc->parent->multilayer )
+	last = sc->layer_cnt-1;
+    for ( i=first; i<=last; ++i ) {
 	SplineSetQuickConservativeBounds(sc->layers[i].splines,&temp);
 #ifdef FONTFORGE_CONFIG_TYPE3
 	for ( img=sc->layers[i].images; img!=NULL; img=img->next )
@@ -1017,6 +1135,7 @@ void SplineFontQuickConservativeBounds(SplineFont *sf,DBounds *b) {
 }
 
 void SplinePointCatagorize(SplinePoint *sp) {
+    int oldpointtype = sp->pointtype;
 
     sp->pointtype = pt_corner;
     if ( sp->next==NULL && sp->prev==NULL )
@@ -1031,10 +1150,9 @@ void SplinePointCatagorize(SplinePoint *sp) {
     } else if ( sp->nonextcp && sp->noprevcp ) {
 	;
     } else {
-	BasePoint ndir, ncdir, pdir, pcdir;
+	BasePoint ndir, ncdir, ncunit, pdir, pcdir, pcunit;
 	double nlen, nclen, plen, pclen;
-	double slop;
-	double minlen;
+	double dot;
 
 	ncdir.x = sp->nextcp.x - sp->me.x; ncdir.y = sp->nextcp.y - sp->me.y;
 	pcdir.x = sp->prevcp.x - sp->me.x; pcdir.y = sp->prevcp.y - sp->me.y;
@@ -1049,31 +1167,34 @@ void SplinePointCatagorize(SplinePoint *sp) {
 	pclen = sqrt(pcdir.x*pcdir.x + pcdir.y*pcdir.y);
 	nlen = sqrt(ndir.x*ndir.x + ndir.y*ndir.y);
 	plen = sqrt(pdir.x*pdir.x + pdir.y*pdir.y);
-	if ( nclen!=0 ) { ncdir.x /= nclen; ncdir.y /= nclen; }
-	if ( pclen!=0 ) { pcdir.x /= pclen; pcdir.y /= pclen; }
+	ncunit = ncdir; pcunit = pcdir;
+	if ( nclen!=0 ) { ncunit.x /= nclen; ncunit.y /= nclen; }
+	if ( pclen!=0 ) { pcunit.x /= pclen; pcunit.y /= pclen; }
 	if ( nlen!=0 ) { ndir.x /= nlen; ndir.y /= nlen; }
 	if ( plen!=0 ) { pdir.x /= plen; pdir.y /= plen; }
-	/* as the cp gets closer to the base point (being bound to integer */
-	/* coordinates in many cases) we need to be less precise in our defn */
-	/* of colinear. */
-	if ( pclen>=1 && nclen>=1 )
-	    minlen = pclen<nclen ? pclen : nclen;
-	else if ( pclen>=1 )
-	    minlen = pclen;
-	else
-	    minlen = nclen;
-	if ( minlen<2 )
-	    slop = -.95;
-	else if ( minlen<5 )
-	    slop = -.98;
-	else
-	    slop = -.99;
-	if ( nclen!=0 && pclen!=0 && ncdir.x*pcdir.x+ncdir.y*pcdir.y<slop )
+
+	/* find out which side has the shorter control vector. Dot that vector */
+	/*  with the normal of the unit vector on the other side. If the */
+	/*  result is less than 1 em-unit then we've got colinear control points */
+	/*  (within the resolution of the integer grid) */
+	if ( nclen!=0 && pclen!=0 &&
+		((nclen>=pclen && (dot = pcdir.x*ncunit.y - pcdir.y*ncunit.x)<1.0 && dot>-1.0 ) ||
+		 (pclen>nclen && (dot = ncdir.x*pcunit.y - ncdir.y*pcunit.x)<1.0 && dot>-1.0 )))
 	    sp->pointtype = pt_curve;
-	else if (( nclen!=0 || plen!=0 ) &&
-		(nclen==0 || ncdir.x*pdir.x+ncdir.y*pdir.y<slop ) &&
-		(pclen==0 || ndir.x*pcdir.x+ndir.y*pcdir.y<slop ))
+	/* Dot product of control point with unit vector normal to line in */
+	/*  opposite direction should be less than an em-unit for a tangent */
+	else if (( nclen==0 && pclen!=0 && (dot = pcdir.x*ndir.y-pcdir.y*ndir.x)<1.0 && dot>-1.0 ) ||
+		( pclen==0 && nclen!=0 && (dot = ncdir.x*pdir.y-ncdir.y*pdir.x)<1.0 && dot>-1.0 ))
 	    sp->pointtype = pt_tangent;
+
+	/* If a point started out hv, and could still be hv, them make it so */
+	/*  but don't make hv points de novo, Alexey doesn't like change */
+	/*  (this only works because hv isn't a default setting, so if it's */
+	/*   there it was done intentionally) */
+	if ( sp->pointtype == pt_curve && oldpointtype == pt_hvcurve &&
+		((sp->nextcp.x==sp->me.x && sp->prevcp.x==sp->me.x && sp->nextcp.y!=sp->me.y) ||
+		 (sp->nextcp.y==sp->me.y && sp->prevcp.y==sp->me.y && sp->nextcp.x!=sp->me.x)))
+	    sp->pointtype = pt_hvcurve;
     }
 }
 
@@ -1157,6 +1278,7 @@ SplinePointList *SplinePointListCopy1(const SplinePointList *spl) {
     Spline *spline;
 
     cur = chunkalloc(sizeof(SplinePointList));
+    cur->is_clip_path = spl->is_clip_path;
 
     for ( pt=spl->first; ;  ) {
 	cpt = chunkalloc(sizeof(SplinePoint));
@@ -1195,6 +1317,11 @@ SplinePointList *SplinePointListCopy1(const SplinePointList *spl) {
 	spline->approx = NULL;
 	cur->last = cpt;
     }
+    if ( spl->spiro_cnt!=0 ) {
+	cur->spiro_cnt = cur->spiro_max = spl->spiro_cnt;
+	cur->spiros = galloc(cur->spiro_cnt*sizeof(spiro_cp));
+	memcpy(cur->spiros,spl->spiros,cur->spiro_cnt*sizeof(spiro_cp));
+    }
 return( cur );
 }
 
@@ -1209,10 +1336,10 @@ static SplinePointList *SplinePointListCopySelected1(SplinePointList *spl) {
 
     start = spl->first;
     if ( spl->first==spl->last ) {
-	/* If it's a circle and the start point is selected then we don't know*/
-	/*  where that selection began (and we have to keep it with the things*/
-	/*  that precede it when we make the new splinesets), so loop until we*/
-	/*  find something unselected */
+	/* If it's a closed contour and the start point is selected then we */
+	/*  don't know where that selection began (and we have to keep it with */
+	/*  the things that precede it when we make the new splinesets), so */
+	/*  loop until we find something unselected */
 	while ( start->selected )
 	    start = start->next->to;
     }
@@ -1263,6 +1390,54 @@ static SplinePointList *SplinePointListCopySelected1(SplinePointList *spl) {
 return( head );
 }
 
+/* If this routine is called we are guarenteed that:
+    at least one point on the splineset is selected
+    not all points on the splineset are selected
+*/
+static SplinePointList *SplinePointListCopySpiroSelected1(SplinePointList *spl) {
+    SplinePointList *head=NULL, *last=NULL, *cur;
+    int i,j;
+    spiro_cp *list = spl->spiros, *freeme = NULL, *temp;
+
+    if ( !SPIRO_SPL_OPEN(spl)) {
+	/* If it's a closed contour and the start point is selected then we */
+	/*  don't know where that selection began (and we have to keep it with */
+	/*  the things that precede it when we make the new splinesets), so */
+	/*  loop until we find something unselected */
+	for ( i=0 ; i<spl->spiro_cnt-1; ++i )
+	    if ( !(SPIRO_SELECTED(&list[i])) )
+	break;
+	if ( i!=0 ) {
+	    freeme = galloc(spl->spiro_cnt*sizeof(spiro_cp));
+	    memcpy(freeme,list+i,(spl->spiro_cnt-1-i)*sizeof(spiro_cp));
+	    memcpy(freeme+(spl->spiro_cnt-1-i),list,i*sizeof(spiro_cp));
+	    /* And copy the list terminator */
+	    memcpy(freeme+spl->spiro_cnt-1,list+spl->spiro_cnt-1,sizeof(spiro_cp));
+	    list = freeme;
+	}
+    }
+    for ( i=0 ; i<spl->spiro_cnt-1; ) {
+	/* Skip unselected things */
+	for ( ; i<spl->spiro_cnt-1 && !SPIRO_SELECTED(&list[i]); ++i );
+	if ( i==spl->spiro_cnt-1 )
+    break;
+	for ( j=i; j<spl->spiro_cnt-1 && SPIRO_SELECTED(&list[j]); ++j );
+	temp = galloc((j-i+2)*sizeof(spiro_cp));
+	memcpy(temp,list+i,(j-i)*sizeof(spiro_cp));
+	temp[0].ty = SPIRO_OPEN_CONTOUR;
+	memset(temp+(j-i),0,sizeof(spiro_cp));
+	temp[j-i].ty = SPIRO_END;
+	cur = SpiroCP2SplineSet( temp );
+	if ( head==NULL )
+	    head = cur;
+	else
+	    last->next = cur;
+	last = cur;
+	i = j;
+    }
+return( head );
+}
+
 SplinePointList *SplinePointListCopy(const SplinePointList *base) {
     SplinePointList *head=NULL, *last=NULL, *cur;
 
@@ -1307,16 +1482,89 @@ SplinePointList *SplinePointListCopySelected(SplinePointList *base) {
 return( head );
 }
 
+SplinePointList *SplinePointListCopySpiroSelected(SplinePointList *base) {
+    SplinePointList *head=NULL, *last=NULL, *cur=NULL;
+    int anysel, allsel;
+    int i;
+
+    for ( ; base!=NULL; base = base->next ) {
+	anysel = false; allsel = true;
+	for ( i=0; i<base->spiro_cnt-1; ++i ) {
+	    if ( SPIRO_SELECTED(&base->spiros[i]) )
+		anysel = true;
+	    else
+		allsel = false;
+	}
+	if ( allsel )
+	    cur = SplinePointListCopy1(base);
+	else if ( anysel )
+	    cur = SplinePointListCopySpiroSelected1(base);
+	if ( anysel ) {
+	    if ( head==NULL )
+		head = cur;
+	    else
+		last->next = cur;
+	    for ( last = cur; last->next ; last = last->next );
+	}
+    }
+return( head );
+}
+
+static SplinePointList *SplinePointListSplitSpiros(SplineChar *sc,SplinePointList *spl) {
+    SplinePointList *head=NULL, *last=NULL, *cur;
+    int i;
+    spiro_cp *list = spl->spiros, *freeme = NULL, *temp;
+
+    if ( !SPIRO_SPL_OPEN(spl)) {
+	/* If it's a closed contour and the start point is selected then we */
+	/*  don't know where that selection began (and we have to keep it with */
+	/*  the things that precede it when we make the new splinesets), so */
+	/*  loop until we find something unselected */
+	for ( i=0 ; i<spl->spiro_cnt-1; ++i )
+	    if ( !(SPIRO_SELECTED(&list[i])) )
+	break;
+	if ( i!=0 ) {
+	    freeme = galloc(spl->spiro_cnt*sizeof(spiro_cp));
+	    memcpy(freeme,list+i,(spl->spiro_cnt-1-i)*sizeof(spiro_cp));
+	    memcpy(freeme+(spl->spiro_cnt-1-i),list,i*sizeof(spiro_cp));
+	    /* And copy the list terminator */
+	    memcpy(freeme+spl->spiro_cnt-1,list+spl->spiro_cnt-1,sizeof(spiro_cp));
+	    list = freeme;
+	}
+    }
+    for ( i=0 ; i<spl->spiro_cnt-1; ) {
+	int start = i;
+	/* Retain unselected things */
+	for ( ; i<spl->spiro_cnt-1 && !SPIRO_SELECTED(&list[i]); ++i );
+	if ( i!=start ) {
+	    temp = galloc((i-start+2)*sizeof(spiro_cp));
+	    memcpy(temp,list+start,(i-start)*sizeof(spiro_cp));
+	    temp[0].ty = SPIRO_OPEN_CONTOUR;
+	    memset(temp+(i-start),0,sizeof(spiro_cp));
+	    temp[i-start].ty = SPIRO_END;
+	    cur = SpiroCP2SplineSet( temp );
+	    if ( head==NULL )
+		head = cur;
+	    else
+		last->next = cur;
+	    last = cur;
+	}
+	for ( ; i<spl->spiro_cnt-1 && SPIRO_SELECTED(&list[i]); ++i );
+    }
+    SplinePointListFree(spl);
+return( head );
+}
+
 static SplinePointList *SplinePointListSplit(SplineChar *sc,SplinePointList *spl) {
     SplinePointList *head=NULL, *last=NULL, *cur;
     SplinePoint *first, *start, *next;
 
     start = spl->first;
     if ( spl->first==spl->last ) {
-	/* If it's a circle and the start point isnt selected then we don't know*/
-	/*  where that selection began (and we have to keep it with the things*/
-	/*  that precede it when we make the new splinesets), so loop until we*/
-	/*  find something selected */
+	/* If it's a closed contour and the start point is selected then we */
+	/*  don't know where that selection began (and we have to keep it with */
+	/*  the things that precede it when we make the new splinesets), so */
+	/*  loop until we find something unselected */
 	while ( !start->selected )
 	    start = start->next->to;
     }
@@ -1376,25 +1624,46 @@ SplinePointList *SplinePointListRemoveSelected(SplineChar *sc,SplinePointList *b
     for ( ; base!=NULL; base = next ) {
 	next = base->next;
 	anysel = false; allsel = true;
-	first = NULL;
-	for ( pt=base->first; pt!=NULL && pt!=first; pt = pt->next->to ) {
-	    if ( pt->selected ) anysel = true;
-	    else allsel = false;
-	    if ( first==NULL ) first = pt;
-	    if ( pt->next==NULL )
-	break;
+	if ( !sc->inspiro || !hasspiro()) {
+	    first = NULL;
+	    for ( pt=base->first; pt!=NULL && pt!=first; pt = pt->next->to ) {
+		if ( pt->selected ) anysel = true;
+		else allsel = false;
+		if ( first==NULL ) first = pt;
+		if ( pt->next==NULL )
+	    break;
+	    }
+	} else {
+	    int i;
+	    for ( i=0; i<base->spiro_cnt; ++i ) {
+		if ( SPIRO_SELECTED(&base->spiros[i]) )
+		    anysel = true;
+		else
+		    allsel = false;
+	    }
 	}
 	if ( allsel ) {
 	    SplinePointListMDFree(sc,base);
     continue;
 	}
-	if ( head==NULL )
-	    head = base;
-	else
-	    last->next = base;
-	last = base;
-	if ( anysel )
-	    last = SplinePointListSplit(sc,base);
+	if ( !sc->inspiro || !anysel || !hasspiro()) {
+	    if ( head==NULL )
+		head = base;
+	    else
+		last->next = base;
+	    last = base;
+	    if ( anysel )
+		last = SplinePointListSplit(sc,base);
+	} else {
+	    SplineSet *ret;
+	    ret = SplinePointListSplitSpiros(sc,base);
+	    if ( head==NULL )
+		head = ret;
+	    else
+		last->next = ret;
+	    if ( ret!=NULL )
+		for ( last=ret; last->next!=NULL; last=last->next );
+	}
     }
     if ( last!=NULL ) last->next = NULL;
 return( head );
@@ -1417,7 +1686,6 @@ ImageList *ImageListCopy(ImageList *cimg) {
 return( head );
 }
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 ImageList *ImageListTransform(ImageList *img, real transform[6]) {
     ImageList *head = img;
 
@@ -1445,7 +1713,6 @@ ImageList *ImageListTransform(ImageList *img, real transform[6]) {
     }
 return( head );
 }
-#endif
 
 void ApTransform(AnchorPoint *ap, real transform[6]) {
     BasePoint p;
@@ -1478,6 +1745,22 @@ static void TransformPoint(SplinePoint *sp, real transform[6]) {
 	sp->prevcp = p;
     } else
 	sp->prevcp = sp->me;
+    if ( sp->pointtype == pt_hvcurve ) {
+	if ( 
+		((sp->nextcp.x==sp->me.x && sp->prevcp.x==sp->me.x && sp->nextcp.y!=sp->me.y) ||
+		 (sp->nextcp.y==sp->me.y && sp->prevcp.y==sp->me.y && sp->nextcp.x!=sp->me.x)))
+	    /* Do Nothing */;
+	else
+	    sp->pointtype = pt_curve;
+    }
+}
+
+static void TransformSpiro(spiro_cp *cp, real transform[6]) {
+    double x;
+
+    x = transform[0]*cp->x + transform[2]*cp->y + transform[4];
+    cp->y = transform[1]*cp->x + transform[3]*cp->y + transform[5];
+    cp->x = x;
 }
 
 SplinePointList *SplinePointListTransform(SplinePointList *base, real transform[6], int allpoints ) {
@@ -1493,6 +1776,20 @@ SplinePointList *SplinePointListTransform(SplinePointList *base, real transform[
 	    if ( pfirst==NULL ) pfirst = spt;
 	    if ( allpoints || spt->selected ) {
 		TransformPoint(spt,transform);
+		if ( !allpoints ) {
+		    if ( spt->next!=NULL && spt->next->order2 && !spt->next->to->selected && spt->next->to->ttfindex==0xffff ) {
+			SplinePoint *to = spt->next->to;
+			to->prevcp = spt->nextcp;
+			to->me.x = (to->prevcp.x+to->nextcp.x)/2;
+			to->me.y = (to->prevcp.y+to->nextcp.y)/2;
+		    }
+		    if ( spt->prev!=NULL && spt->prev->order2 && !spt->prev->from->selected && spt->prev->from->ttfindex==0xffff ) {
+			SplinePoint *from = spt->prev->from;
+			from->nextcp = spt->prevcp;
+			from->me.x = (from->prevcp.x+from->nextcp.x)/2;
+			from->me.y = (from->prevcp.y+from->nextcp.y)/2;
+		    }
+		}
 		anysel = true;
 	    } else
 		allsel = alldone = false;
@@ -1501,6 +1798,16 @@ SplinePointList *SplinePointListTransform(SplinePointList *base, real transform[
 	}
 	if ( !anysel )		/* This splineset had no selected points it's unchanged */
     continue;
+
+	/* If we changed all the points, then transform the spiro version too */
+	/*  otherwise if we just changed some points, throw away the spiro */
+	if ( allsel ) {
+	    int i;
+	    for ( i=0; i<spl->spiro_cnt-1; ++i )
+		TransformSpiro(&spl->spiros[i], transform);
+	} else
+	    SplineSetSpirosClear(spl);
+
 	/* if we changed all the points then the control points are right */
 	/*  otherwise those near the edges may be wonky, fix 'em up */
 	/* Figuring out where the edges of the selection are is difficult */
@@ -1510,6 +1817,12 @@ SplinePointList *SplinePointListTransform(SplinePointList *base, real transform[
 	    pfirst = NULL;
 	    for ( spt = spl->first ; spt!=pfirst; spt = spt->next->to ) {
 		if ( pfirst==NULL ) pfirst = spt;
+		if ( spt->selected && spt->prev!=NULL && !spt->prev->from->selected &&
+			spt->prev->from->pointtype == pt_tangent )
+		    SplineCharTangentPrevCP(spt->prev->from);
+		if ( spt->selected && spt->next!=NULL && !spt->next->to->selected &&
+			spt->next->to->pointtype == pt_tangent )
+		    SplineCharTangentNextCP(spt->next->to);
 		if ( spt->prev!=NULL && spt->prevcpdef )
 		    SplineCharDefaultPrevCP(spt);
 		if ( spt->next==NULL )
@@ -1523,6 +1836,42 @@ SplinePointList *SplinePointListTransform(SplinePointList *base, real transform[
 	    if ( !alldone ) SplineRefigureFixup(spline); else SplineRefigure(spline);
 	    if ( first==NULL ) first = spline;
 	}
+    }
+return( base );
+}
+
+SplinePointList *SplinePointListSpiroTransform(SplinePointList *base, real transform[6], int allpoints ) {
+    SplinePointList *spl;
+    int allsel, anysel;
+    int i;
+
+    if ( allpoints )
+return( SplinePointListTransform(base,transform,true));
+
+    for ( spl = base; spl!=NULL; spl = spl->next ) {
+	allsel = true; anysel=false;
+	for ( i=0; i<spl->spiro_cnt-1; ++i )
+	    if ( spl->spiros[i].ty & 0x80 )
+		anysel = true;
+	    else
+		allsel = false;
+	if ( !anysel )
+    continue;
+	if ( allsel ) {
+	    SplinePointList *next = spl->next;
+	    /* If we are transforming everything, then we can just transform */
+	    /*  the beziers too */
+	    spl->next = NULL;
+	    SplinePointListTransform(spl,transform,true);
+	    spl->next = next;
+    continue;
+	}
+	/* If we are transformings some things, then we need to transform the */
+	/*  selected spiros and then regenerate the beziers */
+	for ( i=0; i<spl->spiro_cnt-1; ++i )
+	    if ( spl->spiros[i].ty & 0x80 )
+		TransformSpiro(&spl->spiros[i], transform);
+	SSRegenerateFromSpiros(spl);
     }
 return( base );
 }
@@ -1646,15 +1995,15 @@ SplinePointList *SPLCopyTranslatedHintMasks(SplinePointList *base,
 return( head );
 }
 
-static SplinePointList *_SPLCopyTransformedHintMasks(SplineChar *subsc,real transform[6],
-	SplineChar *basesc ) {
+static SplinePointList *_SPLCopyTransformedHintMasks(SplineChar *subsc,int layer,
+	real transform[6], SplineChar *basesc ) {
     SplinePointList *spl, *spl2, *head, *last=NULL, *cur, *base;
     SplinePoint *spt, *spt2, *pfirst;
     Spline *s, *first;
     real trans[6];
     RefChar *rf;
 
-    base = subsc->layers[ly_fore].splines;
+    base = subsc->layers[layer].splines;
     head = SplinePointListCopy(base);
     if ( head!=NULL )
 	for ( last = head; last->next!=NULL; last=last->next );
@@ -1677,7 +2026,7 @@ static SplinePointList *_SPLCopyTransformedHintMasks(SplineChar *subsc,real tran
 	    if ( first==NULL ) first = s;
 	}
     }
-    for ( rf=subsc->layers[ly_fore].refs; rf!=NULL; rf=rf->next ) {
+    for ( rf=subsc->layers[layer].refs; rf!=NULL; rf=rf->next ) {
 	trans[0] = rf->transform[0]*transform[0] +
 		    rf->transform[1]*transform[2];
 	trans[1] = rf->transform[0]*transform[1] +
@@ -1692,7 +2041,7 @@ static SplinePointList *_SPLCopyTransformedHintMasks(SplineChar *subsc,real tran
 	trans[5] = rf->transform[4]*transform[1] +
 		    rf->transform[5]*transform[3] +
 		    transform[5];
-	cur = _SPLCopyTransformedHintMasks(rf->sc,trans,basesc);
+	cur = _SPLCopyTransformedHintMasks(rf->sc,layer,trans,basesc);
 	if ( head==NULL )
 	    head = cur;
 	else
@@ -1706,12 +2055,12 @@ return( head );
 }
 
 SplinePointList *SPLCopyTransformedHintMasks(RefChar *r,
-	SplineChar *basesc, BasePoint *trans ) {
+	SplineChar *basesc, BasePoint *trans,int layer ) {
     real transform[6];
 
     memcpy(transform,r->transform,sizeof(transform));
     transform[4] += trans->x; transform[5] += trans->y;
-return( _SPLCopyTransformedHintMasks(r->sc,transform,basesc));
+return( _SPLCopyTransformedHintMasks(r->sc,layer,transform,basesc));
 }
 
 void SplinePointListSelect(SplinePointList *spl,int sel) {
@@ -1743,7 +2092,7 @@ return;
 }
 
 static void InstanciateReference(SplineFont *sf, RefChar *topref, RefChar *refs,
-	real transform[6], SplineChar *dsc) {
+	real transform[6], SplineChar *dsc, int layer) {
     real trans[6];
     RefChar *rf;
     SplineChar *rsc;
@@ -1788,7 +2137,7 @@ return;
 	trans[5] = rf->transform[4]*transform[1] +
 		    rf->transform[5]*transform[3] +
 		    transform[5];
-	InstanciateReference(sf,topref,rf,trans,rsc);
+	InstanciateReference(sf,topref,rf,trans,rsc,layer);
     }
     rsc->ticked = false;
 
@@ -1805,12 +2154,12 @@ return;
 	}
 	for ( i=ly_fore; i<rsc->layer_cnt; ++i ) {
 	    topref->layers[i-ly_fore+lbase].splines = SplinePointListTransform(SplinePointListCopy(rsc->layers[i].splines),transform,true);
-	    topref->layers[i-ly_fore+lbase].fill_brush = rsc->layers[i].fill_brush;
-	    topref->layers[i-ly_fore+lbase].stroke_pen = rsc->layers[i].stroke_pen;
+	    BrushCopy(&topref->layers[i-ly_fore+lbase].fill_brush, &rsc->layers[i].fill_brush);
+	    PenCopy(&topref->layers[i-ly_fore+lbase].stroke_pen, &rsc->layers[i].stroke_pen);
 	    topref->layers[i-ly_fore+lbase].dofill = rsc->layers[i].dofill;
 	    topref->layers[i-ly_fore+lbase].dostroke = rsc->layers[i].dostroke;
 	    topref->layers[i-ly_fore+lbase].fillfirst = rsc->layers[i].fillfirst;
-	    /* ??? and images? Can't read images yet, so not a problem yet */
+	    /* ??? and images?  */
 	}
     } else {
 	if ( topref->layer_cnt==0 ) {
@@ -1820,7 +2169,7 @@ return;
 #else
     {
 #endif
-	new = SplinePointListTransform(SplinePointListCopy(rsc->layers[ly_fore].splines),transform,true);
+	new = SplinePointListTransform(SplinePointListCopy(rsc->layers[layer].splines),transform,true);
 	if ( new!=NULL ) {
 	    for ( spl = new; spl->next!=NULL; spl = spl->next );
 	    spl->next = topref->layers[0].splines;
@@ -1888,7 +2237,7 @@ char *XUIDFromFD(int xuid[20]) {
 return( ret );
 }
 
-void SplineFontMetaData(SplineFont *sf,struct fontdict *fd) {
+static void SplineFontMetaData(SplineFont *sf,struct fontdict *fd) {
     int em;
 
     sf->fontname = utf8_verify_copy(fd->cidfontname?fd->cidfontname:fd->fontname);
@@ -1992,7 +2341,7 @@ return;		/* It's just the expected matrix */
     }
     for ( i=0; i<sf->glyphcnt; ++i ) if ( (sc=sf->glyphs[i])!=NULL ) {
 	for ( refs=sc->layers[ly_fore].refs; refs!=NULL; refs=refs->next )
-	    SCReinstanciateRefChar(sc,refs);
+	    SCReinstanciateRefChar(sc,refs,ly_fore);
     }
 }
 
@@ -2006,11 +2355,11 @@ void SFInstanciateRefs(SplineFont *sf) {
     for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL ) {
 	SplineChar *sc = sf->glyphs[i];
 
-	for ( layer=ly_fore; layer<sc->layer_cnt; ++layer ) {
+	for ( layer=ly_back; layer<sc->layer_cnt; ++layer ) {
 	    for ( pr=NULL, refs = sc->layers[layer].refs; refs!=NULL; refs=next ) {
 		next = refs->next;
 		sc->ticked = true;
-		InstanciateReference(sf, refs, refs, refs->transform,sc);
+		InstanciateReference(sf, refs, refs, refs->transform,sc,layer);
 		if ( refs->sc!=NULL ) {
 		    SplineSetFindBounds(refs->layers[0].splines,&refs->bb);
 		    sc->ticked = false;
@@ -2116,11 +2465,7 @@ static void _SplineFontFromType1(SplineFont *sf, FontDict *fd, struct pscontext 
 	    sf->glyphs[i]->parent = sf;
 	    /* SCLigDefault(sf->glyphs[i]);*/		/* Also reads from AFM file, but it probably doesn't exist */
 	}
-#if defined(FONTFORGE_CONFIG_GDRAW)
-	gwwv_progress_next();
-#elif defined(FONTFORGE_CONFIG_GTK)
-	gwwv_progress_next();
-#endif
+	ff_progress_next();
     }
     SFInstanciateRefs(sf);
     if ( fd->metrics!=NULL ) {
@@ -2143,7 +2488,7 @@ static void _SplineFontFromType1(SplineFont *sf, FontDict *fd, struct pscontext 
 	    /*  seac to that character and a space (since I can only make */
 	    /*  real char links), so if we find a space link, get rid of*/
 	    /*  it. It's an artifact */
-	    SCRefToSplines(sf->glyphs[i],refs);
+	    SCRefToSplines(sf->glyphs[i],refs,ly_fore);
 	}
     }
     /* sometimes (some apple oblique fonts) the fontmatrix is not just a */
@@ -2170,7 +2515,6 @@ static void SplineFontFromType1(SplineFont *sf, FontDict *fd, struct pscontext *
     }
 }
 
-#ifndef LUA_FF_LIB
 static SplineFont *SplineFontFromMMType1(SplineFont *sf, FontDict *fd, struct pscontext *pscontext) {
     char *pt, *end, *origweight;
     MMSet *mm;
@@ -2181,11 +2525,7 @@ static SplineFont *SplineFontFromMMType1(SplineFont *sf, FontDict *fd, struct ps
 
     if ( fd->weightvector==NULL || fd->fontinfo->blenddesignpositions==NULL ||
 	    fd->fontinfo->blenddesignmap==NULL || fd->fontinfo->blendaxistypes==NULL ) {
-#if defined(FONTFORGE_CONFIG_GTK)
-	gwwv_post_error(_("Bad Multiple Master Font"),_("Bad Multiple Master Font"));
-#else
-	gwwv_post_error(_("Bad Multiple Master Font"),_("Bad Multiple Master Font"));
-#endif
+	ff_post_error(_("Bad Multiple Master Font"),_("Bad Multiple Master Font"));
 	SplineFontFree(sf);
 return( NULL );
     }
@@ -2234,17 +2574,9 @@ return( NULL );
     }
 
     if ( mm->instance_count < (1<<mm->axis_count) )
-#if defined(FONTFORGE_CONFIG_GTK)
-	gwwv_post_error(_("Bad Multiple Master Font"),_("This multiple master font has %1$d instance fonts, but it needs at least %2$d master fonts for %3$d axes. FontForge will not be able to edit this correctly"),mm->instance_count,1<<mm->axis_count,mm->axis_count);
-#else
-	gwwv_post_error(_("Bad Multiple Master Font"),_("This multiple master font has %1$d instance fonts, but it needs at least %2$d master fonts for %3$d axes. FontForge will not be able to edit this correctly"),mm->instance_count,1<<mm->axis_count,mm->axis_count);
-#endif
+	ff_post_error(_("Bad Multiple Master Font"),_("This multiple master font has %1$d instance fonts, but it needs at least %2$d master fonts for %3$d axes. FontForge will not be able to edit this correctly"),mm->instance_count,1<<mm->axis_count,mm->axis_count);
     else if ( mm->instance_count > (1<<mm->axis_count) )
-#if defined(FONTFORGE_CONFIG_GTK)
-	gwwv_post_error(_("Bad Multiple Master Font"),_("This multiple master font has %1$d instance fonts, but FontForge can only handle %2$d master fonts for %3$d axes. FontForge will not be able to edit this correctly"),mm->instance_count,1<<mm->axis_count,mm->axis_count);
-#else
-	gwwv_post_error(_("Bad Multiple Master Font"),_("This multiple master font has %1$d instance fonts, but FontForge can only handle %2$d master fonts for %3$d axes. FontForge will not be able to edit this correctly"),mm->instance_count,1<<mm->axis_count,mm->axis_count);
-#endif
+	ff_post_error(_("Bad Multiple Master Font"),_("This multiple master font has %1$d instance fonts, but FontForge can only handle %2$d master fonts for %3$d axes. FontForge will not be able to edit this correctly"),mm->instance_count,1<<mm->axis_count,mm->axis_count);
     mm->positions = gcalloc(mm->axis_count*mm->instance_count,sizeof(real));
     pt = fd->fontinfo->blenddesignpositions;
     while ( *pt==' ' ) ++pt;
@@ -2412,7 +2744,6 @@ return( NULL );
 
 return( sf );
 }
-#endif
 
 static SplineFont *SplineFontFromCIDType1(SplineFont *sf, FontDict *fd,
 	struct pscontext *pscontext) {
@@ -2447,6 +2778,9 @@ return( NULL );
     sf->subfontcnt = fd->fdcnt;
     sf->subfonts = galloc((sf->subfontcnt+1)*sizeof(SplineFont *));
     for ( i=0; i<fd->fdcnt; ++i ) {
+	if ( fd->fontmatrix[0]!=0 ) {
+	    MatMultiply(fd->fontmatrix,fd->fds[i]->fontmatrix,fd->fds[i]->fontmatrix);
+	}
 	sf->subfonts[i] = SplineFontEmpty();
 	SplineFontMetaData(sf->subfonts[i],fd->fds[i]);
 	sf->subfonts[i]->cidmaster = sf;
@@ -2476,11 +2810,7 @@ return( NULL );
 	if ( chars[i]->layers[ly_fore].refs!=NULL )
 	    IError( "Reference found in CID font. Can't fix it up");
 	sf->subfonts[j]->glyphcnt = sf->subfonts[j]->glyphmax = i+1;
-#if defined(FONTFORGE_CONFIG_GDRAW)
-	gwwv_progress_next();
-#elif defined(FONTFORGE_CONFIG_GTK)
-	gwwv_progress_next();
-#endif
+	ff_progress_next();
     }
     for ( i=0; i<fd->fdcnt; ++i )
 	sf->subfonts[i]->glyphs = gcalloc(sf->subfonts[i]->glyphcnt,sizeof(SplineChar *));
@@ -2528,10 +2858,8 @@ SplineFont *SplineFontFromPSFont(FontDict *fd) {
 	    sf = fd->sf;
 	} else if ( fd->fdcnt!=0 )
 	    sf = SplineFontFromCIDType1(sf,fd,&pscontext);
-#ifndef LUA_FF_LIB
 	else if ( fd->weightvector!=NULL )
 	    SplineFontFromMMType1(sf,fd,&pscontext);
-#endif
 	else
 	    SplineFontFromType1(sf,fd,&pscontext);
 	if ( loaded_fonts_same_as_new && new_fonts_are_order2 &&
@@ -2545,8 +2873,8 @@ return( sf );
 
 #ifdef FONTFORGE_CONFIG_TYPE3
 static void LayerToRefLayer(struct reflayer *rl,Layer *layer) {
-    rl->fill_brush = layer->fill_brush;
-    rl->stroke_pen = layer->stroke_pen;
+    BrushCopy(&rl->fill_brush, &layer->fill_brush);
+    PenCopy(&rl->stroke_pen, &layer->stroke_pen);
     rl->dofill = layer->dofill;
     rl->dostroke = layer->dostroke;
     rl->fillfirst = layer->fillfirst;
@@ -2581,16 +2909,21 @@ void RefCharFindBounds(RefChar *rf) {
 #endif
 }
 
-void SCReinstanciateRefChar(SplineChar *sc,RefChar *rf) {
-    SplinePointList *spl, *new;
+void SCReinstanciateRefChar(SplineChar *sc,RefChar *rf,int layer) {
+    SplinePointList *new, *last;
     RefChar *refs;
 #ifdef FONTFORGE_CONFIG_TYPE3
     int i,j;
     SplineChar *rsc = rf->sc;
     real extra=0,e;
 
-    for ( i=0; i<rf->layer_cnt; ++i )
+    for ( i=0; i<rf->layer_cnt; ++i ) {
 	SplinePointListsFree(rf->layers[i].splines);
+	GradientFree(rf->layers[i].fill_brush.gradient);
+	PatternFree(rf->layers[i].fill_brush.pattern);
+	GradientFree(rf->layers[i].stroke_pen.brush.gradient);
+	PatternFree(rf->layers[i].stroke_pen.brush.pattern);
+    }
     free( rf->layers );
     rf->layers = NULL;
     rf->layer_cnt = 0;
@@ -2653,29 +2986,31 @@ return;
 	rf->bb.minx -= extra; rf->bb.miny -= extra;
 	rf->bb.maxx += extra; rf->bb.maxy += extra;
     } else {
-	rf->layers = gcalloc(1,sizeof(struct reflayer));
-	rf->layer_cnt = 1;
-	rf->layers[0].dofill = true;
 #else
-    SplinePointListsFree(rf->layers[0].splines);
-    rf->layers[0].splines = NULL;
-    if ( rf->sc==NULL )
-return;
     {
 #endif
-	new = SplinePointListTransform(SplinePointListCopy(rf->sc->layers[ly_fore].splines),rf->transform,true);
-	if ( new!=NULL ) {
-	    for ( spl = new; spl->next!=NULL; spl = spl->next );
-	    spl->next = rf->layers[0].splines;
-	    rf->layers[0].splines = new;
+	if ( rf->layer_cnt>0 ) {
+	    SplinePointListsFree(rf->layers[0].splines);
+	    rf->layers[0].splines = NULL;
 	}
-	for ( refs = rf->sc->layers[ly_fore].refs; refs!=NULL; refs = refs->next ) {
+	rf->layers = gcalloc(1,sizeof(struct reflayer));
+	rf->layer_cnt = 1;
+#ifdef FONTFORGE_CONFIG_TYPE3
+	rf->layers[0].dofill = true;
+#endif
+	new = SplinePointListTransform(SplinePointListCopy(rf->sc->layers[layer].splines),rf->transform,true);
+	rf->layers[0].splines = new;
+	last = NULL;
+	if ( new!=NULL )
+	    for ( last = new; last->next!=NULL; last = last->next );
+	for ( refs = rf->sc->layers[layer].refs; refs!=NULL; refs = refs->next ) {
 	    new = SplinePointListTransform(SplinePointListCopy(refs->layers[0].splines),rf->transform,true);
-	    if ( new!=NULL ) {
-		for ( spl = new; spl->next!=NULL; spl = spl->next );
-		spl->next = rf->layers[0].splines;
+	    if ( last!=NULL )
+		last->next = new;
+	    else
 		rf->layers[0].splines = new;
-	    }
+	    if ( new!=NULL )
+		for ( last = new; last->next!=NULL; last = last->next );
 	}
     }
     RefCharFindBounds(rf);
@@ -2692,7 +3027,7 @@ static void _SFReinstanciateRefs(SplineFont *sf) {
     cnt = 0;
     while ( undone && cnt<200) {
 	undone = false;
-	for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL ) {
+	for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL && !sf->glyphs[i]->ticked ) {
 	    undoable = false;
 	    for ( j=0; j<sf->glyphs[i]->layer_cnt; ++j ) {
 		for ( ref=sf->glyphs[i]->layers[j].refs; ref!=NULL; ref=ref->next ) {
@@ -2705,7 +3040,7 @@ static void _SFReinstanciateRefs(SplineFont *sf) {
 	    else {
 		for ( j=0; j<sf->glyphs[i]->layer_cnt; ++j ) {
 		    for ( ref=sf->glyphs[i]->layers[j].refs; ref!=NULL; ref=ref->next )
-			SCReinstanciateRefChar(sf->glyphs[i],ref);
+			SCReinstanciateRefChar(sf->glyphs[i],ref,j);
 		}
 		sf->glyphs[i]->ticked = true;
 	    }
@@ -2725,22 +3060,22 @@ void SFReinstanciateRefs(SplineFont *sf) {
 	_SFReinstanciateRefs(sf);
 }
 
-void SCReinstanciateRef(SplineChar *sc,SplineChar *rsc) {
+void SCReinstanciateRef(SplineChar *sc,SplineChar *rsc,int layer) {
     RefChar *rf;
 
-    for ( rf=sc->layers[ly_fore].refs; rf!=NULL; rf=rf->next ) if ( rf->sc==rsc ) {
-	SCReinstanciateRefChar(sc,rf);
+    for ( rf=sc->layers[layer].refs; rf!=NULL; rf=rf->next ) if ( rf->sc==rsc ) {
+	SCReinstanciateRefChar(sc,rf,layer);
     }
 }
 
-void SCRemoveDependent(SplineChar *dependent,RefChar *rf) {
+void SCRemoveDependent(SplineChar *dependent,RefChar *rf,int layer) {
     struct splinecharlist *dlist, *pd;
     RefChar *prev;
 
-    if ( dependent->layers[ly_fore].refs==rf )
-	dependent->layers[ly_fore].refs = rf->next;
+    if ( dependent->layers[layer].refs==rf )
+	dependent->layers[layer].refs = rf->next;
     else {
-	for ( prev = dependent->layers[ly_fore].refs; prev->next!=rf; prev=prev->next );
+	for ( prev = dependent->layers[layer].refs; prev->next!=rf; prev=prev->next );
 	prev->next = rf->next;
     }
     /* Check for multiple dependencies (colon has two refs to period) */
@@ -2767,7 +3102,7 @@ void SCRemoveLayerDependents(SplineChar *dependent,int layer) {
 
     for ( rf=dependent->layers[layer].refs; rf!=NULL; rf=next ) {
 	next = rf->next;
-	SCRemoveDependent(dependent,rf);
+	SCRemoveDependent(dependent,rf,layer);
     }
     dependent->layers[layer].refs = NULL;
 }
@@ -2779,35 +3114,31 @@ void SCRemoveDependents(SplineChar *dependent) {
 	SCRemoveLayerDependents(dependent,layer);
 }
 
-void SCRefToSplines(SplineChar *sc,RefChar *rf) {
+void SCRefToSplines(SplineChar *sc,RefChar *rf,int layer) {
     SplineSet *spl;
 #ifdef FONTFORGE_CONFIG_TYPE3
-    int layer;
+    int rlayer;
 
     if ( sc->parent->multilayer ) {
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 	Layer *old = sc->layers;
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 	sc->layers = grealloc(sc->layers,(sc->layer_cnt+rf->layer_cnt)*sizeof(Layer));
-	for ( layer = 0; layer<rf->layer_cnt; ++layer ) {
-	    LayerDefault(&sc->layers[sc->layer_cnt+layer]);
-	    sc->layers[sc->layer_cnt+layer].splines = rf->layers[layer].splines;
-	    rf->layers[layer].splines = NULL;
-	    sc->layers[sc->layer_cnt+layer].images = rf->layers[layer].images;
-	    rf->layers[layer].images = NULL;
-	    sc->layers[sc->layer_cnt+layer].refs = NULL;
-	    sc->layers[sc->layer_cnt+layer].undoes = NULL;
-	    sc->layers[sc->layer_cnt+layer].redoes = NULL;
-	    sc->layers[sc->layer_cnt+layer].fill_brush = rf->layers[layer].fill_brush;
-	    sc->layers[sc->layer_cnt+layer].stroke_pen = rf->layers[layer].stroke_pen;
-	    sc->layers[sc->layer_cnt+layer].dofill = rf->layers[layer].dofill;
-	    sc->layers[sc->layer_cnt+layer].dostroke = rf->layers[layer].dostroke;
-	    sc->layers[sc->layer_cnt+layer].fillfirst = rf->layers[layer].fillfirst;
+	for ( rlayer = 0; rlayer<rf->layer_cnt; ++rlayer ) {
+	    LayerDefault(&sc->layers[sc->layer_cnt+rlayer]);
+	    sc->layers[sc->layer_cnt+rlayer].splines = rf->layers[rlayer].splines;
+	    rf->layers[rlayer].splines = NULL;
+	    sc->layers[sc->layer_cnt+rlayer].images = rf->layers[rlayer].images;
+	    rf->layers[rlayer].images = NULL;
+	    sc->layers[sc->layer_cnt+rlayer].refs = NULL;
+	    sc->layers[sc->layer_cnt+rlayer].undoes = NULL;
+	    sc->layers[sc->layer_cnt+rlayer].redoes = NULL;
+	    BrushCopy(&sc->layers[sc->layer_cnt+rlayer].fill_brush, &rf->layers[rlayer].fill_brush);
+	    PenCopy(&sc->layers[sc->layer_cnt+rlayer].stroke_pen, &rf->layers[rlayer].stroke_pen);
+	    sc->layers[sc->layer_cnt+rlayer].dofill = rf->layers[rlayer].dofill;
+	    sc->layers[sc->layer_cnt+rlayer].dostroke = rf->layers[rlayer].dostroke;
+	    sc->layers[sc->layer_cnt+rlayer].fillfirst = rf->layers[rlayer].fillfirst;
 	}
 	sc->layer_cnt += rf->layer_cnt;
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 	SCMoreLayers(sc,old);
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
     } else {
 #else
     {
@@ -2815,12 +3146,14 @@ void SCRefToSplines(SplineChar *sc,RefChar *rf) {
 	if ( (spl = rf->layers[0].splines)!=NULL ) {
 	    while ( spl->next!=NULL )
 		spl = spl->next;
-	    spl->next = sc->layers[ly_fore].splines;
-	    sc->layers[ly_fore].splines = rf->layers[0].splines;
+	    spl->next = sc->layers[layer].splines;
+	    sc->layers[layer].splines = rf->layers[0].splines;
 	    rf->layers[0].splines = NULL;
+	    if ( sc->layers[layer].order2 && !sc->layers[layer].background )
+		SCClearInstrsOrMark(sc,layer,true);
 	}
     }
-    SCRemoveDependent(sc,rf);
+    SCRemoveDependent(sc,rf,layer);
 }
 
 /* This returns all real solutions, even those out of bounds */
@@ -3185,6 +3518,7 @@ return( zcnt );
 }
 #endif
 
+#if 0
 static int QuarticSolve(Quartic *q,extended ts[4]) {
     int i,j,k;
 
@@ -3208,6 +3542,7 @@ return( -1 );
     }
 return(i+1);
 }
+#endif
 
 extended SplineSolve(const Spline1D *sp, real tmin, real tmax, extended sought,real err) {
     /* We want to find t so that spline(t) = sought */
@@ -3486,6 +3821,8 @@ return( 0 );
 	if ( t>=0 && t<=1.0 )
 	    poi[cnt++] = t;
     }
+    if ( cnt<2 )
+	poi[cnt] = -1;
 
 return( cnt );
 }
@@ -3565,6 +3902,8 @@ static int AddPoint(extended x,extended y,extended t,extended s,BasePoint *pts,
     for ( i=0; i<soln; ++i )
 	if ( x==pts[i].x && y==pts[i].y )
 return( soln );
+    if ( soln>=9 )
+	IError( "Too many solutions!\n" );
     t1s[soln] = t;
     t2s[soln] = s;
     pts[soln].x = x;
@@ -3572,6 +3911,7 @@ return( soln );
 return( soln+1 );
 }
 
+#if 0
 static int AddQuadraticSoln(extended s,const Spline *s1, const Spline *s2, BasePoint pts[3],
 	extended t1s[3], extended t2s[3], int soln ) {
     extended t, x, y, d;
@@ -3608,6 +3948,7 @@ return( AddPoint(x,y,t,s,pts,t1s,t2s,soln));
     }
 return( soln );
 }
+#endif
 
 static void IterateSolve(const Spline1D *sp,extended ts[3]) {
     /* The closed form solution has too many rounding errors for my taste... */
@@ -3705,7 +4046,11 @@ return( -1 );
 }
 
 static int ICAddInter(int cnt,BasePoint *foundpos,extended *foundt1,extended *foundt2,
-	const Spline *s1,const Spline *s2,extended t1,extended t2) {
+	const Spline *s1,const Spline *s2,extended t1,extended t2, int maxcnt) {
+
+    if ( cnt>=maxcnt )
+return( cnt );
+
     foundt1[cnt] = t1;
     foundt2[cnt] = t2;
     foundpos[cnt].x = ((s1->splines[0].a*t1+s1->splines[0].b)*t1+
@@ -3717,7 +4062,8 @@ return( cnt+1 );
 
 static int ICBinarySearch(int cnt,BasePoint *foundpos,extended *foundt1,extended *foundt2,
 	int other,
-	const Spline *s1,const Spline *s2,extended t1low,extended t1high,extended t2low,extended t2high) {
+	const Spline *s1,const Spline *s2,extended t1low,extended t1high,extended t2low,extended t2high,
+	int maxcnt) {
     int major;
     extended t1, t2;
     extended o1o, o2o, o1n, o2n, m;
@@ -3741,7 +4087,7 @@ return( cnt );
 			s2->splines[other].c)*t2+s2->splines[other].d;
 	if (( o1n-o2n<.001 && o1n-o2n>-.001) ||
 		(t1-t1low<.0001 && t1-t1low>-.0001))
-return( ICAddInter(cnt,foundpos,foundt1,foundt2,s1,s2,t1,t2));
+return( ICAddInter(cnt,foundpos,foundt1,foundt2,s1,s2,t1,t2,maxcnt));
 	if ( (o1o>o2o && o1n<o2n) || (o1o<o2o && o1n>o2n)) {
 	    t1high = t1;
 	    t2high = t2;
@@ -3754,7 +4100,8 @@ return( ICAddInter(cnt,foundpos,foundt1,foundt2,s1,s2,t1,t2));
 
 static int CubicsIntersect(const Spline *s1,extended lowt1,extended hight1,BasePoint *min1,BasePoint *max1,
 			    const Spline *s2,extended lowt2,extended hight2,BasePoint *min2,BasePoint *max2,
-			    BasePoint *foundpos,extended *foundt1,extended *foundt2) {
+			    BasePoint *foundpos,extended *foundt1,extended *foundt2,
+			    int maxcnt) {
     int major, other;
     BasePoint max, min;
     extended t1max, t1min, t2max, t2min, t1, t2, t1diff, oldt2;
@@ -3789,8 +4136,10 @@ return( 0 );
     o2o = ((s2->splines[other].a*t2+s2->splines[other].b)*t2+
 		    s2->splines[other].c)*t2+s2->splines[other].d;
     if ( o1o==o2o )
-	cnt = ICAddInter(cnt,foundpos,foundt1,foundt2,s1,s2,t1,t2);
+	cnt = ICAddInter(cnt,foundpos,foundt1,foundt2,s1,s2,t1,t2,maxcnt);
     forever {
+	if ( cnt>=maxcnt )
+    break;
 	t1 += t1diff;
 	if (( t1max>t1min && t1>t1max ) || (t1max<t1min && t1<t1max) || cnt>3 )
     break;
@@ -3806,10 +4155,10 @@ return( 0 );
 	o2n = ((s2->splines[other].a*t2+s2->splines[other].b)*t2+
 			s2->splines[other].c)*t2+s2->splines[other].d;
 	if ( o1n==o2n )
-	    cnt = ICAddInter(cnt,foundpos,foundt1,foundt2,s1,s2,t1,t2);
+	    cnt = ICAddInter(cnt,foundpos,foundt1,foundt2,s1,s2,t1,t2,maxcnt);
 	if ( (o1o>o2o && o1n<o2n) || (o1o<o2o && o1n>o2n))
 	    cnt = ICBinarySearch(cnt,foundpos,foundt1,foundt2,other,
-		    s1,s2,t1-t1diff,t1,oldt2,t2);
+		    s1,s2,t1-t1diff,t1,oldt2,t2,maxcnt);
 	o1o = o1n; o2o = o2n;
     }
 return( cnt );
@@ -3840,11 +4189,9 @@ int SplinesIntersect(const Spline *s1, const Spline *s2, BasePoint pts[9],
 	extended t1s[10], extended t2s[10]) {	/* One extra for a trailing -1 */
     BasePoint min1, max1, min2, max2;
     int soln = 0;
-    extended x,y,s,t, ac0, ac1;
-    extended d;
+    extended x,y,t, ac0, ac1;
     int i,j,found;
-    Spline1D spline, temp;
-    Quartic quad;
+    Spline1D spline;
     extended tempts[4];	/* 3 solns for cubics, 4 for quartics */
     extended extrema1[6], extrema2[6];
     int ecnt1, ecnt2;
@@ -3919,11 +4266,11 @@ return( false );		/* no intersection of bounding boxes */
 #endif
 
     if ( s1->knownlinear ) {
-	spline.d = s1->splines[1].c*(s2->splines[0].d-s1->splines[0].d)-
-		s1->splines[0].c*(s2->splines[1].d-s1->splines[1].d);
-	spline.c = s1->splines[1].c*s2->splines[0].c - s1->splines[0].c*s2->splines[1].c;
-	spline.b = s1->splines[1].c*s2->splines[0].b - s1->splines[0].c*s2->splines[1].b;
-	spline.a = s1->splines[1].c*s2->splines[0].a - s1->splines[0].c*s2->splines[1].a;
+	spline.d = s1->splines[1].c*((bigreal) s2->splines[0].d-(bigreal) s1->splines[0].d)-
+		s1->splines[0].c*((bigreal) s2->splines[1].d-(bigreal) s1->splines[1].d);
+	spline.c = s1->splines[1].c*(bigreal) s2->splines[0].c - s1->splines[0].c*(bigreal) s2->splines[1].c;
+	spline.b = s1->splines[1].c*(bigreal) s2->splines[0].b - s1->splines[0].c*(bigreal) s2->splines[1].b;
+	spline.a = s1->splines[1].c*(bigreal) s2->splines[0].a - s1->splines[0].c*(bigreal) s2->splines[1].a;
 	IterateSolve(&spline,tempts);
 	if ( tempts[0]==-1 )
 return( false );
@@ -3963,6 +4310,7 @@ return( false );
 	    soln = AddPoint(x,y,t,tempts[i],pts,t1s,t2s,soln);
 	}
 return( soln!=0 );
+#if 0		/* This doesn't work. */
     } else if ( s1->isquadratic && s2->isquadratic ) {
 	temp.a = 0;
 	temp.b = s1->splines[1].b*s2->splines[0].b - s1->splines[0].b*s2->splines[1].b;
@@ -4004,6 +4352,7 @@ return( soln!=0 );
 	    soln = AddQuadraticSoln(s,s1,s2,pts,t1s,t2s,soln);
 	}
 return( soln!=0 );
+#endif
     }
     /* if one of the splines is quadratic then we can get an expression */
     /*  relating c*t+d to poly(s^3), and substituting this back we get */
@@ -4051,12 +4400,12 @@ return( soln!=0 );
 	    else if ( s1!=s2 )
 		found += CubicsIntersect(s1,extrema1[i],extrema1[i+1],&min1,&max1,
 				    s2,extrema2[j],extrema2[j+1],&min2,&max2,
-				    &pts[found],&t1s[found],&t2s[found]);
+				    &pts[found],&t1s[found],&t2s[found],9-found);
 	    else {
 		int k,l;
 		int cnt = CubicsIntersect(s1,extrema1[i],extrema1[i+1],&min1,&max1,
 				    s2,extrema2[j],extrema2[j+1],&min2,&max2,
-				    &pts[found],&t1s[found],&t2s[found]);
+				    &pts[found],&t1s[found],&t2s[found],9-found);
 		for ( k=0; k<cnt; ++k ) {
 		    if ( RealNear(t1s[found+k],t2s[found+k]) ) {
 			for ( l=k+1; l<cnt; ++l ) {
@@ -4068,6 +4417,11 @@ return( soln!=0 );
 		    }
 		}
 		found += cnt;
+	    }
+	    if ( found>=8 ) {
+		/* If the splines are colinear then we might get an unbounded */
+		/*  number of intersections */
+	break;
 	    }
 	}
     }
@@ -4419,6 +4773,49 @@ return( -1 );
 return( p.t );
 }
 
+int SplineT2SpiroIndex(Spline *spline,double t,SplineSet *spl) {
+    /* User clicked on a spline. Now, where in the spiro array was that? */
+    /* I shall assume that the first time we hit a spiro point that corresponds */
+    /*  to the point. In some really gnarly spiro tangles that might not be */
+    /*  true, but in a well behaved contour I think (hope) it will be ok */
+
+    /* It appears that each spiro cp has a corresponding splinepoint, but */
+    /*  I don't want to rely on that because it won't be true after a simplify*/
+    Spline *sp, *lastsp=spl->first->next;
+    double lastt = 0, test;
+    int i;
+    BasePoint bp;
+
+    for ( i=1; i<spl->spiro_cnt; ++i ) {	/* For once I do mean spiro count, that loops back to the start for close contours */
+	if ( i<spl->spiro_cnt-1 ) {
+	    bp.x = spl->spiros[i].x;
+	    bp.y = spl->spiros[i].y;
+	} else if ( SPIRO_SPL_OPEN(spl))
+return( -1 );
+	else {
+	    bp.x = spl->spiros[0].x;
+	    bp.y = spl->spiros[0].y;
+	}
+	for ( sp=lastsp; ; ) {
+	    test = SplineNearPoint(sp,&bp,.001);
+	    if ( test==-1 ) {
+		if ( sp==spline )
+return( i-1 );
+	    } else {
+		if ( sp==spline && t<test )
+return( i-1 );
+		lastsp = sp;
+		lastt = test;
+	break;
+	    }
+	    if ( sp->to->next==NULL || sp->to==spl->first )
+return( -1 );
+	    sp = sp->to->next;
+	}
+    }
+return( -1 );
+}
+
 static int SplinePrevMinMax(Spline *s,int up) {
     const double t = .9999;
     double y;
@@ -4538,14 +4935,24 @@ void StemInfosFree(StemInfo *h) {
 }
 
 void DStemInfoFree(DStemInfo *h) {
+    HintInstance *hi, *n;
 
+    for ( hi=h->where; hi!=NULL; hi=n ) {
+	n = hi->next;
+	chunkfree(hi,sizeof(HintInstance));
+    }
     chunkfree(h,sizeof(DStemInfo));
 }
 
 void DStemInfosFree(DStemInfo *h) {
     DStemInfo *hnext;
+    HintInstance *hi, *n;
 
     for ( ; h!=NULL; h = hnext ) {
+	for ( hi=h->where; hi!=NULL; hi=n ) {
+	    n = hi->next;
+	    chunkfree(hi,sizeof(HintInstance));
+	}
 	hnext = h->next;
 	chunkfree(h,sizeof(DStemInfo));
     }
@@ -4583,6 +4990,7 @@ return( head );
 
 DStemInfo *DStemInfoCopy(DStemInfo *h) {
     DStemInfo *head=NULL, *last=NULL, *cur;
+    HintInstance *hilast, *hicur, *hi;
 
     for ( ; h!=NULL; h = h->next ) {
 	cur = chunkalloc(sizeof(DStemInfo));
@@ -4593,6 +5001,18 @@ DStemInfo *DStemInfoCopy(DStemInfo *h) {
 	else {
 	    last->next = cur;
 	    last = cur;
+	}
+	cur->where = hilast = NULL;
+	for ( hi=h->where; hi!=NULL; hi=hi->next ) {
+	    hicur = chunkalloc(sizeof(StemInfo));
+	    *hicur = *hi;
+	    hicur->next = NULL;
+	    if ( hilast==NULL )
+		cur->where = hilast = hicur;
+	    else {
+		hilast->next = hicur;
+		hilast = hicur;
+	    }
 	}
     }
 return( head );
@@ -4641,8 +5061,11 @@ static AnchorPoint *AnchorPointsRemoveName(AnchorPoint *alist,AnchorClass *an) {
 		prev->next = next;
 	    ap->next = NULL;
 	    AnchorPointsFree(ap);
-	    if ( ap->type==at_mark || ap->type==at_basechar || ap->type==at_basemark )
-		next = NULL;		/* Names only occur once, unless it's a ligature or cursive */
+	    if ( an->type == act_mark || (an->type==act_mklg && ap->type==at_mark))
+		next = NULL;	/* Only one instance of an anchor class in a glyph for mark to base anchors */
+				/*  Or for the mark glyphs of ligature classes */
+			        /*  Mark to mark & cursive will (probably) have 2 occurances */
+			        /*  and ligatures may have lots */
 	} else
 	    prev = ap;
     }
@@ -4730,8 +5153,8 @@ return;
 }
 
 AnchorPoint *AnchorPointsCopy(AnchorPoint *alist) {
-    AnchorPoint *head=NULL, *last=NULL, *ap;
-    
+    AnchorPoint *head=NULL, *last, *ap;
+
     while ( alist!=NULL ) {
 	ap = chunkalloc(sizeof(AnchorPoint));
 	*ap = *alist;
@@ -4899,6 +5322,157 @@ void PSTFree(PST *pst) {
     }
 }
 
+void FPSTRuleContentsFree(struct fpst_rule *r, enum fpossub_format format) {
+    int j;
+
+    switch ( format ) {
+      case pst_glyphs:
+	free(r->u.glyph.names);
+	free(r->u.glyph.back);
+	free(r->u.glyph.fore);
+      break;
+      case pst_class:
+	free(r->u.class.nclasses);
+	free(r->u.class.bclasses);
+	free(r->u.class.fclasses);
+      break;
+      case pst_reversecoverage:
+	free(r->u.rcoverage.replacements);
+      case pst_coverage:
+	for ( j=0 ; j<r->u.coverage.ncnt ; ++j )
+	    free(r->u.coverage.ncovers[j]);
+	free(r->u.coverage.ncovers);
+	for ( j=0 ; j<r->u.coverage.bcnt ; ++j )
+	    free(r->u.coverage.bcovers[j]);
+	free(r->u.coverage.bcovers);
+	for ( j=0 ; j<r->u.coverage.fcnt ; ++j )
+	    free(r->u.coverage.fcovers[j]);
+	free(r->u.coverage.fcovers);
+      break;
+    }
+    free(r->lookups);
+}
+
+void FPSTRulesFree(struct fpst_rule *r, enum fpossub_format format, int rcnt) {
+    int i;
+    for ( i=0; i<rcnt; ++i )
+	FPSTRuleContentsFree(&r[i],format);
+    free(r);
+}
+
+static struct fpst_rule *RulesCopy(struct fpst_rule *from, int cnt,
+	enum fpossub_format format ) {
+    int i, j;
+    struct fpst_rule *to, *f, *t;
+
+    if ( cnt==0 )
+return( NULL );
+
+    to = gcalloc(cnt,sizeof(struct fpst_rule));
+    for ( i=0; i<cnt; ++i ) {
+	f = from+i; t = to+i;
+	switch ( format ) {
+	  case pst_glyphs:
+	    t->u.glyph.names = copy(f->u.glyph.names);
+	    t->u.glyph.back = copy(f->u.glyph.back);
+	    t->u.glyph.fore = copy(f->u.glyph.fore);
+	  break;
+	  case pst_class:
+	    t->u.class.ncnt = f->u.class.ncnt;
+	    t->u.class.bcnt = f->u.class.bcnt;
+	    t->u.class.fcnt = f->u.class.fcnt;
+	    t->u.class.nclasses = galloc( f->u.class.ncnt*sizeof(uint16));
+	    memcpy(t->u.class.nclasses,f->u.class.nclasses,
+		    f->u.class.ncnt*sizeof(uint16));
+	    if ( t->u.class.bcnt!=0 ) {
+		t->u.class.bclasses = galloc( f->u.class.bcnt*sizeof(uint16));
+		memcpy(t->u.class.bclasses,f->u.class.bclasses,
+			f->u.class.bcnt*sizeof(uint16));
+	    }
+	    if ( t->u.class.fcnt!=0 ) {
+		t->u.class.fclasses = galloc( f->u.class.fcnt*sizeof(uint16));
+		memcpy(t->u.class.fclasses,f->u.class.fclasses,
+			f->u.class.fcnt*sizeof(uint16));
+	    }
+	  break;
+	  case pst_reversecoverage:
+	    t->u.rcoverage.replacements = copy(f->u.rcoverage.replacements);
+	  case pst_coverage:
+	    t->u.coverage.ncnt = f->u.coverage.ncnt;
+	    t->u.coverage.bcnt = f->u.coverage.bcnt;
+	    t->u.coverage.fcnt = f->u.coverage.fcnt;
+	    t->u.coverage.ncovers = galloc( f->u.coverage.ncnt*sizeof(char *));
+	    for ( j=0; j<t->u.coverage.ncnt; ++j )
+		t->u.coverage.ncovers[j] = copy(f->u.coverage.ncovers[j]);
+	    if ( t->u.coverage.bcnt!=0 ) {
+		t->u.coverage.bcovers = galloc( f->u.coverage.bcnt*sizeof(char *));
+		for ( j=0; j<t->u.coverage.bcnt; ++j )
+		    t->u.coverage.bcovers[j] = copy(f->u.coverage.bcovers[j]);
+	    }
+	    if ( t->u.coverage.fcnt!=0 ) {
+		t->u.coverage.fcovers = galloc( f->u.coverage.fcnt*sizeof(char *));
+		for ( j=0; j<t->u.coverage.fcnt; ++j )
+		    t->u.coverage.fcovers[j] = copy(f->u.coverage.fcovers[j]);
+	    }
+	  break;
+	}
+	if ( f->lookup_cnt!=0 ) {
+	    t->lookup_cnt = f->lookup_cnt;
+	    t->lookups = galloc(t->lookup_cnt*sizeof(struct seqlookup));
+	    memcpy(t->lookups,f->lookups,t->lookup_cnt*sizeof(struct seqlookup));
+	}
+    }
+return( to );
+}
+
+FPST *FPSTCopy(FPST *fpst) {
+    FPST *nfpst;
+    int i;
+
+    nfpst = chunkalloc(sizeof(FPST));
+    *nfpst = *fpst;
+    nfpst->next = NULL;
+    if ( nfpst->nccnt!=0 ) {
+	nfpst->nclass = galloc(nfpst->nccnt*sizeof(char *));
+	for ( i=0; i<nfpst->nccnt; ++i )
+	    nfpst->nclass[i] = copy(fpst->nclass[i]);
+    }
+    if ( nfpst->bccnt!=0 ) {
+	nfpst->bclass = galloc(nfpst->bccnt*sizeof(char *));
+	for ( i=0; i<nfpst->bccnt; ++i )
+	    nfpst->bclass[i] = copy(fpst->bclass[i]);
+    }
+    if ( nfpst->fccnt!=0 ) {
+	nfpst->fclass = galloc(nfpst->fccnt*sizeof(char *));
+	for ( i=0; i<nfpst->fccnt; ++i )
+	    nfpst->fclass[i] = copy(fpst->fclass[i]);
+    }
+    nfpst->rules = RulesCopy(fpst->rules,fpst->rule_cnt,fpst->format);
+return( nfpst );
+}
+
+void FPSTFree(FPST *fpst) {
+    FPST *next;
+    int i;
+
+    while ( fpst!=NULL ) {
+	next = fpst->next;
+	for ( i=0; i<fpst->nccnt; ++i )
+	    free(fpst->nclass[i]);
+	for ( i=0; i<fpst->bccnt; ++i )
+	    free(fpst->bclass[i]);
+	for ( i=0; i<fpst->fccnt; ++i )
+	    free(fpst->fclass[i]);
+	free(fpst->nclass); free(fpst->bclass); free(fpst->fclass);
+	for ( i=0; i<fpst->rule_cnt; ++i ) {
+	    FPSTRuleContentsFree( &fpst->rules[i],fpst->format );
+	}
+	free(fpst->rules);
+	chunkfree(fpst,sizeof(FPST));
+	fpst = next;
+    }
+}
+
 void MinimumDistancesFree(MinimumDistance *md) {
     MinimumDistance *next;
 
@@ -4948,22 +5522,94 @@ void LayerDefault(Layer *layer) {
 #endif
 }
 
-SplineChar *SplineCharCreate(void) {
+SplineChar *SplineCharCreate(int layer_cnt) {
     SplineChar *sc = chunkalloc(sizeof(SplineChar));
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+    int i;
+
     sc->color = COLOR_DEFAULT;
-#endif
     sc->orig_pos = 0xffff;
     sc->unicodeenc = -1;
-    sc->layer_cnt = 2;
-#ifdef FONTFORGE_CONFIG_TYPE3
-    sc->layers = gcalloc(2,sizeof(Layer));
-    LayerDefault(&sc->layers[0]);
-    LayerDefault(&sc->layers[1]);
-#endif
-    sc->tex_height = sc->tex_depth = sc->tex_sub_pos = sc->tex_super_pos =
+    sc->layer_cnt = layer_cnt;
+    sc->layers = gcalloc(layer_cnt,sizeof(Layer));
+    for ( i=0; i<layer_cnt; ++i )
+	LayerDefault(&sc->layers[i]);
+    sc->tex_height = sc->tex_depth = sc->italic_correction = sc->top_accent_horiz =
 	    TEX_UNDEF;
 return( sc );
+}
+
+SplineChar *SFSplineCharCreate(SplineFont *sf) {
+    SplineChar *sc = SplineCharCreate(sf->layer_cnt);
+    int i;
+
+    for ( i=0; i<sf->layer_cnt; ++i ) {
+	sc->layers[i].background = sf->layers[i].background;
+	sc->layers[i].order2     = sf->layers[i].order2;
+    }
+    sc->parent = sf;
+return( sc );
+}
+
+void GlyphVariantsFree(struct glyphvariants *gv) {
+    int i;
+
+    if ( gv==NULL )
+return;
+    free(gv->variants);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    DeviceTableFree(gv->italic_adjusts);
+#endif
+    for ( i=0; i<gv->part_cnt; ++i )
+	free( gv->parts[i].component );
+    free(gv->parts);
+    chunkfree(gv,sizeof(*gv));
+}
+
+struct mathkern *MathKernCopy(struct mathkern *mk) {
+    int i,j;
+    struct mathkern *mknew;
+
+    if ( mk==NULL )
+return( NULL );
+    mknew = chunkalloc(sizeof(*mknew));
+    for ( i=0; i<4; ++i ) {
+	struct mathkernvertex *mkv = &(&mk->top_right)[i];
+	struct mathkernvertex *mknewv = &(&mknew->top_right)[i];
+	mknewv->cnt = mkv->cnt;
+	if ( mknewv->cnt!=0 ) {
+	    mknewv->mkd = gcalloc(mkv->cnt,sizeof(struct mathkerndata));
+	    for ( j=0; j<mkv->cnt; ++j ) {
+		mknewv->mkd[j].height = mkv->mkd[j].height;
+		mknewv->mkd[j].kern   = mkv->mkd[j].kern;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+		mknewv->mkd[j].height_adjusts = DeviceTableCopy( mkv->mkd[j].height_adjusts );
+		mknewv->mkd[j].kern_adjusts   = DeviceTableCopy( mkv->mkd[j].kern_adjusts );
+#endif
+	    }
+	}
+    }
+return( mknew );
+}
+
+void MathKernVContentsFree(struct mathkernvertex *mk) {
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    int i;
+    for ( i=0; i<mk->cnt; ++i ) {
+	DeviceTableFree(mk->mkd[i].height_adjusts);
+	DeviceTableFree(mk->mkd[i].kern_adjusts);
+    }
+#endif
+    free(mk->mkd);
+}
+
+void MathKernFree(struct mathkern *mk) {
+    int i;
+
+    if ( mk==NULL )
+return;
+    for ( i=0; i<4; ++i )
+	MathKernVContentsFree( &(&mk->top_right)[i] );
+    chunkfree(mk,sizeof(*mk));
 }
 
 void SplineCharListsFree(struct splinecharlist *dlist) {
@@ -4974,6 +5620,74 @@ void SplineCharListsFree(struct splinecharlist *dlist) {
     }
 }
 
+struct pattern *PatternCopy(struct pattern *old) {
+    struct pattern *pat = chunkalloc(sizeof(struct pattern));
+
+    if ( old==NULL )
+return( NULL );
+
+    pat = chunkalloc(sizeof(struct pattern));
+
+    *pat = *old;
+    pat->pattern = copy( old->pattern );
+return( pat );
+}
+
+void PatternFree(struct pattern *pat) {
+    if ( pat==NULL )
+return;
+    free(pat->pattern);
+    chunkfree(pat,sizeof(struct pattern));
+}
+
+struct gradient *GradientCopy(struct gradient *old) {
+    struct gradient *grad = chunkalloc(sizeof(struct gradient));
+
+    if ( old==NULL )
+return( NULL );
+
+    grad = chunkalloc(sizeof(struct gradient));
+
+    *grad = *old;
+    grad->grad_stops = galloc(old->stop_cnt*sizeof(struct grad_stops));
+    memcpy(grad->grad_stops,old->grad_stops,old->stop_cnt*sizeof(struct grad_stops));
+return( grad );
+}
+
+void GradientFree(struct gradient *grad) {
+    if ( grad==NULL )
+return;
+    free(grad->grad_stops);
+    chunkfree(grad,sizeof(struct gradient));
+}
+
+void BrushCopy(struct brush *into, struct brush *from) {
+    *into = *from;
+    into->gradient = GradientCopy(from->gradient);
+    into->pattern = PatternCopy(from->pattern);
+}
+
+void PenCopy(struct pen *into, struct pen *from) {
+    *into = *from;
+    into->brush.gradient = GradientCopy(from->brush.gradient);
+    into->brush.pattern = PatternCopy(from->brush.pattern);
+}
+
+void LayerFreeContents(SplineChar *sc,int layer) {
+    SplinePointListsFree(sc->layers[layer].splines);
+#ifdef FONTFORGE_CONFIG_TYPE3
+    GradientFree(sc->layers[layer].fill_brush.gradient);
+    PatternFree(sc->layers[layer].fill_brush.pattern);
+    GradientFree(sc->layers[layer].stroke_pen.brush.gradient);
+    PatternFree(sc->layers[layer].stroke_pen.brush.pattern);
+#endif
+    RefCharsFree(sc->layers[layer].refs);
+    ImageListsFree(sc->layers[layer].images);
+    /* image garbage collection????!!!! */
+    UndoesFree(sc->layers[layer].undoes);
+    UndoesFree(sc->layers[layer].redoes);
+}
+
 void SplineCharFreeContents(SplineChar *sc) {
     int i;
 
@@ -4981,14 +5695,8 @@ void SplineCharFreeContents(SplineChar *sc) {
 return;
     free(sc->name);
     free(sc->comment);
-    for ( i=0; i<sc->layer_cnt; ++i ) {
-	SplinePointListsFree(sc->layers[i].splines);
-	RefCharsFree(sc->layers[i].refs);
-	ImageListsFree(sc->layers[i].images);
-	/* image garbage collection????!!!! */
-	UndoesFree(sc->layers[i].undoes);
-	UndoesFree(sc->layers[i].redoes);
-    }
+    for ( i=0; i<sc->layer_cnt; ++i )
+	LayerFreeContents(sc,i);
     StemInfosFree(sc->hstem);
     StemInfosFree(sc->vstem);
     DStemInfosFree(sc->dstem);
@@ -5000,11 +5708,18 @@ return;
     PSTFree(sc->possub);
     free(sc->ttf_instrs);
     free(sc->countermasks);
-#ifdef FONTFORGE_CONFIG_TYPE3
     free(sc->layers);
-#endif
     AltUniFree(sc->altuni);
-#ifndef _NO_PYTHON
+    GlyphVariantsFree(sc->horiz_variants);
+    GlyphVariantsFree(sc->vert_variants);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    DeviceTableFree(sc->italic_adjusts);
+    DeviceTableFree(sc->top_accent_adjusts);
+#endif
+    MathKernFree(sc->mathkern);
+#if defined(_NO_PYTHON)
+    free( sc->python_persistent );	/* It's a string of pickled data which we leave as a string */
+#else
     PyFF_FreeSC(sc);
 #endif
 }
@@ -5033,6 +5748,32 @@ void TtfTablesFree(struct ttf_table *tab) {
 	next = tab->next;
 	free(tab->data);
 	chunkfree(tab,sizeof(struct ttf_table));
+    }
+}
+
+void SFRemoveSavedTable(SplineFont *sf, uint32 tag) {
+    struct ttf_table *tab, *prev;
+
+    for ( prev=NULL, tab=sf->ttf_tables; tab!=NULL && tab->tag!=tag; prev=tab, tab=tab->next );
+    if ( tab!=NULL ) {
+	if ( prev==NULL )
+	    sf->ttf_tables = tab->next;
+	else
+	    prev->next = tab->next;
+    } else {
+	for ( prev=NULL, tab=sf->ttf_tab_saved; tab!=NULL && tab->tag!=tag; prev=tab, tab=tab->next );
+	if ( tab==NULL )
+return;
+	if ( prev==NULL )
+	    sf->ttf_tab_saved = tab->next;
+	else
+	    prev->next = tab->next;
+    }
+    tab->next = NULL;
+    TtfTablesFree(tab);
+    if ( !sf->changed ) {
+	sf->changed = true;
+	FVSetTitles(sf);
     }
 }
 
@@ -5293,6 +6034,55 @@ void MarkClassFree(int cnt,char **classes,char **names) {
     free( names );
 }
 
+struct baselangextent *BaseLangCopy(struct baselangextent *extent) {
+    struct baselangextent *head, *last, *cur;
+
+    last = head = NULL;
+    for ( ; extent!=NULL; extent = extent->next ) {
+	cur = chunkalloc(sizeof(struct baselangextent));
+	*cur = *extent;
+	cur->features = BaseLangCopy(cur->features);
+	if ( head==NULL )
+	    head = cur;
+	else
+	    last->next = cur;
+	last = cur;
+    }
+return( head );
+}
+
+void BaseLangFree(struct baselangextent *extent) {
+    struct baselangextent *next;
+
+    while ( extent!=NULL ) {
+	next = extent->next;
+	BaseLangFree(extent->features);
+	chunkfree(extent,sizeof(struct baselangextent));
+	extent = next;
+    }
+}
+
+void BaseScriptFree(struct basescript *bs) {
+    struct basescript *next;
+
+    while ( bs!=NULL ) {
+	next = bs->next;
+	free(bs->baseline_pos);
+	BaseLangFree(bs->langs);
+	chunkfree(bs,sizeof(struct basescript));
+	bs = next;
+    }
+}
+	
+void BaseFree(struct Base *base) {
+    if ( base==NULL )
+return;
+
+    free(base->baseline_tags);
+    BaseScriptFree(base->scripts);
+    chunkfree(base,sizeof(struct Base));
+}
+
 void SplineFontFree(SplineFont *sf) {
     int i;
     BDFFont *bdf, *bnext;
@@ -5326,10 +6116,11 @@ return;
     free(sf->cidregistry);
     free(sf->ordering);
     MacFeatListFree(sf->features);
-    /* We don't free the EncMap. That field is only a temporary pointer. Let the FontView free it, that's where it really lives */
+    /* We don't free the EncMap. That field is only a temporary pointer. Let the FontViewBase free it, that's where it really lives */
     SplinePointListsFree(sf->grid.splines);
     AnchorClassesFree(sf->anchor);
     TtfTablesFree(sf->ttf_tables);
+    TtfTablesFree(sf->ttf_tab_saved);
     UndoesFree(sf->grid.undoes);
     UndoesFree(sf->grid.redoes);
     PSDictFree(sf->private);
@@ -5347,6 +6138,13 @@ return;
     OtfNameListFree(sf->fontstyle_name);
     MarkClassFree(sf->mark_class_cnt,sf->mark_classes,sf->mark_class_names);
     free( sf->gasp );
+#if defined(_NO_PYTHON)
+    free( sf->python_persistent );	/* It's a string of pickled data which we leave as a string */
+#else
+    PyFF_FreeSF(sf);
+#endif
+    BaseFree(sf->horiz_base);
+    BaseFree(sf->vert_base);
     free(sf);
 }
 
@@ -5482,7 +6280,7 @@ return( changed );
     continue;
 	}
 	if ( !changed ) {
-	    if ( layer==-2 )
+	    if ( layer==ly_all )
 		SCPreserveState(sc,dohints);
 	    else if ( layer!=-1 )
 		SCPreserveLayer(sc,layer,dohints);
@@ -5556,11 +6354,10 @@ int SCRoundToCluster(SplineChar *sc,int layer,int sel,double within,double max) 
     struct cluster *cspace;
     Spline *s, *first;
 
-	ptspace = NULL;
     /* First figure out what points we will need */
     for ( k=0; k<2; ++k ) {
 	ptcnt = selcnt = 0;
-	if ( layer==-2 ) {
+	if ( layer==ly_all ) {
 	    for ( l=ly_fore; l<sc->layer_cnt; ++l ) {
 		for ( spl = sc->layers[l].splines; spl!=NULL; spl=spl->next ) {
 		    for ( sp = spl->first; ; ) {
@@ -5575,6 +6372,7 @@ int SCRoundToCluster(SplineChar *sc,int layer,int sel,double within,double max) 
 			if ( sp==spl->first )
 		    break;
 		    }
+		    SplineSetSpirosClear(spl);
 		}
 	    }
 	} else {
@@ -5626,6 +6424,7 @@ return(false);				/* Can't be any clusters */
 	    for ( l=ly_fore; l<sc->layer_cnt; ++l ) {
 		for ( spl = sc->layers[l].splines; spl!=NULL; spl=spl->next ) {
 		    first = NULL;
+		    SplineSetSpirosClear(spl);
 		    for ( s=spl->first->next; s!=NULL && s!=first; s=s->to->next ) {
 			SplineRefigure(s);
 			if ( first==NULL ) first = s;
@@ -5645,7 +6444,7 @@ return(false);				/* Can't be any clusters */
 		}
 	    }
 	}
-	SCCharChangedUpdate(sc);
+	SCCharChangedUpdate(sc,layer);
     }
 return( changed );
 }
@@ -5773,4 +6572,210 @@ int SplineSetsRemoveAnnoyingExtrema(SplineSet *ss,double err) {
 	ss = ss->next;
     }
 return( changed );
+}
+
+SplinePoint *SplineBisect(Spline *spline, extended t) {
+    Spline1 xstart, xend;
+    Spline1 ystart, yend;
+    Spline *spline1, *spline2;
+    SplinePoint *mid;
+    SplinePoint *old0, *old1;
+    Spline1D *xsp = &spline->splines[0], *ysp = &spline->splines[1];
+    int order2 = spline->order2;
+
+#ifdef DEBUG
+    if ( t<=1e-3 || t>=1-1e-3 )
+	IError("Bisection to create a zero length spline");
+#endif
+    xstart.s0 = xsp->d; ystart.s0 = ysp->d;
+    xend.s1 = (extended) xsp->a+xsp->b+xsp->c+xsp->d;
+    yend.s1 = (extended) ysp->a+ysp->b+ysp->c+ysp->d;
+    xstart.s1 = xend.s0 = ((xsp->a*t+xsp->b)*t+xsp->c)*t + xsp->d;
+    ystart.s1 = yend.s0 = ((ysp->a*t+ysp->b)*t+ysp->c)*t + ysp->d;
+    FigureSpline1(&xstart,0,t,xsp);
+    FigureSpline1(&xend,t,1,xsp);
+    FigureSpline1(&ystart,0,t,ysp);
+    FigureSpline1(&yend,t,1,ysp);
+
+    mid = chunkalloc(sizeof(SplinePoint));
+    mid->me.x = xstart.s1;	mid->me.y = ystart.s1;
+    if ( order2 ) {
+	mid->nextcp.x = xend.sp.d + xend.sp.c/2;
+	mid->nextcp.y = yend.sp.d + yend.sp.c/2;
+	mid->prevcp.x = xstart.sp.d + xstart.sp.c/2;
+	mid->prevcp.y = ystart.sp.d + ystart.sp.c/2;
+    } else {
+	mid->nextcp.x = xend.c0;	mid->nextcp.y = yend.c0;
+	mid->prevcp.x = xstart.c1;	mid->prevcp.y = ystart.c1;
+    }
+    if ( mid->me.x==mid->nextcp.x && mid->me.y==mid->nextcp.y )
+	mid->nonextcp = true;
+    if ( mid->me.x==mid->prevcp.x && mid->me.y==mid->prevcp.y )
+	mid->noprevcp = true;
+
+    old0 = spline->from; old1 = spline->to;
+    if ( order2 ) {
+	old0->nextcp = mid->prevcp;
+	old1->prevcp = mid->nextcp;
+    } else {
+	old0->nextcp.x = xstart.c0;	old0->nextcp.y = ystart.c0;
+	old1->prevcp.x = xend.c1;	old1->prevcp.y = yend.c1;
+    }
+    old0->nonextcp = (old0->nextcp.x==old0->me.x && old0->nextcp.y==old0->me.y);
+    old1->noprevcp = (old1->prevcp.x==old1->me.x && old1->prevcp.y==old1->me.y);
+    old0->nextcpdef = false;
+    old1->prevcpdef = false;
+    SplineFree(spline);
+
+    spline1 = chunkalloc(sizeof(Spline));
+    spline1->splines[0] = xstart.sp;	spline1->splines[1] = ystart.sp;
+    spline1->from = old0;
+    spline1->to = mid;
+    spline1->order2 = order2;
+    old0->next = spline1;
+    mid->prev = spline1;
+    if ( SplineIsLinear(spline1)) {
+	spline1->islinear = spline1->from->nonextcp = spline1->to->noprevcp = true;
+	spline1->from->nextcp = spline1->from->me;
+	spline1->to->prevcp = spline1->to->me;
+    }
+    SplineRefigure(spline1);
+
+    spline2 = chunkalloc(sizeof(Spline));
+    spline2->splines[0] = xend.sp;	spline2->splines[1] = xend.sp;
+    spline2->from = mid;
+    spline2->to = old1;
+    spline2->order2 = order2;
+    mid->next = spline2;
+    old1->prev = spline2;
+    if ( SplineIsLinear(spline2)) {
+	spline2->islinear = spline2->from->nonextcp = spline2->to->noprevcp = true;
+	spline2->from->nextcp = spline2->from->me;
+	spline2->to->prevcp = spline2->to->me;
+    }
+    SplineRefigure(spline2);
+return( mid );
+}
+
+Spline *SplineSplit(Spline *spline, extended ts[3]) {
+    /* Split the current spline in up to 3 places */
+    Spline1 splines[2][4];
+    int i,cnt;
+    bigreal base;
+    SplinePoint *last, *sp;
+    Spline *new;
+    int order2 = spline->order2;
+
+    memset(splines,0,sizeof(splines));
+    base=0;
+    for ( i=cnt=0; i<3 && ts[i]!=-1; ++i ) {
+	if ( base>1-1e-3 )			/* Avoid tiny splines */
+    break;
+	else if ( base<ts[i]-1e-3 ) {
+	    FigureSpline1(&splines[0][cnt],base,ts[i],&spline->splines[0]);
+	    FigureSpline1(&splines[1][cnt++],base,ts[i],&spline->splines[1]);
+	    base = ts[i];
+	}
+    }
+    if ( base==0 )
+return( spline );
+
+    FigureSpline1(&splines[0][cnt],base,1.0,&spline->splines[0]);
+    FigureSpline1(&splines[1][cnt],base,1.0,&spline->splines[1]);
+
+    last = spline->from;
+    for ( i=0; i<=cnt; ++i ) {
+	if ( order2 ) {
+	    last->nextcp.x = splines[0][i].sp.d+splines[0][i].sp.c/2;
+	    last->nextcp.y = splines[1][i].sp.d+splines[1][i].sp.c/2;
+	} else {
+	    last->nextcp.x = splines[0][i].c0;
+	    last->nextcp.y = splines[1][i].c0;
+	}
+	if ( i==cnt )
+	    sp = spline->to;
+	else {
+	    sp = chunkalloc(sizeof(SplinePoint));
+	    sp->me.x = splines[0][i+1].sp.d;
+	    sp->me.y = splines[1][i+1].sp.d;
+	}
+	if ( order2 ) {
+	    sp->prevcp = last->nextcp;
+	    SplineMake2(last,sp);
+	} else {
+	    sp->prevcp.x = splines[0][i].c1;
+	    sp->prevcp.y = splines[1][i].c1;
+	    SplineMake3(last,sp);
+	}
+	last = sp;
+    }
+
+    new = spline->from->next;
+    SplineFree(spline);
+return( new );
+}
+
+int SSExistsInLayer(SplineSet *ss,SplineSet *lots ) {
+    /* In Find Problems we hold some state while we allow the user to go off */
+    /*  and do stuff. It is perfectly possible for the user to delete the */
+    /*  state we hold pointers to. Do a rough check that the thing hasn't */
+    /*  been deleted */
+    while ( lots!=NULL ) {
+	if ( lots==ss )
+return( true );
+	lots = lots->next;
+    }
+return( false );
+}
+
+int SplineExistsInSS(Spline *s,SplineSet *ss) {
+    /* In Find Problems we hold some state while we allow the user to go off */
+    /*  and do stuff. It is perfectly possible for the user to delete the */
+    /*  state we hold pointers to. Do a rough check that the thing hasn't */
+    /*  been deleted */
+    Spline *spline, *first;
+
+    first = NULL;
+    for ( spline = ss->first->next; spline!=NULL && spline!=first; spline=spline->to->next ) {
+	if ( first==NULL ) first = spline;
+	if ( spline==s )
+return( true );
+    }
+return( false );
+}
+
+int SpExistsInSS(SplinePoint *sp,SplineSet *ss) {
+    /* In Find Problems we hold some state while we allow the user to go off */
+    /*  and do stuff. It is perfectly possible for the user to delete the */
+    /*  state we hold pointers to. Do a rough check that the thing hasn't */
+    /*  been deleted */
+    SplinePoint *sp2;
+
+    for ( sp2 = ss->first; ; ) {
+	if ( sp==sp2 )
+return( true );
+	if ( sp2->next==NULL )
+return( false );
+	sp2 = sp2->next->to;
+	if ( sp2==ss->first )
+return( false );
+    }
+}
+
+int SSHasClip(SplineSet *ss) {
+    while ( ss!=NULL ) {
+	if ( ss->is_clip_path )
+return( true );
+	ss = ss->next;
+    }
+return( false );
+}
+
+int SSHasDrawn(SplineSet *ss) {
+    while ( ss!=NULL ) {
+	if ( !ss->is_clip_path )
+return( true );
+	ss = ss->next;
+    }
+return( false );
 }

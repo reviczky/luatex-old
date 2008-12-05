@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,111 +43,130 @@
 #include "ttf.h"
 
 #if HAVE_LANGINFO_H
-#ifndef LUA_FF_LIB
 # include <langinfo.h>
 #endif
-#endif
 
-#ifndef N_ 
-#define N_(a) a
-#endif
-
-int splash = 1;
-int adjustwidth = true;
-int adjustlbearing = true;
-Encoding *default_encoding = NULL;
-int autohint_before_rasterize = 1;
-int autohint_before_generate = 1;
-int use_freetype_to_rasterize_fv = 1;
-int OpenCharsInNewWindow = 1;
-int ItalicConstrained=true;
-int accent_offset = 6;
-int GraveAcuteCenterBottom = 1;
-int PreferSpacingAccents = true;
-int CharCenterHighest = 1;
-int ask_user_for_resolution = true;
-int stop_at_join = false;
-int cv_auto_goto = true;
-int recognizePUA = true;
-float arrowAmount=1;
-float snapdistance=3.5;
-float joinsnap=0;
-char *BDFFoundry=NULL;
-char *TTFFoundry=NULL;
-char *xuid=NULL;
-char *SaveTablesPref=NULL;
-char *RecentFiles[RECENT_MAX] = { NULL };
+extern int splash;
+extern int adjustwidth;
+extern int adjustlbearing;
+extern Encoding *default_encoding;
+extern int autohint_before_rasterize;
+extern int autohint_before_generate;
+extern int use_freetype_to_rasterize_fv;
+extern int OpenCharsInNewWindow;
+extern int ItalicConstrained;
+extern int accent_offset;
+extern int GraveAcuteCenterBottom;
+extern int PreferSpacingAccents;
+extern int CharCenterHighest;
+extern int ask_user_for_resolution;
+extern int stop_at_join;
+extern int cv_auto_goto;
+extern int recognizePUA;
+extern float arrowAmount;
+extern float arrowAccelFactor;
+extern float snapdistance;
+extern int snaptoint;
+extern float joinsnap;
+extern char *BDFFoundry;
+extern char *TTFFoundry;
+extern char *xuid;
+extern char *SaveTablesPref;
+extern char *RecentFiles[RECENT_MAX];
 /*struct cvshows CVShows = { 1, 1, 1, 1, 1, 0, 1 };*/ /* in charview */
 /* int default_fv_font_size = 24; */	/* in fontview */
 /* int default_fv_antialias = false */	/* in fontview */
 /* int default_fv_bbsized = false */	/* in fontview */
-int default_fv_row_count = 4;
-int default_fv_col_count = 16;
+extern int default_fv_row_count;	/* in fontview */
+extern int default_fv_col_count;	/* in fontview */
 extern int default_fv_showhmetrics;	/* in fontview */
 extern int default_fv_showvmetrics;	/* in fontview */
 extern int default_fv_glyphlabel;	/* in fontview */
-int save_to_dir = 0;			/* in fontview, use sfdir rather than sfd */
+extern int save_to_dir;			/* in fontview, use sfdir rather than sfd */
 extern int palettes_docked;		/* in cvpalettes */
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 extern int cvvisible[2], bvvisible[3];	/* in cvpalettes.c */
-#endif
 extern int maxundoes;			/* in cvundoes */
 extern int prefer_cjk_encodings;	/* in parsettf */
 extern int onlycopydisplayed, copymetadata, copyttfinstr;
 extern struct cvshows CVShows;
+extern int infowindowdistance;		/* in cvruler.c */
 extern int oldformatstate;		/* in savefontdlg.c */
 extern int oldbitmapstate;		/* in savefontdlg.c */
 extern int old_ttf_flags;		/* in savefontdlg.c */
 extern int old_ps_flags;		/* in savefontdlg.c */
 extern int old_otf_flags;		/* in savefontdlg.c */
+extern int old_validate;		/* in savefontdlg.c */
+extern int old_fontlog;			/* in savefontdlg.c */
+extern char *oflib_username;		/* in savefontdlg.c */
+extern char *oflib_password;		/* in savefontdlg.c */
 extern int oldsystem;			/* in bitmapdlg.c */
-#ifndef LUA_FF_LIB
 extern int preferpotrace;		/* in autotrace.c */
 extern int autotrace_ask;		/* in autotrace.c */
 extern int mf_ask;			/* in autotrace.c */
 extern int mf_clearbackgrounds;		/* in autotrace.c */
 extern int mf_showerrors;		/* in autotrace.c */
 extern char *mf_args;			/* in autotrace.c */
-#endif
 static int glyph_2_name_map=0;		/* was in tottf.c, now a flag in savefont options dlg */
 extern int coverageformatsallowed;	/* in tottfgpos.c */
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 extern int debug_wins;			/* in cvdebug.c */
 extern int gridfit_dpi, gridfit_depth;	/* in cvgridfit.c */
-extern float gridfit_pointsize;		/* in cvgridfit.c */
-#endif
+extern float gridfit_pointsizey;	/* in cvgridfit.c */
+extern float gridfit_pointsizex;	/* in cvgridfit.c */
+extern int gridfit_x_sameas_y;		/* in cvgridfit.c */
 extern int hint_diagonal_ends;		/* in stemdb.c */
 extern int hint_diagonal_intersections;	/* in stemdb.c */
 extern int hint_bounding_boxes;		/* in stemdb.c */
-unichar_t *script_menu_names[SCRIPT_MENU_MAX];
-char *script_filenames[SCRIPT_MENU_MAX];
+extern int detect_diagonal_stems;	/* in stemdb.c */
+extern int instruct_diagonal_stems;	/* in nowakowskittfinstr.c */
+extern int instruct_serif_stems;        /* in nowakowskittfinstr.c */
+extern int instruct_ball_terminals;	/* in nowakowskittfinstr.c */
+extern int interpolate_strong;	        /* in nowakowskittfinstr.c */
+extern int control_counters;	        /* in nowakowskittfinstr.c */
+extern unichar_t *script_menu_names[SCRIPT_MENU_MAX];
+extern char *script_filenames[SCRIPT_MENU_MAX];
 static char *xdefs_filename;
-int new_em_size = 1000;
-int new_fonts_are_order2 = false;
-int loaded_fonts_same_as_new = false;
-int use_second_indic_scripts = false;
-char *helpdir;
-char *othersubrsfile;
+extern int new_em_size;				/* in splineutil2.c */
+extern int new_fonts_are_order2;		/* in splineutil2.c */
+extern int loaded_fonts_same_as_new;		/* in splineutil2.c */
+extern int use_second_indic_scripts;		/* in tottfgpos.c */
+extern char *helpdir;				/* in uiutil.c */
+static char *othersubrsfile = NULL;
 extern MacFeat *default_mac_feature_map,	/* from macenc.c */
 		*user_mac_feature_map;
-int updateflex = false;
-int allow_utf8_glyphnames = false;
-int clear_tt_instructions_when_needed = true;
-int ask_user_for_cmap = false;
+extern int updateflex;				/* in charview.c */
+extern int allow_utf8_glyphnames;		/* in charinfo.c */
+extern int clear_tt_instructions_when_needed;	/* in cvundoes.c */
+extern int default_cv_width;			/* in charview.c */
+extern int default_cv_height;			/* in charview.c */
+extern int mv_width;				/* in metricsview.c */
+extern int mv_height;				/* in metricsview.c */
+extern int bv_width;				/* in bitmapview.c */
+extern int bv_height;				/* in bitmapview.c */
+extern int ask_user_for_cmap;			/* in parsettf.c */
+extern int mvshowgrid;				/* in metricsview.c */
 
 extern int rectelipse, polystar, regular_star;	/* from cvpalettes.c */
 extern int center_out[2];			/* from cvpalettes.c */
 extern float rr_radius;				/* from cvpalettes.c */
 extern int ps_pointcnt;				/* from cvpalettes.c */
 extern float star_percent;			/* from cvpalettes.c */
+extern int home_char;				/* from fontview.c */
+extern int compact_font_on_open;		/* from fontview.c */
+extern int oflib_automagic_preview;		/* from oflib.c */
+extern int aa_pixelsize;			/* from anchorsaway.c */
 
-NameList *force_names_when_opening=NULL;
-NameList *force_names_when_saving=NULL;
+extern NameList *force_names_when_opening;
+extern NameList *force_names_when_saving;
 extern NameList *namelist_for_new_fonts;
 
-int default_font_filter_index=0;
-struct openfilefilters *user_font_filters = NULL;
+extern int default_font_filter_index;
+extern struct openfilefilters *user_font_filters;
 static int alwaysgenapple=false, alwaysgenopentype=false;
+
+static int gfc_showhidden, gfc_dirplace;
+static char *gfc_bookmarks=NULL;
+
+static int prefs_usecairo = true, prefs_usepango=true;
 
 static int pointless;
 
@@ -172,64 +191,13 @@ static int pointless;
 /* *****************************    mac data    ***************************** */
 /* ************************************************************************** */
 
-struct macsettingname macfeat_otftag[] = {
-    { 1, 0, CHR('r','l','i','g') },	/* Required ligatures */
-    { 1, 2, CHR('l','i','g','a') },	/* Common ligatures */
-    { 1, 4, CHR('d','l','i','g') },	/* rare ligatures => discretionary */
-#if 0
-    { 1, 4, CHR('h','l','i','g') },	/* rare ligatures => historic */
-    { 1, 4, CHR('a','l','i','g') },	/* rare ligatures => ?ancient? */
-#endif
-    /* 2, 1, partially connected cursive */
-    { 2, 2, CHR('i','s','o','l') },	/* Arabic forms */
-    { 2, 2, CHR('c','a','l','t') },	/* ??? */
-    /* 3, 1, all caps */
-    /* 3, 2, all lower */
-    { 3, 3, CHR('s','m','c','p') },	/* small caps */
-    /* 3, 4, initial caps */
-    /* 3, 5, initial caps, small caps */
-    { 4, 0, CHR('v','r','t','2') },	/* vertical forms => vertical rotation */
-#if 0
-    { 4, 0, CHR('v','k','n','a') },	/* vertical forms => vertical kana */
-#endif
-    { 6, 0, CHR('t','n','u','m') },	/* monospace numbers => Tabular numbers */
-    { 10, 1, CHR('s','u','p','s') },	/* superior vertical position => superscript */
-    { 10, 2, CHR('s','u','b','s') },	/* inferior vertical position => subscript */
-#if 0
-    { 10, 3, CHR('s','u','p','s') },	/* ordinal vertical position => superscript */
-#endif
-    { 11, 1, CHR('a','f','r','c') },	/* vertical fraction => fraction ligature */
-    { 11, 2, CHR('f','r','a','c') },	/* diagonal fraction => fraction ligature */
-    { 16, 1, CHR('o','r','n','m') },	/* vertical fraction => fraction ligature */
-    { 20, 0, CHR('t','r','a','d') },	/* traditional characters => traditional forms */
-#if 0
-    { 20, 0, CHR('t','n','a','m') },	/* traditional characters => traditional names */
-#endif
-    { 20, 1, CHR('s','m','p','l') },	/* simplified characters */
-    { 20, 2, CHR('j','p','7','8') },	/* jis 1978 */
-    { 20, 3, CHR('j','p','8','3') },	/* jis 1983 */
-    { 20, 4, CHR('j','p','9','0') },	/* jis 1990 */
-    { 21, 0, CHR('o','n','u','m') },	/* lower case number => old style numbers */
-    { 22, 0, CHR('p','w','i','d') },	/* proportional text => proportional widths */
-    { 22, 2, CHR('h','w','i','d') },	/* half width text => half widths */
-    { 22, 3, CHR('f','w','i','d') },	/* full width text => full widths */
-    { 25, 0, CHR('f','w','i','d') },	/* full width kana => full widths */
-    { 25, 1, CHR('p','w','i','d') },	/* proportional kana => proportional widths */
-    { 26, 0, CHR('f','w','i','d') },	/* full width ideograph => full widths */
-    { 26, 1, CHR('p','w','i','d') },	/* proportional ideograph => proportional widths */
-    { 103, 0, CHR('h','w','i','d') },	/* half width cjk roman => half widths */
-    { 103, 1, CHR('p','w','i','d') },	/* proportional cjk roman => proportional widths */
-    { 103, 3, CHR('f','w','i','d') },	/* full width cjk roman => full widths */
-    { 0, 0, 0 }
-}, *user_macfeat_otftag;
+extern struct macsettingname macfeat_otftag[], *user_macfeat_otftag;
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 static void UserSettingsFree(void) {
 
     free( user_macfeat_otftag );
     user_macfeat_otftag = NULL;
 }
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 
 static int UserSettingsDiffer(void) {
     int i,j;
@@ -262,7 +230,7 @@ return( false );
 
 /* don't use mnemonics 'C' or 'O' (Cancel & OK) */
 enum pref_types { pr_int, pr_real, pr_bool, pr_enum, pr_encoding, pr_string,
-	pr_file, pr_namelist };
+	pr_file, pr_namelist, pr_unicode };
 struct enums { char *name; int value; };
 
 struct enums fvsize_enums[] = { {NULL} };
@@ -281,11 +249,26 @@ static struct prefs_list {
     char *popup;
 } general_list[] = {
 	{ N_("ResourceFile"), pr_file, &xdefs_filename, NULL, NULL, 'R', NULL, 0, N_("When FontForge starts up, it loads display related resources from a\nproperty on the screen. Sometimes it is useful to be able to store\nthese resources in a file. These resources are only read at start\nup, so changing this has no effect until the next time you start\nFontForge.") },
+#if 0
+	{ N_("PixmapDir"), pr_file, &pixmapdir, NULL, NULL, 'R', NULL, 0, N_(
+	    "As FontForge creates windows, it loads images for its menus\n"
+	    "from files in a standard directory. You may change this to\n"
+	    "point to a different directory to load a different icon set.\n"
+	    "(If you want no icons at all, change to an empty directory).\n"
+	    "This may not effect windows of a type that is already initialized,\n"
+	    "restarting FontForge will fix that.")},
+#endif
 	{ N_("HelpDir"), pr_file, &helpdir, NULL, NULL, 'H', NULL, 0, N_("The directory on your local system in which FontForge will search for help\nfiles.  If a file is not found there, then FontForge will look for it on the net.") },
 	{ N_("OtherSubrsFile"), pr_file, &othersubrsfile, NULL, NULL, 'O', NULL, 0, N_("If you wish to replace Adobe's OtherSubrs array (for Type1 fonts)\nwith an array of your own, set this to point to a file containing\na list of up to 14 PostScript subroutines. Each subroutine must\nbe preceded by a line starting with '%%%%' (any text before the\nfirst '%%%%' line will be treated as an initial copyright notice).\nThe first three subroutines are for flex hints, the next for hint\nsubstitution (this MUST be present), the 14th (or 13 as the\nnumbering actually starts with 0) is for counter hints.\nThe subroutines should not be enclosed in a [ ] pair.") },
 	{ N_("FreeTypeInFontView"), pr_bool, &use_freetype_to_rasterize_fv, NULL, NULL, 'O', NULL, 0, N_("Use the FreeType rasterizer (when available)\nto rasterize glyphs in the font view.\nThis generally results in better quality.") },
 	{ N_("AutoHint"), pr_bool, &autohint_before_rasterize, NULL, NULL, 'A', NULL, 0, N_("AutoHint before rasterizing") },
 	{ N_("SplashScreen"), pr_bool, &splash, NULL, NULL, 'S', NULL, 0, N_("Show splash screen on start-up") },
+#ifndef _NO_LIBCAIRO
+	{ N_("UseCairoDrawing"), pr_bool, &prefs_usecairo, NULL, NULL, '\0', NULL, 0, N_("Use the cairo library for drawing (if available)\nThis makes for prettier (anti-aliased) but slower drawing\nThis applies to any windows created AFTER this is set.\nAlready existing windows will continue as they are.") },
+#endif
+#ifndef _NO_LIBPANGO
+	{ N_("UsePangoDrawing"), pr_bool, &prefs_usepango, NULL, NULL, '\0', NULL, 0, N_("Use the pango library for text (if available)\nThis makes for prettier and handles complex scripts.\nBut it can slow things down on older machines.\nThis applies to any windows created AFTER this is set.\nAlready existing windows will continue as they are.") },
+#endif
 	{ NULL }
 },
   new_list[] = {
@@ -299,6 +282,8 @@ static struct prefs_list {
 	{ N_("PreferCJKEncodings"), pr_bool, &prefer_cjk_encodings, NULL, NULL, 'C', NULL, 0, N_("When loading a truetype or opentype font which has both a unicode\nand a CJK encoding table, use this flag to specify which\nshould be loaded for the font.") },
 	{ N_("AskUserForCMap"), pr_bool, &ask_user_for_cmap, NULL, NULL, 'O', NULL, 0, N_("When loading a font in sfnt format (TrueType, OpenType, etc.),\nask the user to specify which cmap to use initially.") },
 	{ N_("PreserveTables"), pr_string, &SaveTablesPref, NULL, NULL, 'P', NULL, 0, N_("Enter a list of 4 letter table tags, separated by commas.\nFontForge will make a binary copy of these tables when it\nloads a True/OpenType font, and will output them (unchanged)\nwhen it generates the font. Do not include table tags which\nFontForge thinks it understands.") },
+	{ N_("SeekCharacter"), pr_unicode, &home_char, NULL, NULL, '\0', NULL, 0, N_("When fontforge opens a (non-sfd) font it will try to display this unicode character in the fontview.")},
+	{ N_("CompactOnOpen"), pr_bool, &compact_font_on_open, NULL, NULL, 'O', NULL, 0, N_("When a font is opened, should it be made compact?")},
 	{ NULL }
 },
   navigation_list[] = {
@@ -309,7 +294,9 @@ static struct prefs_list {
   editing_list[] = {
 	{ N_("ItalicConstrained"), pr_bool, &ItalicConstrained, NULL, NULL, '\0', NULL, 0, N_("In the Outline View, the Shift key constrains motion to be parallel to the ItalicAngle rather than constraining it to be vertical.") },
 	{ N_("ArrowMoveSize"), pr_real, &arrowAmount, NULL, NULL, '\0', NULL, 0, N_("The number of em-units by which an arrow key will move a selected point") },
+	{ N_("ArrowAccelFactor"), pr_real, &arrowAccelFactor, NULL, NULL, '\0', NULL, 0, N_("Holding down the Alt (or Meta) key will speed up arrow key motion by this factor") },
 	{ N_("SnapDistance"), pr_real, &snapdistance, NULL, NULL, '\0', NULL, 0, N_("When the mouse pointer is within this many pixels\nof one of the various interesting features (baseline,\nwidth, grid splines, etc.) the pointer will snap\nto that feature.") },
+	{ N_("SnapToInt"), pr_bool, &snaptoint, NULL, NULL, '\0', NULL, 0, N_("When the user clicks in the editing window, round the location to the nearest integers.") },
 	{ N_("JoinSnap"), pr_real, &joinsnap, NULL, NULL, '\0', NULL, 0, N_("The Edit->Join command will join points which are this close together\nA value of 0 means they must be coincident") },
 	{ N_("StopAtJoin"), pr_bool, &stop_at_join, NULL, NULL, '\0', NULL, 0, N_("When dragging points in the outline view a join may occur\n(two open contours may connect at their endpoints). When\nthis is On a join will cause FontForge to stop moving the\nselection (as if the user had released the mouse button).\nThis is handy if your fingers are inclined to wiggle a bit.") },
 	{ N_("CopyMetaData"), pr_bool, &copymetadata, NULL, NULL, '\0', NULL, 0, N_("When copying glyphs from the font view, also copy the\nglyphs' metadata (name, encoding, comment, etc).") },
@@ -324,7 +311,7 @@ static struct prefs_list {
 },
  tt_list[] = {
 	{ N_("ClearInstrsBigChanges"), pr_bool, &clear_tt_instructions_when_needed, NULL, NULL, 'C', NULL, 0, N_("Instructions in a TrueType font refer to\npoints by number, so if you edit a glyph\nin such a way that some points have different\nnumbers (add points, remove them, etc.) then\nthe instructions will be applied to the wrong\npoints with disasterous results.\n  Normally FontForge will remove the instructions\nif it detects that the points have been renumbered\nin order to avoid the above problem. You may turn\nthis behavior off -- but be careful!") },
-	{ N_("CopyTTFInstrs"), pr_bool, &copyttfinstr, NULL, NULL, '\0', NULL, 0, N_("When copying glyphs from the font view, also copy the\nglyphs' metadata (name, encoding, comment, etc).") },
+	{ N_("CopyTTFInstrs"), pr_bool, &copyttfinstr, NULL, NULL, '\0', NULL, 0, N_("When copying glyphs from the font view, also copy the\nglyphs' truetype instructions.") },
 	{ NULL }
 },
   accent_list[] = {
@@ -335,7 +322,6 @@ static struct prefs_list {
 	{ NULL }
 },
  args_list[] = {
-#ifndef LUA_FF_LIB
 	{ N_("PreferPotrace"), pr_bool, &preferpotrace, NULL, NULL, '\0', NULL, 0, N_("FontForge supports two different helper applications to do autotracing\n autotrace and potrace\nIf your system only has one it will use that one, if you have both\nuse this option to tell FontForge which to pick.") },
 	{ N_("AutotraceArgs"), pr_string, NULL, GetAutoTraceArgs, SetAutoTraceArgs, '\0', NULL, 0, N_("Extra arguments for configuring the autotrace program\n(either autotrace or potrace)") },
 	{ N_("AutotraceAsk"), pr_bool, &autotrace_ask, NULL, NULL, '\0', NULL, 0, N_("Ask the user for autotrace arguments each time autotrace is invoked") },
@@ -343,7 +329,6 @@ static struct prefs_list {
 	{ N_("MfAsk"), pr_bool, &mf_ask, NULL, NULL, '\0', NULL, 0, N_("Ask the user for mf commands each time mf is invoked") },
 	{ N_("MfClearBg"), pr_bool, &mf_clearbackgrounds, NULL, NULL, '\0', NULL, 0, N_("FontForge loads large images into the background of each glyph\nprior to autotracing them. You may retain those\nimages to look at after mf processing is complete, or\nremove them to save space") },
 	{ N_("MfShowErr"), pr_bool, &mf_showerrors, NULL, NULL, '\0', NULL, 0, N_("MetaFont (mf) generates lots of verbiage to stdout.\nMost of the time I find it an annoyance but it is\nimportant to see if something goes wrong.") },
-#endif
 	{ NULL }
 },
  fontinfo_list[] = {
@@ -364,13 +349,24 @@ static struct prefs_list {
 	{ N_("HintBoundingBoxes"), pr_bool, &hint_bounding_boxes, NULL, NULL, '\0', NULL, 0, N_("FontForge will place vertical or horizontal hints to describe the bounding boxes of suitable glyphs.") },
 	{ N_("HintDiagonalEnds"), pr_bool, &hint_diagonal_ends, NULL, NULL, '\0', NULL, 0, N_("FontForge will place vertical or horizontal hints at the ends of diagonal stems.") },
 	{ N_("HintDiagonalInter"), pr_bool, &hint_diagonal_intersections, NULL, NULL, '\0', NULL, 0, N_("FontForge will place vertical or horizontal hints at the intersections of diagonal stems.") },
+	{ N_("DetectDiagonalStems"), pr_bool, &detect_diagonal_stems, NULL, NULL, '\0', NULL, 0, N_("FontForge will generate diagonal stem hints, which then can be used by the AutoInstr command.") },
+	{ NULL }
+},
+ instrs_list[] = {
+	{ N_("InstructDiagonalStems"), pr_bool, &instruct_diagonal_stems, NULL, NULL, '\0', NULL, 0, N_("Generate instructions for diagonal stem hints.") },
+	{ N_("InstructSerifs"), pr_bool, &instruct_serif_stems, NULL, NULL, '\0', NULL, 0, N_("Try to detect serifs and other elements protruding from base stems and generate instructions for them.") },
+	{ N_("InstructBallTerminals"), pr_bool, &instruct_ball_terminals, NULL, NULL, '\0', NULL, 0, N_("Generate instructions for ball terminals.") },
+	{ N_("InterpolateStrongPoints"), pr_bool, &interpolate_strong, NULL, NULL, '\0', NULL, 0, N_("Interpolate between stem edges some important points, not affected by other instructions.") },
+	{ N_("CounterControl"), pr_bool, &control_counters, NULL, NULL, '\0', NULL, 0, N_("Make sure similar or equal counters remain the same in gridfitted outlines.\nEnabling this option may result in glyph advance widths being\ninconsistently scaled at some PPEMs.") },
 	{ NULL }
 },
  opentype_list[] = {
 	{ N_("UseNewIndicScripts"), pr_bool, &use_second_indic_scripts, NULL, NULL, 'C', NULL, 0, N_("MS has changed (in August 2006) the inner workings of their Indic shaping\nengine, and to disambiguate this change has created a parallel set of script\ntags (generally ending in '2') for Indic writing systems. If you are working\nwith the new system set this flag, if you are working with the old unset it.\n(if you aren't doing Indic work, this flag is irrelevant).") },
 	{ NULL }
 },
-/* These are hidden, so will never appear in ui, hence, no "N_(" */
+/* These are hidden, so will never appear in preference ui, hence, no "N_(" */
+/*  They are controled elsewhere AntiAlias is a menu item in the font window's View menu */
+/*  etc. */
  hidden_list[] = {
 	{ "AntiAlias", pr_bool, &default_fv_antialias, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultFVShowHmetrics", pr_int, &default_fv_showhmetrics, NULL, NULL, '\0', NULL, 1 },
@@ -381,10 +377,9 @@ static struct prefs_list {
 	{ "DefaultFVGlyphLabel", pr_int, &default_fv_glyphlabel, NULL, NULL, 'S', NULL, 1 },
 	{ "SaveToDir", pr_int, &save_to_dir, NULL, NULL, 'S', NULL, 1 },
 	{ "OnlyCopyDisplayed", pr_bool, &onlycopydisplayed, NULL, NULL, '\0', NULL, 1 },
-#ifndef LUA_FF_LIB
 	{ "PalettesDocked", pr_bool, &palettes_docked, NULL, NULL, '\0', NULL, 1 },
-#endif
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+	{ "DefaultCVWidth", pr_int, &default_cv_width, NULL, NULL, '\0', NULL, 1 },
+	{ "DefaultCVHeight", pr_int, &default_cv_height, NULL, NULL, '\0', NULL, 1 },
 	{ "CVVisible0", pr_bool, &cvvisible[0], NULL, NULL, '\0', NULL, 1 },
 	{ "CVVisible1", pr_bool, &cvvisible[1], NULL, NULL, '\0', NULL, 1 },
 	{ "BVVisible0", pr_bool, &bvvisible[0], NULL, NULL, '\0', NULL, 1 },
@@ -394,15 +389,23 @@ static struct prefs_list {
 	{ "MarkPointsOfInflect", pr_int, &CVShows.markpoi, NULL, NULL, '\0', NULL, 1 },
 	{ "ShowRulers", pr_bool, &CVShows.showrulers, NULL, NULL, '\0', NULL, 1, N_("Display rulers in the Outline Glyph View") },
 	{ "ShowCPInfo", pr_int, &CVShows.showcpinfo, NULL, NULL, '\0', NULL, 1 },
+	{ "InfoWindowDistance", pr_int, &infowindowdistance, NULL, NULL, '\0', NULL, 1 },
 	{ "ShowSideBearings", pr_int, &CVShows.showsidebearings, NULL, NULL, '\0', NULL, 1 },
+	{ "ShowRefNames", pr_int, &CVShows.showrefnames, NULL, NULL, '\0', NULL, 1 },
 	{ "ShowPoints", pr_bool, &CVShows.showpoints, NULL, NULL, '\0', NULL, 1 },
 	{ "ShowFilled", pr_int, &CVShows.showfilled, NULL, NULL, '\0', NULL, 1 },
 	{ "ShowTabs", pr_int, &CVShows.showtabs, NULL, NULL, '\0', NULL, 1 },
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
-#ifndef LUA_FF_LIB
+ 	{ "SnapOutlines", pr_int, &CVShows.snapoutlines, NULL, NULL, '\0', NULL, 1 },
+	{ "ShowAlmostHVLines", pr_bool, &CVShows.showalmosthvlines, NULL, NULL, '\0', NULL, 1 },
+	{ "ShowAlmostHVCurves", pr_bool, &CVShows.showalmosthvcurves, NULL, NULL, '\0', NULL, 1 },
+	{ "AlmostHVBound", pr_int, &CVShows.hvoffset, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultScreenDpiSystem", pr_int, &oldsystem, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultOutputFormat", pr_int, &oldformatstate, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultBitmapFormat", pr_int, &oldbitmapstate, NULL, NULL, '\0', NULL, 1 },
+	{ "SaveValidate", pr_int, &old_validate, NULL, NULL, '\0', NULL, 1 },
+	{ "SaveFontLogAsk", pr_int, &old_fontlog, NULL, NULL, '\0', NULL, 1 },
+	{ "OFLibUsername", pr_string, &oflib_username, NULL, NULL, '\0', NULL, 1 },
+	{ "OFLibPassword", pr_string, &oflib_password, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultTTFflags", pr_int, &old_ttf_flags, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultPSflags", pr_int, &old_ps_flags, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultOTFflags", pr_int, &old_otf_flags, NULL, NULL, '\0', NULL, 1 },
@@ -420,16 +423,31 @@ static struct prefs_list {
 	{ "RoundRectRadius", pr_real, &rr_radius, NULL, NULL, '\0', NULL, 1 },
 	{ "StarPercent", pr_real, &star_percent, NULL, NULL, '\0', NULL, 1 },
 	{ "CoverageFormatsAllowed", pr_int, &coverageformatsallowed, NULL, NULL, '\0', NULL, 1 },
-#endif
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 	{ "DebugWins", pr_int, &debug_wins, NULL, NULL, '\0', NULL, 1 },
 	{ "GridFitDpi", pr_int, &gridfit_dpi, NULL, NULL, '\0', NULL, 1 },
 	{ "GridFitDepth", pr_int, &gridfit_depth, NULL, NULL, '\0', NULL, 1 },
-	{ "GridFitPointSize", pr_real, &gridfit_pointsize, NULL, NULL, '\0', NULL, 1 },
-#endif
+	{ "GridFitPointSize", pr_real, &gridfit_pointsizey, NULL, NULL, '\0', NULL, 1 },
+	{ "GridFitPointSizeX", pr_real, &gridfit_pointsizex, NULL, NULL, '\0', NULL, 1 },
+	{ "GridFitSameAs", pr_int, &gridfit_x_sameas_y, NULL, NULL, '\0', NULL, 1 },
+	{ "MVShowGrid", pr_int, &mvshowgrid, NULL, NULL, '\0', NULL, 1 },
 	{ "ForceNamesWhenOpening", pr_namelist, &force_names_when_opening, NULL, NULL, '\0', NULL, 1 },
 	{ "ForceNamesWhenSaving", pr_namelist, &force_names_when_saving, NULL, NULL, '\0', NULL, 1 },
 	{ "DefaultFontFilterIndex", pr_int, &default_font_filter_index, NULL, NULL, '\0', NULL, 1 },
+	{ "FCShowHidden", pr_bool, &gfc_showhidden, NULL, NULL, '\0', NULL, 1 },
+	{ "FCDirPlacement", pr_int, &gfc_dirplace, NULL, NULL, '\0', NULL, 1 },
+	{ "FCBookmarks", pr_string, &gfc_bookmarks, NULL, NULL, '\0', NULL, 1 },
+	{ "OFLibAutomagicPreview", pr_int, &oflib_automagic_preview, NULL, NULL, '\0', NULL, 1 },
+	{ "DefaultMVWidth", pr_int, &mv_width, NULL, NULL, '\0', NULL, 1 },
+	{ "DefaultMVHeight", pr_int, &mv_height, NULL, NULL, '\0', NULL, 1 },
+	{ "DefaultBVWidth", pr_int, &bv_width, NULL, NULL, '\0', NULL, 1 },
+	{ "DefaultBVHeight", pr_int, &bv_height, NULL, NULL, '\0', NULL, 1 },
+	{ "AnchorControlPixelSize", pr_int, &aa_pixelsize, NULL, NULL, '\0', NULL, 1 },
+#ifdef _NO_LIBCAIRO
+	{ "UseCairoDrawing", pr_bool, &prefs_usecairo, NULL, NULL, '\0', NULL, 0, N_("Use the cairo library for drawing (if available)\nThis makes for prettier (anti-aliased) but slower drawing\nThis applies to any windows created AFTER this is set.\nAlready existing windows will continue as they are.") },
+#endif
+#ifdef _NO_LIBPANGO
+	{ "UsePangoDrawing", pr_bool, &prefs_usepango, NULL, NULL, '\0', NULL, 0, N_("Use the cairo library for drawing (if available)\nThis makes for prettier (anti-aliased) but slower drawing\nThis applies to any windows created AFTER this is set.\nAlready existing windows will continue as they are.") },
+#endif
 	{ NULL }
 },
  oldnames[] = {
@@ -440,10 +458,9 @@ static struct prefs_list {
 	{ "AlwaysGenOpenType", pr_bool, &alwaysgenopentype, NULL, NULL, 'O', NULL, 0, N_("Apple and MS/Adobe differ about the format of truetype and opentype files.\nThis controls the default setting of the OpenType checkbox in the\nFile->Generate Font dialog.\nThe main differences are:\n Bitmap data are stored in different tables\n Scaled composite glyphs are treated differently\n Use of GSUB rather than morx(t)/feat\n Use of GPOS rather than kern/opbd\n Use of GDEF rather than lcar/prop\nIf both this and Apple are set, both formats are generated") },
 	{ NULL }
 },
- *prefs_list[] = { general_list, new_list, open_list, navigation_list, sync_list, editing_list, accent_list, args_list, fontinfo_list, generate_list, tt_list, opentype_list, hints_list, hidden_list, NULL },
- *load_prefs_list[] = { general_list, new_list, open_list, navigation_list, sync_list, editing_list, accent_list, args_list, fontinfo_list, generate_list, tt_list, opentype_list, hints_list, hidden_list, oldnames, NULL };
+ *prefs_list[] = { general_list, new_list, open_list, navigation_list, sync_list, editing_list, accent_list, args_list, fontinfo_list, generate_list, tt_list, opentype_list, hints_list, instrs_list, hidden_list, NULL },
+ *load_prefs_list[] = { general_list, new_list, open_list, navigation_list, sync_list, editing_list, accent_list, args_list, fontinfo_list, generate_list, tt_list, opentype_list, hints_list, instrs_list, hidden_list, oldnames, NULL };
 
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 struct visible_prefs_list { char *tab_name; int nest; struct prefs_list *pl; } visible_prefs_list[] = {
     { N_("Generic"), 0, general_list},
     { N_("New Font"), 0, new_list},
@@ -457,29 +474,110 @@ struct visible_prefs_list { char *tab_name; int nest; struct prefs_list *pl; } v
     { N_("Font Info"), 0, fontinfo_list},
     { N_("Generate"), 0, generate_list},
     { N_("PS Hints"), 1, hints_list},
+    { N_("TT Instrs"), 1, instrs_list},
     { N_("OpenType"), 1, opentype_list},
     { 0 }
  };
 
-#define TOPICS	(sizeof(visible_prefs_list)/sizeof(visible_prefs_list[0])-1)
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
+static void FileChooserPrefsChanged(void *pointless) {
+    SavePrefs(true);
+}
 
-int GetPrefs(char *name,Val *val) {
+static void ProcessFileChooserPrefs(void) {
+    unichar_t **b;
+    int i;
+
+    GFileChooserSetShowHidden(gfc_showhidden);
+    GFileChooserSetDirectoryPlacement(gfc_dirplace);
+    if ( gfc_bookmarks==NULL ) {
+	b = galloc(8*sizeof(unichar_t *));
+	i = 0;
+#ifdef __Mac
+	b[i++] = uc_copy("~/Library/Fonts/");
+#endif
+	b[i++] = uc_copy("~/fonts");
+#ifdef __Mac
+	b[i++] = uc_copy("/Library/Fonts/");
+	b[i++] = uc_copy("/System/Library/Fonts/");
+#endif
+#if __CygWin
+	b[i++] = uc_copy("/cygdrive/c/Windows/Fonts/");
+#endif
+	b[i++] = uc_copy("/usr/X11R6/lib/X11/fonts/");
+#ifndef __CygWin		/* I'm not releasing ftp support on cygwin */
+	b[i++] = uc_copy("ftp://ctan.org/pub/tex-archive/fonts/");
+#endif
+	b[i++] = NULL;
+	GFileChooserSetBookmarks(b);
+    } else {
+	char *pt, *start;
+	start = gfc_bookmarks;
+	for ( i=0; ; ++i ) {
+	    pt = strchr(start,';');
+	    if ( pt==NULL )
+	break;
+	    start = pt+1;
+	}
+	start = gfc_bookmarks;
+	b = galloc((i+2)*sizeof(unichar_t *));
+	for ( i=0; ; ++i ) {
+	    pt = strchr(start,';');
+	    if ( pt!=NULL )
+		*pt = '\0';
+	    b[i] = utf82u_copy(start);
+	    if ( pt==NULL )
+	break;
+	    *pt = ';';
+	    start = pt+1;
+	}
+	b[i+1] = NULL;
+	GFileChooserSetBookmarks(b);
+    }
+    GFileChooserSetPrefsChangedCallback(NULL,FileChooserPrefsChanged);
+}
+
+static void GetFileChooserPrefs(void) {
+    unichar_t **foo;
+
+    gfc_showhidden = GFileChooserGetShowHidden();
+    gfc_dirplace = GFileChooserGetDirectoryPlacement();
+    foo = GFileChooserGetBookmarks();
+    free(gfc_bookmarks);
+    if ( foo==NULL || foo[0]==NULL )
+	gfc_bookmarks = NULL;
+    else {
+	int i,len=0;
+	for ( i=0; foo[i]!=NULL; ++i )
+	    len += 4*u_strlen(foo[i])+1;
+	gfc_bookmarks = galloc(len+10);
+	len = 0;
+	for ( i=0; foo[i]!=NULL; ++i ) {
+	    u2utf8_strcpy(gfc_bookmarks+len,foo[i]);
+	    len += strlen(gfc_bookmarks+len);
+	    gfc_bookmarks[len++] = ';';
+	}
+	if ( len>0 )
+	    gfc_bookmarks[len-1] = '\0';
+	else {
+	    free(gfc_bookmarks);
+	    gfc_bookmarks = NULL;
+	}
+    }
+}
+
+#define TOPICS	(sizeof(visible_prefs_list)/sizeof(visible_prefs_list[0])-1)
+
+static int PrefsUI_GetPrefs(char *name,Val *val) {
     int i,j;
 
     /* Support for obsolete preferences */
-#ifndef LUA_FF_LIB
     alwaysgenapple=(old_ttf_flags&ttf_flag_applemode)?1:0;
     alwaysgenopentype=(old_ttf_flags&ttf_flag_otmode)?1:0;
-#else
-    alwaysgenapple=0;
-    alwaysgenopentype=0;
-#endif
     
     for ( i=0; prefs_list[i]!=NULL; ++i ) for ( j=0; prefs_list[i][j].name!=NULL; ++j ) {
 	if ( strcmp(prefs_list[i][j].name,name)==0 ) {
 	    struct prefs_list *pf = &prefs_list[i][j];
-	    if ( pf->type == pr_bool || pf->type == pr_int ) {
+	    if ( pf->type == pr_bool || pf->type == pr_int || pf->type == pr_unicode ) {
 		val->type = v_int;
 		val->u.ival = *((int *) (pf->val));
 	    } else if ( pf->type == pr_string || pf->type == pr_file ) {
@@ -507,7 +605,6 @@ return( false );
 }
 
 static void CheckObsoletePrefs(void) {
-#ifndef LUA_FF_LIB
     if ( alwaysgenapple==false ) {
 	old_ttf_flags &= ~ttf_flag_applemode;
 	old_otf_flags &= ~ttf_flag_applemode;
@@ -522,10 +619,9 @@ static void CheckObsoletePrefs(void) {
 	old_ttf_flags |= ttf_flag_otmode;
 	old_otf_flags |= ttf_flag_otmode;
     }
-#endif
 }
 
-int SetPrefs(char *name,Val *val1, Val *val2) {
+static int PrefsUI_SetPrefs(char *name,Val *val1, Val *val2) {
     int i,j;
 
     /* Support for obsolete preferences */
@@ -534,7 +630,7 @@ int SetPrefs(char *name,Val *val1, Val *val2) {
     for ( i=0; prefs_list[i]!=NULL; ++i ) for ( j=0; prefs_list[i][j].name!=NULL; ++j ) {
 	if ( strcmp(prefs_list[i][j].name,name)==0 ) {
 	    struct prefs_list *pf = &prefs_list[i][j];
-	    if ( pf->type == pr_bool || pf->type == pr_int ) {
+	    if ( pf->type == pr_bool || pf->type == pr_int || pf->type == pr_unicode ) {
 		if ( (val1->type!=v_int && val1->type!=v_unicode) || val2!=NULL )
 return( -1 );
 		*((int *) (pf->val)) = val1->u.ival;
@@ -568,21 +664,19 @@ return( -1 );
 		if ( val2!=NULL )
 return( -1 );
 		else if ( val1->type==v_str ) {
-#ifndef LUA_FF_LIB
 		    NameList *nl = NameListByName(val1->u.sval);
 		    if ( strcmp(val1->u.sval,"NULL")==0 && pf->val != &namelist_for_new_fonts )
-			  nl = NULL;
+			nl = NULL;
 		    else if ( nl==NULL )
-			  return( -1 );
+return( -1 );
 		    *((NameList **) (pf->val)) = nl;
-#endif
 		} else
-		  return( -1 );
+return( -1 );
 	    } else
 return( false );
 
 	    CheckObsoletePrefs();
-	    SavePrefs();
+	    SavePrefs(true);
 return( true );
 	}
     }
@@ -602,35 +696,35 @@ return( NULL );
 return( prefs );
 }
 
-char *getPfaEditShareDir(void) {
+static char *PrefsUI_getFontForgeShareDir(void) {
     static char *sharedir=NULL;
     static int set=false;
-    char *pt = NULL;
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+    char *pt;
     int len;
-#endif
 
     if ( set )
 return( sharedir );
 
     set = true;
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     pt = strstr(GResourceProgramDir,"/bin");
-#endif
-    if ( pt==NULL )
+    if ( pt==NULL ) {
+#if defined(SHAREDIR)
+	sharedir = copy(SHAREDIR "/fontforge" );
+return( sharedir );
+#elif defined(PREFIX)
+	sharedir = copy( PREFIX "/share/fontforge" );
+return( sharedir );
+#else
 return( NULL );
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+#endif
+    }
     len = (pt-GResourceProgramDir)+strlen("/share/fontforge")+1;
     sharedir = galloc(len);
     strncpy(sharedir,GResourceProgramDir,pt-GResourceProgramDir);
     strcpy(sharedir+(pt-GResourceProgramDir),"/share/fontforge");
 return( sharedir );
-#endif
-return( NULL );
 }
 
-#if !defined(FONTFORGE_CONFIG_GTK)
-#ifndef LUA_FF_LIB
 #  include <charset.h>		/* we still need the charsets & encoding to set local_encoding */
 static int encmatch(const char *enc,int subok) {
     static struct { char *name; int enc; } encs[] = {
@@ -735,12 +829,10 @@ static int encmatch(const char *enc,int subok) {
 #endif
 	{ NULL }};
     int i;
+    char buffer[80];
 #if HAVE_ICONV_H
     static char *last_complaint;
-#endif
-    char buffer[80];
 
-#if HAVE_ICONV_H
     iconv_t test;
     free(iconv_local_encoding_name);
     iconv_local_encoding_name= NULL;
@@ -819,8 +911,47 @@ return( e_iso8859_1 );
 
 return( enc );
 }
+
+static void DefaultXUID(void) {
+    /* Adobe has assigned PfaEdit a base XUID of 1021. Each new user is going */
+    /*  to get a couple of random numbers appended to that, hoping that will */
+    /*  make for a fairly safe system. */
+    /* FontForge will use the same scheme */
+    int r1, r2;
+    char buffer[50];
+    struct timeval tv;
+
+    gettimeofday(&tv,NULL);
+    srand(tv.tv_usec);
+    do {
+	r1 = rand()&0x3ff;
+    } while ( r1==0 );		/* I reserve "0" for me! */
+    gettimeofday(&tv,NULL);
+    srandom(tv.tv_usec+1);
+    r2 = random();
+    sprintf( buffer, "1021 %d %d", r1, r2 );
+    free(xuid);
+    xuid = copy(buffer);
+}
+
+static void DefaultHelp(void) {
+    if ( helpdir==NULL ) {
+#ifdef DOCDIR
+	helpdir = copy(DOCDIR "/");
+#elif defined(SHAREDIR)
+	helpdir = copy(SHAREDIR "/doc/fontforge/");
+#else
+	helpdir = copy("/usr/local/share/doc/fontforge/");
 #endif
-#endif
+    }
+}
+
+static void PrefsUI_SetDefaults(void) {
+
+    DefaultXUID();
+    DefaultHelp();
+    local_encoding = DefaultEncoding();
+}
 
 static void ParseMacMapping(char *pt,struct macsettingname *ms) {
     char *end;
@@ -836,7 +967,6 @@ static void ParseMacMapping(char *pt,struct macsettingname *ms) {
 	(end[3]&0xff);
 }
 
-#ifndef LUA_FF_LIB
 static void ParseNewMacFeature(FILE *p,char *line) {
     fseek(p,-(strlen(line)-strlen("MacFeat:")),SEEK_CUR);
     line[strlen("MacFeat:")] ='\0';
@@ -846,55 +976,12 @@ static void ParseNewMacFeature(FILE *p,char *line) {
 	MacFeatListFree(user_mac_feature_map);
     user_mac_feature_map = default_mac_feature_map;
 }
-#endif
 
-static void DefaultXUID(void) {
-    /* Adobe has assigned PfaEdit a base XUID of 1021. Each new user is going */
-    /*  to get a couple of random numbers appended to that, hoping that will */
-    /*  make for a fairly safe system. */
-    /* FontForge will use the same scheme */
-    int r1 = 0, r2 = 0;
-    char buffer[50];
-#ifndef LUA_FF_LIB /* TH odd, the crosscompiler gets ld errors from gettimeofday() */
-    struct timeval tv;
-
-    gettimeofday(&tv,NULL);
-    srand(tv.tv_usec);
-    do {
-	r1 = rand()&0x3ff;
-    } while ( r1==0 );		/* I reserve "0" for me! */
-    gettimeofday(&tv,NULL);
-    srandom(tv.tv_usec+1);
-    r2 = random();
-#endif
-    sprintf( buffer, "1021 %d %d", r1, r2 );
-    free(xuid);
-    xuid = copy(buffer);
-}
-
-static void DefaultHelp(void) {
-    if ( helpdir==NULL ) {
-#ifdef DOCDIR
-	helpdir = copy(DOCDIR "/");
-#elif defined(SHAREDIR)
-	helpdir = copy(SHAREDIR "/../doc/fontforge/");
-#else
-	helpdir = copy("/usr/local/share/doc/fontforge/");
-#endif
-    }
-}
-
-void SetDefaults(void) {
-
-    DefaultXUID();
-    DefaultHelp();
-}
-
-void LoadPrefs(void) {
+static void PrefsUI_LoadPrefs(void) {
     char *prefs = getPfaEditPrefs();
     FILE *p;
     char line[1100];
-    int i=0, j=0, ri=0, mn=0, ms=0, fn=0, ff=0, filt_max=0;
+    int i, j, ri=0, mn=0, ms=0, fn=0, ff=0, filt_max=0;
     int msp=0, msc=0;
     char *pt;
     struct prefs_list *pl;
@@ -903,9 +990,7 @@ void LoadPrefs(void) {
     LoadPluginDir(NULL);
 #endif
     LoadPfaEditEncodings();
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     LoadGroupList();
-#endif
 
     if ( prefs!=NULL && (p=fopen(prefs,"r"))!=NULL ) {
 	while ( fgets(line,sizeof(line),p)!=NULL ) {
@@ -951,10 +1036,8 @@ void LoadPrefs(void) {
 		    user_macfeat_otftag = gcalloc(msc+1,sizeof(struct macsettingname));
 		} else if ( strncmp(line,"MacMapping:",strlen("MacMapping:"))==0 && msp<msc ) {
 		    ParseMacMapping(pt,&user_macfeat_otftag[msp++]);
-#ifndef LUA_FF_LIB
 		} else if ( strncmp(line,"MacFeat:",strlen("MacFeat:"))==0 ) {
 		    ParseNewMacFeature(p,line);
-#endif
 		}
 	continue;
 	    }
@@ -969,17 +1052,20 @@ void LoadPrefs(void) {
 		}
 	      break;
 	      case pr_namelist:
-#ifndef LUA_FF_LIB
 		{ NameList *nl = NameListByName(pt);
 		    if ( strcmp(pt,"NULL")==0 && pl->val != &namelist_for_new_fonts )
 			*((NameList **) (pl->val)) = NULL;
 		    else if ( nl!=NULL )
 			*((NameList **) (pl->val)) = nl;
 		}
-#endif
 	      break;
 	      case pr_bool: case pr_int:
 		sscanf( pt, "%d", (int *) pl->val );
+	      break;
+	      case pr_unicode:
+		if ( sscanf( pt, "U+%x", (int *) pl->val )!=1 )
+		    if ( sscanf( pt, "u+%x", (int *) pl->val )!=1 )
+			sscanf( pt, "%x", (int *) pl->val );
 	      break;
 	      case pr_real:
 		sscanf( pt, "%f", (float *) pl->val );
@@ -991,56 +1077,42 @@ void LoadPrefs(void) {
 		else
 		    (pl->set)(copy(pt));
 	      break;
-		case pr_enum:
-		  break;
 	    }
 	}
 	fclose(p);
     }
-#if defined(FONTFORGE_CONFIG_GTK)
-    /* Nothing */;
-#else
-#ifndef LUA_FF_LIB
-    local_encoding = DefaultEncoding();
-#endif
-#endif
-#if defined(FONTFORGE_CONFIG_GDRAW)
     if ( xdefs_filename!=NULL )
 	GResourceAddResourceFile(xdefs_filename,GResourceProgramName);
-#endif
-#ifndef LUA_FF_LIB
     if ( othersubrsfile!=NULL && ReadOtherSubrsFile(othersubrsfile)<=0 )
 	fprintf( stderr, "Failed to read OtherSubrs from %s\n", othersubrsfile );
 	
-#endif
     if ( glyph_2_name_map ) {
-#ifndef LUA_FF_LIB
 	old_ttf_flags |= ttf_flag_glyphmap;
 	old_otf_flags |= ttf_flag_glyphmap;
-#endif
     }
-#ifndef LUA_FF_LIB
     LoadNamelistDir(NULL);
-#endif
+    ProcessFileChooserPrefs();
+    GDrawEnableCairo( prefs_usecairo );
+    GDrawEnablePango( prefs_usepango );
 }
 
-void PrefDefaultEncoding(void) {
-#ifndef LUA_FF_LIB
-    local_encoding = DefaultEncoding();
-#endif
-}
-
-void _SavePrefs(void) {
+static void PrefsUI_SavePrefs(int not_if_script) {
     char *prefs = getPfaEditPrefs();
     FILE *p;
     int i, j;
     char *temp;
     struct prefs_list *pl;
+    extern int running_script;
 
     if ( prefs==NULL )
 return;
+    if ( not_if_script && running_script )
+return;
+
     if ( (p=fopen(prefs,"w"))==NULL )
 return;
+
+    GetFileChooserPrefs();
 
     for ( j=0; prefs_list[j]!=NULL; ++j ) for ( i=0; prefs_list[j][i].name!=NULL; ++i ) {
 	pl = &prefs_list[j][i];
@@ -1055,6 +1127,9 @@ return;
 	  case pr_bool: case pr_int:
 	    fprintf( p, "%s:\t%d\n", pl->name, *(int *) (pl->val) );
 	  break;
+	  case pr_unicode:
+	    fprintf( p, "%s:\tU+%04x\n", pl->name, *(int *) (pl->val) );
+	  break;
 	  case pr_real:
 	    fprintf( p, "%s:\t%g\n", pl->name, (double) *(float *) (pl->val) );
 	  break;
@@ -1068,8 +1143,6 @@ return;
 	    if ( (pl->val)==NULL )
 		free(temp);
 	  break;
-		case pr_enum:
-		  break;
 	}
     }
 
@@ -1100,21 +1173,12 @@ return;
 	}
     }
 
-#ifndef LUA_FF_LIB
     if ( UserFeaturesDiffer())
 	SFDDumpMacFeat(p,default_mac_feature_map);
-#endif
+
     fclose(p);
 }
 
-void SavePrefs(void) {
-    extern int running_script;
-    if ( running_script )
-return;
-    _SavePrefs();
-}
-
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 struct pref_data {
     int done;
 };
@@ -1247,13 +1311,13 @@ return( false );
 	    ret1 = _GGadgetGetTitle(sd->set_code);
 	    on = u_strtol(ret1,&end,10);
 	    if ( *end!='\0' ) {
-		gwwv_post_error(_("Bad Number"),_("Bad Number"));
+		ff_post_error(_("Bad Number"),_("Bad Number"));
 return( true );
 	    }
 	    ret1 = _GGadgetGetTitle(sd->feature);
 	    feat = u_strtol(ret1,&end,10);
 	    if ( *end!='\0' && *end!=' ' ) {
-		gwwv_post_error(_("Bad Number"),_("Bad Number"));
+		ff_post_error(_("Bad Number"),_("Bad Number"));
 return( true );
 	    }
 	    ti = GGadgetGetList(sd->list,&len);
@@ -1261,14 +1325,10 @@ return( true );
 		val1 = u_strtol(ti[i]->text,&end,10);
 		val2 = u_strtol(end+1,NULL,10);
 		if ( val1==feat && val2==on ) {
-#if defined(FONTFORGE_CONFIG_GDRAW)
 		    static char *buts[3];
 		    buts[0] = _("_Yes");
 		    buts[1] = _("_No");
 		    buts[2] = NULL;
-#elif defined(FONTFORGE_CONFIG_GTK)
-		    static char *buts[] = { GTK_STOCK_YES, GTK_STOCK_NO, NULL };
-#endif
 		    if ( gwwv_ask(_("This feature, setting combination is already used"),(const char **) buts,0,1,
 			    _("This feature, setting combination is already used\nDo you really wish to reuse it?"))==1 )
 return( true );
@@ -1286,11 +1346,7 @@ return( true );
 		ubuf[3] = ' ';
 	    len = u_strlen(ret1);
 	    if ( len<2 || len>4 || ubuf[0]>=0x7f || ubuf[1]>=0x7f || ubuf[2]>=0x7f || ubuf[3]>=0x7f ) {
-#if defined(FONTFORGE_CONFIG_GDRAW)
-		gwwv_post_error(_("Tag too long"),_("Feature tags must be exactly 4 ASCII characters"));
-#elif defined(FONTFORGE_CONFIG_GTK)
-		gwwv_post_error(_("Tag too long"),_("Feature tags must be exactly 4 ASCII characters"));
-#endif
+		ff_post_error(_("Tag too long"),_("Feature tags must be exactly 4 ASCII characters"));
 return( true );
 	    }
 	    sprintf(buf,"%3d,%2d %c%c%c%c",
@@ -1531,10 +1587,10 @@ static int Prefs_Ok(GGadget *g, GEvent *e) {
 	    if ( *names[i]=='\0' ) names[i] = NULL;
 	    if ( *scripts[i]=='\0' ) scripts[i] = NULL;
 	    if ( scripts[i]==NULL && names[i]!=NULL ) {
-		gwwv_post_error(_("Menu name with no associated script"),_("Menu name with no associated script"));
+		ff_post_error(_("Menu name with no associated script"),_("Menu name with no associated script"));
 return( true );
 	    } else if ( scripts[i]!=NULL && names[i]==NULL ) {
-		gwwv_post_error(_("Script with no associated menu name"),_("Script with no associated menu name"));
+		ff_post_error(_("Script with no associated menu name"),_("Script with no associated menu name"));
 return( true );
 	    }
 	}
@@ -1553,8 +1609,10 @@ return( true );
 	continue;
 	    if ( pl->type==pr_int ) {
 		GetInt8(gw,j*CID_PrefsOffset+CID_PrefsBase+i,pl->name,&err);
-	    } else if ( pl->type==pr_int ) {
+	    } else if ( pl->type==pr_real ) {
 		GetReal8(gw,j*CID_PrefsOffset+CID_PrefsBase+i,pl->name,&err);
+	    } else if ( pl->type==pr_unicode ) {
+		GetUnicodeChar8(gw,j*CID_PrefsOffset+CID_PrefsBase+i,pl->name,&err);
 	    }
 	}
 	if ( err )
@@ -1567,6 +1625,9 @@ return( true );
 	    switch( pl->type ) {
 	      case pr_int:
 	        *((int *) (pl->val)) = GetInt8(gw,j*CID_PrefsOffset+CID_PrefsBase+i,pl->name,&err);
+	      break;
+	      case pr_unicode:
+	        *((int *) (pl->val)) = GetUnicodeChar8(gw,j*CID_PrefsOffset+CID_PrefsBase+i,pl->name,&err);
 	      break;
 	      case pr_bool:
 	        *((int *) (pl->val)) = GGadgetIsChecked(GWidgetGetControl(gw,j*CID_PrefsOffset+CID_PrefsBase+i));
@@ -1590,7 +1651,7 @@ return( true );
 			nl = NameListByName(name);
 			free(name);
 			if ( nl!=NULL && nl->uses_unicode && !allow_utf8_glyphnames)
-			    gwwv_post_error(_("Namelist contains non-ASCII names"),_("Glyph names should be limited to characters in the ASCII character set, but there are names in this namelist which use characters outside that range."));
+			    ff_post_error(_("Namelist contains non-ASCII names"),_("Glyph names should be limited to characters in the ASCII character set, but there are names in this namelist which use characters outside that range."));
 			else if ( nl!=NULL )
 			    *((NameList **) (pl->val)) = nl;
 		    }
@@ -1651,13 +1712,15 @@ return( true );
 	}
 
 	p->done = true;
-	SavePrefs();
+	PrefsUI_SavePrefs(true);
 	if ( maxundoes==0 ) { FontView *fv;
-	    for ( fv=fv_list ; fv!=NULL; fv=fv->next )
-		SFRemoveUndoes(fv->sf,NULL,NULL);
+	    for ( fv=fv_list ; fv!=NULL; fv=(FontView *) (fv->b.next) )
+		SFRemoveUndoes(fv->b.sf,NULL,NULL);
 	}
 	if ( othersubrsfile!=NULL && ReadOtherSubrsFile(othersubrsfile)<=0 )
 	    fprintf( stderr, "Failed to read OtherSubrs from %s\n", othersubrsfile );
+	GDrawEnableCairo(prefs_usecairo);
+	GDrawEnablePango(prefs_usepango);
     }
 return( true );
 }
@@ -1748,7 +1811,7 @@ void DoPrefs(void) {
     wattrs.restrict_input_to_me = 1;
     wattrs.undercursor = 1;
     wattrs.cursor = ct_pointer;
-    wattrs.utf8_window_title = _("Preferences...");
+    wattrs.utf8_window_title = _("Preferences");
     pos.x = pos.y = 0;
     pos.width = GGadgetScale(GDrawPointsToPixels(NULL,290));
     pos.height = GDrawPointsToPixels(NULL,line_max*26+69);
@@ -1969,6 +2032,15 @@ void DoPrefs(void) {
 	      break;
 	      case pr_int:
 		sprintf(buf,"%d", *((int *) pl->val));
+		plabel[gc].text = (unichar_t *) copy( buf );
+		pgcd[gc++].creator = GTextFieldCreate;
+		hvarray[si++] = &pgcd[gc-1];
+		hvarray[si++] = GCD_Glue; hvarray[si++] = GCD_Glue;
+		y += 26;
+	      break;
+	      case pr_unicode:
+		/*sprintf(buf,"U+%04x", *((int *) pl->val));*/
+		{ char *pt; pt = buf; pt = utf8_idpb(pt, *((int *) pl->val)); *pt='\0'; }
 		plabel[gc].text = (unichar_t *) copy( buf );
 		pgcd[gc++].creator = GTextFieldCreate;
 		hvarray[si++] = &pgcd[gc-1];
@@ -2233,7 +2305,7 @@ void DoPrefs(void) {
 	  case pr_namelist:
 	    free(gcd[gc+1].gd.u.list);
 	  break;
-	  case pr_string: case pr_file: case pr_int: case pr_real:
+	  case pr_string: case pr_file: case pr_int: case pr_real: case pr_unicode:
 	    free(plabels[k][gc+1].text);
 	    if ( pl->type==pr_file )
 		++gc;
@@ -2254,9 +2326,7 @@ void DoPrefs(void) {
 	GDrawProcessOneEvent(NULL);
     GDrawDestroyWindow(gw);
 }
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 
-#ifndef LUA_FF_LIB
 void RecentFilesRemember(char *filename) {
     int i;
 
@@ -2277,6 +2347,14 @@ void RecentFilesRemember(char *filename) {
 	    RecentFiles[i] = RecentFiles[i-1];
 	RecentFiles[0] = copy(filename);
     }
-    SavePrefs();
+    PrefsUI_SavePrefs(true);
 }
-#endif
+
+struct prefs_interface gdraw_prefs_interface = {
+    PrefsUI_SavePrefs,
+    PrefsUI_LoadPrefs,
+    PrefsUI_GetPrefs,
+    PrefsUI_SetPrefs,
+    PrefsUI_getFontForgeShareDir,
+    PrefsUI_SetDefaults
+};

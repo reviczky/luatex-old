@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,18 +24,13 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "pfaeditui.h"
+#include "fontforgevw.h"
 #include "ustring.h"
 #include "utype.h"
 #include "gfile.h"
 #include "chardata.h"
 
-#ifdef LUA_FF_LIB
-extern void SFAddGlyphAndEncode(SplineFont *sf,SplineChar *sc,EncMap *basemap, int baseenc);
-extern void gwwv_post_error(char *a, ...);
-#endif
-
-static RefChar *RefCharsCopy(RefChar *ref) {
+RefChar *RefCharsCopy(RefChar *ref) {
     RefChar *rhead=NULL, *last=NULL, *cur;
 
     while ( ref!=NULL ) {
@@ -52,8 +47,10 @@ static RefChar *RefCharsCopy(RefChar *ref) {
 	}
 	}
 #else
+	{struct reflayer *rl = cur->layers;
 	*cur = *ref;
-	cur->layers[0].splines = NULL;	/* Leave the old sc, we'll fix it later */
+	cur->layers = rl;
+	}
 #endif
 	if ( cur->sc!=NULL )
 	    cur->orig_pos = cur->sc->orig_pos;
@@ -163,8 +160,6 @@ return( mc->subs[s].to );
 return( newsub );
 }
 
-#ifndef LUA_FF_LIB
-
 AnchorClass *MCConvertAnchorClass(struct sfmergecontext *mc,AnchorClass *ac) {
     int a;
     AnchorClass *newac;
@@ -227,8 +222,10 @@ return;
 
     /* Get all the subtables in the right order */
     for ( s=0; s<mc->scnt; s=slast ) {
-	if ( mc->subs[s].to==NULL )
+	if ( mc->subs[s].to==NULL ) {
+	    slast = s+1;
     continue;
+	}
 	otl = mc->subs[s].to->lookup;
 	sub_last = otl->subtables = mc->subs[s].to;
 	for ( slast=s+1; slast<mc->scnt; ++slast ) {
@@ -270,7 +267,6 @@ return;
     free(mc->subs);
     free(mc->acs);
 }
-#endif
 
 PST *PSTCopy(PST *base,SplineChar *sc,struct sfmergecontext *mc) {
     PST *head=NULL, *last=NULL, *cur;
@@ -330,7 +326,6 @@ static AnchorPoint *AnchorPointsDuplicate(AnchorPoint *base,SplineChar *sc) {
 return( head );
 }
 
-#ifndef LUA_FF_LIB
 static void AnchorClassesAdd(SplineFont *into, SplineFont *from, struct sfmergecontext *mc) {
     AnchorClass *fac, *iac, *last, *cur;
 
@@ -465,7 +460,6 @@ static void KernClassesAdd(SplineFont *into, SplineFont *from,struct sfmergecont
 	last = cur;
     }
 }
-#endif
 
 static struct altuni *AltUniCopy(struct altuni *altuni,SplineFont *noconflicts) {
     struct altuni *head=NULL, *last=NULL, *cur;
@@ -474,6 +468,8 @@ static struct altuni *AltUniCopy(struct altuni *altuni,SplineFont *noconflicts) 
 	if ( noconflicts==NULL || SFGetChar(noconflicts,altuni->unienc,NULL)==NULL ) {
 	    cur = chunkalloc(sizeof(struct altuni));
 	    cur->unienc = altuni->unienc;
+	    cur->vs = altuni->vs;
+	    cur->fid = altuni->fid;
 	    if ( head==NULL )
 		head = cur;
 	    else
@@ -486,14 +482,18 @@ return( head );
 }
 
 SplineChar *SplineCharCopy(SplineChar *sc,SplineFont *into,struct sfmergecontext *mc) {
-    SplineChar *nsc = SplineCharCreate();
-#ifdef FONTFORGE_CONFIG_TYPE3
-    Layer *layers = nsc->layers;
+    SplineChar *nsc;
+    Layer *layers;
     int layer;
-
-    *nsc = *sc;
-    if ( sc->layer_cnt!=2 )
-	layers = grealloc(layers,sc->layer_cnt*sizeof(Layer));
+    if (into==NULL) {
+      nsc = SplineCharCreate(2);
+    } else {
+      nsc = SFSplineCharCreate(into);
+    }
+    layers = nsc->layers;
+    *nsc = *sc;		/* We copy the layers just below */
+    if (into==NULL || sc->layer_cnt!=into->layer_cnt )
+	  layers = grealloc(layers,sc->layer_cnt*sizeof(Layer));
     memcpy(layers,sc->layers,sc->layer_cnt*sizeof(Layer));
     nsc->layers = layers;
     for ( layer = ly_back; layer<sc->layer_cnt; ++layer ) {
@@ -503,13 +503,6 @@ SplineChar *SplineCharCopy(SplineChar *sc,SplineFont *into,struct sfmergecontext
 	layers[layer].undoes = NULL;
 	layers[layer].redoes = NULL;
     }
-#else
-    *nsc = *sc;
-    nsc->layers[ly_fore].splines = SplinePointListCopy(nsc->layers[ly_fore].splines);
-    nsc->layers[ly_fore].refs = RefCharsCopy(nsc->layers[ly_fore].refs);
-    nsc->layers[ly_back].splines = SplinePointListCopy(nsc->layers[ly_back].splines);
-    nsc->layers[ly_back].images = ImageListCopy(nsc->layers[ly_back].images);
-#endif
     nsc->parent = into;
     nsc->orig_pos = -2;
     nsc->name = copy(sc->name);
@@ -528,19 +521,22 @@ SplineChar *SplineCharCopy(SplineChar *sc,SplineFont *into,struct sfmergecontext
     nsc->kerns = NULL;
     nsc->possub = PSTCopy(nsc->possub,nsc,mc);
     nsc->altuni = AltUniCopy(nsc->altuni,into);
-    if ( sc->parent!=NULL && into->order2!=sc->parent->order2 )
-	SCConvertOrder(nsc,into->order2);
+    if (into != NULL && into->layers[ly_fore].order2!=sc->layers[ly_fore].order2 )
+	SCConvertOrder(nsc,into->layers[ly_fore].order2);
 return(nsc);
 }
 
-#ifndef LUA_FF_LIB
+static int _SFFindExistingSlot(SplineFont *sf, int unienc, const char *name );
+
 static KernPair *KernsCopy(KernPair *kp,int *mapping,SplineFont *into,
 	struct sfmergecontext *mc) {
     KernPair *head = NULL, *last=NULL, *new;
     int index;
 
     while ( kp!=NULL ) {
-	if ( (index=mapping[kp->sc->orig_pos])>=0 && index<into->glyphcnt &&
+	if ( (index=mapping[kp->sc->orig_pos])<0 && mc->preserveCrossFontKerning )
+	    index =  _SFFindExistingSlot(into,kp->sc->unicodeenc,kp->sc->name);
+	if ( index>=0 && index<into->glyphcnt &&
 		into->glyphs[index]!=NULL ) {
 	    new = chunkalloc(sizeof(KernPair));
 	    new->off = kp->off;
@@ -556,7 +552,6 @@ static KernPair *KernsCopy(KernPair *kp,int *mapping,SplineFont *into,
     }
 return( head );
 }
-
 
 BDFChar *BDFCharCopy(BDFChar *bc) {
     BDFChar *nbc = galloc(sizeof( BDFChar ));
@@ -591,7 +586,6 @@ void BitmapsCopy(SplineFont *to, SplineFont *from, int to_index, int from_index 
 	}
     }
 }
-#endif
 
 #define GN_HSIZE	257
 
@@ -687,7 +681,7 @@ return;		/* No hash table, nothing to update */
     sf->glyphnames->table[hash] = new;
 }
 
-static SplineChar *SFHashName(SplineFont *sf,const char *name) {
+SplineChar *SFHashName(SplineFont *sf,const char *name) {
     struct glyphnamebucket *test;
 
     if ( sf->glyphnames==NULL )
@@ -712,7 +706,7 @@ int SFFindGID(SplineFont *sf, int unienc, const char *name ) {
 	    if ( sf->glyphs[gid]->unicodeenc == unienc )
 return( gid );
 	    for ( altuni = sf->glyphs[gid]->altuni; altuni!=NULL; altuni=altuni->next ) {
-		if ( altuni->unienc == unienc )
+		if ( altuni->unienc == unienc && altuni->vs==-1 && altuni->fid==0 )
 return( gid );
 	    }
 	}
@@ -730,8 +724,17 @@ return ( -1 );
 /*  be found. (or for unencoded glyphs where it is found). Returns -1 else */
 int SFFindSlot(SplineFont *sf, EncMap *map, int unienc, const char *name ) {
     int index=-1, pos;
+    struct cidmap *cidmap;
 
-    if ( (map->enc->is_custom || map->enc->is_compact ||
+    if ( sf->cidmaster!=NULL && !map->enc->is_compact &&
+		(cidmap = FindCidMap(sf->cidmaster->cidregistry,
+				    sf->cidmaster->ordering,
+				    sf->cidmaster->supplement,
+				    sf->cidmaster))!=NULL )
+	index = NameUni2CID(cidmap,unienc,name);
+    if ( index!=-1 )
+	/* All done */;
+    else if ( (map->enc->is_custom || map->enc->is_compact ||
 	    map->enc->is_original) && unienc!=-1 ) {
 	if ( unienc<map->enccount && map->map[unienc]!=-1 &&
 		sf->glyphs[map->map[unienc]]!=NULL &&
@@ -851,7 +854,6 @@ return( NULL );
 return( sf->subfonts[j]->glyphs[ind] );
 }
 
-#ifndef LUA_FF_LIB
 SplineChar *SFGetOrMakeChar(SplineFont *sf, int unienc, const char *name ) {
     SplineChar *sc=NULL;
 
@@ -862,7 +864,7 @@ SplineChar *SFGetOrMakeChar(SplineFont *sf, int unienc, const char *name ) {
     } else
 	sc = SFGetChar(sf,unienc,name);
     if ( sc==NULL && (unienc!=-1 || name!=NULL)) {
-	sc = SplineCharCreate();
+	sc = SFSplineCharCreate(sf);
 #ifdef FONTFORGE_CONFIG_TYPE3
 	if ( sf->strokedfont ) {
 	    sc->layers[ly_fore].dostroke = true;
@@ -882,7 +884,6 @@ SplineChar *SFGetOrMakeChar(SplineFont *sf, int unienc, const char *name ) {
     }
 return( sc );
 }
-#endif
 
 static int _SFFindExistingSlot(SplineFont *sf, int unienc, const char *name ) {
     int gid = -1;
@@ -892,7 +893,8 @@ static int _SFFindExistingSlot(SplineFont *sf, int unienc, const char *name ) {
 	for ( gid=sf->glyphcnt-1; gid>=0; --gid ) if ( sf->glyphs[gid]!=NULL ) {
 	    if ( sf->glyphs[gid]->unicodeenc==unienc )
 	break;
-	    for ( altuni=sf->glyphs[gid]->altuni ; altuni!=NULL && altuni->unienc!=unienc ;
+	    for ( altuni=sf->glyphs[gid]->altuni ; altuni!=NULL &&
+		    (altuni->unienc!=unienc || altuni->vs!=-1 || altuni->fid!=0);
 		    altuni=altuni->next );
 	    if ( altuni!=NULL )
 	break;
@@ -903,6 +905,10 @@ static int _SFFindExistingSlot(SplineFont *sf, int unienc, const char *name ) {
 	if ( sc==NULL )
 return( -1 );
 	gid = sc->orig_pos;
+	if ( gid<0 || gid>=sf->glyphcnt ) {
+	    IError("Invalid glyph location when searching for %s", name );
+return( -1 );
+	}
     }
 return( gid );
 }
@@ -916,49 +922,54 @@ return( -1 );
 return( gid );
 }
 
-
-#ifndef LUA_FF_LIB
-
 static void MFixupSC(SplineFont *sf, SplineChar *sc,int i) {
     RefChar *ref, *prev;
-    FontView *fvs;
+    int l;
 
     sc->orig_pos = i;
     sc->parent = sf;
- retry:
-    for ( ref=sc->layers[ly_fore].refs; ref!=NULL; ref=ref->next ) {
-	/* The sc in the ref is from the old font. It's got to be in the */
-	/*  new font too (was either already there or just got copied) */
-	ref->orig_pos =  SFFindExistingSlot(sf,ref->sc->unicodeenc,ref->sc->name);
-	if ( ref->orig_pos==-1 ) {
-	    IError("Bad reference, can't fix it up");
-	    if ( ref==sc->layers[ly_fore].refs ) {
-		sc->layers[ly_fore].refs = ref->next;
- goto retry;
+    sc->ticked = true;
+    for ( l=0; l<sc->layer_cnt; ++l ) {
+     retry:
+	for ( ref=sc->layers[l].refs; ref!=NULL; ref=ref->next ) {
+	    /* The sc in the ref is from the old font. It's got to be in the */
+	    /*  new font too (was either already there or just got copied) */
+	    ref->orig_pos =  SFFindExistingSlot(sf,ref->sc->unicodeenc,ref->sc->name);
+	    if ( ref->orig_pos==-1 ) {
+		IError("Bad reference, can't fix it up");
+		if ( ref==sc->layers[l].refs ) {
+		    sc->layers[l].refs = ref->next;
+     goto retry;
+		} else {
+		    for ( prev=sc->layers[l].refs; prev->next!=ref; prev=prev->next );
+		    prev->next = ref->next;
+		    chunkfree(ref,sizeof(*ref));
+		    ref = prev;
+		}
 	    } else {
-		for ( prev=sc->layers[ly_fore].refs; prev->next!=ref; prev=prev->next );
-		prev->next = ref->next;
-		chunkfree(ref,sizeof(*ref));
-		ref = prev;
+		ref->sc = sf->glyphs[ref->orig_pos];
+		if ( !ref->sc->ticked )
+		    MFixupSC(sf,ref->sc,ref->orig_pos);
+		SCReinstanciateRefChar(sc,ref,l);
+		SCMakeDependent(sc,ref->sc);
 	    }
-	} else {
-	    ref->sc = sf->glyphs[ref->orig_pos];
-	    if ( ref->sc->orig_pos==-2 )
-		MFixupSC(sf,ref->sc,ref->orig_pos);
-	    SCReinstanciateRefChar(sc,ref);
-	    SCMakeDependent(sc,ref->sc);
 	}
     }
+#if 0
     /* I shan't automagically generate bitmaps for any bdf fonts */
     /*  but I have copied over the ones which match */
     for ( fvs=sf->fv; fvs!=NULL; fvs=fvs->nextsame ) if ( fvs->filled!=NULL )
 	fvs->filled->glyphs[i] = SplineCharRasterize(sc,fvs->filled->pixelsize);
+#endif
 }
 
 static void MergeFixupRefChars(SplineFont *sf) {
     int i;
 
-    for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL && sf->glyphs[i]->orig_pos==-2 ) {
+    for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL ) {
+	sf->glyphs[i]->ticked = false;
+    }
+    for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL && !sf->glyphs[i]->ticked ) {
 	MFixupSC(sf,sf->glyphs[i], i);
     }
 }
@@ -969,7 +980,7 @@ int SFHasChar(SplineFont *sf, int unienc, const char *name ) {
 return( SCWorthOutputting(sc) );
 }
 
-static void FVMergeRefigureMapSel(FontView *fv,SplineFont *into,SplineFont *o_sf,
+static void FVMergeRefigureMapSel(FontViewBase *fv,SplineFont *into,SplineFont *o_sf,
 	int *mapping, int emptypos, int cnt) {
     int extras, doit, i;
     EncMap *map = fv->map;
@@ -1012,10 +1023,10 @@ static void FVMergeRefigureMapSel(FontView *fv,SplineFont *into,SplineFont *o_sf
 }
 
 static void _MergeFont(SplineFont *into,SplineFont *other,struct sfmergecontext *mc) {
-    int i,cnt, doit, emptypos, index, k;
+    int i, cnt, doit, emptypos, index, k;
     SplineFont *o_sf, *bitmap_into;
     BDFFont *bdf;
-    FontView *fvs;
+    FontViewBase *fvs;
     int *mapping;
 
     emptypos = into->glyphcnt;
@@ -1035,6 +1046,7 @@ static void _MergeFont(SplineFont *into,SplineFont *other,struct sfmergecontext 
 		    /*  char */
 		    SplineCharFree(into->glyphs[index]);
 		    into->glyphs[index] = SplineCharCopy(o_sf->glyphs[i],into,mc);
+		    into->glyphs[index]->orig_pos = index;
 		    if ( into->bitmaps!=NULL && other->bitmaps!=NULL )
 			BitmapsCopy(bitmap_into,other,index,i);
 		} else if ( !doit ) {
@@ -1059,11 +1071,7 @@ static void _MergeFont(SplineFont *into,SplineFont *other,struct sfmergecontext 
 			    bdf->glyphmax = bdf->glyphcnt = emptypos+cnt;
 			}
 		    for ( fvs = into->fv; fvs!=NULL; fvs=fvs->nextsame )
-			if ( fvs->filled!=NULL ) {
-			    fvs->filled->glyphs = grealloc(fvs->filled->glyphs,(emptypos+cnt)*sizeof(BDFChar *));
-			    memset(fvs->filled->glyphs+emptypos,0,cnt*sizeof(BDFChar *));
-			    fvs->filled->glyphmax = fvs->filled->glyphcnt = emptypos+cnt;
-			}
+			FVBiggerGlyphCache(fvs,emptypos+cnt);
 		    for ( fvs = into->fv; fvs!=NULL; fvs=fvs->nextsame )
 			if ( fvs->sf == into )
 			    FVMergeRefigureMapSel(fvs,into,o_sf,mapping,emptypos,cnt);
@@ -1073,25 +1081,41 @@ static void _MergeFont(SplineFont *into,SplineFont *other,struct sfmergecontext 
 	    ++k;
 	} while ( k<other->subfontcnt );
     }
-    for ( i=0; i<other->glyphcnt; ++i ) if ( (index=mapping[i])!=-1 )
-	into->glyphs[index]->kerns = KernsCopy(other->glyphs[i]->kerns,mapping,into,mc);
+    for ( i=0; i<other->glyphcnt; ++i ) {
+	if ( (index=mapping[i])!=-1 )
+	    into->glyphs[index]->kerns = KernsCopy(other->glyphs[i]->kerns,mapping,into,mc);
+	else if ( mc->preserveCrossFontKerning && other->glyphs[i]!=NULL ) {
+	    KernPair *kpnew, *kpend;
+	    index = _SFFindExistingSlot(into,other->glyphs[i]->unicodeenc,other->glyphs[i]->name);
+	    if ( index!=-1 ) {
+		mc->preserveCrossFontKerning = false;
+		kpnew = KernsCopy(other->glyphs[i]->kerns,mapping,into,mc);
+		mc->preserveCrossFontKerning = true;
+		if ( kpnew ) {
+		    for ( kpend=kpnew; kpend->next!=NULL; kpend=kpend->next );
+		    kpend->next = into->glyphs[index]->kerns;
+		    into->glyphs[index]->kerns = kpnew;
+		}
+	    }
+	}
+    }
+
     free(mapping);
     GlyphHashFree(into);
     MergeFixupRefChars(into);
     if ( other->fv==NULL )
 	SplineFontFree(other);
     into->changed = true;
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     FontViewReformatAll(into);
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
     GlyphHashFree(into);
 }
 
-static void __MergeFont(SplineFont *into,SplineFont *other) {
+static void __MergeFont(SplineFont *into,SplineFont *other, int preserveCrossFontKerning) {
     struct sfmergecontext mc;
 
     memset(&mc,0,sizeof(mc));
     mc.sf_from = other; mc.sf_to = into;
+    mc.preserveCrossFontKerning = preserveCrossFontKerning;
 
     AnchorClassesAdd(into,other,&mc);
     FPSTsAdd(into,other,&mc);
@@ -1099,16 +1123,19 @@ static void __MergeFont(SplineFont *into,SplineFont *other) {
     KernClassesAdd(into,other,&mc);
 
     _MergeFont(into,other,&mc);
+
+    SFFinishMergeContext(&mc);
 }
 
-static void CIDMergeFont(SplineFont *into,SplineFont *other) {
+static void CIDMergeFont(SplineFont *into,SplineFont *other, int preserveCrossFontKerning) {
     int i,j,k;
     SplineFont *i_sf, *o_sf;
-    FontView *fvs;
+    FontViewBase *fvs;
     struct sfmergecontext mc;
 
     memset(&mc,0,sizeof(mc));
     mc.sf_from = other; mc.sf_to = into;
+    mc.preserveCrossFontKerning = preserveCrossFontKerning;
 
     AnchorClassesAdd(into,other,&mc);
     FPSTsAdd(into,other,&mc);
@@ -1139,6 +1166,7 @@ static void CIDMergeFont(SplineFont *into,SplineFont *other) {
 	    else if ( SFHasCID(into,i)==-1 ) {
 		SplineCharFree(i_sf->glyphs[i]);
 		i_sf->glyphs[i] = SplineCharCopy(o_sf->glyphs[i],i_sf,&mc);
+		i_sf->glyphs[i]->orig_pos = i;
 		if ( into->bitmaps!=NULL && other->bitmaps!=NULL )
 		    BitmapsCopy(into,other,i,i);
 	    }
@@ -1146,17 +1174,17 @@ static void CIDMergeFont(SplineFont *into,SplineFont *other) {
 	MergeFixupRefChars(i_sf);
 	++k;
     } while ( k<other->subfontcnt );
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
     FontViewReformatAll(into);
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
     into->changed = true;
     GlyphHashFree(into);
+
+    SFFinishMergeContext(&mc);
 }
 
-void MergeFont(FontView *fv,SplineFont *other) {
+void MergeFont(FontViewBase *fv,SplineFont *other, int preserveCrossFontKerning) {
 
     if ( fv->sf==other ) {
-	gwwv_post_error(_("Merging Problem"),_("Merging a font with itself achieves nothing"));
+	ff_post_error(_("Merging Problem"),_("Merging a font with itself achieves nothing"));
 return;
     }
     if ( fv->sf->cidmaster!=NULL && other->subfonts!=NULL &&
@@ -1164,7 +1192,7 @@ return;
 	     strcmp(fv->sf->cidmaster->ordering,other->ordering)!=0 ||
 	     fv->sf->cidmaster->supplement<other->supplement ||
 	     fv->sf->cidmaster->subfontcnt<other->subfontcnt )) {
-	gwwv_post_error(_("Merging Problem"),_("When merging two CID keyed fonts, they must have the same Registry and Ordering, and the font being merged into (the mergee) must have a supplement which is at least as recent as the other's. Furthermore the mergee must have at least as many subfonts as the merger."));
+	ff_post_error(_("Merging Problem"),_("When merging two CID keyed fonts, they must have the same Registry and Ordering, and the font being merged into (the mergee) must have a supplement which is at least as recent as the other's. Furthermore the mergee must have at least as many subfonts as the merger."));
 return;
     }
     /* Ok. when merging CID fonts... */
@@ -1172,208 +1200,15 @@ return;
     /*  If fv is CID and other is normal then merge other into the currently active font */
     /*  If both are CID then merge each subfont seperately */
     if ( fv->sf->cidmaster!=NULL && other->subfonts!=NULL )
-	CIDMergeFont(fv->sf->cidmaster,other);
+	CIDMergeFont(fv->sf->cidmaster,other,preserveCrossFontKerning);
     else
-	__MergeFont(fv->sf,other);
-}
-#endif
-
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
-static void MergeAskFilename(FontView *fv) {
-    char *filename = GetPostscriptFontName(NULL,true);
-    SplineFont *sf;
-    char *eod, *fpt, *file, *full;
-
-    if ( filename==NULL )
-return;
-    eod = strrchr(filename,'/');
-    *eod = '\0';
-    file = eod+1;
-    do {
-	fpt = strstr(file,"; ");
-	if ( fpt!=NULL ) *fpt = '\0';
-	full = galloc(strlen(filename)+1+strlen(file)+1);
-	strcpy(full,filename); strcat(full,"/"); strcat(full,file);
-	sf = LoadSplineFont(full,0);
-	if ( sf!=NULL && sf->fv==NULL )
-	    EncMapFree(sf->map);
-	free(full);
-	if ( sf==NULL )
-	    /* Do Nothing */;
-	else if ( sf->fv==fv )
-	    gwwv_post_error(_("Merging Problem"),_("Merging a font with itself achieves nothing"));
-	else
-	    MergeFont(fv,sf);
-	file = fpt+2;
-    } while ( fpt!=NULL );
-    free(filename);
+	__MergeFont(fv->sf,other,preserveCrossFontKerning);
 }
 
-GTextInfo *BuildFontList(FontView *except) {
-    FontView *fv;
-    int cnt=0;
-    GTextInfo *tf;
+/******************************************************************************/
+/* *************************** Font Interpolation *************************** */
+/******************************************************************************/
 
-    for ( fv=fv_list; fv!=NULL; fv = fv->next )
-	++cnt;
-    tf = gcalloc(cnt+3,sizeof(GTextInfo));
-    for ( fv=fv_list, cnt=0; fv!=NULL; fv = fv->next ) if ( fv!=except ) {
-	tf[cnt].fg = tf[cnt].bg = COLOR_DEFAULT;
-	tf[cnt].text = (unichar_t *) fv->sf->fontname;
-	tf[cnt].text_is_1byte = true;
-	++cnt;
-    }
-    tf[cnt++].line = true;
-    tf[cnt].fg = tf[cnt].bg = COLOR_DEFAULT;
-    tf[cnt].text_is_1byte = true;
-    tf[cnt++].text = (unichar_t *) _("Other ...");
-return( tf );
-}
-
-void TFFree(GTextInfo *tf) {
-/*
-    int i;
-
-    for ( i=0; tf[i].text!=NULL || tf[i].line ; ++i )
-	if ( !tf[i].text_in_resource )
-	    free( tf[i].text );
-*/
-    free(tf);
-}
-
-struct mf_data {
-    int done;
-    FontView *fv;
-    GGadget *other;
-    GGadget *amount;
-};
-
-static int MF_OK(GGadget *g, GEvent *e) {
-    if ( e->type==et_controlevent && e->u.control.subtype == et_buttonactivate ) {
-	GWindow gw = GGadgetGetWindow(g);
-	struct mf_data *d = GDrawGetUserData(gw);
-	int i, index = GGadgetGetFirstListSelectedItem(d->other);
-	FontView *fv;
-	for ( i=0, fv=fv_list; fv!=NULL; fv=fv->next ) {
-	    if ( fv==d->fv )
-	continue;
-	    if ( i==index )
-	break;
-	    ++i;
-	}
-	if ( fv==NULL )
-	    MergeAskFilename(d->fv);
-	else
-	    MergeFont(d->fv,fv->sf);
-	d->done = true;
-    }
-return( true );
-}
-
-static int MF_Cancel(GGadget *g, GEvent *e) {
-    if ( e->type==et_controlevent && e->u.control.subtype == et_buttonactivate ) {
-	GWindow gw = GGadgetGetWindow(g);
-	struct mf_data *d = GDrawGetUserData(gw);
-	d->done = true;
-    }
-return( true );
-}
-
-static int mv_e_h(GWindow gw, GEvent *event) {
-    if ( event->type==et_close ) {
-	struct mf_data *d = GDrawGetUserData(gw);
-	d->done = true;
-    } else if ( event->type == et_char ) {
-return( false );
-    }
-return( true );
-}
-
-void FVMergeFonts(FontView *fv) {
-    GRect pos;
-    GWindow gw;
-    GWindowAttrs wattrs;
-    GGadgetCreateData gcd[6];
-    GTextInfo label[6];
-    struct mf_data d;
-    char buffer[80];
-
-    /* If there's only one font loaded, then it's the current one, and there's*/
-    /*  no point asking the user if s/he wants to merge any of the loaded */
-    /*  fonts, go directly to searching the disk */
-    if ( fv_list==fv && fv_list->next==NULL )
-	MergeAskFilename(fv);
-    else {
-	memset(&wattrs,0,sizeof(wattrs));
-	wattrs.mask = wam_events|wam_cursor|wam_utf8_wtitle|wam_undercursor|wam_restrict;
-	wattrs.event_masks = ~(1<<et_charup);
-	wattrs.restrict_input_to_me = 1;
-	wattrs.undercursor = 1;
-	wattrs.cursor = ct_pointer;
-	wattrs.utf8_window_title = _("Merge Fonts...");
-	pos.x = pos.y = 0;
-	pos.width = GGadgetScale(GDrawPointsToPixels(NULL,150));
-	pos.height = GDrawPointsToPixels(NULL,88);
-	gw = GDrawCreateTopWindow(NULL,&pos,mv_e_h,&d,&wattrs);
-
-	memset(&label,0,sizeof(label));
-	memset(&gcd,0,sizeof(gcd));
-
-	sprintf( buffer, _("Font to merge into %.20s"), fv->sf->fontname );
-	label[0].text = (unichar_t *) buffer;
-	label[0].text_is_1byte = true;
-	gcd[0].gd.label = &label[0];
-	gcd[0].gd.pos.x = 12; gcd[0].gd.pos.y = 6; 
-	gcd[0].gd.flags = gg_visible | gg_enabled;
-	gcd[0].creator = GLabelCreate;
-
-	gcd[1].gd.pos.x = 15; gcd[1].gd.pos.y = 21;
-	gcd[1].gd.pos.width = 120;
-	gcd[1].gd.flags = gg_visible | gg_enabled;
-	gcd[1].gd.u.list = BuildFontList(fv);
-	gcd[1].gd.label = &gcd[1].gd.u.list[0];
-	gcd[1].gd.u.list[0].selected = true;
-	gcd[1].creator = GListButtonCreate;
-
-	gcd[2].gd.pos.x = 15-3; gcd[2].gd.pos.y = 55-3;
-	gcd[2].gd.pos.width = -1; gcd[2].gd.pos.height = 0;
-	gcd[2].gd.flags = gg_visible | gg_enabled | gg_but_default;
-	label[2].text = (unichar_t *) _("_OK");
-	label[2].text_is_1byte = true;
-	label[2].text_in_resource = true;
-	gcd[2].gd.mnemonic = 'O';
-	gcd[2].gd.label = &label[2];
-	gcd[2].gd.handle_controlevent = MF_OK;
-	gcd[2].creator = GButtonCreate;
-
-	gcd[3].gd.pos.x = -15; gcd[3].gd.pos.y = 55;
-	gcd[3].gd.pos.width = -1; gcd[3].gd.pos.height = 0;
-	gcd[3].gd.flags = gg_visible | gg_enabled | gg_but_cancel;
-	label[3].text = (unichar_t *) _("_Cancel");
-	label[3].text_is_1byte = true;
-	label[3].text_in_resource = true;
-	gcd[3].gd.label = &label[3];
-	gcd[3].gd.mnemonic = 'C';
-	gcd[3].gd.handle_controlevent = MF_Cancel;
-	gcd[3].creator = GButtonCreate;
-
-	GGadgetsCreate(gw,gcd);
-
-	memset(&d,'\0',sizeof(d));
-	d.other = gcd[1].ret;
-	d.fv = fv;
-
-	GWidgetHidePalettes();
-	GDrawSetVisible(gw,true);
-	while ( !d.done )
-	    GDrawProcessOneEvent(NULL);
-	GDrawDestroyWindow(gw);
-	TFFree(gcd[1].gd.u.list);
-    }
-}
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
-
-#ifndef LUA_FF_LIB
 static RefChar *InterpRefs(RefChar *base, RefChar *other, real amount, SplineChar *sc) {
     RefChar *head=NULL, *last=NULL, *cur;
     RefChar *test;
@@ -1393,11 +1228,13 @@ static RefChar *InterpRefs(RefChar *base, RefChar *other, real amount, SplineCha
 	if ( test!=NULL ) {
 	    test->checked = true;
 	    cur = RefCharCreate();
+	    free(cur->layers);
 	    *cur = *base;
 	    cur->orig_pos = cur->sc->orig_pos;
 	    for ( i=0; i<6; ++i )
 		cur->transform[i] = base->transform[i] + amount*(other->transform[i]-base->transform[i]);
-	    cur->layers[0].splines = NULL;
+	    cur->layers = NULL;
+	    cur->layer_cnt = 0;
 	    cur->checked = false;
 	    if ( head==NULL )
 		head = cur;
@@ -1499,7 +1336,7 @@ return( cur );
     }
 }
 
-static SplineSet *InterpSplineSets(SplineSet *base, SplineSet *other, real amount, SplineChar *sc) {
+SplineSet *SplineSetsInterpolate(SplineSet *base, SplineSet *other, real amount, SplineChar *sc) {
     SplineSet *head=NULL, *last=NULL, *cur;
 
     /* we could do something really complex to try and figure out which spline*/
@@ -1530,7 +1367,6 @@ static KernPair *InterpKerns(KernPair *kp1, KernPair *kp2, real amount,
 	SplineFont *new, SplineChar *scnew) {
     KernPair *head=NULL, *last, *nkp, *k;
 
-	last = NULL;
     if ( kp1==NULL || kp2==NULL )
 return( NULL );
     while ( kp1!=NULL ) {
@@ -1552,7 +1388,6 @@ return( NULL );
     }
 return( head );
 }
-#endif
 
 #ifdef FONTFORGE_CONFIG_TYPE3
 static uint32 InterpColor( uint32 col1,uint32 col2, real amount ) {
@@ -1620,27 +1455,40 @@ static void LayerInterpolate(Layer *to,Layer *base,Layer *other,real amount,Spli
 	to->stroke_pen.linejoin = base->stroke_pen.linejoin;
     else
 	LogError( "Different settings on stroke linejoin in layer %d of %s\n", lc, sc->name );
+    if ( base->fill_brush.gradient!=NULL || other->fill_brush.gradient!=NULL ||
+	    base->stroke_pen.brush.gradient!=NULL || other->stroke_pen.brush.gradient!=NULL )
+	LogError( "I can't even imagine how to attempt to interpolate gradients in layer %d of %s\n", lc, sc->name );
+#if 0
+    if ( base->fill_brush.pattern!=NULL && other->fill_brush.pattern!=NULL &&
+	    strcmp(base->fill_brush.pattern,other->fill_brush.pattern)==0 )
+	to->fill_brush.pattern = copy(base->fill_brush.pattern);
+    else
+#endif
+    if ( base->fill_brush.pattern!=NULL || other->fill_brush.pattern!=NULL )
+	LogError( "Different fill patterns in layer %d of %s\n", lc, sc->name );
+#if 0
+    if ( base->stroke_pen.brush.pattern!=NULL && other->stroke_pen.brush.pattern!=NULL &&
+	    strcmp(base->stroke_pen.brush.pattern,other->stroke_pen.brush.pattern)==0 )
+	to->stroke_pen.brush.pattern = copy(base->stroke_pen.brush.pattern);
+    else
+#endif
+    if ( base->stroke_pen.brush.pattern!=NULL || other->stroke_pen.brush.pattern!=NULL )
+	LogError( "Different stroke patterns in layer %d of %s\n", lc, sc->name );
 
-    to->splines = InterpSplineSets(base->splines,other->splines,amount,sc);
+    to->splines = SplineSetsInterpolate(base->splines,other->splines,amount,sc);
     to->refs = InterpRefs(base->refs,other->refs,amount,sc);
     if ( base->images!=NULL || other->images!=NULL )
 	LogError( "I can't even imagine how to attempt to interpolate images in layer %d of %s\n", lc, sc->name );
 }
 #endif
 
-#ifndef LUA_FF_LIB
-static void InterpolateChar(SplineFont *new, int orig_pos, SplineChar *base, SplineChar *other, real amount) {
+SplineChar *SplineCharInterpolate(SplineChar *base, SplineChar *other, real amount) {
     SplineChar *sc;
 
     if ( base==NULL || other==NULL )
-return;
-    sc = SplineCharCreate();
-    sc->orig_pos = orig_pos;
+return( NULL );
+    sc = SFSplineCharCreate(base->parent);
     sc->unicodeenc = base->unicodeenc;
-    new->glyphs[orig_pos] = sc;
-    if ( orig_pos+1>new->glyphcnt )
-	new->glyphcnt = orig_pos+1;
-    sc->parent = new;
     sc->changed = true;
     sc->views = NULL;
     sc->dependents = NULL;
@@ -1670,12 +1518,26 @@ return;
     } else
 #endif
     {
-	sc->layers[ly_fore].splines = InterpSplineSets(base->layers[ly_fore].splines,other->layers[ly_fore].splines,amount,sc);
+	sc->layers[ly_fore].splines = SplineSetsInterpolate(base->layers[ly_fore].splines,other->layers[ly_fore].splines,amount,sc);
 	sc->layers[ly_fore].refs = InterpRefs(base->layers[ly_fore].refs,other->layers[ly_fore].refs,amount,sc);
     }
     sc->changedsincelasthinted = true;
     sc->widthset = base->widthset;
     sc->glyph_class = base->glyph_class;
+return( sc );
+}
+
+static void _SplineCharInterpolate(SplineFont *new, int orig_pos, SplineChar *base, SplineChar *other, real amount) {
+    SplineChar *sc;
+
+    sc = SplineCharInterpolate(base,other,amount);
+    if ( sc==NULL )
+return;
+    sc->orig_pos = orig_pos;
+    new->glyphs[orig_pos] = sc;
+    if ( orig_pos+1>new->glyphcnt )
+	new->glyphcnt = orig_pos+1;
+    sc->parent = new;
 }
 
 static void IFixupSC(SplineFont *sf, SplineChar *sc,int i) {
@@ -1688,7 +1550,7 @@ static void IFixupSC(SplineFont *sf, SplineChar *sc,int i) {
 	ref->orig_pos = SFFindExistingSlot(sf,ref->sc->unicodeenc,ref->sc->name);
 	ref->sc = sf->glyphs[ref->orig_pos];
 	IFixupSC(sf,ref->sc,ref->orig_pos);
-	SCReinstanciateRefChar(sc,ref);
+	SCReinstanciateRefChar(sc,ref,ly_fore);
 	SCMakeDependent(sc,ref->sc);
     }
 }
@@ -1707,27 +1569,15 @@ SplineFont *InterpolateFont(SplineFont *base, SplineFont *other, real amount,
     int i, index;
 
     if ( base==other ) {
-#if defined(FONTFORGE_CONFIG_GTK)
-	gwwv_post_error(_("Interpolating Problem"),_("Interpolating a font with itself achieves nothing"));
-#else
-	gwwv_post_error(_("Interpolating Problem"),_("Interpolating a font with itself achieves nothing"));
-#endif
+	ff_post_error(_("Interpolating Problem"),_("Interpolating a font with itself achieves nothing"));
 return( NULL );
-    } else if ( base->order2!=other->order2 ) {
-#if defined(FONTFORGE_CONFIG_GTK)
-	gwwv_post_error(_("Interpolating Problem"),_("Interpolating between fonts with different spline orders (i.e. between postscript and truetype)"));
-#else
-	gwwv_post_error(_("Interpolating Problem"),_("Interpolating between fonts with different spline orders (i.e. between postscript and truetype)"));
-#endif
+    } else if ( base->layers[ly_fore].order2!=other->layers[ly_fore].order2 ) {
+	ff_post_error(_("Interpolating Problem"),_("Interpolating between fonts with different spline orders (i.e. between postscript and truetype)"));
 return( NULL );
     }
 #ifdef FONTFORGE_CONFIG_TYPE3
     else if ( base->multilayer && other->multilayer ) {
-# if defined(FONTFORGE_CONFIG_GTK)
-	gwwv_post_error(_("Interpolating Problem"),_("Interpolating between fonts with different editing types (ie. between type3 and type1)"));
-# else
-	gwwv_post_error(_("Interpolating Problem"),_("Interpolating between fonts with different editing types (ie. between type3 and type1)"));
-# endif
+	ff_post_error(_("Interpolating Problem"),_("Interpolating between fonts with different editing types (ie. between type3 and type1)"));
 return( NULL );
     }
 #endif
@@ -1737,7 +1587,7 @@ return( NULL );
     for ( i=0; i<base->glyphcnt; ++i ) if ( base->glyphs[i]!=NULL ) {
 	index = SFFindExistingSlot(other,base->glyphs[i]->unicodeenc,base->glyphs[i]->name);
 	if ( index!=-1 && other->glyphs[index]!=NULL ) {
-	    InterpolateChar(new,i,base->glyphs[i],other->glyphs[index],amount);
+	    _SplineCharInterpolate(new,i,base->glyphs[i],other->glyphs[index],amount);
 	    if ( new->glyphs[i]!=NULL )
 		new->glyphs[i]->kerns = InterpKerns(base->glyphs[i]->kerns,
 			other->glyphs[index]->kerns,amount,new,new->glyphs[i]);
@@ -1748,164 +1598,3 @@ return( NULL );
     new->map = EncMapFromEncoding(new,enc);
 return( new );
 }
-#endif
-
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
-static void InterAskFilename(FontView *fv, real amount) {
-    char *filename = GetPostscriptFontName(NULL,false);
-    SplineFont *sf;
-
-    if ( filename==NULL )
-return;
-    sf = LoadSplineFont(filename,0);
-    if ( sf!=NULL && sf->fv==NULL )
-	EncMapFree(sf->map);
-    free(filename);
-    if ( sf==NULL )
-return;
-    FontViewCreate(InterpolateFont(fv->sf,sf,amount,fv->map->enc));
-}
-
-#define CID_Amount	1000
-static double last_amount=50;
-
-static int IF_OK(GGadget *g, GEvent *e) {
-    if ( e->type==et_controlevent && e->u.control.subtype == et_buttonactivate ) {
-	GWindow gw = GGadgetGetWindow(g);
-	struct mf_data *d = GDrawGetUserData(gw);
-	int i, index = GGadgetGetFirstListSelectedItem(d->other);
-	FontView *fv;
-	int err=false;
-	real amount;
-	
-	amount = GetReal8(gw,CID_Amount, _("Amount"),&err);
-	if ( err )
-return( true );
-	last_amount = amount;
-	for ( i=0, fv=fv_list; fv!=NULL; fv=fv->next ) {
-	    if ( fv==d->fv )
-	continue;
-	    if ( i==index )
-	break;
-	    ++i;
-	}
-	if ( fv==NULL )
-	    InterAskFilename(d->fv,last_amount/100.0);
-	else
-	    FontViewCreate(InterpolateFont(d->fv->sf,fv->sf,last_amount/100.0,d->fv->map->enc));
-	d->done = true;
-    }
-return( true );
-}
-
-void FVInterpolateFonts(FontView *fv) {
-    GRect pos;
-    GWindow gw;
-    GWindowAttrs wattrs;
-    GGadgetCreateData gcd[8];
-    GTextInfo label[8];
-    struct mf_data d;
-    char buffer[80]; char buf2[30];
-
-    memset(&wattrs,0,sizeof(wattrs));
-    wattrs.mask = wam_events|wam_cursor|wam_utf8_wtitle|wam_undercursor|wam_restrict;
-    wattrs.event_masks = ~(1<<et_charup);
-    wattrs.restrict_input_to_me = 1;
-    wattrs.undercursor = 1;
-    wattrs.cursor = ct_pointer;
-    wattrs.utf8_window_title = _("Interpolate Fonts...");
-    pos.x = pos.y = 0;
-    pos.width = GGadgetScale(GDrawPointsToPixels(NULL,200));
-    pos.height = GDrawPointsToPixels(NULL,118);
-    gw = GDrawCreateTopWindow(NULL,&pos,mv_e_h,&d,&wattrs);
-
-    memset(&label,0,sizeof(label));
-    memset(&gcd,0,sizeof(gcd));
-
-    sprintf( buffer, _("Interpolating between %.20s and:"), fv->sf->fontname );
-    label[0].text = (unichar_t *) buffer;
-    label[0].text_is_1byte = true;
-    gcd[0].gd.label = &label[0];
-    gcd[0].gd.pos.x = 12; gcd[0].gd.pos.y = 6; 
-    gcd[0].gd.flags = gg_visible | gg_enabled;
-    gcd[0].creator = GLabelCreate;
-
-    gcd[1].gd.pos.x = 20; gcd[1].gd.pos.y = 21;
-    gcd[1].gd.pos.width = 110;
-    gcd[1].gd.flags = gg_visible | gg_enabled;
-    gcd[1].gd.u.list = BuildFontList(fv);
-    if ( gcd[1].gd.u.list[0].text!=NULL ) {
-	gcd[1].gd.label = &gcd[1].gd.u.list[0];
-	gcd[1].gd.u.list[0].selected = true;
-    } else {
-	gcd[1].gd.label = &gcd[1].gd.u.list[1];
-	gcd[1].gd.u.list[1].selected = true;
-	gcd[1].gd.flags = gg_visible;
-    }
-    gcd[1].creator = GListButtonCreate;
-
-    sprintf( buf2, "%g", last_amount );
-    label[2].text = (unichar_t *) buf2;
-    label[2].text_is_1byte = true;
-    gcd[2].gd.pos.x = 20; gcd[2].gd.pos.y = 51;
-    gcd[2].gd.pos.width = 40;
-    gcd[2].gd.flags = gg_visible | gg_enabled;
-    gcd[2].gd.label = &label[2];
-    gcd[2].gd.cid = CID_Amount;
-    gcd[2].creator = GTextFieldCreate;
-
-    gcd[3].gd.pos.x = 5; gcd[3].gd.pos.y = 51+6;
-    gcd[3].gd.flags = gg_visible | gg_enabled;
-/* GT: The dialog looks like: */
-/* GT:   Interpolating between <fontname> and: */
-/* GT: <list of possible fonts> */
-/* GT:   by  <50>% */
-/* GT: So "by" means how much to interpolate. */
-    label[3].text = (unichar_t *) _("by");
-    label[3].text_is_1byte = true;
-    gcd[3].gd.label = &label[3];
-    gcd[3].creator = GLabelCreate;
-
-    gcd[4].gd.pos.x = 20+40+3; gcd[4].gd.pos.y = 51+6;
-    gcd[4].gd.flags = gg_visible | gg_enabled;
-    label[4].text = (unichar_t *) "%";
-    label[4].text_is_1byte = true;
-    gcd[4].gd.label = &label[4];
-    gcd[4].creator = GLabelCreate;
-
-    gcd[5].gd.pos.x = 15-3; gcd[5].gd.pos.y = 85-3;
-    gcd[5].gd.pos.width = -1; gcd[5].gd.pos.height = 0;
-    gcd[5].gd.flags = gg_visible | gg_enabled | gg_but_default;
-    label[5].text = (unichar_t *) _("_OK");
-    label[5].text_is_1byte = true;
-    label[5].text_in_resource = true;
-    gcd[5].gd.mnemonic = 'O';
-    gcd[5].gd.label = &label[5];
-    gcd[5].gd.handle_controlevent = IF_OK;
-    gcd[5].creator = GButtonCreate;
-
-    gcd[6].gd.pos.x = -15; gcd[6].gd.pos.y = 85;
-    gcd[6].gd.pos.width = -1; gcd[6].gd.pos.height = 0;
-    gcd[6].gd.flags = gg_visible | gg_enabled | gg_but_cancel;
-    label[6].text = (unichar_t *) _("_Cancel");
-    label[6].text_is_1byte = true;
-    label[6].text_in_resource = true;
-    gcd[6].gd.label = &label[6];
-    gcd[6].gd.mnemonic = 'C';
-    gcd[6].gd.handle_controlevent = MF_Cancel;
-    gcd[6].creator = GButtonCreate;
-
-    GGadgetsCreate(gw,gcd);
-
-    memset(&d,'\0',sizeof(d));
-    d.other = gcd[1].ret;
-    d.fv = fv;
-
-    GWidgetHidePalettes();
-    GDrawSetVisible(gw,true);
-    while ( !d.done )
-	GDrawProcessOneEvent(NULL);
-    GDrawDestroyWindow(gw);
-    TFFree(gcd[1].gd.u.list);
-}
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */

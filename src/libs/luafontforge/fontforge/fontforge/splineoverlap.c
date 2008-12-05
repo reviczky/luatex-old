@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -726,7 +726,7 @@ return( ilist );		/* Not interesting. Only intersection is at an endpoint */
 	}
     } else if ( b.maxy-b.miny > b.maxx-b.minx ) {
 	extended diff, y, x1,x2, x1o,x2o;
-	extended t1=0,t2=0, t1o=0,t2o=0 ;
+	extended t1,t2, t1o,t2o ;
 
 	diff = (b.maxy-b.miny)/32;
 	y = b.miny;
@@ -809,7 +809,7 @@ return( ilist );		/* Not interesting. Only intersection is at an endpoint */
 	}
     } else {
 	extended diff, x, y1,y2, y1o,y2o;
-	extended t1=0,t2=0, t1o=0,t2o=0 ;
+	extended t1,t2, t1o,t2o ;
 
 	diff = (b.maxx-b.minx)/32;
 	x = b.minx;
@@ -2369,6 +2369,12 @@ return;
 		    SplineFree(sp->prev);
 		    SplinePointFree(isp);
 		    SplinePointFree(sp);
+		    if ( psp->next->order2 ) {
+			psp->nextcp.x = nsp->prevcp.x = (psp->nextcp.x+nsp->prevcp.x)/2;
+			psp->nextcp.y = nsp->prevcp.y = (psp->nextcp.y+nsp->prevcp.y)/2;
+			if ( psp->nonextcp || nsp->noprevcp )
+			    psp->nonextcp = nsp->noprevcp = true;
+		    }
 		    SplineRefigure(psp->next);
 		    if ( ss->first==sp )
 			ss->first = psp;
@@ -2386,6 +2392,12 @@ return;
 		    SplineFree(sp->next);
 		    SplinePointFree(isp);
 		    SplinePointFree(sp);
+		    if ( psp->next->order2 ) {
+			psp->nextcp.x = nsp->prevcp.x = (psp->nextcp.x+nsp->prevcp.x)/2;
+			psp->nextcp.y = nsp->prevcp.y = (psp->nextcp.y+nsp->prevcp.y)/2;
+			if ( psp->nonextcp || nsp->noprevcp )
+			    psp->nonextcp = nsp->noprevcp = true;
+		    }
 		    SplineRefigure(nsp->prev);
 		    if ( ss->first==sp )
 			ss->first = psp;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,23 +34,6 @@
 #include <chardata.h>
 #include "edgelist.h"
 
-#ifdef LUA_FF_LIB
-/* no need for iconv here, since PS is 8-bit legacy */
-#define Isspace(a) ((a)==' '|| ((a) >= '\t' &&  (a) <= '\r'))
-#define Isdigit(a) ((a)>='0' && (a)<='9')
-#define Isalpha(a) (((a)>='a' && (a)<='z') || ((a)>='A' && (a)<='Z'))
-#define Isupper(a) ((a)>='A' && (a)<='Z')
-#define Isalnum(a) (Isalpha(a)||Isdigit(a))
-#define Ishexdigit(a) (((a)>='0' && (a)<='9')||((a)>='a' && (a)<='f')||((a)>='A' && (a)<='F'))
-#else
-#define Isspace isspace
-#define Isdigit isdigit
-#define Isalpha isalpha
-#define Isupper isupper
-#define Isalnum isalnum
-#define Ishexdigit ishexdigit
-#endif
-
 /* to create a type 1 font we must come up with the following entries for the
   private dictionary:
     BlueValues	-- an array of 2n entries where Blue[2i]<Blue[2i+1] max n=7, Blue[i]>0
@@ -65,7 +48,6 @@ This file has routines to figure out at least some of these
 Also other routines to guess at good per-character hints
 */
 
-#ifndef LUA_FF_LIB
 static void AddBlue(real val, real array[5], int force) {
     val = rint(val);
     if ( !force && (val<array[0]-array[1] || val >array[0]+array[1] ))
@@ -97,8 +79,7 @@ static void MergeZones(real zone1[5], real zone2[5]) {
 /*  the same set of letter shapes and have all evolved together and have */
 /*  various common features (ascenders, descenders, lower case, etc.). Other */
 /*  scripts don't fit */
-
-void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
+void FindBlues( SplineFont *sf, int layer, real blues[14], real otherblues[10]) {
     real caph[5], xh[5], ascenth[5], digith[5], descenth[5], base[5];
     real otherdigits[5];
     int i, j, k;
@@ -111,10 +92,10 @@ void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
     descenth[0] = descenth[1] = descenth[2] = base[0] = base[1] = base[2] = 0;
     otherdigits[0] = otherdigits[1] = otherdigits[2] = 0;
     for ( i=0; i<sf->glyphcnt; ++i ) {
-	if ( sf->glyphs[i]!=NULL && sf->glyphs[i]->layers[ly_fore].splines!=NULL ) {
+	if ( sf->glyphs[i]!=NULL && sf->glyphs[i]->layers[layer].splines!=NULL ) {
 	    int enc = sf->glyphs[i]->unicodeenc;
 	    const unichar_t *upt;
-	    if ( enc<0x10000 && isalnum(enc) && 
+	    if ( enc<0x10000 && isalnum(enc) &&
 		    ((enc>=32 && enc<128 ) || enc == 0xfe || enc==0xf0 || enc==0xdf ||
 		      enc==0x131 ||
 		     (enc>=0x391 && enc<=0x3f3 ) ||
@@ -227,14 +208,8 @@ void FindBlues( SplineFont *sf, real blues[14], real otherblues[10]) {
 		}
 	    }
 	}
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
-#if defined(FONTFORGE_CONFIG_GDRAW)
-	if ( !gwwv_progress_next())
-#elif defined(FONTFORGE_CONFIG_GTK)
-	if ( !gwwv_progress_next())
-#endif
+	if ( !ff_progress_next())
     break;
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
     }
     if ( otherdigits[2]>0 && digith[2]>0 ) {
 	if ( otherdigits[0]/otherdigits[2] >= .95*digith[0]/digith[2] ) {
@@ -420,12 +395,12 @@ static int PVAddBlues(BlueData *bd,int bcnt,char *pt) {
     if ( pt==NULL )
 return( bcnt );
 
-    while ( Isspace(*pt) || *pt=='[' ) ++pt;
+    while ( isspace(*pt) || *pt=='[' ) ++pt;
     while ( *pt!=']' && *pt!='\0' ) {
 	val1 = strtod(pt,&end);
 	if ( *end=='\0' || end==pt )
     break;
-	for ( pt=end; Isspace(*pt) ; ++pt );
+	for ( pt=end; isspace(*pt) ; ++pt );
 	val2 = strtod(pt,&end);
 	if ( end==pt )
     break;
@@ -443,15 +418,14 @@ return( bcnt );
 	++bcnt;
 	if ( bcnt>=sizeof(bd->blues)/sizeof(bd->blues[0]))
     break;
-	for ( pt=end; Isspace(*pt) ; ++pt );
+	for ( pt=end; isspace(*pt) ; ++pt );
     }
 return( bcnt );
 }
 
 /* Quick and dirty (and sometimes wrong) approach to figure out the common */
 /* alignment zones in latin (greek, cyrillic) alphabets */
-
-void QuickBlues(SplineFont *_sf, BlueData *bd) {
+void QuickBlues(SplineFont *_sf, int layer, BlueData *bd) {
     real xheight = -1e10, caph = -1e10, ascent = -1e10, descent = 1e10, max, min;
     real xheighttop = -1e10, caphtop = -1e10;
     real numh = -1e10, numhtop = -1e10;
@@ -485,11 +459,11 @@ void QuickBlues(SplineFont *_sf, BlueData *bd) {
 		    enc==0x399 || enc==0x39f || enc==0x3ba || enc==0x3bf || enc==0x3c1 || enc==0x3be || enc==0x3c7 ||
 		    enc==0x41f || enc==0x41e || enc==0x43e || enc==0x43f || enc==0x440 || enc==0x452 || enc==0x445 ) {
 		t = sf->glyphs[i];
-		while ( t->layers[ly_fore].splines==NULL && t->layers[ly_fore].refs!=NULL )
-		    t = t->layers[ly_fore].refs->sc;
+		while ( t->layers[layer].splines==NULL && t->layers[layer].refs!=NULL )
+		    t = t->layers[layer].refs->sc;
 		max = -1e10; min = 1e10;
-		if ( t->layers[ly_fore].splines!=NULL ) {
-		    for ( spl=t->layers[ly_fore].splines; spl!=NULL; spl=spl->next ) {
+		if ( t->layers[layer].splines!=NULL ) {
+		    for ( spl=t->layers[layer].splines; spl!=NULL; spl=spl->next ) {
 			for ( sp=spl->first; ; ) {
 			    if ( sp->me.y > max ) max = sp->me.y;
 			    if ( sp->me.y < min ) min = sp->me.y;
@@ -620,7 +594,6 @@ void QuickBlues(SplineFont *_sf, BlueData *bd) {
     }
     bd->bluecnt = bcnt;
 }
-#endif /* LUA_FF_LIB*/
 
 void ElFreeEI(EIList *el) {
     EI *e, *next;
@@ -755,13 +728,13 @@ void ELFindEdges(SplineChar *sc, EIList *el) {
     SplineSet *spl;
 
     el->sc = sc;
-    if ( sc->layers[ly_fore].splines==NULL )
+    if ( sc->layers[el->layer].splines==NULL )
 return;
 
-    el->coordmin[0] = el->coordmax[0] = sc->layers[ly_fore].splines->first->me.x;
-    el->coordmin[1] = el->coordmax[1] = sc->layers[ly_fore].splines->first->me.y;
+    el->coordmin[0] = el->coordmax[0] = sc->layers[el->layer].splines->first->me.x;
+    el->coordmin[1] = el->coordmax[1] = sc->layers[el->layer].splines->first->me.y;
 
-    for ( spl = sc->layers[ly_fore].splines; spl!=NULL; spl = spl->next ) if ( spl->first->prev!=NULL && spl->first->prev->from!=spl->first ) {
+    for ( spl = sc->layers[el->layer].splines; spl!=NULL; spl = spl->next ) if ( spl->first->prev!=NULL && spl->first->prev->from!=spl->first ) {
 	first = NULL;
 	for ( spline = spl->first->next; spline!=NULL && spline!=first; spline=spline->to->next ) {
 	    EIAddSpline(spline,el);
@@ -1091,7 +1064,7 @@ int EISameLine(EI *e, EI *n, real i, int major) {
 	     (n->splinenext==e && n->tmax==e->tmin &&
 		    n->tcur>n->tmax-.2 && e->tcur<e->tmin+.2 ) )
 return( true );
-	/* can be seperated by a horizontal/vertical line in the other direction */
+	/* can be separated by a horizontal/vertical line in the other direction */
 	if ( n->tmax==1 && e->tmin==0 && n->tcur>.8 && e->tcur<.2) {
 	    t = n;
 	    while ( (t = t->splinenext)!=e ) {
@@ -1128,7 +1101,7 @@ return( false );
 	     (n->splinenext==e && n->tmax==e->tmin &&
 		    n->tcur>n->tmax-.2 && e->tcur<e->tmin+.2 ) )
 return( n->up!=e->up );
-	/* can be seperated by a horizontal/vertical line in the other direction */
+	/* can be separated by a horizontal/vertical line in the other direction */
 	if ( n->tmax==1 && e->tmin==0 && n->tcur>.8 && e->tcur<.2) {
 	    t = n;
 	    while ( (t = t->splinenext)!=e ) {
@@ -1167,12 +1140,10 @@ return( false );
 }
 #endif
 
-#ifndef LUA_FF_LIB
 EI *EIActiveEdgesFindStem(EI *apt, real i, int major) {
     int cnt=apt->up?1:-1;
     EI *e, *p;
 
-    p = NULL;
 	/* If we're at an intersection point and the next spline continues */
 	/*  in about the same direction then this doesn't count as two lines */
 	/*  but as one */
@@ -1212,6 +1183,7 @@ return( NULL );
 	if ( s->start+BlueShift > sn->start && s->width>0 && sn->width>0 &&
 		s->start+s->width-BlueShift < sn->start+sn->width &&
 		s->start+s->width+BlueShift > sn->start+sn->width &&
+                s->where != NULL && sn->where != NULL &&
 		s->where->next!=NULL && sn->where->next==NULL ) {
 	    t = sn->next;
 	    sn->next = NULL;
@@ -1224,7 +1196,6 @@ return( NULL );
     }
 return( stems );
 }
-#endif
 
 real HIlen( StemInfo *stems) {
     HintInstance *hi;
@@ -1264,37 +1235,6 @@ return( true );
     }
 return( false );
 }
-
-
-#ifndef LUA_FF_LIB
-static int StemWouldConflict(StemInfo *stems,double base, double width) {
-    int found;
-
-    if ( width<0 ) {
-	base += width;
-	width = -width;
-    }
-    while ( stems!=NULL && stems->start<base && stems->start+stems->width<base )
-	stems = stems->next;
-
-    found = false;
-    while ( stems!=NULL && ((stems->width>0 && stems->start<base+width) ||
-			    (stems->width<0 && stems->start+stems->width<base+width )) ) {
-	if (( stems->start==base && stems->width==width ) ||
-		(stems->start+stems->width==base && stems->width==-width ))
-return( false );		/* If it has already been added, then too late to worry about conflicts */
-	if ( stems->width>0 ) {
-	    if ( stems->start+stems->width>=base && stems->start<=base+width )
-		found = true;
-	} else {
-	    if ( stems->start>=base && stems->start+stems->width<=base+width )
-		found = true;
-	}
-	stems = stems->next;
-    }
-return( found );
-}
-#endif
 
 int StemListAnyConflicts(StemInfo *stems) {
     StemInfo *s;
@@ -1345,198 +1285,7 @@ HintInstance *HICopyTrans(HintInstance *hi, real mul, real offset) {
 return( first );
 }
 
-#ifndef LUA_FF_LIB
-
-static int inhints(StemInfo *stems,real base, real width) {
-
-    while ( stems!=NULL ) {
-	if ( stems->start==base || stems->start+stems->width==base+width ||
-		stems->start+stems->width==base || stems->start==base+width )
-return( true );
-	stems = stems->next;
-    }
-return( false );
-}
-
-static StemInfo *GhostAdd(StemInfo *ghosts, StemInfo *stems, real base,
-	real width, real xstart, real xend ) {
-    StemInfo *s, *prev, *test;
-    HintInstance *hi;
-
-    if ( base!=rint(base))
-return( ghosts );
-
-    if ( xstart>xend ) {
-	real temp = xstart;
-	xstart = xend;
-	xend = temp;
-    }
-    if ( width==20 ) base -= 20;
-
-    if ( inhints(stems,base,width))
-return(ghosts);		/* already recorded */
-    if ( StemWouldConflict(stems,base,width))
-return(ghosts);		/* Let's not add a conflicting ghost hint */
-    if ( StemWouldConflict(ghosts,base,width))
-return(ghosts);
-
-    for ( s=ghosts; s!=NULL; s=s->next )
-	if ( s->start==base && s->width==width )
-    break;
-    if ( s==NULL ) {
-	s = chunkalloc(sizeof(StemInfo));
-	s->start = base;
-	s->width = width;
-	s->ghost = true;
-	if ( ghosts==NULL || base<ghosts->start ) {
-	    s->next = ghosts;
-	    ghosts = s;
-	} else {
-	    for ( prev=ghosts, test=ghosts->next; test!=NULL && base<test->start;
-		    prev = test, test = test->next);
-	    prev->next = s;
-	    s->next = test;
-	}
-    }
-    hi = chunkalloc(sizeof(HintInstance));
-    hi->begin = xstart;
-    hi->end = xend;
-    s->where = HIMerge(s->where,hi);
-return( ghosts );
-}
-
-static StemInfo *CheckForGhostHints(StemInfo *stems,SplineChar *sc, BlueData *bd) {
-    /* PostScript doesn't allow a hint to stretch from one alignment zone to */
-    /*  another. (Alignment zones are the things in bluevalues).  */
-    /* Oops, I got this wrong. PS doesn't allow a hint to start in a bottom */
-    /*  zone and stretch to a top zone. Everything in OtherBlues is a bottom */
-    /*  zone. The baseline entry in BlueValues is also a bottom zone. Every- */
-    /*  thing else in BlueValues is a top-zone. */
-    /* This means */
-    /*  that we can't define a horizontal stem hint which stretches from */
-    /*  the baseline to the top of a capital I, or the x-height of lower i */
-    /*  If we find any such hints we must remove them, and replace them with */
-    /*  ghost hints. The bottom hint has height -21, and the top -20 */
-    BlueData _bd;
-    SplineFont *sf = sc->parent;
-    StemInfo *prev, *s, *n, *snext, *ghosts = NULL;
-    SplineSet *spl, *spl_next;
-    Spline *spline, *first;
-    SplinePoint *sp, *sp2;
-    real base, width/*, toobig = (sc->parent->ascent+sc->parent->descent)/2*/;
-    int i,startfound, widthfound;
-    DBounds b;
-
-    /* Get the alignment zones */
-    if ( bd==NULL ) {
-	QuickBlues(sf,&_bd);
-	bd = &_bd;
-    }
-
-    /* look for any stems stretching from one zone to another and remove them */
-    /*  (I used to turn them into ghost hints here, but that didn't work (for */
-    /*  example on "E" where we don't need any ghosts from the big stem because*/
-    /*  the narrow stems provide the hints that PS needs */
-    /* However, there are counter-examples. in Garamond-Pro the "T" character */
-    /*  has a horizontal stem at the top which stretches between two adjacent */
-    /*  bluezones. Removing it is wrong. Um... Thanks Adobe */
-    /* I misunderstood. Both of these were top-zones */
-    for ( prev=NULL, s=stems; s!=NULL; s=snext ) {
-	snext = s->next;
-	startfound = widthfound = -1;
-	for ( i=0; i<bd->bluecnt; ++i ) {
-	    if ( s->start>=bd->blues[i][0]-1 && s->start<=bd->blues[i][1]+1 )
-		startfound = i;
-	    else if ( s->start+s->width>=bd->blues[i][0]-1 && s->start+s->width<=bd->blues[i][1]+1 )
-		widthfound = i;
-	}
-	if ( startfound!=-1 && widthfound!=-1 &&
-		( s->start>0 || s->start+s->width<=0 ))
-	    startfound = widthfound = -1;
-	if ( startfound!=-1 && widthfound!=-1 ) {
-	    if ( prev==NULL )
-		stems = snext;
-	    else
-		prev->next = snext;
-	    s->next = NULL;
-	    StemInfoFree(s);
-	} else
-	    prev = s;
-    }
-
-    /* Now look and see if we can find any edges which lie in */
-    /*  these zones.  Edges which are not currently in hints */
-    /* Use the current contour to determine top or bottom */
-    for ( spl = sc->layers[ly_fore].splines; spl!=NULL; spl = spl->next ) if ( spl->first->prev!=NULL ) {
-	first = NULL;
-	spl_next = spl->next; spl->next = NULL;
-	SplineSetQuickBounds(spl,&b);
-	spl->next = spl_next;
-	for ( spline = spl->first->next; spline!=NULL && spline!=first; spline = spline->to->next ) {
-	    base = spline->from->me.y;
-	    if ( spline->knownlinear && base == spline->to->me.y ) {
-		for ( i=0; i<bd->bluecnt; ++i ) {
-		    if ( base>=bd->blues[i][0]-1 && base<=bd->blues[i][1]+1 )
-		break;
-		}
-		if ( i!=bd->bluecnt ) {
-		    if ( spline->from->me.y+21 > b.maxy )
-			width = 20;
-		    else if ( spline->from->me.y-20 < b.miny )
-			width = 21;
-		    else {
-			for ( sp2= spline->from->prev->from; sp2!=spline->from && sp2->me.y==spline->from->me.y; sp2=sp2->prev->from );
-			width = (sp2->me.y > spline->from->me.y)?21:20;
-		    }
-		    ghosts = GhostAdd(ghosts,stems, base,width,spline->from->me.x,spline->to->me.x);
-		}
-	    }
-	    if ( first==NULL ) first = spline;
-	}
-	/* And check for the horizontal top of a curved surface */
-	for ( sp = spl->first; ; ) {
-	    base = sp->me.y;
-	    if ( !sp->nonextcp && !sp->noprevcp && sp->nextcp.y==base &&
-		    sp->prevcp.y==base ) {
-		for ( i=0; i<bd->bluecnt; ++i ) {
-		    if ( base>=bd->blues[i][0]-1 && base<=bd->blues[i][1]+1 )
-		break;
-		}
-		if ( i!=bd->bluecnt ) {
-		    if ( sp->me.y+21 > b.maxy )
-			width = 20;
-		    else if ( sp->me.y-20 < b.miny )
-			width = 21;
-		    else {
-			for ( sp2= sp->prev->from; sp2!=sp && sp2->me.y==spline->from->me.y; sp2=sp2->prev->from );
-			width = (sp2->me.y > sp->me.y)?21:20;
-		    }
-		    ghosts = GhostAdd(ghosts,stems, base,width,(sp->me.x+sp->prevcp.x)/2,(sp->me.x+sp->nextcp.x)/2);
-		}
-	    }
-	    sp = sp->next->to;
-	    if ( sp == spl->first )
-	break;
-	}
-    }
-
-    /* Finally add any ghosts we've got back into the stem list */
-    for ( s=ghosts; s!=NULL; s=snext ) {
-	snext = s->next;
-	for ( prev=NULL, n=stems; n!=NULL && s->start>n->start; prev=n, n=n->next );
-	if ( prev==NULL ) {
-	    s->next = stems;
-	    stems = s;
-	} else {
-	    prev->next = s;
-	    s->next = n;
-	}
-    }
-return( stems );
-}
-#endif
-
-static HintInstance *SCGuessHintPoints(SplineChar *sc, StemInfo *stem,int major, int off) {
+static HintInstance *SCGuessHintPoints(SplineChar *sc, int layer, StemInfo *stem,int major, int off) {
     SplinePoint *starts[20], *ends[20];
     int spt=0, ept=0;
     SplinePointList *spl;
@@ -1545,7 +1294,7 @@ static HintInstance *SCGuessHintPoints(SplineChar *sc, StemInfo *stem,int major,
     real coord;
     HintInstance *head, *test, *cur, *prev;
 
-    for ( spl=sc->layers[ly_fore].splines; spl!=NULL; spl=spl->next ) {
+    for ( spl=sc->layers[layer].splines; spl!=NULL; spl=spl->next ) {
 	for ( sp=spl->first; ; sp = np ) {
 	    coord = (major?sp->me.x:sp->me.y);
 	    sm = coord>=stem->start-off && coord<=stem->start+off;
@@ -1588,20 +1337,81 @@ static HintInstance *SCGuessHintPoints(SplineChar *sc, StemInfo *stem,int major,
 return( head );
 }
 
-static void SCGuessHintInstances(SplineChar *sc, StemInfo *stem,int major) {
+static HintInstance *StemAddHIFromActive(struct stemdata *stem,int major) {
+    int i;
+    HintInstance *head = NULL, *cur, *t = NULL;
+    double mino, maxo;
+    double dir = ((real *) &stem->unit.x)[major]<0 ? -1 : 1;
+
+    for ( i=0; i<stem->activecnt; ++i ) {
+	mino = dir*stem->active[i].start + ((real *) &stem->left.x)[major];
+	maxo = dir*stem->active[i].end + ((real *) &stem->left.x)[major];
+	cur = chunkalloc(sizeof(HintInstance));
+	if ( dir>0 ) {
+	    cur->begin = mino;
+	    cur->end = maxo;
+	    if ( head==NULL )
+		head = cur;
+	    else
+		t->next = cur;
+	    t = cur;
+	} else {
+	    cur->begin = maxo;
+	    cur->end = mino;
+	    cur->next = head;
+	    head = cur;
+	}
+    }
+return( head );
+}
+
+static HintInstance *DStemAddHIFromActive( struct stemdata *stem ) {
+    int i;
+    HintInstance *head = NULL, *cur, *t = NULL;
+
+    for ( i=0; i<stem->activecnt; ++i ) {
+        cur = chunkalloc( sizeof( HintInstance ));
+	cur->begin = stem->active[i].start;
+	cur->end = stem->active[i].end;
+	if ( head == NULL )
+	    head = cur;
+	else
+	    t->next = cur;
+	t = cur;
+    }
+return( head );
+}
+
+static void SCGuessHVHintInstances( SplineChar *sc,int layer,StemInfo *si,int is_v ) {
+    struct glyphdata *gd;
+    struct stemdata *sd;
+    double em_size = ( sc->parent != NULL ) ? 
+        sc->parent->ascent + sc->parent->descent : 1000;
+    
+    gd = GlyphDataInit( sc,layer,em_size,true );
+    if ( gd == NULL )
+return;
+    StemInfoToStemData( gd,si,is_v );
+    if ( gd->stemcnt > 0 ) {
+        sd = &gd->stems[0];
+        si->where = StemAddHIFromActive( sd,is_v );
+    }
+    GlyphDataFree( gd );
+}
+
+static void SCGuessHintInstancesLight(SplineChar *sc, int layer, StemInfo *stem,int major) {
     SplinePointList *spl;
     SplinePoint *sp, *np;
     int sm, wm, off;
     real ob, oe;
     HintInstance *s=NULL, *w=NULL, *cur, *p, *t, *n, *w2;
-    ob = 0; oe = 0;
     /* We've got a hint (from somewhere, old data, reading in a font, user specified etc.) */
     /*  but we don't have HintInstance info. So see if we can find those data */
     /* Will get confused by stems with holes in them (for example if you make */
     /*  a hint from one side of an H to the other, it will get the whole thing */
     /*  not just the cross stem) */
 
-    for ( spl=sc->layers[ly_fore].splines; spl!=NULL; spl=spl->next ) {
+    for ( spl=sc->layers[layer].splines; spl!=NULL; spl=spl->next ) {
 	for ( sp=spl->first; ; sp = np ) {
 	    sm = (major?sp->me.x:sp->me.y)==stem->start;
 	    wm = (major?sp->me.x:sp->me.y)==stem->start+stem->width;
@@ -1740,7 +1550,7 @@ static void SCGuessHintInstances(SplineChar *sc, StemInfo *stem,int major) {
     /* Surprisingly many fonts have hints which don't accurately match the */
     /*  points. Perhaps BlueFuzz (default 1) applies here too */
     for ( off=0; off<1 && s==NULL; ++off )
-	s = SCGuessHintPoints(sc,stem,major,off);
+	s = SCGuessHintPoints(sc,layer, stem,major,off);
 
     stem->where = s;
 }
@@ -1764,8 +1574,107 @@ static StemInfo *StemInfoAdd(StemInfo *list, StemInfo *new) {
 return( list );
 }
 
-void SCGuessHHintInstancesAndAdd(SplineChar *sc, StemInfo *stem, real guess1, real guess2) {
-    SCGuessHintInstances(sc, stem, 0);
+void SCGuessHintInstancesList( SplineChar *sc,int layer,StemInfo *hstem,StemInfo *vstem,DStemInfo *dstem,
+    int hvforce,int dforce ) {
+    
+    struct glyphdata *gd;
+    struct stemdata *sd;
+    int i, cnt=0, hneeds_gd=false, vneeds_gd=false, dneeds_gd=false;
+    StemInfo *test;
+    DStemInfo *dtest;
+    double em_size = ( sc->parent != NULL ) ? 
+        sc->parent->ascent + sc->parent->descent : 1000;
+    
+    if ( hstem == NULL && vstem == NULL && dstem == NULL )
+return;
+    /* If all stems already have active zones assigned (actual for .sfd
+     files), then there is no need to wast time generating glyph data for
+     this glyph */
+    test = hstem;
+    while ( !hneeds_gd && test != NULL ) {
+        if ( test->where == NULL || hvforce ) hneeds_gd = true;
+        test = test->next;
+    }
+    test = vstem;
+    while ( !vneeds_gd && test != NULL ) {
+        if ( test->where == NULL || hvforce ) vneeds_gd = true;
+        test = test->next;
+    }
+    dtest = dstem;
+    while ( !dneeds_gd && dtest != NULL ) {
+        if ( dtest->where == NULL || dforce ) dneeds_gd = true;
+        dtest = dtest->next;
+    }
+    if ( !hneeds_gd && !vneeds_gd && !dneeds_gd )
+return;
+
+    gd = GlyphDataInit( sc,layer,em_size,!dneeds_gd );
+    if ( gd == NULL )
+return;
+
+    cnt = 0;
+    if ( hstem != NULL && hneeds_gd ) {
+        gd = StemInfoToStemData( gd,hstem,false );
+        for ( i=cnt; i<gd->stemcnt; i++ ) {
+            sd = &gd->stems[i];
+            if ( hstem == NULL )
+        break;
+            if ( hstem->where == NULL || hvforce )
+                hstem->where = StemAddHIFromActive( sd,false );
+            hstem = hstem->next;
+        }
+    }
+    cnt = gd->stemcnt;
+    if ( vstem != NULL && vneeds_gd ) {
+        gd = StemInfoToStemData( gd,vstem,true );
+        for ( i=cnt; i<gd->stemcnt; i++ ) {
+            sd = &gd->stems[i];
+            if ( vstem == NULL )
+        break;
+            if ( vstem->where == NULL || hvforce )
+                vstem->where = StemAddHIFromActive( sd,true );
+            vstem = vstem->next;
+        }
+    }
+    cnt = gd->stemcnt;
+    if ( dstem != NULL && dneeds_gd ) {
+        gd = DStemInfoToStemData( gd,dstem );
+        for ( i=cnt; i<gd->stemcnt; i++ ) {
+            sd = &gd->stems[i];
+            if ( dstem == NULL )
+        break;
+            dstem->left = sd->left; dstem->right = sd->right;
+            if ( dstem->where == NULL || dforce )
+                dstem->where = DStemAddHIFromActive( sd );
+            dstem = dstem->next;
+        }
+    }
+    GlyphDataFree( gd );
+return;
+}
+
+void SCGuessDHintInstances( SplineChar *sc, int layer, DStemInfo *ds ) {
+    struct glyphdata *gd;
+    struct stemdata *sd;
+    double em_size = ( sc->parent != NULL ) ? 
+        sc->parent->ascent + sc->parent->descent : 1000;
+    
+    gd = GlyphDataInit( sc,layer,em_size,false );
+    if ( gd == NULL )
+return;
+    DStemInfoToStemData( gd,ds );
+    if ( gd->stemcnt > 0 ) {
+        sd = &gd->stems[0];
+        ds->left = sd->left; ds->right = sd->right;
+        ds->where = DStemAddHIFromActive( sd );
+	if ( ds->where==NULL )
+	    IError( "Couldn't figure out where this hint is active" );
+    }
+    GlyphDataFree( gd );
+}
+
+void SCGuessHHintInstancesAndAdd(SplineChar *sc, int layer, StemInfo *stem, real guess1, real guess2) {
+    SCGuessHVHintInstances( sc,layer,stem,0 );
     sc->hstem = StemInfoAdd(sc->hstem,stem);
     if ( stem->where==NULL && guess1!=0x80000000 ) {
 	if ( guess1>guess2 ) { real temp = guess1; guess1 = guess2; guess2 = temp; }
@@ -1781,8 +1690,8 @@ void SCGuessHHintInstancesAndAdd(SplineChar *sc, StemInfo *stem, real guess1, re
     }
 }
 
-void SCGuessVHintInstancesAndAdd(SplineChar *sc, StemInfo *stem, real guess1, real guess2) {
-    SCGuessHintInstances(sc, stem, 1);
+void SCGuessVHintInstancesAndAdd(SplineChar *sc, int layer,StemInfo *stem, real guess1, real guess2) {
+    SCGuessHVHintInstances( sc,layer,stem,1 );
     sc->vstem = StemInfoAdd(sc->vstem,stem);
     if ( stem->where==NULL && guess1!=0x80000000 ) {
 	if ( guess1>guess2 ) { real temp = guess1; guess1 = guess2; guess2 = temp; }
@@ -1798,39 +1707,138 @@ void SCGuessVHintInstancesAndAdd(SplineChar *sc, StemInfo *stem, real guess1, re
     }
 }
 
-void SCGuessHHintInstancesList(SplineChar *sc) {
+void SCGuessHHintInstancesList(SplineChar *sc,int layer) {
     StemInfo *h;
-    int any = false;
-
-    for ( h= sc->hstem; h!=NULL; h=h->next )
+    for ( h= sc->hstem; h!=NULL; h=h->next ) {
 	if ( h->where==NULL ) {
-	    SCGuessHintInstances(sc,h,0);
-	    any |= h->where!=NULL;
+	    SCGuessHintInstancesLight( sc,layer,h,false );
 	}
-/*
-    if ( any )
-	for ( h= sc->hstem; h!=NULL; h=h->next )
-	    StemInfoReduceOverlap(h->next,h);
-*/
+    }
 }
 
-void SCGuessVHintInstancesList(SplineChar *sc) {
+void SCGuessVHintInstancesList(SplineChar *sc,int layer) {
     StemInfo *h;
-    int any = false;
-
-    for ( h= sc->vstem; h!=NULL; h=h->next )
+    for ( h= sc->vstem; h!=NULL; h=h->next ) {
 	if ( h->where==NULL ) {
-	    SCGuessHintInstances(sc,h,1);
-	    any |= h->where!=NULL;
+	    SCGuessHintInstancesLight( sc,layer,h,true );
 	}
-/*
-    if ( any )
-	for ( h= sc->vstem; h!=NULL; h=h->next )
-	    StemInfoReduceOverlap(h->next,h);
-*/
+    }
 }
 
-#ifndef LUA_FF_LIB
+/* We have got (either from a file or user specified) a diagonal stem, 
+   described by 4 base points (pairs of x and y coordinates). Some additional 
+   tests are required before we can add this stem to the given glyph. */
+int MergeDStemInfo( SplineFont *sf,DStemInfo **ds,DStemInfo *test ) {
+    DStemInfo *dn, *cur, *prev, *next, *temp;
+    double dot, loff, roff, soff, dist_error_diag ;
+    double ibegin, iend;
+    int overlap;
+    BasePoint *base, *nbase, *pbase;
+    HintInstance *hi;
+    
+    if ( *ds == NULL ) {
+        *ds = test;
+return( true );
+    }
+    dist_error_diag = ( sf->ascent + sf->descent ) * 0.0065;
+    
+    cur = prev = NULL;
+    for ( dn=*ds ; dn!=NULL ; dn=dn->next ) {
+        prev = cur; cur = dn;
+
+        /* Compare the given stem with each of the existing diagonal stem
+         hints. First ensure that it is not an exact duplicate of an already
+         added stem. Then test if unit vectors are parallel and edges colinear.
+         In this case we should either preserve the existing stem or replace
+         it with the new one, but not keep them both */
+        if (test->unit.x == dn->unit.x && test->unit.y == dn->unit.y &&
+            test->left.x == dn->left.x && test->left.y == dn->left.y &&
+            test->right.x == dn->right.x && test->right.y == dn->right.y ) {
+            DStemInfoFree( test );
+return( false );
+        }
+        dot = ( test->unit.x * dn->unit.y ) - 
+              ( test->unit.y * dn->unit.x );
+        if ( dot <= -0.5 || dot >= 0.5 )
+    continue;
+    
+        loff =  ( test->left.x - dn->left.x ) * dn->unit.y - 
+                ( test->left.y - dn->left.y ) * dn->unit.x;
+        roff =  ( test->right.x - dn->right.x ) * dn->unit.y - 
+                ( test->right.y - dn->right.y ) * dn->unit.x;
+        if (loff <= -dist_error_diag || loff >= dist_error_diag ||
+            roff <= -dist_error_diag || loff >= dist_error_diag )
+    continue;
+        soff =  ( test->left.x - dn->left.x ) * dn->unit.x + 
+                ( test->left.y - dn->left.y ) * dn->unit.y;
+        overlap = false;
+        if ( dn->where != NULL && test->where != NULL && test->where->next == NULL ) {
+            ibegin = test->where->begin + soff;
+            iend = test->where->end + soff;
+            for ( hi = dn->where; hi != NULL; hi = hi->next ) {
+                if (( hi->begin <= ibegin && ibegin <= hi->end ) ||
+                    ( hi->begin <= iend && iend <= hi->end ) ||
+                    ( ibegin <= hi->begin && hi->end <= iend )) {
+                    overlap = true;
+                    break;
+                }
+            }
+        } else
+            overlap = true;
+        /* It's probably a colinear dstem, as in older SFD files. Treat
+         it as one more instance for the already added stem */
+        if ( !overlap ) {
+            for ( hi=dn->where; hi->next != NULL; hi = hi->next ) ;
+            hi->next = chunkalloc( sizeof( HintInstance ));
+            hi->next->begin = ibegin; hi->next->end = iend;
+            DStemInfoFree( test );
+return( false );
+        /* The found stem is close but not identical to the stem we
+         are going to add. So just replace the older stem with the
+         new one */
+        } else {
+            test->next = dn->next;
+            if ( prev == NULL )
+                *ds = test;
+            else
+                prev->next = test;
+            DStemInfoFree( dn );
+return( true );
+        }
+    }
+    
+    /* Insert the given stem to the list by such a way that diagonal 
+     stems are ordered by the X coordinate of the left edge key point, and 
+     by Y if X is the same. The order is arbitrary, but may be essential for
+     things like "W". So we should be sure that the autoinstructor will 
+     process diagonals from left to right. */
+    base = ( test->unit.y < 0 ) ? &test->right : &test->left;
+    nbase = ( (*ds)->unit.y < 0 ) ? &(*ds)->right : &(*ds)->left;
+
+    if ( base->x < nbase->x || ( base->x == nbase->x && base->y >= nbase->y )) {
+        temp = *ds; *ds = test;
+        (*ds)->next = temp;
+    } else {
+        for ( dn=*ds ; dn!=NULL && dn!=test ; dn=dn->next ) {
+            next = dn->next;
+            pbase = ( dn->unit.y < 0 ) ? &dn->right : &dn->left;
+            if ( next != NULL )
+                nbase = ( next->unit.y < 0 ) ? &next->right : &next->left;
+            
+            if (( pbase->x < base->x ||
+                ( pbase->x == base->x && pbase->y >= base->y )) &&
+                ( next == NULL || base->x < nbase->x ||
+                ( base->x == nbase->x && base->y >= nbase->y ))) {
+                
+                test->next = next; dn->next = test;
+        break;
+            }
+        
+        }
+    }
+return( true );
+}
+
 static StemInfo *RefHintsMerge(StemInfo *into, StemInfo *rh, real mul, real offset,
 	real omul, real oofset) {
     StemInfo *prev, *h, *n;
@@ -1858,82 +1866,64 @@ static StemInfo *RefHintsMerge(StemInfo *into, StemInfo *rh, real mul, real offs
 return( into );
 }
 
-static DStemInfo *RefDHintsMerge(DStemInfo *into, DStemInfo *rh, real xmul, real xoffset,
-	real ymul, real yoffset) {
+static DStemInfo *RefDHintsMerge( SplineFont *sf,DStemInfo *into,DStemInfo *rh,
+    real xmul,real xoffset,real ymul,real yoffset ) {
     DStemInfo *new;
-    BasePoint temp;
-    DStemInfo *prev, *n;
+    double dmul;
 
     for ( ; rh!=NULL; rh=rh->next ) {
-	new = chunkalloc(sizeof(DStemInfo));
+	new = chunkalloc( sizeof( DStemInfo ));
 	*new = *rh;
-	new->leftedgetop.x = xmul*new->leftedgetop.x + xoffset;
-	new->rightedgetop.x = xmul*new->rightedgetop.x + xoffset;
-	new->leftedgebottom.x = xmul*new->leftedgebottom.x + xoffset;
-	new->rightedgebottom.x = xmul*new->rightedgebottom.x + xoffset;
-	new->leftedgetop.y = ymul*new->leftedgetop.y + yoffset;
-	new->rightedgetop.y = ymul*new->rightedgetop.y + yoffset;
-	new->leftedgebottom.y = ymul*new->leftedgebottom.y + yoffset;
-	new->rightedgebottom.y = ymul*new->rightedgebottom.y + yoffset;
-	if ( xmul<0 ) {
-	    temp = new->leftedgetop;
-	    new->leftedgetop = new->rightedgetop;
-	    new->rightedgetop = temp;
-	    temp = new->leftedgebottom;
-	    new->leftedgebottom = new->rightedgebottom;
-	    new->rightedgebottom = temp;
-	}
-	if ( ymul<0 ) {
-	    temp = new->leftedgetop;
-	    new->leftedgetop = new->leftedgebottom;
-	    new->leftedgebottom = temp;
-	    temp = new->rightedgetop;
-	    new->rightedgetop = new->rightedgebottom;
-	    new->rightedgebottom = temp;
-	}
-	if ( into==NULL || new->leftedgetop.x<into->leftedgetop.x ) {
-	    new->next = into;
-	    into = new;
-	} else {
-	    for ( prev=into, n=prev->next; n!=NULL && new->leftedgetop.x>n->leftedgetop.x;
-		    prev = n, n = n->next );
-	    new->next = n;
-	    prev->next = new;
-	}
+	new->left.x = xmul*new->left.x + xoffset;
+	new->right.x = xmul*new->right.x + xoffset;
+	new->left.y = ymul*new->left.y + yoffset;
+	new->right.y = ymul*new->right.y + yoffset;
+        new->next = NULL;
+	if (( xmul < 0 && ymul > 0 ) || ( xmul > 0 && ymul < 0 ))
+	    new->unit.y = -new->unit.y;
+        new->unit.x *= fabs( xmul ); new->unit.y *= fabs( ymul );
+        dmul = sqrt( pow( new->unit.x,2 ) + pow( new->unit.y,2 ));
+        new->unit.x /= dmul; new->unit.y /= dmul;
+        if ( xmul < 0 ) dmul = -dmul;
+        new->where = HICopyTrans( rh->where,dmul,0 );
+        
+	MergeDStemInfo( sf,&into,new );
     }
 return( into );
 }
 
-static void AutoHintRefs(SplineChar *sc,BlueData *bd, int picky) {
+static void __SplineCharAutoHint( SplineChar *sc, int layer, BlueData *bd, int gen_undoes );
+
+static void AutoHintRefs(SplineChar *sc,int layer, BlueData *bd, int picky, int gen_undoes) {
     RefChar *ref;
 
     /* Add hints for base characters before accent hints => if there are any */
     /*  conflicts, the base characters win */
-    for ( ref=sc->layers[ly_fore].refs; ref!=NULL; ref=ref->next ) {
+    for ( ref=sc->layers[layer].refs; ref!=NULL; ref=ref->next ) {
 	if ( ref->transform[1]==0 && ref->transform[2]==0 ) {
 	    if ( picky ) {
 		if ( !ref->sc->manualhints && ref->sc->changedsincelasthinted &&
-			(ref->sc->layers[ly_fore].refs!=NULL &&
-			 ref->sc->layers[ly_fore].splines==NULL))
-		    AutoHintRefs(ref->sc,bd,true);
+			(ref->sc->layers[layer].refs!=NULL &&
+			 ref->sc->layers[layer].splines==NULL))
+		    AutoHintRefs(ref->sc,layer,bd,true,gen_undoes);
 	    } else if ( !ref->sc->manualhints && ref->sc->changedsincelasthinted )
-		SplineCharAutoHint(ref->sc,bd);
+		__SplineCharAutoHint(ref->sc,layer,bd,gen_undoes);
 	    if ( ref->sc->unicodeenc!=-1 && ref->sc->unicodeenc<0x10000 &&
 		    isalnum(ref->sc->unicodeenc) ) {
 		sc->hstem = RefHintsMerge(sc->hstem,ref->sc->hstem,ref->transform[3], ref->transform[5], ref->transform[0], ref->transform[4]);
 		sc->vstem = RefHintsMerge(sc->vstem,ref->sc->vstem,ref->transform[0], ref->transform[4], ref->transform[3], ref->transform[5]);
-		sc->dstem = RefDHintsMerge(sc->dstem,ref->sc->dstem,ref->transform[0], ref->transform[4], ref->transform[3], ref->transform[5]);
+		sc->dstem = RefDHintsMerge(sc->parent,sc->dstem,ref->sc->dstem,ref->transform[0], ref->transform[4], ref->transform[3], ref->transform[5]);
 	    }
 	}
     }
 
-    for ( ref=sc->layers[ly_fore].refs; ref!=NULL; ref=ref->next ) {
+    for ( ref=sc->layers[layer].refs; ref!=NULL; ref=ref->next ) {
 	if ( ref->transform[1]==0 && ref->transform[2]==0 &&
 		(ref->sc->unicodeenc==-1 || ref->sc->unicodeenc>=0x10000 ||
 			!isalnum(ref->sc->unicodeenc)) ) {
 	    sc->hstem = RefHintsMerge(sc->hstem,ref->sc->hstem,ref->transform[3], ref->transform[5], ref->transform[0], ref->transform[4]);
 	    sc->vstem = RefHintsMerge(sc->vstem,ref->sc->vstem,ref->transform[0], ref->transform[4], ref->transform[3], ref->transform[5]);
-	    sc->dstem = RefDHintsMerge(sc->dstem,ref->sc->dstem,ref->transform[0], ref->transform[4], ref->transform[3], ref->transform[5]);
+	    sc->dstem = RefDHintsMerge(sc->parent,sc->dstem,ref->sc->dstem,ref->transform[0], ref->transform[4], ref->transform[3], ref->transform[5]);
 	}
     }
 
@@ -1943,10 +1933,15 @@ static void AutoHintRefs(SplineChar *sc,BlueData *bd, int picky) {
     SCOutOfDateBackground(sc);
     SCHintsChanged(sc);
 }
-#endif
 
 void SCClearHints(SplineChar *sc) {
-    SCClearHintMasks(sc,true);
+    int any = sc->hstem!=NULL || sc->vstem!=NULL || sc->dstem!=NULL;
+    int layer;
+
+    for ( layer=ly_fore; layer<sc->layer_cnt; ++layer ) {
+	SCClearHintMasks(sc,layer,true);
+	SCClearRounds(sc,layer);
+    }
     StemInfosFree(sc->hstem);
     StemInfosFree(sc->vstem);
     sc->hstem = sc->vstem = NULL;
@@ -1955,11 +1950,12 @@ void SCClearHints(SplineChar *sc) {
     sc->dstem = NULL;
     MinimumDistancesFree(sc->md);
     sc->md = NULL;
-    SCClearRounds(sc);
     SCOutOfDateBackground(sc);
+    if ( any )
+	SCHintsChanged(sc);
 }
 
-static void _SCClearHintMasks(SplineChar *sc,int counterstoo) {
+static void _SCClearHintMasks(SplineChar *sc,int layer, int counterstoo) {
     SplineSet *spl;
     SplinePoint *sp;
     RefChar *ref;
@@ -1969,7 +1965,7 @@ static void _SCClearHintMasks(SplineChar *sc,int counterstoo) {
 	sc->countermasks = NULL; sc->countermask_cnt = 0;
     }
 
-    for ( spl = sc->layers[ly_fore].splines; spl!=NULL; spl=spl->next ) {
+    for ( spl = sc->layers[layer].splines; spl!=NULL; spl=spl->next ) {
 	for ( sp = spl->first ; ; ) {
 	    chunkfree(sp->hintmask,sizeof(HintMask));
 	    sp->hintmask = NULL;
@@ -1981,7 +1977,7 @@ static void _SCClearHintMasks(SplineChar *sc,int counterstoo) {
 	}
     }
 
-    for ( ref = sc->layers[ly_fore].refs; ref!=NULL; ref=ref->next ) {
+    for ( ref = sc->layers[layer].refs; ref!=NULL; ref=ref->next ) {
 	for ( spl = ref->layers[0].splines; spl!=NULL; spl=spl->next ) {
 	    for ( sp = spl->first ; ; ) {
 		chunkfree(sp->hintmask,sizeof(HintMask));
@@ -2011,7 +2007,7 @@ return;
     (*hm)[index>>3] &= ~(0x80>>(index&7));
 }
 
-void SCModifyHintMasksAdd(SplineChar *sc,StemInfo *new) {
+void SCModifyHintMasksAdd(SplineChar *sc,int layer, StemInfo *new) {
     SplineSet *spl;
     SplinePoint *sp;
     RefChar *ref;
@@ -2030,7 +2026,7 @@ return;
     for ( i=0; i<sc->countermask_cnt; ++i )
 	ModifyHintMaskAdd(&sc->countermasks[i],index);
 
-    for ( spl = sc->layers[ly_fore].splines; spl!=NULL; spl=spl->next ) {
+    for ( spl = sc->layers[layer].splines; spl!=NULL; spl=spl->next ) {
 	for ( sp = spl->first ; ; ) {
 	    ModifyHintMaskAdd(sp->hintmask,index);
 	    if ( sp->next==NULL )
@@ -2041,7 +2037,7 @@ return;
 	}
     }
 
-    for ( ref = sc->layers[ly_fore].refs; ref!=NULL; ref=ref->next ) {
+    for ( ref = sc->layers[layer].refs; ref!=NULL; ref=ref->next ) {
 	for ( spl = ref->layers[0].splines; spl!=NULL; spl=spl->next ) {
 	    for ( sp = spl->first ; ; ) {
 		ModifyHintMaskAdd(sp->hintmask,index);
@@ -2057,24 +2053,23 @@ return;
 
 static void SCFigureSimpleCounterMasks(SplineChar *sc) {
     SplineChar *scs[MmMax];
-#ifndef LUA_FF_LIB
-    int hadh3, hadv3, i;
+    int hadh3, hadv3, i, vbase;
     HintMask mask;
-#endif
+    StemInfo *h;
 
     if ( sc->countermask_cnt!=0 )
 return;
 
     scs[0] = sc;
-#ifndef LUA_FF_LIB
     hadh3 = CvtPsStem3(NULL,scs,1,true,false);
     hadv3 = CvtPsStem3(NULL,scs,1,false,false);
     if ( hadh3 || hadv3 ) {
 	memset(mask,0,sizeof(mask));
 	if ( hadh3 ) mask[0] = 0x80|0x40|0x20;
 	if ( hadv3 ) {
+	    for ( h=sc->hstem, vbase=0; h!=NULL; h=h->next, ++vbase );
 	    for ( i=0; i<3 ; ++i ) {
-		int j = i+sc->vstem->hintnumber;
+		int j = i+vbase;
 		mask[j>>3] |= (0x80>>(j&7));
 	    }
 	}
@@ -2083,7 +2078,6 @@ return;
 	memcpy(sc->countermasks[0],mask,sizeof(HintMask));
 return;
     }
-#endif
 }
 
 /* find all the other stems (after main) which seem to form a counter group */
@@ -2192,10 +2186,14 @@ return;
 return;
     }
 
-    for ( h=sc->hstem; h!=NULL ; h=h->next )
+    for ( h=sc->hstem, i=0; h!=NULL ; h=h->next, ++i ) {
 	h->used = false;
-    for ( h=sc->vstem; h!=NULL ; h=h->next )
+	h->hintnumber = i;
+    }
+    for ( h=sc->vstem; h!=NULL ; h=h->next, ++i  ) {
 	h->used = false;
+	h->hintnumber = i;
+    }
 
     mc = 0;
     
@@ -2213,19 +2211,19 @@ return;
     }
 }
 
-void SCClearHintMasks(SplineChar *sc,int counterstoo) {
+void SCClearHintMasks(SplineChar *sc,int layer,int counterstoo) {
     MMSet *mm = sc->parent->mm;
     int i;
 
     if ( mm==NULL )
-	_SCClearHintMasks(sc,counterstoo);
+	_SCClearHintMasks(sc,layer,counterstoo);
     else {
 	for ( i=0; i<mm->instance_count; ++i ) {
 	    if ( sc->orig_pos<mm->instances[i]->glyphcnt )
-		_SCClearHintMasks(mm->instances[i]->glyphs[sc->orig_pos],counterstoo);
+		_SCClearHintMasks(mm->instances[i]->glyphs[sc->orig_pos],layer,counterstoo);
 	}
 	if ( sc->orig_pos<mm->normal->glyphcnt )
-	    _SCClearHintMasks(mm->normal->glyphs[sc->orig_pos],counterstoo);
+	    _SCClearHintMasks(mm->normal->glyphs[sc->orig_pos],layer,counterstoo);
     }
 }
 
@@ -2666,7 +2664,7 @@ static void SplResolveSplitHints(SplineChar *scs[MmMax], SplineSet *spl[MmMax],
     }
 }
 
-static void ResolveSplitHints(SplineChar *scs[16],int instance_count) {
+static void ResolveSplitHints(SplineChar *scs[16],int layer,int instance_count) {
     /* It is possible for a single hint in one mm instance to split into two */
     /*  in a different MM set. For example, we have two stems which happen */
     /*  to line up in one instance but which do not in another instance. */
@@ -2682,7 +2680,7 @@ static void ResolveSplitHints(SplineChar *scs[16],int instance_count) {
 	hcnt = NumberHints(scs[i]);
 	UntickHints(scs[i]);
 	if ( hcnt>hmax ) hmax = hcnt;
-	spl[i] = scs[i]->layers[ly_fore].splines;
+	spl[i] = scs[i]->layers[layer].splines;
     }
     if ( hmax==0 )
 return;
@@ -2690,7 +2688,7 @@ return;
     SplResolveSplitHints(scs,spl,instance_count,&hs,&vs);
     anymore = false;
     for ( i=0; i<instance_count; ++i ) {
-	ref[i] = scs[i]->layers[ly_fore].refs;
+	ref[i] = scs[i]->layers[layer].refs;
 	if ( ref[i]!=NULL ) anymore = true;
     }
     while ( anymore ) {
@@ -2777,7 +2775,7 @@ static int SplFigureHintMasks(SplineChar *scs[MmMax], SplineSet *spl[MmMax],
 return( inited );
 }
 
-void SCFigureHintMasks(SplineChar *sc) {
+void SCFigureHintMasks(SplineChar *sc,int layer) {
     SplineChar *scs[MmMax];
     SplinePointList *spl[MmMax];
     RefChar *ref[MmMax];
@@ -2788,7 +2786,7 @@ void SCFigureHintMasks(SplineChar *sc) {
     if ( mm==NULL ) {
 	scs[0] = sc;
 	instance_count = 1;
-	SCClearHintMasks(sc,false);
+	SCClearHintMasks(sc,layer,false);
     } else {
 	if ( mm->apple )
 return;
@@ -2796,9 +2794,9 @@ return;
 	for ( i=0; i<instance_count; ++i )
 	    if ( sc->orig_pos < mm->instances[i]->glyphcnt ) {
 		scs[i] = mm->instances[i]->glyphs[sc->orig_pos];
-		SCClearHintMasks(scs[i],false);
+		SCClearHintMasks(scs[i],layer,false);
 	    }
-	ResolveSplitHints(scs,instance_count);
+	ResolveSplitHints(scs,layer,instance_count);
     }
     conflicts = false;
     for ( i=0; i<instance_count; ++i ) {
@@ -2812,8 +2810,8 @@ return;						/* In an MM font we may still need to resolve things like different
     }
 
     for ( i=0; i<instance_count; ++i ) {
-	spl[i] = scs[i]->layers[ly_fore].splines;
-	ref[i] = scs[i]->layers[ly_fore].refs;
+	spl[i] = scs[i]->layers[layer].splines;
+	ref[i] = scs[i]->layers[layer].refs;
     }
     inited = SplFigureHintMasks(scs,spl,instance_count,mask,false);
     forever {
@@ -2835,190 +2833,86 @@ return;						/* In an MM font we may still need to resolve things like different
     if ( instance_count==1 )
 	SCFigureSimpleCounterMasks(sc);
 }
-#ifndef LUA_FF_LIB
-
-static HintInstance *StemAddHIFromActive(struct stemdata *stem,int major) {
-    int i;
-    HintInstance *head = NULL, *cur, *t;
-    double mino, maxo;
-    double dir = ((real *) &stem->unit.x)[major]<0 ? -1 : 1;
-
-    for ( i=0; i<stem->activecnt; ++i ) {
-	mino = dir*stem->active[i].start + ((real *) &stem->left.x)[major];
-	maxo = dir*stem->active[i].end + ((real *) &stem->left.x)[major];
-	cur = chunkalloc(sizeof(HintInstance));
-	if ( dir>0 ) {
-	    cur->begin = mino;
-	    cur->end = maxo;
-	    if ( head==NULL )
-		head = cur;
-	    else
-		t->next = cur;
-	    t = cur;
-	} else {
-	    cur->begin = maxo;
-	    cur->end = mino;
-	    cur->next = head;
-	    head = cur;
-	}
-    }
-return( head );
-}
-
-static void GDReassignPoint(struct glyphdata *gd,struct stemdata *stem,struct pointdata **_pd) {
-    struct pointdata *pd = *_pd;
-    BasePoint *dir;
-    int i,j;
-    struct stemdata *potential;
-    int chunk, is_r;
-
-    if ( pd==NULL )
-return;
-    if ( pd->nextstem==stem )
-	dir = &pd->nextunit;
-    else if ( pd->prevstem==stem )
-	dir = &pd->prevunit;
-    else {
-	*_pd = NULL;
-return;
-    }
-
-    potential = NULL; chunk = is_r = -1;
-    for ( i=0; i<gd->stemcnt; ++i ) {
-	struct stemdata *stem = &gd->stems[i];
-	if ( !stem->toobig && UnitsParallel(dir,&stem->unit)) {
-	    for ( j=0; j<stem->chunk_cnt; ++j ) {
-		if ( stem->chunks[j].lpotential==pd ) {
-		    if ( potential==stem )
-			/* Do Nothing */;
-		    else if ( potential!=NULL )
-return;
-		    else {
-			potential = stem; chunk = j; is_r = false;
-		    }
-		} else if ( stem->chunks[j].rpotential==pd ) {
-		    if ( potential==stem )
-			/* Do Nothing */;
-		    else if ( potential!=NULL )
-return;
-		    else {
-			potential = stem; chunk = j; is_r = true;
-		    }
-		}
-	    }
-	}
-    }
-
-    if ( potential!=NULL ) {
-	if ( is_r && potential->chunks[chunk].r==NULL ) {
-	    potential->chunks[chunk].r = pd;
-	    *_pd = NULL;
-	} else if ( !is_r && potential->chunks[chunk].l==NULL ) {
-	    potential->chunks[chunk].l = pd;
-	    *_pd = NULL;
-	}
-    }
-}
-
-
-static void GDPreprocess(struct glyphdata *gd) {
-    int i,j;
-
-    /* Remove points from unusable stem and see if we can use 'em elsewhere */
-    for ( i=0; i<gd->stemcnt; ++i ) {
-	struct stemdata *stem = &gd->stems[i];
-	if ( stem->toobig ) {
-	    for ( j=0; j<stem->chunk_cnt; ++j ) {
-		GDReassignPoint(gd,stem,&stem->chunks[j].l);
-		GDReassignPoint(gd,stem,&stem->chunks[j].r);
-	    }
-	}
-    }
-
-    for ( i=0; i<gd->pcnt; ++i ) {
-	struct pointdata *pd = &gd->points[i];
-	if ( pd->colinear ) {
-	    if ( pd->nextstem==NULL )
-		pd->nextstem = pd->prevstem;
-	    else if ( pd->prevstem==NULL )
-		pd->prevstem = pd->nextstem;
-	}
-	if ( pd->colinear && pd->nextstem!=NULL && pd->nextstem!=pd->prevstem ) {
-	    double width1, width2;
-	    if ( pd->nextunit.x==0 ) {
-		if ( (width1 = pd->nextstem->left.x-pd->nextstem->right.x )<0 )
-		    width1 = -width1;
-		if ( (width2 = pd->prevstem->left.x-pd->prevstem->right.x )<0 )
-		    width2 = -width2;
-	    } else {
-		if ( (width1 = pd->nextstem->left.y-pd->nextstem->right.y )<0 )
-		    width1 = -width1;
-		if ( (width2 = pd->prevstem->left.y-pd->prevstem->right.y )<0 )
-		    width2 = -width2;
-	    }
-	    if ( width1>width2 && pd->nextstem->chunk_cnt<=1 ) {
-		if ( pd->nextstem->chunk_cnt==1 )
-		    pd->nextstem->chunks[0].l = pd->nextstem->chunks[0].r = NULL;
-	    } else if ( width1<width2 && pd->prevstem->chunk_cnt<=1 ) {
-		if ( pd->prevstem->chunk_cnt==1 )
-		    pd->prevstem->chunks[0].l = pd->prevstem->chunks[0].r = NULL;
-	    }
-	}
-    }
-}
 
 static StemInfo *GDFindStems(struct glyphdata *gd, int major) {
     int i;
     StemInfo *head = NULL, *cur, *p, *t;
-    struct stemdata *stem;
+    StemBundle *bundle = major ? gd->vbundle : gd->hbundle;
+    StemData *stem;
     int other = !major;
+    double l, r;
 
-    for ( i=0; i<gd->stemcnt; ++i ) {
-	stem = &gd->stems[i];
-	if ( stem->toobig )
-    continue;
-	if ((( stem->unit.y>.99 || stem->unit.y<-.99) && major==1 ) ||
-		(( stem->unit.x>.99 || stem->unit.x<-.99) && major==0 )) {
-	    double l = (&stem->left.x)[other], r = (&stem->right.x)[other];
-	    int j, hasl=false, hasr=false;
-	    for ( j=0; j<stem->chunk_cnt; ++j ) {
-		if ( stem->chunks[j].l!=NULL ) hasl = true;
-		if ( stem->chunks[j].r!=NULL ) hasr = true;
-	    }
-	    if ( !hasl || !hasr )
-    continue;
-	    cur = chunkalloc(sizeof(StemInfo));
-	    if ( l<r ) {
-		cur->start = l;
-		cur->width = r - l;
-		cur->haspointleft = hasl;
-		cur->haspointright = hasr;
-	    } else {
-		cur->start = r;
-		cur->width = l - r;
-		cur->haspointleft = hasr;
-		cur->haspointright = hasl;
-	    }
-	    for ( p=NULL, t=head; t!=NULL ; p=t, t=t->next ) {
-		if ( cur->start<=t->start )
-	    break;
-	    }
-	    cur->next = t;
-	    if ( p==NULL )
-		head = cur;
-	    else
-		p->next = cur;
-	    cur->where = StemAddHIFromActive(stem,major);
+    for ( i=0; i<bundle->cnt; ++i ) {
+	stem = bundle->stemlist[i];
+	l = (&stem->left.x)[other];
+        r = (&stem->right.x)[other];
+	cur = chunkalloc( sizeof( StemInfo ));
+	if ( l<r ) {
+	    cur->start = l;
+	    cur->width = r - l;
+	    cur->haspointleft = stem->lpcnt > 0;
+	    cur->haspointright = stem->rpcnt > 0;
+	} else {
+	    cur->start = r;
+	    cur->width = l - r;
+	    cur->haspointleft = stem->rpcnt > 0;
+	    cur->haspointright = stem->lpcnt > 0;
 	}
+        cur->ghost = stem->ghost;
+	for ( p=NULL, t=head; t!=NULL ; p=t, t=t->next ) {
+	    if ( cur->start<=t->start )
+	break;
+	}
+	cur->next = t;
+	if ( p==NULL )
+	    head = cur;
+	else
+	    p->next = cur;
+	cur->where = StemAddHIFromActive(stem,major);
     }
     head = StemRemoveFlexCandidates(head);
 return( head );
 }
 
-void _SplineCharAutoHint( SplineChar *sc, BlueData *bd, struct glyphdata *gd2 ) {
+static DStemInfo *GDFindDStems(struct glyphdata *gd) {
+    int i;
+    DStemInfo *head = NULL, *cur ;
+    struct stemdata *stem;
+
+    for ( i=0; i<gd->stemcnt; ++i ) {
+	stem = &gd->stems[i];
+        /* A real diagonal stem should consist of one or more continuous
+         ranges. Thus the number of active zones should be less then the
+         number of stem chunks (i. e. pairs of the opposite points). If
+         each chunk has its own active zone, then we probably have got
+         not a real stem, but rather two (or more) separate point pairs,
+         which occasionally happened to have nearly the same vectors and 
+         to be positioned on the same lines */
+	if ( stem->toobig )
+    continue;
+	
+        if (( stem->unit.y > -.05 && stem->unit.y < .05 ) || 
+            ( stem->unit.x > -.05 && stem->unit.x < .05 ))
+    continue;
+        
+	if ( stem->lpcnt < 2 || stem->rpcnt < 2 )
+    continue;
+        cur = chunkalloc( sizeof(DStemInfo) );
+        cur->left = stem->left;
+        cur->right = stem->right;
+        cur->unit = stem->unit;
+        MergeDStemInfo( gd->sf,&head,cur );
+	cur->where = DStemAddHIFromActive( stem );
+    }
+return( head );
+}
+
+void _SplineCharAutoHint( SplineChar *sc, int layer, BlueData *bd, struct glyphdata *gd2,
+	int gen_undoes ) {
     struct glyphdata *gd;
 
-    SCPreserveHints(sc);
+    if ( gen_undoes )
+	SCPreserveHints(sc,layer);
     StemInfosFree(sc->vstem); sc->vstem=NULL;
     StemInfosFree(sc->hstem); sc->hstem=NULL;
     DStemInfosFree(sc->dstem); sc->dstem=NULL;
@@ -3032,49 +2926,53 @@ void _SplineCharAutoHint( SplineChar *sc, BlueData *bd, struct glyphdata *gd2 ) 
     sc->manualhints = false;
 
     if ( (gd=gd2)==NULL )
-	gd = GlyphDataBuild(sc,true);
+	gd = GlyphDataBuild( sc,layer,bd,false );
     if ( gd!=NULL ) {
-	GDPreprocess(gd);
 	sc->vstem = GDFindStems(gd,1);
 	sc->hstem = GDFindStems(gd,0);
+	if ( !gd->only_hv )
+	    sc->dstem = GDFindDStems(gd);
 	if ( gd2==NULL ) GlyphDataFree(gd);
-	sc->hstem = CheckForGhostHints(sc->hstem,sc,bd);
     }
 
-    AutoHintRefs(sc,bd,false);
+    AutoHintRefs(sc,layer,bd,false,gen_undoes);
 }
 
-void SplineCharAutoHint( SplineChar *sc, BlueData *bd ) {
+static void __SplineCharAutoHint( SplineChar *sc, int layer, BlueData *bd, int gen_undoes ) {
     MMSet *mm = sc->parent->mm;
     int i;
 
     if ( mm==NULL )
-	_SplineCharAutoHint(sc,bd,NULL);
+	_SplineCharAutoHint(sc,layer,bd,NULL,gen_undoes);
     else {
 	for ( i=0; i<mm->instance_count; ++i )
 	    if ( sc->orig_pos < mm->instances[i]->glyphcnt )
-		_SplineCharAutoHint(mm->instances[i]->glyphs[sc->orig_pos],NULL,NULL);
+		_SplineCharAutoHint(mm->instances[i]->glyphs[sc->orig_pos],layer,NULL,NULL,gen_undoes);
 	if ( sc->orig_pos < mm->normal->glyphcnt )
-	    _SplineCharAutoHint(mm->normal->glyphs[sc->orig_pos],NULL,NULL);
+	    _SplineCharAutoHint(mm->normal->glyphs[sc->orig_pos],layer,NULL,NULL,gen_undoes);
     }
-    SCFigureHintMasks(sc);
+    SCFigureHintMasks(sc,layer);
     SCUpdateAll(sc);
 }
 
-void SFSCAutoHint( SplineChar *sc, BlueData *bd ) {
+void SplineCharAutoHint( SplineChar *sc, int layer, BlueData *bd ) {
+    __SplineCharAutoHint(sc,layer,bd,true);
+}
+
+void SFSCAutoHint( SplineChar *sc, int layer, BlueData *bd ) {
     RefChar *ref;
 
     if ( sc->ticked )
 return;
     for ( ref=sc->layers[ly_fore].refs; ref!=NULL; ref=ref->next ) {
 	if ( !ref->sc->ticked )
-	    SFSCAutoHint(ref->sc,bd);
+	    SFSCAutoHint(ref->sc,layer,bd);
     }
     sc->ticked = true;
-    SplineCharAutoHint(sc,bd);
+    SplineCharAutoHint(sc,layer,bd);
 }
 
-int SFNeedsAutoHint( SplineFont *_sf) {
+int SFNeedsAutoHint( SplineFont *_sf,int layer) {
     int i,k;
     SplineFont *sf;
 
@@ -3091,14 +2989,14 @@ return( true );
 return( false );
 }
     
-void SplineFontAutoHint( SplineFont *_sf) {
+void SplineFontAutoHint( SplineFont *_sf,int layer) {
     int i,k;
     SplineFont *sf;
     BlueData *bd = NULL, _bd;
     SplineChar *sc;
 
     if ( _sf->mm==NULL ) {
-	QuickBlues(_sf,&_bd);
+	QuickBlues(_sf,layer,&_bd);
 	bd = &_bd;
     }
 
@@ -3117,26 +3015,24 @@ void SplineFontAutoHint( SplineFont *_sf) {
 	for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL ) {
 	    if ( sf->glyphs[i]->changedsincelasthinted &&
 		    !sf->glyphs[i]->manualhints )
-		SFSCAutoHint(sf->glyphs[i],bd);
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
-	    if ( !gwwv_progress_next()) {
+		SFSCAutoHint(sf->glyphs[i],layer,bd);
+	    if ( !ff_progress_next()) {
 		k = _sf->subfontcnt+1;
 	break;
 	    }
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
 	}
 	++k;
     } while ( k<_sf->subfontcnt );
 }
 
-void SplineFontAutoHintRefs( SplineFont *_sf) {
+void SplineFontAutoHintRefs( SplineFont *_sf,int layer) {
     int i,k;
     SplineFont *sf;
     BlueData *bd = NULL, _bd;
     SplineChar *sc;
 
     if ( _sf->mm==NULL ) {
-	QuickBlues(_sf,&_bd);
+	QuickBlues(_sf,layer,&_bd);
 	bd = &_bd;
     }
 
@@ -3146,17 +3042,16 @@ void SplineFontAutoHintRefs( SplineFont *_sf) {
 	for ( i=0; i<sf->glyphcnt; ++i ) if ( (sc = sf->glyphs[i])!=NULL ) {
 	    if ( sc->changedsincelasthinted &&
 		    !sc->manualhints &&
-		    (sc->layers[ly_fore].refs!=NULL && sc->layers[ly_fore].splines==NULL)) {
-		SCPreserveHints(sc);
+		    (sc->layers[layer].refs!=NULL && sc->layers[layer].splines==NULL)) {
+		SCPreserveHints(sc,layer);
 		StemInfosFree(sc->vstem); sc->vstem=NULL;
 		StemInfosFree(sc->hstem); sc->hstem=NULL;
-		AutoHintRefs(sc,bd,true);
+		AutoHintRefs(sc,layer,bd,true,true);
 	    }
 	}
 	++k;
     } while ( k<_sf->subfontcnt );
 }
-#endif
 
 static void FigureStems( SplineFont *sf, real snaps[12], real cnts[12],
 	int which ) {
@@ -3295,7 +3190,7 @@ return( true );
 return( false );
 }
 
-static int _SplineCharIsFlexible(SplineChar *sc, int blueshift) {
+static int _SplineCharIsFlexible(SplineChar *sc, int layer, int blueshift) {
     /* Need two splines
 	outer endpoints have same x (or y) values
 	inner point must be less than 20 horizontal (v) units from the outer points
@@ -3317,7 +3212,7 @@ static int _SplineCharIsFlexible(SplineChar *sc, int blueshift) {
     if ( sc==NULL )
 return(false);
 
-    for ( spl = sc->layers[ly_fore].splines; spl!=NULL; spl=spl->next ) {
+    for ( spl = sc->layers[layer].splines; spl!=NULL; spl=spl->next ) {
 	if ( spl->first->prev==NULL ) {
 	    /* Mark everything on the open path as inflexible */
 	    sp=spl->first;
@@ -3380,17 +3275,17 @@ return(false);
 	    sp = np;
 	} while ( sp!=spl->first );
     }
-    sc->anyflexes = max>0;
+    sc->layers[layer].anyflexes = max>0;
     if ( max==0 )
-	for ( r = sc->layers[ly_fore].refs; r!=NULL ; r=r->next )
-	    if ( r->sc->anyflexes ) {
-		sc->anyflexes = true;
+	for ( r = sc->layers[layer].refs; r!=NULL ; r=r->next )
+	    if ( r->sc->layers[layer].anyflexes ) {
+		sc->layers[layer].anyflexes = true;
 	break;
 	    }
 return( max );
 }
 
-static int MatchFlexes(MMSet *mm,int opos) {
+static int MatchFlexes(MMSet *mm,int layer,int opos) {
     int any=false, i;
     SplineSet *spl[16];
     SplinePoint *sp[16];
@@ -3398,7 +3293,7 @@ static int MatchFlexes(MMSet *mm,int opos) {
 
     for ( i=0; i<mm->instance_count; ++i )
 	if ( opos<mm->instances[i]->glyphcnt && mm->instances[i]->glyphs[opos]!=NULL )
-	    spl[i] = mm->instances[i]->glyphs[opos]->layers[ly_fore].splines;
+	    spl[i] = mm->instances[i]->glyphs[opos]->layers[layer].splines;
 	else
 	    spl[i] = NULL;
     while ( spl[0]!=NULL ) {
@@ -3441,7 +3336,7 @@ static int MatchFlexes(MMSet *mm,int opos) {
 return( any );
 }
 
-int SplineCharIsFlexible(SplineChar *sc) {
+int SplineCharIsFlexible(SplineChar *sc,int layer) {
     char *pt;
     int blueshift;
     int i;
@@ -3455,20 +3350,20 @@ int SplineCharIsFlexible(SplineChar *sc) {
     } else if ( PSDictHasEntry(sc->parent->private,"BlueValues")!=NULL )
 	blueshift = 7;
     if ( sc->parent->mm==NULL )
-return( _SplineCharIsFlexible(sc,blueshift));
+return( _SplineCharIsFlexible(sc,layer,blueshift));
 
     mm = sc->parent->mm;
     for ( i = 0; i<mm->instance_count; ++i )
 	if ( sc->orig_pos<mm->instances[i]->glyphcnt && mm->instances[i]->glyphs[sc->orig_pos]!=NULL )
-	    _SplineCharIsFlexible(mm->instances[i]->glyphs[sc->orig_pos],blueshift);
-return( MatchFlexes(mm,sc->orig_pos));	
+	    _SplineCharIsFlexible(mm->instances[i]->glyphs[sc->orig_pos],layer,blueshift);
+return( MatchFlexes(mm,layer,sc->orig_pos));	
 }
 
-static void SCUnflex(SplineChar *sc) {
+static void SCUnflex(SplineChar *sc, int layer) {
     SplineSet *spl;
     SplinePoint *sp;
 
-    for ( spl = sc->layers[ly_fore].splines; spl!=NULL; spl=spl->next ) {
+    for ( spl = sc->layers[layer].splines; spl!=NULL; spl=spl->next ) {
 	/* Mark everything on the path as inflexible */
 	sp=spl->first;
 	while ( 1 ) {
@@ -3480,18 +3375,18 @@ static void SCUnflex(SplineChar *sc) {
 	break;
 	} 
     }
-    sc->anyflexes = false;
+    sc->layers[layer].anyflexes = false;
 }
 
-static void FlexDependents(SplineChar *sc) {
+static void FlexDependents(SplineChar *sc,int layer) {
     struct splinecharlist *scl;
 
-    sc->anyflexes = true;
+    sc->layers[layer].anyflexes = true;
     for ( scl = sc->dependents; scl!=NULL; scl=scl->next )
-	FlexDependents(scl->sc);
+	FlexDependents(scl->sc,layer);
 }
 
-int SplineFontIsFlexible(SplineFont *sf,int flags) {
+int SplineFontIsFlexible(SplineFont *sf,int layer, int flags) {
     int i;
     int max=0, val;
     char *pt;
@@ -3503,7 +3398,7 @@ int SplineFontIsFlexible(SplineFont *sf,int flags) {
 
     if ( flags&(ps_flag_nohints|ps_flag_noflex)) {
 	for ( i=0; i<sf->glyphcnt; ++i ) if ( sf->glyphs[i]!=NULL )
-	    SCUnflex(sf->glyphs[i]);
+	    SCUnflex(sf->glyphs[i],layer);
 return( 0 );
     }
 	
@@ -3517,10 +3412,10 @@ return( 0 );
 
     for ( i=0; i<sf->glyphcnt; ++i )
 	if ( sf->glyphs[i]!=NULL ) if ( sf->glyphs[i]!=NULL ) {
-	    val = _SplineCharIsFlexible(sf->glyphs[i],blueshift);
+	    val = _SplineCharIsFlexible(sf->glyphs[i],layer,blueshift);
 	    if ( val>max ) max = val;
-	    if ( sf->glyphs[i]->anyflexes )
-		FlexDependents(sf->glyphs[i]);
+	    if ( sf->glyphs[i]->layers[layer].anyflexes )
+		FlexDependents(sf->glyphs[i],layer);
 	}
 return( max );
 }

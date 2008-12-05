@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2007 by George Williams */
+/* Copyright (C) 2005-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,13 +32,21 @@
 # define P_(str1,str_non1,n)	((n)==1?str1:str_non1)
 # define U_(str)		(str)
 
-#if ! defined(__sun__) && ! defined(__sun)
+# ifdef bindtextdomain
+#  undef bindtextdomain
+# endif
+# ifdef bind_textdomain_codeset
+#  undef bind_textdomain_codeset
+# endif
+# ifdef textdomain
+#  undef textdomain
+# endif
+
 # define bindtextdomain(domain,dir)
 # define bind_textdomain_codeset(domain,enc)
 # define textdomain(domain)
 
 # define dgettext(domain,str)	(str)
-#endif
 
 #elif defined( NODYNAMIC ) || defined ( _STATIC_LIBINTL )
 
@@ -55,6 +63,16 @@
 # define _(str)			gwwv_gettext(str)
 # define P_(str1,str_non1,n)	gwwv_ngettext(str1,str_non1,n)
 # define U_(str)		gwwv_gettext(str)
+
+# ifdef bindtextdomain
+#  undef bindtextdomain
+# endif
+# ifdef bind_textdomain_codeset
+#  undef bind_textdomain_codeset
+# endif
+# ifdef textdomain
+#  undef textdomain
+# endif
 
 # define bindtextdomain(domain,dir)		gwwv_bindtextdomain(domain,dir)
 # define bind_textdomain_codeset(domain,enc)	gwwv_bind_textdomain_codeset(domain,enc)

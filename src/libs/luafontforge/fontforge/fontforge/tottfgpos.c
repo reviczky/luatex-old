@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,19 +24,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "pfaeditui.h"
+#include "fontforgevw.h"
 #include <utype.h>
 #include <ustring.h>
 
 int coverageformatsallowed=3;
+int use_second_indic_scripts = false;
 
 #include "ttf.h"
-
-#ifdef LUA_FF_LIB
-extern void gwwv_post_error(char *a, ...);
-extern int unic_isrighttoleft (int);
-#define isrighttoleft  unic_isrighttoleft 
-#endif
 
 /* This file contains routines to create the otf gpos and gsub tables and their */
 /*  attendant subtables */
@@ -51,7 +46,7 @@ extern int unic_isrighttoleft (int);
     /* see also list in lookups.c mapping script tags to friendly names */
 
 static uint32 scripts[][15] = {
-/* Arabic */	{ CHR('a','r','a','b'), 0x0600, 0x06ff, 0xfb50, 0xfdff, 0xfe70, 0xfeff },
+/* Arabic */	{ CHR('a','r','a','b'), 0x0600, 0x06ff, 0xfb50, 0xfdff, 0xfe70, 0xfefe },
 /* Aramaic */	{ CHR('a','r','a','m'), 0x820, 0x83f },
 /* Armenian */	{ CHR('a','r','m','n'), 0x0530, 0x058f, 0xfb13, 0xfb17 },
 /* Balinese */	{ CHR('b','a','l','i'), 0x1b00, 0x1b7f },
@@ -63,12 +58,15 @@ static uint32 scripts[][15] = {
 /* Buhid */	{ CHR('b','u','h','d'), 0x1740, 0x1753 },
 /* Byzantine M*/{ CHR('b','y','z','m'), 0x1d000, 0x1d0ff },
 /* Canadian Syl*/{CHR('c','a','n','s'), 0x1400, 0x167f },
+/* Carian */     {CHR('c','a','r','i'), 0x0, 0x0 },
+/* Cham */       {CHR('c','h','a','m'), 0x0, 0x0 },
 /* Cherokee */	{ CHR('c','h','e','r'), 0x13a0, 0x13ff },
 /* Cirth */	{ CHR('c','i','r','t'), 0x12080, 0x120ff },
 /* CJKIdeogra */{ CHR('h','a','n','i'), 0x3300, 0x9fff, 0xf900, 0xfaff, 0x020000, 0x02ffff },
 /* Coptic */	{ CHR('c','o','p','t'), 0x2c80, 0x2cff },
 /* Cypriot */	{ CHR('c','p','m','n'), 0x10800, 0x1083f },
-/* Cyrillic */	{ CHR('c','y','r','l'), 0x0400, 0x052f },
+/* Cyrillic */	{ CHR('c','y','r','l'), 0x0400, 0x052f, 0x1d2b, 0x1d2b, 0x1d78, 0x1d78,
+	0x2de0, 0x2dff, 0xa640, 0xa6ff },
 /* Deseret */	{ CHR('d','s','r','t'), 0x10400, 0x1044f },
 /* Devanagari */{ CHR('d','e','v','a'), 0x0900, 0x097f },
 /* Ethiopic */	{ CHR('e','t','h','i'), 0x1200, 0x139f },
@@ -87,25 +85,31 @@ static uint32 scripts[][15] = {
 /* Hiragana */	{ CHR('h','i','r','a'), 0x3040, 0x309f },
 #endif
 /* Hangul Jamo*/{ CHR('j','a','m','o'), 0x1100, 0x11ff, 0x3130, 0x319f, 0xffa0, 0xffdf },
-/* Katakana */	{ CHR('k','a','n','a'), 0x3040, 0x30ff, 0xff60, 0xff9f },
 /* Javanese */	{ CHR('j','a','v','a'), 0 },	/* MS has a tag, but there is no unicode range */
-/* Khmer */	{ CHR('k','h','m','r'), 0x1780, 0x17ff },
+/* Katakana */	{ CHR('k','a','n','a'), 0x3040, 0x30ff, 0xff60, 0xff9f },
+/* Kayah Li */	{ CHR('k','a','l','i'), 0 },
 /* Kannada */	{ CHR('k','n','d','a'), 0x0c80, 0x0cff },
 /* Kharosthi */	{ CHR('k','h','a','r'), 0x10a00, 0x10a5f },
+/* Khmer */	{ CHR('k','h','m','r'), 0x1780, 0x17ff },
 /* Latin */	{ CHR('l','a','t','n'), 0x0041, 0x005a, 0x0061, 0x007a,
-	0x00c0, 0x02af, 0x1d00, 0x1eff, 0xfb00, 0xfb0f, 0xff00, 0xff5f, 0, 0 },
+	0x00c0, 0x02af, 0x1d00, 0x1eff, 0xfb00, 0xfb0f, 0xff00, 0xff5f, 0xa770, 0xa7ff },
 /* Lao */	{ CHR('l','a','o',' '), 0x0e80, 0x0eff },
+/* Lepcha */    { CHR('l','e','p','c'), 0 },
 /* Limbu */	{ CHR('l','i','m','b'), 0x1900, 0x194f },
-/* Linear A */	{ CHR('l','i','n','a'), 0x10180, 0x102cf },
+/* Linear A */	/*{ CHR('l','i','n','a'), 0x10180, 0x102cf },*/ /* What happened to linear A? */
 /* Linear B */	{ CHR('l','i','n','b'), 0x10000, 0x100fa },
+/* Lycian */    { CHR('l','y','c','i'), 0 },
+/* Lydian */    { CHR('l','y','d','i'), 0 },
 /* Malayalam */	{ CHR('m','l','y','m'), 0x0d00, 0x0d7f },
 /* Mathematical Alphanumeric Symbols */
 		{ CHR('m','a','t','h'), 0x1d400, 0x1d7ff },
 /* Mongolian */	{ CHR('m','o','n','g'), 0x1800, 0x18af },
 /* Musical */	{ CHR('m','u','s','i'), 0x1d100, 0x1d1ff },
 /* Myanmar */	{ CHR('m','y','m','r'), 0x1000, 0x107f },
+/* New Tai Lue*/{ CHR('t','a','l','u'), 0 },
 /* N'Ko */	{ CHR('n','k','o',' '), 0x07c0, 0x07fa },
 /* Ogham */	{ CHR('o','g','a','m'), 0x1680, 0x169f },
+/* Ol Chiki */  { CHR('o','l','c','k'), 0 },
 /* Old Italic */{ CHR('i','t','a','l'), 0x10300, 0x1031e },
 /* Old Permic */{ CHR('p','e','r','m'), 0x10350, 0x1037f },
 /* Old Persian cuneiform */
@@ -115,11 +119,15 @@ static uint32 scripts[][15] = {
 /* Phags-pa */	{ CHR('p','h','a','g'), 0xa840, 0xa87f },
 /* Phoenician */{ CHR('p','h','n','x'), 0x10900, 0x1091f },
 /* Pollard */	{ CHR('p','l','r','d'), 0x104b0, 0x104d9 },
+/* Rejang */    { CHR('r','j','n','g'), 0 },
+/* Rongorongo */{ CHR('r','o','r','o'), 0 },
 /* Runic */	{ CHR('r','u','n','r'), 0x16a0, 0x16ff },
+/* Saurashtra*/ { CHR('s','a','u','r'), 0 },
 /* Shavian */	{ CHR('s','h','a','w'), 0x10450, 0x1047f },
 /* Sinhala */	{ CHR('s','i','n','h'), 0x0d80, 0x0dff },
 /* Sumero-Akkadian Cuneiform */
 		{ CHR('x','s','u','x'), 0x12000, 0x1236e },
+/* Sundanese */ { CHR('s','u','n','d'), 0 },
 /* Syloti Nagri */
 		{ CHR('s','y','l','o'), 0xa800, 0xa82f },
 /* Syriac */	{ CHR('s','y','r','c'), 0x0700, 0x074f },
@@ -138,6 +146,19 @@ static uint32 scripts[][15] = {
 /* Yi */	{ CHR('y','i',' ',' '), 0xa000, 0xa4c6 },
 		{ 0 }
 };
+
+void ScriptMainRange(uint32 script, int *start, int *end) {
+    int i;
+
+    for ( i=0; scripts[i][0]!=0; ++i ) {
+	if ( scripts[i][0] == script ) {
+	    *start = scripts[i][1];
+	    *end   = scripts[i][2];
+return;
+	}
+    }
+    *start = *end = -1;
+}
 
 int ScriptIsRightToLeft(uint32 script) {
     if ( script==CHR('a','r','a','b') || script==CHR('h','e','b','r') ||
@@ -161,7 +182,6 @@ uint32 ScriptFromUnicode(int u,SplineFont *sf) {
 	break;
 	}
 	if ( scripts[s][0]!=0 ) {
-	    extern int use_second_indic_scripts;
 	    uint32 script = scripts[s][0];
 	    if ( use_second_indic_scripts ) {
 		/* MS has a parallel set of script tags for their new */
@@ -204,7 +224,9 @@ uint32 SCScriptFromUnicode(SplineChar *sc) {
 return( DEFAULT_SCRIPT );
 
     sf = sc->parent;
-    if ( sc->unicodeenc!=-1 )
+    if ( sc->unicodeenc!=-1 &&
+	    !(sc->unicodeenc>=0xe000 && sc->unicodeenc<0xf8ff) &&
+	    !(sc->unicodeenc>=0xf0000 && sc->unicodeenc<0x10ffff))
 return( ScriptFromUnicode( sc->unicodeenc,sf ));
 
     pt = sc->name;
@@ -447,7 +469,7 @@ static void AnchorGuessContext(SplineFont *sf,struct alltabs *at) {
 }
 
 static void dumpcoveragetable(FILE *gpos,SplineChar **glyphs) {
-    int i, last = -2, range_cnt=0, start;
+    int i, last = -2, range_cnt=0, start, r;
     /* the glyph list should already be sorted */
     /* figure out whether it is better (smaller) to use an array of glyph ids */
     /*  or a set of glyph id ranges */
@@ -470,12 +492,14 @@ static void dumpcoveragetable(FILE *gpos,SplineChar **glyphs) {
 	putshort(gpos,2);		/* Coverage format=2 => range list */
 	putshort(gpos,range_cnt);	/* count of ranges */
 	last = -2; start = -2;		/* start is a index in our glyph array, last is ttf_glyph */
+	r = 0;
 	for ( i=0; glyphs[i]!=NULL; ++i ) {
 	    if ( glyphs[i]->ttf_glyph!=last+1 ) {
 		if ( last!=-2 ) {
 		    putshort(gpos,glyphs[start]->ttf_glyph);	/* start glyph ID */
 		    putshort(gpos,last);			/* end glyph ID */
 		    putshort(gpos,start);			/* coverage index of start glyph */
+		    ++r;
 		}
 		start = i;
 	    }
@@ -485,7 +509,10 @@ static void dumpcoveragetable(FILE *gpos,SplineChar **glyphs) {
 	    putshort(gpos,glyphs[start]->ttf_glyph);	/* start glyph ID */
 	    putshort(gpos,last);			/* end glyph ID */
 	    putshort(gpos,start);			/* coverage index of start glyph */
+	    ++r;
 	}
+	if ( r!=range_cnt )
+	    IError("Miscounted ranges in format 2 coverage table output");
     }
 }
 
@@ -920,20 +947,19 @@ static void dumpGPOSpairpos(FILE *gpos,SplineFont *sf,struct lookup_subtable *su
     SplineChar *sc, **glyphs, *gtemp;
     int isr2l = -1;
     struct sckppst **seconds;
-#ifdef FONTFORGE_CONFIG_DEVICETABLES
     int devtablen;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    int next_dev_tab;
 #endif
 
     /* Figure out all the data we need. First the glyphs with kerning info */
     /*  then the glyphs to which they kern, and by how much */
     glyphs = SFOrderedGlyphsWithPSTinSubtable(sf,sub);
     for ( cnt=0; glyphs[cnt]!=NULL; ++cnt);
-    seconds = galloc(cnt*sizeof(struct sckppst));
+    seconds = galloc(cnt*sizeof(struct sckppst *));
     for ( cnt=0; glyphs[cnt]!=NULL; ++cnt) {
 	for ( k=0; k<2; ++k ) {
-#ifdef FONTFORGE_CONFIG_DEVICETABLES
 	    devtablen = 0;
-#endif
 	    tot = 0;
 	    for ( pst=glyphs[cnt]->possub; pst!=NULL; pst=pst->next ) {
 		if ( pst->subtable==sub && pst->type==pst_pair &&
@@ -973,9 +999,7 @@ static void dumpGPOSpairpos(FILE *gpos,SplineFont *sf,struct lookup_subtable *su
 		qsort(seconds[cnt],tot,sizeof(struct sckppst),cmp_gid);
 		seconds[cnt][0].tot = tot;
 		/* Devtablen is 0 unless we are configured for device tables */
-#ifdef FONTFORGE_CONFIG_DEVICETABLES
 		seconds[cnt][0].devtablen = devtablen;
-#endif
 		seconds[cnt][0].samewas = 0xffff;
 	    }
 	}
@@ -987,7 +1011,7 @@ static void dumpGPOSpairpos(FILE *gpos,SplineFont *sf,struct lookup_subtable *su
 	struct sckppst *test = seconds[cnt], *test2;
 	for ( i=cnt-1; i>=0; --i ) {
 	    test2 = seconds[i];
-	    if ( test[0].tot != test2[0].tot )
+	    if ( test[0].tot != test2[0].tot || test2[0].samewas!=0xffff )
 	continue;
 	    for ( j=test[0].tot-1; j>=0; --j ) {
 		if ( test[j].other_gid != test2[j].other_gid )
@@ -1019,12 +1043,12 @@ static void dumpGPOSpairpos(FILE *gpos,SplineFont *sf,struct lookup_subtable *su
 	    }
 	    if ( j>=0 )
 	continue;
-	    test2[0].samewas = j;
+	    test[0].samewas = i;
 	break;
 	}
     }
 
-    /* Ok, how many offsets must we output? Normall kerning will just use */
+    /* Ok, how many offsets must we output? Normal kerning will just use */
     /*  one offset (with perhaps a device table), but the standard allows */
     /*  us to adjust 8 different values (with 8 different device tables) */
     /* Find out which we need */
@@ -1145,7 +1169,7 @@ static void dumpGPOSpairpos(FILE *gpos,SplineFont *sf,struct lookup_subtable *su
 	continue;
 	    }
 #ifdef FONTFORGE_CONFIG_DEVICETABLES
-	    int next_dev_tab = ftell(gpos)-start;
+	    next_dev_tab = ftell(gpos)-start;
 	    if ( (vf1&0xf0) || (vf2&0xf0) ) {
 		for ( tot=0 ; tot<seconds[i][0].tot; ++tot ) {
 		    if ( (pst=seconds[i][tot].pst)!=NULL ) {
@@ -1487,8 +1511,7 @@ static void dumpgposkernclass(FILE *gpos,SplineFont *sf,
 static void dumpanchor(FILE *gpos,AnchorPoint *ap, int is_ttf ) {
 #ifdef FONTFORGE_CONFIG_DEVICETABLES
     int base = ftell(gpos);
-#endif
-#ifdef FONTFORGE_CONFIG_DEVICETABLES
+
     if ( ap->xadjust.corrections!=NULL || ap->yadjust.corrections!=NULL )
 	putshort(gpos,3);	/* format 3 w/ device tables */
     else
@@ -1527,7 +1550,7 @@ static void dumpgposCursiveAttach(FILE *gpos, SplineFont *sf,
 	    if ( ac==NULL )
 		ac = testac;
 	    else {
-		gwwv_post_error(_("Two cursive anchor classes"),_("Two cursive anchor classes in the same subtable, %s"),
+		ff_post_error(_("Two cursive anchor classes"),_("Two cursive anchor classes in the same subtable, %s"),
 			sub->subtable_name);
     break;
 	    }
@@ -1562,6 +1585,8 @@ return;
 	    if ( entry->xadjust.corrections!=NULL || entry->yadjust.corrections!=NULL )
 		offset += 4 + DevTabLen(&entry->xadjust) + DevTabLen(&entry->yadjust);
 #endif
+	    if ( gi->is_ttf && entry->has_ttf_pt )
+		offset += 2;
 	} else
 	    putshort(gpos,0);
 	if ( exit!=NULL ) {
@@ -1572,7 +1597,7 @@ return;
 		offset += 4 + DevTabLen(&exit->xadjust) + DevTabLen(&exit->yadjust);
 	    else
 #endif
-	    if ( gi->is_ttf && ap->has_ttf_pt )
+	    if ( gi->is_ttf && exit->has_ttf_pt )
 		offset += 2;
 	} else
 	    putshort(gpos,0);
@@ -1635,7 +1660,7 @@ static void dumpgposAnchorData(FILE *gpos,AnchorClass *_ac,
     AnchorClass *ac=NULL;
     int j,cnt,k,l, pos, offset, tot, max;
     uint32 coverage_offset, markarray_offset, subtable_start;
-    AnchorPoint *ap = NULL, **aps;
+    AnchorPoint *ap, **aps;
     SplineChar **markglyphs;
 
     for ( cnt=0; base[cnt]!=NULL; ++cnt );
@@ -1653,7 +1678,9 @@ static void dumpgposAnchorData(FILE *gpos,AnchorClass *_ac,
 	offset = 2;
 	for ( l=0; l<3; ++l ) {
 	    for ( j=0; j<cnt; ++j ) {
-		for ( k=0, ac=_ac; k<classcnt; ++k, ac=ac->next ) {
+		for ( k=0, ac=_ac; k<classcnt; ac=ac->next ) if ( ac->matches ) {
+		    if ( !ac->has_mark || !ac->has_base )
+		continue;
 		    for ( ap=base[j]->anchor; ap!=NULL && (ap->anchor!=ac || ap->type!=at);
 			    ap=ap->next );
 		    switch ( l ) {
@@ -1680,6 +1707,7 @@ static void dumpgposAnchorData(FILE *gpos,AnchorClass *_ac,
 			    dumpanchor(gpos,ap,gi->is_ttf);
 		      break;
 		    }
+		    ++k;
 		}
 	    }
 	}
@@ -1690,11 +1718,12 @@ static void dumpgposAnchorData(FILE *gpos,AnchorClass *_ac,
 	    putshort(gpos,offset);
 	    pos = tot = 0;
 	    for ( ap=base[j]->anchor; ap!=NULL ; ap=ap->next )
-		for ( k=0, ac=_ac; k<classcnt; ++k, ac=ac->next ) {
+		for ( k=0, ac=_ac; k<classcnt; ac=ac->next ) if ( ac->matches ) {
 		    if ( ap->anchor==ac ) {
 			if ( ap->lig_index>pos ) pos = ap->lig_index;
 			++tot;
 		    }
+		    ++k;
 		}
 	    if ( pos>max ) max = pos;
 	    offset += 2+(pos+1)*classcnt*2+tot*6;
@@ -1706,11 +1735,12 @@ static void dumpgposAnchorData(FILE *gpos,AnchorClass *_ac,
 	    memset(aps,0,(classcnt*max)*sizeof(AnchorPoint *));
 	    pos = 0;
 	    for ( ap=base[j]->anchor; ap!=NULL ; ap=ap->next )
-		for ( k=0, ac=_ac; k<classcnt; ++k, ac=ac->next ) {
+		for ( k=0, ac=_ac; k<classcnt; ac=ac->next ) if ( ac->matches ) {
 		    if ( ap->anchor==ac ) {
 			if ( ap->lig_index>pos ) pos = ap->lig_index;
 			aps[k*max+ap->lig_index] = ap;
 		    }
+		    ++k;
 		}
 	    ++pos;
 	    putshort(gpos,pos);
@@ -2281,7 +2311,7 @@ static void dumpg___ContextChainCoverage(FILE *lfile,SplineFont *sf,
 	struct lookup_subtable *sub, struct alltabs *at) {
     FPST *fpst = sub->fpst;
     int iscontext = fpst->type==pst_contextpos || fpst->type==pst_contextsub;
-    uint32 base = ftell(lfile), ibase=0, lbase, bbase;
+    uint32 base = ftell(lfile), ibase, lbase, bbase;
     int i, l;
     SplineChar **glyphs;
     int curcontext;
@@ -2445,11 +2475,9 @@ static void AnchorsAway(FILE *lfile,SplineFont *sf,
 	    dumpgposAnchorData(lfile,acfirst,at_baselig,marks,lig,classcnt,gi);
       break;
       case gpos_mark2mark:
-		if ( marks[0]!=NULL && mkmk!=NULL )
-		  dumpgposAnchorData(lfile,acfirst,at_basemark,marks,mkmk,classcnt,gi);
-		break;
-	default:
-	  break;
+	if ( marks[0]!=NULL && mkmk!=NULL )
+	    dumpgposAnchorData(lfile,acfirst,at_basemark,marks,mkmk,classcnt,gi);
+      break;
     }
     for ( i=0; i<classcnt; ++i )
 	free(marks[i]);
@@ -2461,7 +2489,7 @@ static void AnchorsAway(FILE *lfile,SplineFont *sf,
 }
 
 static int lookup_size_cmp(const void *_l1, const void *_l2) {
-    const OTLookup *l1 = _l1, *l2 = _l2;
+    const OTLookup *l1 = *(OTLookup **) _l1, *l2 = *(OTLookup **) _l2;
 return( l1->lookup_length-l2->lookup_length );
 }
 
@@ -2519,8 +2547,6 @@ return( false );
 		}
 	    }
 	    all = all->next;
-	default:
-	  break;
 	}
 	if ( anymac )
 return( true );
@@ -2610,8 +2636,6 @@ static FILE *G___figureLookups(SplineFont *sf,int is_gpos,
 		      case gsub_reversecchain:
 			dumpg___ContextChain(lfile,sf,sub,at);
 		      break;
-			default:
-			  break;
 		    }
 		    if ( ftell(lfile)-sub->subtable_offset==0 ) {
 			IError( "Lookup sub table, %s in %s, contains no data.\n",
@@ -2648,8 +2672,10 @@ return( lfile );
     final = tmpfile();
     buffer = galloc(32768);
     for ( i=0; i<index; ++i ) {
+	uint32 diff;
 	otl = sizeordered[i];
 	fseek(lfile,otl->lookup_offset,SEEK_SET);
+	diff = ftell(final) - otl->lookup_offset;
 	otl->lookup_offset = ftell(final);
 	len = otl->lookup_length;
 	while ( len>=32768 ) {
@@ -2664,6 +2690,15 @@ return( lfile );
 	    if ( done==EOF )
 	break;
 	    fwrite(buffer,1,done,final);
+	}
+	for ( sub = otl->subtables; sub!=NULL; sub=sub->next ) {
+	    if ( !sub->unused ) {
+		sub->subtable_offset += diff;
+		if ( sub->extra_subtables!=NULL ) {
+		    for ( i=0; sub->extra_subtables[i]!=-1; ++i )
+			sub->extra_subtables[i] += diff;
+		}
+	    }
 	}
     }
     free(buffer);
@@ -2857,9 +2892,10 @@ static void dump_script_table(FILE *g___,struct scriptset *ss,struct ginfo *ginf
 	    offset = ftell(g___);
 	    ss->langsys[lcnt].offset = offset;
 	}
-	fseek(g___,lcnt==dflt_lang ? base :
-		    lcnt<dflt_lang ? base + 4 + lcnt*6 +4 :
-			base + 4 + (lcnt-1)*6 +4 , SEEK_SET );
+	fseek(g___,lcnt==dflt_lang                 ? base :
+		   lcnt<dflt_lang || dflt_lang==-1 ? base + 4 + lcnt*6 +4 :
+			                             base + 4 + (lcnt-1)*6 +4 ,
+		      SEEK_SET );
 	putshort(g___,offset-base);
 	fseek(g___,0,SEEK_END);
 	if ( ss->langsys[lcnt].same_as==-1 ) {
@@ -2936,10 +2972,6 @@ return( NULL );
 
     len2 = 0;
     for ( otf=all; otf!=NULL; otf=otf->next ) if ( otf->lookup_index!=-1 ) {
-	if ( otf->needs_extension ) {
-	    putshort(efile,1);	/* exten subtable format (there's only one) */
-	    putshort(efile,otf->lookup_type&0xff);
-	}
 	for ( sub = otf->subtables; sub!=NULL; sub=sub->next ) {
 	    if ( sub->subtable_offset==-1 )
 	continue;
@@ -3208,25 +3240,39 @@ void otf_dumpgsub(struct alltabs *at, SplineFont *sf) {
     SFLigatureCleanup(sf);
 }
 
-static int LigCaretCnt(SplineChar *sc) {
+int LigCaretCnt(SplineChar *sc) {
     PST *pst;
+    int j, cnt;
 
     for ( pst=sc->possub; pst!=NULL; pst=pst->next ) {
-	if ( pst->type == pst_lcaret )
+	if ( pst->type == pst_lcaret ) {
+	    if ( sc->lig_caret_cnt_fixed )
 return( pst->u.lcaret.cnt );
+	    else {
+		/* only output non-zero carets */
+		cnt=0;
+		for ( j=pst->u.lcaret.cnt-1; j>=0 ; --j )
+		    if ( pst->u.lcaret.carets[j]!=0 )
+			++cnt;
+return( cnt );
+	    }
+	}
     }
 return( 0 );
 }
-    
+
 static void DumpLigCarets(FILE *gdef,SplineChar *sc) {
     PST *pst;
-    int i, j, offset;
+    int i, j, offset, cnt;
 
     for ( pst=sc->possub; pst!=NULL; pst=pst->next ) {
 	if ( pst->type == pst_lcaret )
     break;
     }
     if ( pst==NULL )
+return;
+    cnt = LigCaretCnt(sc);
+    if ( cnt==0 )
 return;
 
     if ( SCRightToLeft(sc) ) {
@@ -3247,16 +3293,63 @@ return;
 		}
     }
 
-    putshort(gdef,pst->u.lcaret.cnt);	/* this many carets */
-    offset = sizeof(uint16) + sizeof(uint16)*pst->u.lcaret.cnt;
-    for ( i=0; i<pst->u.lcaret.cnt; ++i ) {
+    putshort(gdef,cnt);			/* this many carets */
+    offset = sizeof(uint16) + sizeof(uint16)*cnt;
+    for ( i=0; i<cnt; ++i ) {
 	putshort(gdef,offset);
 	offset+=4;
     }
     for ( i=0; i<pst->u.lcaret.cnt; ++i ) {
-	putshort(gdef,1);		/* Format 1 */
-	putshort(gdef,pst->u.lcaret.carets[i]);
+	if ( sc->lig_caret_cnt_fixed || pst->u.lcaret.carets[i]!=0 ) {
+	    putshort(gdef,1);		/* Format 1 */
+	    putshort(gdef,pst->u.lcaret.carets[i]);
+	}
     }
+}
+
+static int glyphnameinlist(char *haystack,char *name) {
+    char *start, *pt;
+    int ch, match, slen = strlen(name);
+
+    for ( pt=haystack ; ; ) {
+	while ( *pt==' ' ) ++pt;
+	if ( *pt=='\0' )
+return( false );
+	start=pt;
+	while ( *pt!=' ' && *pt!='\0' ) ++pt;
+	if ( pt-start==slen ) {
+	    ch = *pt; *pt='\0';
+	    match = strcmp(start,name);
+	    *pt = ch;
+	    if ( match==0 )
+return( true );
+	}
+    }
+}
+
+static int ReferencedByGSUB(SplineChar *sc) {
+    PST *pst;
+    SplineFont *sf = sc->parent;
+    int gid;
+    SplineChar *testsc;
+    char *name = sc->name;
+
+    /* If it is itself a ligature it will be referenced by GSUB */
+    /* (because we store ligatures on the glyph generated) */
+    for ( pst=sc->possub; pst!=NULL; pst=pst->next )
+	if ( pst->type == pst_ligature )
+return( true );
+
+    for ( gid=0; gid<sf->glyphcnt; ++gid ) if ( (testsc=sf->glyphs[gid])!=NULL ) {
+	for ( pst=testsc->possub; pst!=NULL; pst=pst->next ) {
+	    if ( pst->type==pst_substitution || pst->type==pst_alternate ||
+		    pst->type==pst_multiple ) {
+		if ( glyphnameinlist(pst->u.mult.components,name) )
+return( true );
+	    }
+	}
+    }
+return( false );
 }
 
 int gdefclass(SplineChar *sc) {
@@ -3269,21 +3362,31 @@ return( sc->glyph_class-1 );
     if ( strcmp(sc->name,".notdef")==0 )
 return( 0 );
 
-    for ( pst=sc->possub; pst!=NULL; pst=pst->next ) {
-	if ( pst->type == pst_ligature )
-return( 2 );			/* Ligature */
-    }
-
+    /* It isn't clear to me what should be done if a glyph is both a ligature */
+    /*  and a mark (There are some greek accent ligatures, it is probably more*/
+    /*  important that they be indicated as marks). Here I chose mark rather  */
+    /*  than ligature as the mark class is far more likely to be used */
     ap=sc->anchor;
     while ( ap!=NULL && (ap->type==at_centry || ap->type==at_cexit) )
 	ap = ap->next;
     if ( ap!=NULL && (ap->type==at_mark || ap->type==at_basemark) )
 return( 3 );
+
+    for ( pst=sc->possub; pst!=NULL; pst=pst->next ) {
+	if ( pst->type == pst_ligature )
+return( 2 );			/* Ligature */
+    }
+
+	/* I not quite sure what a componant glyph is. Probably something */
+	/*  that is not in the cmap table and is referenced in other glyphs */
+	/* (I've never seen it used by others) */
+	/* (Note: No glyph in a CID font can be components as all CIDs mean */
+	/*  something) (I think) */
+    if ( sc->unicodeenc==-1 && sc->dependents!=NULL &&
+	    sc->parent->cidmaster!=NULL && !ReferencedByGSUB(sc))
+return( 4 );
     else
 return( 1 );
-    /* I not quite sure what a componant glyph is. Probably something that */
-    /*  is not in the cmap table and is referenced in other glyphs */
-    /* Anyway I never return class 4 */ /* (I've never seen it used by others) */
 }
 
 void otf_dumpgdef(struct alltabs *at, SplineFont *sf) {
@@ -3300,7 +3403,6 @@ void otf_dumpgdef(struct alltabs *at, SplineFont *sf) {
     /*  control of lookup flags */
     /* All my example fonts contain a ligature caret list subtable, which is */
     /*  empty. Odd, but perhaps important */
-    PST *pst;
     int i,j,k, lcnt, needsclass;
     int pos, offset;
     int cnt, start, last, lastval;
@@ -3318,16 +3420,7 @@ void otf_dumpgdef(struct alltabs *at, SplineFont *sf) {
 	    SplineChar *sc = sf->glyphs[at->gi.bygid[i]];
 	    if ( sc->glyph_class!=0 || gdefclass(sc)!=1 )
 		needsclass = true;
-	    for ( pst=sc->possub; pst!=NULL; pst=pst->next ) {
-		if ( pst->type == pst_lcaret ) {
-		    for ( j=pst->u.lcaret.cnt-1; j>=0; --j )
-			if ( pst->u.lcaret.carets[j]!=0 )
-		    break;
-		    if ( j!=-1 )
-	    break;
-		}
-	    }
-	    if ( pst!=NULL ) {
+	    if ( LigCaretCnt(sc)!=0 ) {
 		if ( glyphs!=NULL ) glyphs[lcnt] = sc;
 		++lcnt;
 	    }
@@ -3441,4 +3534,819 @@ return;					/* No anchor positioning, no ligature carets */
     at->gdeflen = ftell(at->gdef);
     if ( at->gdeflen&1 ) putc('\0',at->gdef);
     if ( (at->gdeflen+1)&2 ) putshort(at->gdef,0);
+}
+
+/******************************************************************************/
+/* ******************************* MATH Table ******************************* */
+/* ********************** (Not strictly OpenType yet) *********************** */
+/******************************************************************************/
+enum math_bits { mb_constants=0x01, mb_italic=0x02, mb_topaccent=0x04,
+	mb_extended=0x08, mb_mathkern=0x10, mb_vertvariant=0x20,
+	mb_horizvariant=0x40,
+	mb_all = 0x7f,
+	mb_gi=(mb_italic|mb_topaccent|mb_extended|mb_mathkern),
+	mb_gv=(mb_vertvariant|mb_horizvariant) };
+
+static int MathBits(struct alltabs *at, SplineFont *sf) {
+    int i, gid, ret;
+    SplineChar *sc;
+
+    ret = sf->MATH ? mb_constants : 0;
+
+    for ( i=0; i<at->gi.gcnt; ++i ) {
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL ) {
+	    if ( sc->italic_correction!=TEX_UNDEF )
+		ret |= mb_italic;
+	    if ( sc->top_accent_horiz!=TEX_UNDEF )
+		ret |= mb_topaccent;
+	    if ( sc->is_extended_shape )
+		ret |= mb_extended;
+	    if ( sc->mathkern!=NULL )
+		ret |= mb_mathkern;
+	    if ( sc->vert_variants!=NULL )
+		ret |= mb_vertvariant;
+	    if ( sc->horiz_variants!=NULL )
+		ret |= mb_horizvariant;
+	    if ( ret==mb_all )
+return( mb_all );
+	}
+    }
+return( ret );
+}
+
+static void ttf_math_dump_italic_top(FILE *mathf,struct alltabs *at, SplineFont *sf, int is_italic) {
+    int i, gid, len;
+    SplineChar *sc, **glyphs;
+    uint32 coverage_pos, coverage_table;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    uint32 devtab_offset;
+    DeviceTable *devtab;
+#endif
+
+    /* Figure out our glyph list (and count) */
+    for ( i=len=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL )
+	    if ( (is_italic && sc->italic_correction!=TEX_UNDEF) || (!is_italic && sc->top_accent_horiz!=TEX_UNDEF))
+		++len;
+    glyphs = galloc((len+1)*sizeof(SplineChar *));
+    for ( i=len=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL )
+	    if ( (is_italic && sc->italic_correction!=TEX_UNDEF) || (!is_italic && sc->top_accent_horiz!=TEX_UNDEF))
+		glyphs[len++] = sc;
+    glyphs[len] = NULL;
+
+    coverage_pos = ftell(mathf);
+    putshort(mathf,0);			/* Coverage table, return to this */
+    putshort(mathf,len);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    devtab_offset = 4 + 4*len;
+#endif
+    for ( i=0; i<len; ++i ) {
+	putshort(mathf,is_italic ? glyphs[i]->italic_correction : glyphs[i]->top_accent_horiz );
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	devtab = is_italic ? glyphs[i]->italic_adjusts : glyphs[i]->top_accent_adjusts;
+	if ( devtab!=NULL ) {
+	    putshort(mathf,devtab_offset);
+	    devtab_offset += DevTabLen(devtab);
+	} else
+#endif
+	    putshort(mathf,0);
+    }
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    for ( i=0; i<len; ++i ) {
+	devtab = is_italic ? glyphs[i]->italic_adjusts : glyphs[i]->top_accent_adjusts;
+	if ( devtab!=NULL )
+	    dumpgposdevicetable(mathf,devtab);
+    }
+    if ( devtab_offset!=ftell(mathf)-coverage_pos )
+	IError("Actual end did not match expected end in %s table, expected=%d, actual=%d",
+		is_italic ? "italic" : "top accent", devtab_offset, ftell(mathf)-coverage_pos );
+#endif
+    coverage_table = ftell(mathf);
+    fseek( mathf, coverage_pos, SEEK_SET);
+    putshort(mathf,coverage_table-coverage_pos);
+    fseek(mathf,coverage_table,SEEK_SET);
+    dumpcoveragetable(mathf,glyphs);
+    free(glyphs);
+}
+
+static void ttf_math_dump_extended(FILE *mathf,struct alltabs *at, SplineFont *sf) {
+    int i, gid, len;
+    SplineChar *sc, **glyphs;
+
+    for ( i=len=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL )
+	    if ( sc->is_extended_shape )
+		++len;
+    glyphs = galloc((len+1)*sizeof(SplineChar *));
+    for ( i=len=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL )
+	    if ( sc->is_extended_shape )
+		glyphs[len++] = sc;
+    glyphs[len] = NULL;
+    dumpcoveragetable(mathf,glyphs);
+    free(glyphs);
+}
+
+static int mkv_len(struct mathkernvertex *mkv) {
+return( 2+8*mkv->cnt-4 );
+}
+
+static int ttf_math_dump_mathkernvertex(FILE *mathf,struct mathkernvertex *mkv,
+	int devtab_pos) {
+    int i;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    uint32 here = ftell(mathf);
+#endif
+
+    putshort(mathf,mkv->cnt-1);
+
+    for ( i=0; i<mkv->cnt-1; ++i ) {
+	putshort(mathf,mkv->mkd[i].height);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	if ( mkv->mkd[i].height_adjusts!=NULL ) {
+	    putshort(mathf,devtab_pos-here);
+	    devtab_pos += DevTabLen(mkv->mkd[i].height_adjusts);
+	} else
+#endif
+	    putshort(mathf,0);
+    }
+    for ( i=0; i<mkv->cnt; ++i ) {
+	putshort(mathf,mkv->mkd[i].kern);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+	if ( mkv->mkd[i].kern_adjusts!=NULL ) {
+	    putshort(mathf,devtab_pos-here);
+	    devtab_pos += DevTabLen(mkv->mkd[i].kern_adjusts);
+	} else
+#endif
+	    putshort(mathf,0);
+    }
+return( devtab_pos );
+}
+
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+static void ttf_math_dump_mathkerndevtab(FILE *mathf,struct mathkernvertex *mkv) {
+    int i;
+
+    for ( i=0; i<mkv->cnt-1; ++i )
+	if ( mkv->mkd[i].height_adjusts!=NULL )
+	    dumpgposdevicetable(mathf,mkv->mkd[i].height_adjusts);
+    for ( i=0; i<mkv->cnt; ++i )
+	if ( mkv->mkd[i].kern_adjusts!=NULL )
+	    dumpgposdevicetable(mathf,mkv->mkd[i].kern_adjusts);
+}
+#endif
+
+static void ttf_math_dump_mathkern(FILE *mathf,struct alltabs *at, SplineFont *sf) {
+    int i, gid, len;
+    SplineChar *sc, **glyphs;
+    uint32 coverage_pos, coverage_table, kr_pos, midpos2;
+
+    /* Figure out our glyph list (and count) */
+    for ( i=len=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL )
+	    if ( sc->mathkern!=NULL )
+		++len;
+    glyphs = galloc((len+1)*sizeof(SplineChar *));
+    for ( i=len=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL )
+	    if ( sc->mathkern!=NULL )
+		glyphs[len++] = sc;
+    glyphs[len] = NULL;
+
+    coverage_pos = ftell(mathf);
+    putshort(mathf,0);			/* Coverage table, return to this */
+    putshort(mathf,len);
+    kr_pos = coverage_pos + 4 + 8*len;
+    for ( i=0; i<len; ++i ) {
+	struct mathkern *mk = glyphs[i]->mathkern;
+	if ( mk->top_right.cnt==0 )
+	    putshort(mathf,0);
+	else {
+	    putshort(mathf,kr_pos-coverage_pos);
+	    kr_pos += mkv_len(&mk->top_right);
+	}
+	if ( mk->top_left.cnt==0 )
+	    putshort(mathf,0);
+	else {
+	    putshort(mathf,kr_pos-coverage_pos);
+	    kr_pos += mkv_len(&mk->top_left);
+	}
+	if ( mk->bottom_right.cnt==0 )
+	    putshort(mathf,0);
+	else {
+	    putshort(mathf,kr_pos-coverage_pos);
+	    kr_pos += mkv_len(&mk->bottom_right);
+	}
+	if ( mk->bottom_left.cnt==0 )
+	    putshort(mathf,0);
+	else {
+	    putshort(mathf,kr_pos-coverage_pos);
+	    kr_pos += mkv_len(&mk->bottom_left);
+	}
+    }
+    if ( ftell(mathf)!=coverage_pos + 4 + 8*len )
+	IError("Actual midpoint1 did not match expected midpoint1 in mathkern table, expected=%d, actual=%d",
+		coverage_pos + 4 + 8*len, ftell(mathf) );
+
+    midpos2 = kr_pos;
+    for ( i=0; i<len; ++i ) {
+	struct mathkern *mk = glyphs[i]->mathkern;
+	if ( mk->top_right.cnt!=0 )
+	    kr_pos = ttf_math_dump_mathkernvertex(mathf,&mk->top_right,kr_pos);
+	if ( mk->top_left.cnt!=0 )
+	    kr_pos = ttf_math_dump_mathkernvertex(mathf,&mk->top_left,kr_pos);
+	if ( mk->bottom_right.cnt!=0 )
+	    kr_pos = ttf_math_dump_mathkernvertex(mathf,&mk->bottom_right,kr_pos);
+	if ( mk->bottom_left.cnt!=0 )
+	    kr_pos = ttf_math_dump_mathkernvertex(mathf,&mk->bottom_left,kr_pos);
+    }
+    if ( ftell(mathf)!=midpos2)
+	IError("Actual midpoint2 did not match expected midpoint2 in mathkern table, expected=%d, actual=%d",
+		midpos2, ftell(mathf) );
+    
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    for ( i=0; i<len; ++i ) {
+	struct mathkern *mk = glyphs[i]->mathkern;
+	if ( mk->top_right.cnt!=0 )
+	    ttf_math_dump_mathkerndevtab(mathf,&mk->top_right);
+	if ( mk->top_left.cnt!=0 )
+	    ttf_math_dump_mathkerndevtab(mathf,&mk->top_left);
+	if ( mk->bottom_right.cnt!=0 )
+	    ttf_math_dump_mathkerndevtab(mathf,&mk->bottom_right);
+	if ( mk->bottom_left.cnt!=0 )
+	    ttf_math_dump_mathkerndevtab(mathf,&mk->bottom_left);
+    }
+#endif
+    if ( kr_pos!=ftell(mathf) )
+	IError("Actual end did not match expected end in mathkern table, expected=%d, actual=%d",
+		kr_pos, ftell(mathf) );
+
+    coverage_table = ftell(mathf);
+    fseek( mathf, coverage_pos, SEEK_SET);
+    putshort(mathf,coverage_table-coverage_pos);
+    fseek(mathf,coverage_table,SEEK_SET);
+    dumpcoveragetable(mathf,glyphs);
+    free(glyphs);
+}
+
+static int gv_len(SplineFont *sf, struct glyphvariants *gv) {
+    char *pt, *start;
+    int ch, cnt;
+    SplineChar *sc;
+
+    if ( gv==NULL || (gv->variants==NULL && gv->part_cnt==0))
+return( 0 );
+    if ( gv->variants==NULL )
+return( 4 );		/* No variants, but we've got parts to assemble */
+    cnt = 0;
+    for ( start=gv->variants ;; ) {
+	while ( *start==' ' ) ++start;
+	if ( *start=='\0' )
+return( 4+4*cnt );		/* MathGlyphConstructionTable */
+	for ( pt = start ; *pt!=' ' && *pt!='\0'; ++pt );
+	ch = *pt; *pt = '\0';
+	sc = SFGetChar(sf,-1,start);
+	*pt = ch;
+	if ( sc!=NULL )
+	    ++cnt;
+	start = pt;
+    }
+}
+
+static int gvc_len(struct glyphvariants *gv) {
+    if ( gv->part_cnt==0 )
+return( 0 );
+
+return( 6+10*gv->part_cnt );
+}
+
+static uint32 ttf_math_dump_mathglyphconstructiontable(FILE *mathf,
+	struct glyphvariants *gv,SplineFont *sf, uint32 pos,int is_v) {
+    char *pt, *start;
+    int ch, cnt;
+    SplineChar *sc;
+    uint32 here = ftell(mathf);
+    DBounds b;
+
+    putshort(mathf,gv->part_cnt==0? 0 : pos-here);
+    if ( gv->variants==NULL ) {
+	putshort(mathf,0);
+    } else {
+	cnt = 0;
+	for ( start=gv->variants ;; ) {
+	    while ( *start==' ' ) ++start;
+	    if ( *start=='\0' )
+	break;
+	    for ( pt = start ; *pt!=' ' && *pt!='\0'; ++pt );
+	    ch = *pt; *pt = '\0';
+	    sc = SFGetChar(sf,-1,start);
+	    *pt = ch;
+	    if ( sc!=NULL )
+		++cnt;
+	    start = pt;
+	}
+	putshort(mathf,cnt);
+	for ( start=gv->variants ;; ) {
+	    while ( *start==' ' ) ++start;
+	    if ( *start=='\0' )
+	break;
+	    for ( pt = start ; *pt!=' ' && *pt!='\0'; ++pt );
+	    ch = *pt; *pt = '\0';
+	    sc = SFGetChar(sf,-1,start);
+	    *pt = ch;
+	    if ( sc!=NULL ) {
+		putshort(mathf,sc->ttf_glyph);
+		SplineCharFindBounds(sc,&b);
+		/* Don't ask me why I have a plus one here. In the MS font */
+		/*  CambriaMath all of these values are one more than I would */
+		/*  expect */
+		if ( is_v )
+		    putshort(mathf,b.maxy-b.miny +1);
+		else
+		    putshort(mathf,b.maxx-b.minx +1);
+	    }
+	    start=pt;
+	}
+    }
+return( pos + gvc_len(gv));
+}
+
+static uint32 ttf_math_dump_mathglyphassemblytable(FILE *mathf,
+	struct glyphvariants *gv,SplineFont *sf, uint32 devtab_pos) {
+    SplineChar *sc;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    uint32 here = ftell(mathf);
+#endif
+    int i;
+
+    if ( gv->part_cnt==0 )
+return( devtab_pos );
+    putshort(mathf,gv->italic_correction);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    if ( gv->italic_adjusts!=NULL ) {
+	putshort(mathf,devtab_pos-here);
+	devtab_pos += DevTabLen(gv->italic_adjusts);
+    } else
+#endif
+	putshort(mathf,0);
+    putshort(mathf,gv->part_cnt);
+    for ( i=0; i<gv->part_cnt; ++i ) {
+	sc = SFGetChar(sf,-1,gv->parts[i].component);
+	if ( sc==NULL )
+	    putshort(mathf,0);		/* .notdef */
+	else
+	    putshort(mathf,sc->ttf_glyph);
+	putshort(mathf,gv->parts[i].startConnectorLength);
+	putshort(mathf,gv->parts[i].endConnectorLength);
+	putshort(mathf,gv->parts[i].fullAdvance);
+	putshort(mathf,gv->parts[i].is_extender);
+    }
+return(devtab_pos);
+}
+
+static void ttf_math_dump_glyphvariant(FILE *mathf,struct alltabs *at, SplineFont *sf) {
+    int i, gid, vlen, hlen;
+    SplineChar *sc, **vglyphs, **hglyphs;
+    uint32 coverage_pos, coverage_table, offset, pos, assembly_pos;
+
+    /* Figure out our glyph list (and count) */
+    for ( i=vlen=hlen=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL ) {
+	    if ( sc->vert_variants!=NULL )
+		++vlen;
+	    if ( sc->horiz_variants!=NULL )
+		++hlen;
+	}
+
+    vglyphs = galloc((vlen+1)*sizeof(SplineChar *));
+    hglyphs = galloc((hlen+1)*sizeof(SplineChar *));
+    for ( i=vlen=hlen=0; i<at->gi.gcnt; ++i )
+	if ( (gid=at->gi.bygid[i])!=-1 && (sc=sf->glyphs[gid])!=NULL ) {
+	    if ( sc->vert_variants!=NULL )
+		vglyphs[vlen++] = sc;
+	    if ( sc->horiz_variants!=NULL )
+		hglyphs[hlen++] = sc;
+	}
+    vglyphs[vlen] = NULL;
+    hglyphs[hlen] = NULL;
+
+    putshort(mathf,sf->MATH==NULL?(sf->ascent+sf->descent)/50 : sf->MATH->MinConnectorOverlap );
+    coverage_pos = ftell(mathf);
+    putshort(mathf,0);			/* Vertical Coverage table, return to this */
+    putshort(mathf,0);			/* Horizontal Coverage table, return to this */
+    putshort(mathf,vlen);
+    putshort(mathf,hlen);
+    offset = 5*2+vlen*2+hlen*2;
+    for ( i=0; i<vlen; ++i ) {
+	putshort(mathf,offset);
+	offset += gv_len(sf,vglyphs[i]->vert_variants);
+    }
+    for ( i=0; i<hlen; ++i ) {
+	putshort(mathf,offset);
+	offset += gv_len(sf,hglyphs[i]->horiz_variants);
+    }
+    assembly_pos = pos = (coverage_pos-2)+offset;
+    for ( i=0; i<vlen; ++i ) {
+	/*uint32 start = ftell(mathf);*/
+	pos = ttf_math_dump_mathglyphconstructiontable(mathf,
+		vglyphs[i]->vert_variants,sf,pos,true);
+	/*if ( ftell(mathf)-start != gv_len(sf,vglyphs[i]->vert_variants))*/
+	    /*IError("v gv_len incorrect");*/
+    }
+    for ( i=0; i<hlen; ++i ) {
+	/*uint32 start = ftell(mathf);*/
+	pos = ttf_math_dump_mathglyphconstructiontable(mathf,
+		hglyphs[i]->horiz_variants,sf,pos,false);
+	/*if ( ftell(mathf)-start != gv_len(sf,hglyphs[i]->horiz_variants))*/
+	    /*IError("h gv_len incorrect: %s", hglyphs[i]->name);*/
+    }
+    if ( ftell(mathf)!=assembly_pos )
+	IError("assembly tables at wrong place");
+
+    for ( i=0; i<vlen; ++i )
+	pos = ttf_math_dump_mathglyphassemblytable(mathf,
+		vglyphs[i]->vert_variants,sf,pos);
+    for ( i=0; i<hlen; ++i )
+	pos = ttf_math_dump_mathglyphassemblytable(mathf,
+		hglyphs[i]->horiz_variants,sf,pos);
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    for ( i=0; i<vlen; ++i )
+	if ( vglyphs[i]->vert_variants->part_cnt!=0 &&
+		vglyphs[i]->vert_variants->italic_adjusts!=NULL )
+	    dumpgposdevicetable(mathf,vglyphs[i]->vert_variants->italic_adjusts);
+    for ( i=0; i<hlen; ++i )
+	if ( hglyphs[i]->horiz_variants->part_cnt!=0 &&
+		hglyphs[i]->horiz_variants->italic_adjusts!=NULL )
+	    dumpgposdevicetable(mathf,hglyphs[i]->horiz_variants->italic_adjusts);
+#endif
+    if ( vlen!=0 ) {
+	coverage_table = ftell(mathf);
+	fseek( mathf, coverage_pos, SEEK_SET);
+	putshort(mathf,coverage_table-(coverage_pos-2));
+	fseek(mathf,coverage_table,SEEK_SET);
+	dumpcoveragetable(mathf,vglyphs);
+    }
+    free(vglyphs);
+    if ( hlen!=0 ) {
+	coverage_table = ftell(mathf);
+	fseek( mathf, coverage_pos+2, SEEK_SET);
+	putshort(mathf,coverage_table-(coverage_pos-2));
+	fseek(mathf,coverage_table,SEEK_SET);
+	dumpcoveragetable(mathf,hglyphs);
+    }
+    free(hglyphs);
+}
+
+void otf_dump_math(struct alltabs *at, SplineFont *sf) {
+    FILE *mathf;
+    int i;
+    uint32 devtab_offsets[60], const_start, gi_start, v_start;
+    int bits = MathBits(at,sf);
+
+    if ( sf->MATH==NULL )
+return;
+
+    at->math = mathf = tmpfile();
+
+    putlong(mathf,  0x00010000 );		/* Version 1 */
+    putshort(mathf, 10);			/* Offset to constants */
+    putshort(mathf,  0);			/* GlyphInfo, fix later */
+    putshort(mathf,  0);			/* Variants, fix later */
+
+    /* Start on constants */
+    memset(devtab_offsets,0,sizeof(devtab_offsets));
+    const_start = ftell(mathf);
+    for ( i=0; math_constants_descriptor[i].script_name!=NULL; ++i ) {
+	int16 *pos = (int16 *) (((char *) (sf->MATH)) + math_constants_descriptor[i].offset );
+	if ( pos == (int16 *) &sf->MATH->MinConnectorOverlap )
+    continue;		/* Actually lives in the Variant table, not here */
+	putshort(mathf, *pos);
+	if ( math_constants_descriptor[i].devtab_offset != -1 ) {
+	    devtab_offsets[i] = ftell(mathf);
+	    putshort(mathf, 0);		/* Fix up later if we support device tables */
+	}
+    }
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    for ( i=0; math_constants_descriptor[i].script_name!=NULL; ++i ) {
+	int16 *pos = (int16 *) (((char *) (sf->MATH)) + math_constants_descriptor[i].offset );
+	DeviceTable **devtab = (DeviceTable **) (((char *) (sf->MATH)) + math_constants_descriptor[i].devtab_offset );
+	if ( pos == (int16 *) &sf->MATH->MinConnectorOverlap )
+    continue;		/* Actually lives in the Variant table, not here */
+	if ( math_constants_descriptor[i].devtab_offset >= 0 && *devtab!=NULL ) {
+	    uint32 here = ftell(mathf);
+	    fseek(mathf,devtab_offsets[i],SEEK_SET);
+	    putshort(mathf, here-const_start);
+	    fseek(mathf,here,SEEK_SET);
+	    dumpgposdevicetable(mathf,*devtab);
+	}
+    }
+#endif
+
+    /* The spec does not say this can be NULL */
+    if ( 1 /* bits&mb_gi*/ ) {
+	gi_start = ftell(mathf);
+	fseek(mathf,6,SEEK_SET);
+	putshort(mathf,gi_start);
+	fseek(mathf,gi_start,SEEK_SET);
+
+	putshort(mathf,0);		/* Italics correction */
+	putshort(mathf,0);		/* top accent */
+	putshort(mathf,0);		/* is extended shape */
+	putshort(mathf,0);		/* math kern info */
+
+	if ( bits&mb_italic ) {
+	    v_start = ftell(mathf);
+	    fseek(mathf,gi_start,SEEK_SET);
+	    putshort(mathf,v_start-gi_start);
+	    fseek(mathf,v_start,SEEK_SET);
+
+	    ttf_math_dump_italic_top(mathf,at,sf,true);
+	}
+
+	if ( bits&mb_topaccent ) {
+	    v_start = ftell(mathf);
+	    fseek(mathf,gi_start+2,SEEK_SET);
+	    putshort(mathf,v_start-gi_start);
+	    fseek(mathf,v_start,SEEK_SET);
+
+	    ttf_math_dump_italic_top(mathf,at,sf,false);
+	}
+
+	if ( bits&mb_extended ) {
+	    v_start = ftell(mathf);
+	    fseek(mathf,gi_start+4,SEEK_SET);
+	    putshort(mathf,v_start-gi_start);
+	    fseek(mathf,v_start,SEEK_SET);
+
+	    ttf_math_dump_extended(mathf,at,sf);
+	}
+
+	if ( bits&mb_mathkern ) {
+	    v_start = ftell(mathf);
+	    fseek(mathf,gi_start+6,SEEK_SET);
+	    putshort(mathf,v_start-gi_start);
+	    fseek(mathf,v_start,SEEK_SET);
+
+	    ttf_math_dump_mathkern(mathf,at,sf);
+	}
+    }
+
+    /* The spec does not say this can be NULL */
+    if ( 1 /* bits&mb_gv*/ ) {
+	v_start = ftell(mathf);
+	fseek(mathf,8,SEEK_SET);
+	putshort(mathf,v_start);
+	fseek(mathf,v_start,SEEK_SET);
+
+	ttf_math_dump_glyphvariant(mathf,at,sf);
+    }
+
+    at->mathlen = ftell(mathf);
+    if ( ftell(mathf)&1 )
+	putc('\0',mathf);
+    if ( ftell(mathf)&2 )
+	putshort(mathf,0);
+}
+
+struct taglist {
+    uint32 tag;
+    struct taglist *next;
+};
+
+static int taglistcompar(const void *_cv1, const void *_cv2) {
+    const struct taglist *const *tl1 = _cv1, *const *tl2 = _cv2;
+
+    if ( (*tl1)->tag==(*tl2)->tag )
+return( 0 );
+    if ( (*tl1)->tag>(*tl2)->tag )
+return( 1 );
+
+return( -1 );
+}
+
+static int langlistcompar(const void *_cv1, const void *_cv2) {
+    const struct taglist *const *tl1 = _cv1, *const *tl2 = _cv2;
+
+    if ( (*tl1)->tag==(*tl2)->tag )
+return( 0 );
+    if ( (*tl1)->tag == DEFAULT_LANG )
+return( -1 );
+    if ( (*tl2)->tag == DEFAULT_LANG )
+return( 1 );
+    if ( (*tl1)->tag>(*tl2)->tag )
+return( 1 );
+
+return( -1 );
+}
+
+static struct taglist *sorttaglist(struct taglist *list,int (*compar)(const void *,const void*)) {
+    struct taglist *t, **array;
+    int i,cnt;
+
+    if ( list==NULL || list->next==NULL )
+return( list );
+
+    for ( t=list, cnt=0; t!=NULL; t=t->next, ++cnt );
+    array = galloc(cnt*sizeof(struct taglist *));
+    for ( t=list, cnt=0; t!=NULL; t=t->next, ++cnt )
+	array[cnt] = t;
+    qsort(array,cnt,sizeof(struct taglist *),compar);
+    for ( i=1; i<cnt; ++i )
+	array[i-1]->next = array[i];
+    array[cnt-1]->next = NULL;
+    list = array[0];
+    free( array );
+return( list );
+}
+
+static void _base_sort(struct Base *base) {
+    /* Sort the base lines. Which can reorder the def_baseline index in the */
+    /*  script, and the baseline_pos lists */
+    /* Sort the script list */
+    /* Sort the language lists in each script */
+    /* Sort the feature lists in each language */
+    int i,j,pos, tag;
+    struct basescript *bs;
+    struct baselangextent *langs;
+
+    if ( base==NULL )
+return;
+
+    if ( base->baseline_cnt!=0 ) {
+	for ( i=0; i<base->baseline_cnt; ++i )
+	    for ( j=i+1; j<base->baseline_cnt; ++j ) {
+		if ( base->baseline_tags[i]>base->baseline_tags[j] ) {
+		    tag = base->baseline_tags[i];
+		    base->baseline_tags[i] = base->baseline_tags[j];
+		    base->baseline_tags[j] = tag;
+		    for ( bs=base->scripts ; bs!=NULL; bs=bs->next ) {
+			if ( bs->def_baseline==i )
+			    bs->def_baseline = j;
+			else if ( bs->def_baseline==j )
+			    bs->def_baseline = i;
+			pos = bs->baseline_pos[i];
+			bs->baseline_pos[i] = bs->baseline_pos[j];
+			bs->baseline_pos[j] = pos;
+		    }
+		}
+	    }
+    }
+    base->scripts = (struct basescript *) sorttaglist((struct taglist *) base->scripts,taglistcompar);
+    for ( bs=base->scripts ; bs!=NULL; bs=bs->next ) {
+	bs->langs = (struct baselangextent *) sorttaglist((struct taglist *) bs->langs,langlistcompar);
+	for ( langs = bs->langs; langs!=NULL; langs = langs->next )
+	    langs->features = (struct baselangextent *) sorttaglist((struct taglist *) langs->features,taglistcompar);
+    }
+}
+
+void SFBaseSort(SplineFont *sf) {
+    _base_sort(sf->horiz_base);
+    _base_sort(sf->vert_base);
+}
+
+static void dump_minmax(FILE *basef,struct baselangextent *bl) {
+    struct baselangextent *fl;
+    int fcnt;
+
+    putshort(basef,bl->descent);
+    putshort(basef,bl->ascent);
+    for ( fl=bl->features, fcnt=0; fl!=NULL; fl=fl->next, ++fcnt );
+    putshort(basef,fcnt);
+    for ( fl=bl->features; fl!=NULL; fl=fl->next ) {
+	putlong(basef,fl->lang);	/* feature tag really */
+	putshort(basef,fl->descent);
+	putshort(basef,fl->ascent);
+    }
+}
+
+void otf_dumpbase(struct alltabs *at, SplineFont *sf) {
+    FILE *basef;
+    int i,j, cnt, lcnt;
+    uint32 here, bsl;
+    struct basescript *bs;
+    struct baselangextent *bl, *dflt;
+    int offset;
+
+    if ( sf->horiz_base==NULL && sf->vert_base==NULL )
+return;
+
+    SFBaseSort(sf);
+
+    at->base = basef = tmpfile();
+
+    putlong(basef,  0x00010000 );		/* Version 1 */
+    putshort(basef,  0 );			/* offset to horizontal baselines, fill in later */
+    putshort(basef,  0 );			/* offset to vertical baselines, fill in later */
+
+    for ( i=0; i<2; ++i ) {
+	struct Base *base = i==0 ? sf->horiz_base : sf->vert_base;
+	if ( base==NULL )
+    continue;
+	here = ftell(basef);
+	fseek(basef,4+2*i,SEEK_SET);
+	putshort(basef,here-0);
+	fseek(basef,here,SEEK_SET);
+
+	/* axis table */
+	putshort(basef,base->baseline_cnt==0 ? 0 : 4 );
+	putshort(basef,base->baseline_cnt==0 ? 4 :
+			4+2+4*base->baseline_cnt );
+
+	if ( base->baseline_cnt!=0 ) {
+	/* BaseTagList table */
+	    putshort(basef,base->baseline_cnt);
+	    for ( j=0; j<base->baseline_cnt; ++j )
+		putlong(basef,base->baseline_tags[j]);
+	}
+
+	/* BaseScriptList table */
+	bsl = ftell(basef);
+	for ( bs=base->scripts, cnt=0; bs!=NULL; bs=bs->next, ++cnt );
+	putshort(basef,cnt);
+	for ( bs=base->scripts; bs!=NULL; bs=bs->next ) {
+	    putlong(basef,bs->script);
+	    putshort(basef,0);
+	}
+
+	/* BaseScript table */
+	for ( bs=base->scripts, cnt=0; bs!=NULL; bs=bs->next, ++cnt ) {
+	    uint32 bst = ftell(basef);
+	    fseek(basef,bsl+2+6*cnt+4,SEEK_SET);
+	    putshort(basef,bst-bsl);
+	    fseek(basef,bst,SEEK_SET);
+
+	    for ( bl=bs->langs, dflt=NULL, lcnt=0; bl!=NULL; bl=bl->next ) {
+		if ( bl->lang==DEFAULT_LANG )
+		    dflt = bl;
+		else
+		    ++lcnt;
+	    }
+	    offset = 6+6*lcnt;
+	    putshort(basef,base->baseline_cnt==0?0:offset);
+	    if ( base->baseline_cnt!=0 )
+		offset += 4+2*base->baseline_cnt+4*base->baseline_cnt;
+	    putshort(basef,dflt==NULL ? 0 : offset);
+	    putshort(basef,lcnt);
+	    for ( bl=bs->langs; bl!=NULL; bl=bl->next ) if ( bl->lang!=DEFAULT_LANG ) {
+		putlong(basef,bl->lang);
+		putshort(basef,0);
+	    }
+
+	    /* Base Values table */
+	    if ( base->baseline_cnt!=0 ) {
+		offset = 4+2*base->baseline_cnt;
+		putshort(basef,bs->def_baseline);
+		putshort(basef,base->baseline_cnt);
+		for ( j=0; j<base->baseline_cnt; ++j ) {
+		    putshort(basef,offset);
+		    offset += 2*2;
+		}
+		for ( j=0; j<base->baseline_cnt; ++j ) {
+		    putshort(basef,1);		/* format 1 */
+		    putshort(basef,bs->baseline_pos[j]);
+		}
+	    }
+
+	    if ( dflt!=NULL )
+		dump_minmax(basef,dflt);
+	    for ( bl=bs->langs, dflt=NULL, lcnt=0; bl!=NULL; bl=bl->next ) if ( bl->lang!=DEFAULT_LANG ) {
+		uint32 here = ftell(basef);
+		fseek(basef,bst+6+6*lcnt+4,SEEK_SET);
+		putshort(basef,here-bst);
+		fseek(basef,here,SEEK_SET);
+		dump_minmax(basef,bl);
+	    }
+	}
+    }
+
+    at->baselen = ftell(basef);
+    if ( ftell(basef)&1 )
+	putc('\0',basef);
+    if ( ftell(basef)&2 )
+	putshort(basef,0);
+}
+
+void otf_dump_dummydsig(struct alltabs *at, SplineFont *sf) {
+    FILE *dsigf;
+
+    /* I think the DSIG table is a big crock. At best the most it can do is */
+    /*  tell you that the font hasn't changed since it was signed. It gives */
+    /*  no guarantee that the data are reasonable. I think it's stupid. */
+    /* I think it is even more stupid that MS choses this useless table as a*/
+    /*  mark of whether a ttf font is OpenType or not. */
+    /* But users want their fonts to show up as OpenType under MS. And I'm  */
+    /*  told an empty DSIG table works for that. So... a truely pointless   */
+    /*  instance of a pointless table. I suppose that's a bit ironic. */
+
+    at->dsigf = dsigf = tmpfile();
+    putlong(dsigf,0x00000001);		/* Standard version (and why isn't it 0x10000 like everything else?) */
+    putshort(dsigf,0);			/* No signatures in my signature table*/
+    putshort(dsigf,0);			/* No flags */
+
+    at->dsiglen = ftell(dsigf);
+    if ( ftell(dsigf)&1 )
+	putc('\0',dsigf);
+    if ( ftell(dsigf)&2 )
+	putshort(dsigf,0);
 }

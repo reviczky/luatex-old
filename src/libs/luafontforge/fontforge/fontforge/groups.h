@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2007 by George Williams */
+/* Copyright (C) 2005-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,8 +42,10 @@ typedef struct group {
 
 extern Group *group_root;
 
+struct fontview;
+
 void SaveGroupList(void);
 void LoadGroupList(void);
-void DefineGroups(FontView *fv);
-void DisplayGroups(FontView *fv);
+Group *GroupCopy(Group *g);
+void GroupFree(Group *g);
 #endif

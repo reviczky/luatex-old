@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2007 by George Williams */
+/* Copyright (C) 2000-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -25,25 +25,19 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pfaeditui.h"
+#include "fontforgevw.h"
 #include "ustring.h"
 #include <utype.h>
 
-extern int recognizePUA;
+int recognizePUA = false;
+NameList *force_names_when_opening=NULL;
+NameList *force_names_when_saving=NULL;
 
-#ifdef LUA_FF_LIB
-extern int unic_isalpha(int);
-#define Isalpha unic_isalpha
-#else
-#define Isalpha isalpha
-#endif
-
- 
 static struct psaltnames {
     char *name;
     int unicode;
     int provenance;		/* 1=> Adobe PUA, 2=>AMS PUA, 3=>TeX */
-} psaltnames[5487];
+} psaltnames[];
 
 static NameList agl_sans, agl, adobepua, greeksc, tex, ams;
 NameList *namelist_for_new_fonts = &agl;
@@ -113,7 +107,6 @@ static void psinitnames(void) {
     psnamesinited = true;
 }
 
-#ifndef LUA_FF_LIB
 static void psreinitnames(void) {
     /* If we reread a (loaded) namelist file, then we must remove the old defn*/
     /*  which means we must remove all the old hash entries before we can put */
@@ -135,7 +128,6 @@ static void psreinitnames(void) {
     for ( nl=&agl; nl!=NULL; nl=nl->next )
 	NameListHash(nl);
 }
-#endif
 
 int UniFromName(const char *name,enum uni_interp interp,Encoding *encname) {
     int i = -1;
@@ -223,7 +215,6 @@ const char *StdGlyphName(char *buffer, int uni,enum uni_interp interp,NameList *
 return( name );
 }
 
-#ifndef LUA_FF_LIB
 #define RefMax	40
 
 static int transcmp(RefChar *r1, RefChar *r2) {
@@ -246,18 +237,21 @@ return( 1 );
 static int FindAllRefs(SplineChar *sc,SplineChar *rsc[RefMax], int *au) {
     RefChar *refs[RefMax], *alp[RefMax], *out[RefMax];
     RefChar *ref;
-    int layer, rcnt, acnt, ocnt, i,j;
+    int layer, last, rcnt, acnt, ocnt, i,j;
     int alluni;
     /* We also order the reference. The order stored in the splinechar doesn't*/
     /*  mean anything, so try and guess what is intended semantically. */
 
     if ( sc==NULL )
 return( 0 );
-    for ( layer=ly_fore; layer<sc->layer_cnt; ++layer )
+    last = ly_fore;
+    if ( sc->parent->multilayer )
+	last = sc->layer_cnt-1;
+    for ( layer=ly_fore; layer<=last; ++layer )
 	if ( sc->layers[layer].splines!=NULL || sc->layers[layer].images!=NULL )
 return( 0 );
     rcnt = 0;
-    for ( layer=ly_fore; layer<sc->layer_cnt; ++layer ) {
+    for ( layer=ly_fore; layer<=last; ++layer ) {
 	for ( ref = sc->layers[layer].refs; ref!=NULL; ref = ref->next ) {
 	    if ( rcnt>=RefMax )
 return( 0 );
@@ -284,7 +278,7 @@ return( 0 );
     } else {
 	acnt = 0;
 	for ( i=0; i<rcnt; ++i ) {
-	    if ( Isalpha(refs[i]->sc->unicodeenc )) {
+	    if ( isalpha(refs[i]->sc->unicodeenc )) {
 		alp[acnt++] = refs[i];
 		--rcnt;
 		for ( j=i; j<rcnt; ++j )
@@ -464,7 +458,6 @@ char **AllGlyphNames(int uni, NameList *for_this_font, SplineChar *sc) {
 return( names );
 }
 
-
 char **AllNamelistNames(void) {
     NameList *nl;
     int cnt;
@@ -477,7 +470,6 @@ char **AllNamelistNames(void) {
     names[cnt] = NULL;
 return( names );
 }
-#endif
 
 #if 0
 uint8 *AllNamelistUnicodes(void) {
@@ -498,7 +490,6 @@ NameList *DefaultNameListForNewFonts(void) {
 return( namelist_for_new_fonts );
 }
 
-#ifndef LUA_FF_LIB
 NameList *NameListByName(char *name) {
     NameList *nl;
     for ( nl = &agl; nl!=NULL; nl=nl->next ) {
@@ -534,10 +525,7 @@ static void NameListFree(NameList *nl) {
     NameListFreeContents(nl);
     chunkfree(nl,sizeof(NameList));
 }
-#endif
 /* ************************************************************************** */
-
-#ifndef LUA_FF_LIB
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -552,9 +540,6 @@ NameList *LoadNamelist(char *filename) {
     int up, ub, uc;
     int rn_cnt=0, rn_max = 0;
     int uses_unicode = false;
-# if defined(FONTFORGE_CONFIG_GTK)
-    gsize read, written;
-# endif
 
     if ( file==NULL )
 return( NULL );
@@ -565,11 +550,7 @@ return( NULL );
     nl = chunkalloc(sizeof(NameList));
     pt = strrchr(filename,'/');
     if ( pt==NULL ) pt = filename; else ++pt;
-# if defined(FONTFORGE_CONFIG_GTK)
-    nl->title = g_filename_to_utf8(pt,-1,&read,&written,NULL);
-# else
     nl->title = def2utf8_copy(pt);
-# endif
     pt = strrchr(nl->title,'.');
     if ( pt!=NULL ) *pt = '\0';
 
@@ -585,11 +566,11 @@ return( NULL );
 		if ( strcmp( nl2->title,pt )==0 )
 	    break;
 	    if ( nl2==NULL ) {
-		gwwv_post_error(_("NameList base missing"),_("NameList %s based on %s which could not be found"), nl->title, pt );
+		ff_post_error(_("NameList base missing"),_("NameList %s based on %s which could not be found"), nl->title, pt );
 		NameListFree(nl);
 return( NULL );
 	    } else if ( nl->basedon!=NULL ) {
-		gwwv_post_error(_("NameList based twice"),_("NameList %s based on two NameLists"), nl->title );
+		ff_post_error(_("NameList based twice"),_("NameList %s based on two NameLists"), nl->title );
 		NameListFree(nl);
 return( NULL );
 	    }
@@ -598,7 +579,7 @@ return( NULL );
 	    for ( pt=buffer+7; *pt==' ' || *pt=='\t'; ++pt);
 	    for ( test=pt; *test!=' ' && *test!='\t' && *test!='\0'; ++test );
 	    if ( *test=='\0' ) {
-		gwwv_post_error(_("NameList parsing error"),_("Missing rename \"to\" name %s\n%s"), nl->title, buffer );
+		ff_post_error(_("NameList parsing error"),_("Missing rename \"to\" name %s\n%s"), nl->title, buffer );
 		NameListFree(nl);
 return( NULL );
 	    }
@@ -607,7 +588,7 @@ return( NULL );
 	    if ( (test[0]=='-' || test[0]=='=') && test[1]=='>' )
 		for ( test+=2; *test==' ' || *test=='\t'; ++test);
 	    if ( *test=='\0' ) {
-		gwwv_post_error(_("NameList parsing error"),_("Missing rename \"to\" name %s\n%s"), nl->title, buffer );
+		ff_post_error(_("NameList parsing error"),_("Missing rename \"to\" name %s\n%s"), nl->title, buffer );
 		NameListFree(nl);
 return( NULL );
 	    }
@@ -624,14 +605,14 @@ return( NULL );
 		pt += 2;
 	    uni = strtol(pt,&end,16);
 	    if ( end==pt || uni<0 || uni>=unicode4_size ) {
-		gwwv_post_error(_("NameList parsing error"),_("Bad unicode value when parsing %s\n%s"), nl->title, buffer );
+		ff_post_error(_("NameList parsing error"),_("Bad unicode value when parsing %s\n%s"), nl->title, buffer );
 		NameListFree(nl);
 return( NULL );
 	    }
 	    pt = end;
 	    while ( *pt==' ' || *pt==';' || *pt=='\t' ) ++pt;
 	    if ( *pt=='\0' ) {
-		gwwv_post_error(_("NameList parsing error"),_("Missing name when parsing %s for unicode %x"), nl->title, uni );
+		ff_post_error(_("NameList parsing error"),_("Missing name when parsing %s for unicode %x"), nl->title, uni );
 		NameListFree(nl);
 return( NULL );
 	    }
@@ -640,7 +621,7 @@ return( NULL );
 		    *test=='(' || *test=='[' || *test=='{' || *test=='<' ||
 		    *test==')' || *test==']' || *test=='}' || *test=='>' ||
 		    *test=='%' || *test=='/' ) {
-		    gwwv_post_error(_("NameList parsing error"),_("Bad name when parsing %s for unicode %x"), nl->title, uni );
+		    ff_post_error(_("NameList parsing error"),_("Bad name when parsing %s for unicode %x"), nl->title, uni );
 		    NameListFree(nl);
 return( NULL );
 		}
@@ -660,7 +641,7 @@ return( NULL );
 	    if ( nl->unicode[up][ub][uc]==NULL )
 		nl->unicode[up][ub][uc]=copy(pt);
 	    else {
-		gwwv_post_error(_("NameList parsing error"),_("Multiple names when parsing %s for unicode %x"), nl->title, uni );
+		ff_post_error(_("NameList parsing error"),_("Multiple names when parsing %s for unicode %x"), nl->title, uni );
 		NameListFree(nl);
 return( NULL );
 	    }
@@ -722,9 +703,6 @@ return;
     }
     closedir(diro);
 }
-#endif
-
-#ifndef LUA_FF_LIB
 /* ************************************************************************** */
 const char *RenameGlyphToNamelist(char *buffer, SplineChar *sc,NameList *old,NameList *new) {
     int i, up, ub, uc, ch;
@@ -816,7 +794,6 @@ return;
     sf->for_new_glyphs = new;
 }
 
-
 char **SFTemporaryRenameGlyphsToNamelist(SplineFont *sf,NameList *new) {
     int gid;
     char buffer[40]; const char *name;
@@ -849,8 +826,6 @@ void SFTemporaryRestoreGlyphNames(SplineFont *sf,char **former) {
     }
     free(former);
 }
-
-#endif
 /* ************************************************************************** */
 static const char *agl_sans_p0_b0[] = {
 	NULL,
@@ -14356,7 +14331,6 @@ static NameList ams = {
 	{ ams_p0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 /* ************************************************************************** */
-
 static struct psaltnames psaltnames[] = {
 	{ "AEmacron", 0x01e2 },
 	{ "AEsmall", 0xf7e6 },
@@ -15230,7 +15204,8 @@ static struct psaltnames psaltnames[] = {
 	{ "cieuckorean", 0x3148 },
 	{ "cieucparenkorean", 0x3208 },
 	{ "cieucuparenkorean", 0x321c },
-	{ "circleot", 0x2299 },
+	{ "circleot", 0x2299 },			/* Typo in Adobe's glyphlist */
+	{ "circledot", 0x2299 },		/* But same typo exists in acrobat */
 	{ "circlepostalmark", 0x3036 },
 	{ "circlewithlefthalfblack", 0x25d0 },
 	{ "circlewithrighthalfblack", 0x25d1 },
@@ -18528,7 +18503,7 @@ static struct psaltnames psaltnames[] = {
 	{ "pi1", 0x03d6 },
 	{ "hyphen-minus", 0x002d },
 	{ "hyphenminus", 0x002d },
-	{ "nonmarkingreturn", 0x000c },
+	{ "nonmarkingreturn", 0x000d },
 	{ "micro", 0x00b5 },
 	{ "Dmacron", 0x0110 },
 	{ "kra", 0x0138 },
@@ -19848,5 +19823,5 @@ static struct psaltnames psaltnames[] = {
 	{ "Ooblique", 0xd8 },
 	{ "notsign", 0xac },
 /* Sun has used "masculine" for ordmasculine */
-	{NULL}
+	NULL
 };

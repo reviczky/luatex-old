@@ -1,4 +1,4 @@
-/* Copyright (C) 2003-2007 by George Williams */
+/* Copyright (C) 2003-2008 by George Williams */
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -25,7 +25,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "pfaeditui.h"
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 #include <gkeysym.h>
 #include <string.h>
 #include <ustring.h>
@@ -62,6 +61,7 @@ typedef struct kernclassdlg {
 /* For the kern pair dlg */
     int done;
     SplineFont *sf;
+    int layer;
     SplineChar *sc1, *sc2;
     int isv, iskernpair;
     SplineChar *scf, *scs;
@@ -70,6 +70,7 @@ typedef struct kernclassdlg {
 
 typedef struct kernclasslistdlg {
     SplineFont *sf;
+    int layer;
     GWindow gw;
     int isv;
 } KernClassListDlg;
@@ -115,6 +116,7 @@ typedef struct kernclasslistdlg {
 #define CID_Correction	1037
 #define CID_FreeType	1038
 #define CID_Magnifications	1039
+#define CID_ClearDevice	1040
 
 extern int _GScrollBar_Width;
 
@@ -173,22 +175,22 @@ static int KCD_ToSelection(GGadget *g, GEvent *e) {
 	KernClassDlg *kcd = GDrawGetUserData(GGadgetGetWindow(g));
 	const unichar_t *ret = _GGadgetGetTitle(GWidgetGetControl(kcd->gw,CID_GlyphList));
 	SplineFont *sf = kcd->sf;
-	FontView *fv = sf->fv;
+	FontView *fv = (FontView *) sf->fv;
 	const unichar_t *end;
 	int pos, found=-1;
 	char *nm;
 
 	GDrawSetVisible(fv->gw,true);
 	GDrawRaise(fv->gw);
-	memset(fv->selected,0,fv->map->enccount);
+	memset(fv->b.selected,0,fv->b.map->enccount);
 	while ( *ret ) {
 	    end = u_strchr(ret,' ');
 	    if ( end==NULL ) end = ret+u_strlen(ret);
 	    nm = cu_copybetween(ret,end);
 	    for ( ret = end; isspace(*ret); ++ret);
-	    if (( pos = SFFindSlot(sf,fv->map,-1,nm))!=-1 ) {
+	    if (( pos = SFFindSlot(sf,fv->b.map,-1,nm))!=-1 ) {
 		if ( found==-1 ) found = pos;
-		fv->selected[pos] = true;
+		fv->b.selected[pos] = true;
 	    }
 	    free(nm);
 	}
@@ -204,20 +206,20 @@ static int KCD_FromSelection(GGadget *g, GEvent *e) {
     if ( e->type==et_controlevent && e->u.control.subtype == et_buttonactivate ) {
 	KernClassDlg *kcd = GDrawGetUserData(GGadgetGetWindow(g));
 	SplineFont *sf = kcd->sf;
-	FontView *fv = sf->fv;
+	FontView *fv = (FontView *) sf->fv;
 	unichar_t *vals, *pt;
 	int i, len, max, gid;
 	SplineChar *sc;
     
-	for ( i=len=max=0; i<fv->map->enccount; ++i ) if ( fv->selected[i]) {
-	    sc = SFMakeChar(sf,fv->map,i);
+	for ( i=len=max=0; i<fv->b.map->enccount; ++i ) if ( fv->b.selected[i]) {
+	    sc = SFMakeChar(sf,fv->b.map,i);
 	    len += strlen(sc->name)+1;
-	    if ( fv->selected[i]>max ) max = fv->selected[i];
+	    if ( fv->b.selected[i]>max ) max = fv->b.selected[i];
 	}
 	pt = vals = galloc((len+1)*sizeof(unichar_t));
 	*pt = '\0';
 	/* in a class the order of selection is irrelevant */
-	for ( i=0; i<fv->map->enccount; ++i ) if ( fv->selected[i] && (gid=fv->map->map[i])!=-1) {
+	for ( i=0; i<fv->b.map->enccount; ++i ) if ( fv->b.selected[i] && (gid=fv->b.map->map[i])!=-1) {
 	    uc_strcpy(pt,sf->glyphs[gid]->name);
 	    pt += u_strlen(pt);
 	    *pt++ = ' ';
@@ -395,11 +397,7 @@ static int KCD_Next2(GGadget *g, GEvent *e) {
 	int val = u_strtol(ret,&end,10);
 
 	if ( val<-32768 || val>32767 || *end!='\0' ) {
-#if defined(FONTFORGE_CONFIG_GDRAW)
-	    gwwv_post_error( _("Bad Number"), _("Bad Number") );
-#elif defined(FONTFORGE_CONFIG_GTK)
-	    gwwv_post_error( _("Bad Number"), _("Bad Number") );
-#endif
+	    ff_post_error( _("Bad Number"), _("Bad Number") );
 return( true );
 	}
 	kcd->offsets[kcd->st_pos] = val;
@@ -714,12 +712,12 @@ return;
     if ( sc==NULL )
 return;
     if ( GGadgetIsChecked(GWidgetGetControl(kcd->gw,CID_FreeType)) )
-	freetypecontext = FreeTypeFontContext(sc->parent,sc,sc->parent->fv);
+	freetypecontext = FreeTypeFontContext(sc->parent,sc,sc->parent->fv,kcd->layer);
     if ( freetypecontext ) {
 	*scpos = SplineCharFreeTypeRasterize(freetypecontext,sc->orig_pos,kcd->pixelsize,8);
 	FreeTypeFreeContext(freetypecontext);
     } else
-	*scpos = SplineCharAntiAlias(sc,kcd->pixelsize,4);
+	*scpos = SplineCharAntiAlias(sc,kcd->layer,kcd->pixelsize,4);
 }
 
 static int KCD_DisplaySizeChanged(GGadget *g, GEvent *e) {
@@ -787,16 +785,26 @@ static int KCD_CorrectionChanged(GGadget *g, GEvent *e) {
 	if ( *end!='\0' )
 return( true );
 	if ( correction<-128 || correction>127 ) {
-#if defined(FONTFORGE_CONFIG_GDRAW)
-	    gwwv_post_error(_("Value out of range"),_("Value out of range"));
-#elif defined(FONTFORGE_CONFIG_GTK)
-	    gwwv_post_error( _("Out of Range"), _("Corrections must be between -128 and 127 (and should be smaller)") );
-#endif
+	    ff_post_error(_("Value out of range"),_("Value out of range"));
 return( true );
 	}
 
 	DeviceTableSet(&kcd->active_adjust,kcd->pixelsize,correction);
 	GDrawRequestExpose(kcd->kw,NULL,false);
+	GGadgetSetEnabled(GWidgetGetControl(kcd->gw,CID_ClearDevice),
+		kcd->active_adjust.corrections!=NULL);
+    }
+return( true );
+}
+
+static int KCD_ClearDevice(GGadget *g, GEvent *e) {
+    KernClassDlg *kcd = GDrawGetUserData(GGadgetGetWindow(g));
+    if ( e->type==et_controlevent && e->u.control.subtype == et_buttonactivate ) {
+	free(kcd->active_adjust.corrections);
+	kcd->active_adjust.corrections = NULL;
+	kcd->active_adjust.first_pixel_size = kcd->active_adjust.last_pixel_size = 0;
+	GGadgetSetTitle8(GWidgetGetControl(kcd->gw,CID_Correction),"0");
+	GGadgetSetEnabled(g,false);
     }
 return( true );
 }
@@ -824,7 +832,7 @@ return(true);
 return(true);
 #endif
 	if ( kcd->subtable==NULL ) {
-	    gwwv_post_error(_("No lookup selected"),_("You must select a lookup subtable to contain this kerning pair" ));
+	    ff_post_error(_("No lookup selected"),_("You must select a lookup subtable to contain this kerning pair" ));
 return(false);
 	}
 	if ( kp==NULL ) {
@@ -882,6 +890,8 @@ static void KCD_SetDevTab(KernClassDlg *kcd) {
 	}
     }
     GGadgetSetTitle(GWidgetGetControl(kcd->gw,CID_Correction),ubuf);
+    GGadgetSetEnabled(GWidgetGetControl(kcd->gw,CID_ClearDevice),
+	    kcd->active_adjust.corrections!=NULL);
 }
 #endif
 
@@ -919,10 +929,10 @@ static int KP_Subtable(GGadget *g, GEvent *e) {
 		memset(&sd,0,sizeof(sd));
 		sd.flags = (kcd->isv ? sdf_verticalkern : sdf_horizontalkern ) |
 			sdf_kernpair;
-		sub = SFNewLookupSubtableOfType(kcd->sf,gpos_pair,&sd);
+		sub = SFNewLookupSubtableOfType(kcd->sf,gpos_pair,&sd,kcd->layer);
 		if ( sub!=NULL ) {
 		    kcd->subtable = sub;
-		    GGadgetSetList(g,SFSubtablesOfType(kcd->sf,gpos_pair,false),false);
+		    GGadgetSetList(g,SFSubtablesOfType(kcd->sf,gpos_pair,false,false),false);
 		}
 		KP_SelectSubtable(kcd,kcd->subtable);
 	    }
@@ -1253,7 +1263,7 @@ static void OffsetMoveClasses(KernClassDlg *kcd, int dir, GTextInfo **movethese,
 		    else
 			new[i*kcd->second_cnt+k-1] = kcd->offsets[i*kcd->second_cnt+j-1];
 #ifdef FONTFORGE_CONFIG_DEVICETABLES
-		    memcpy(newd+i*kcd->second_cnt+(j+dir),kcd->offsets+i*kcd->second_cnt+j,
+		    memcpy(newd+i*kcd->second_cnt+(j+dir),kcd->adjusts+i*kcd->second_cnt+j,
 			    (k-j)*sizeof(DeviceTable));
 		    if ( dir>0 )
 			newd[i*kcd->second_cnt+j] = kcd->adjusts[i*kcd->second_cnt+k];
@@ -1391,7 +1401,7 @@ static int KCD_Edit(GGadget *g, GEvent *e) {
     if ( e->type==et_controlevent && e->u.control.subtype == et_buttonactivate ) {
 	KernClassDlg *kcd = GDrawGetUserData(GGadgetGetWindow(g));
 	int off = GGadgetGetCid(g)-CID_ClassEdit;
-	if ( GGadgetGetFirstListSelectedItem(GWidgetGetControl(kcd->gw,CID_ClassList+off))>0 )
+	if ( off==0 || GGadgetGetFirstListSelectedItem(GWidgetGetControl(kcd->gw,CID_ClassList+off))>0 )
 	    _KCD_DoEditNew(kcd,true,off);
     }
 return( true );
@@ -1461,6 +1471,58 @@ return( true );
 return( true );
 }
 
+#define MID_Clear	1000
+#define MID_ClearAll	1001
+#define MID_ClearDevTab	1002
+#define MID_ClearAllDevTab	1003
+
+static void kernmenu_dispatch(GWindow gw, GMenuItem *mi, GEvent *e) {
+    KernClassDlg *kcd = GDrawGetUserData(gw);
+    int i;
+
+    switch ( mi->mid ) {
+      case MID_Clear:
+	kcd->offsets[kcd->st_pos] = 0;
+      break;
+      case MID_ClearAll:
+	for ( i=0; i<kcd->first_cnt*kcd->second_cnt; ++i )
+	    kcd->offsets[i] = 0;
+      break;
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+      case MID_ClearDevTab: {
+	DeviceTable *devtab = &kcd->adjusts[kcd->st_pos];
+	free(devtab->corrections);
+	devtab->corrections = NULL;
+	devtab->first_pixel_size = devtab->last_pixel_size = 0;
+      } break;
+      case MID_ClearAllDevTab:
+	for ( i=0; i<kcd->first_cnt*kcd->second_cnt; ++i ) {
+	    DeviceTable *devtab = &kcd->adjusts[i];
+	    free(devtab->corrections);
+	    devtab->corrections = NULL;
+	    devtab->first_pixel_size = devtab->last_pixel_size = 0;
+	}
+      break;
+#endif
+    }
+    kcd->st_pos = -1;
+}
+
+static GMenuItem kernpopupmenu[] = {
+    { { (unichar_t *) N_("Clear"), NULL, COLOR_DEFAULT, COLOR_DEFAULT, NULL, NULL, 0, 0, 0, 0, 0, 0, 1, 1, 0, 't' }, '\0', ksm_control, NULL, NULL, kernmenu_dispatch, MID_Clear },
+    { { (unichar_t *) N_("Clear All"), NULL, COLOR_DEFAULT, COLOR_DEFAULT, NULL, NULL, 0, 0, 0, 0, 0, 0, 1, 1, 0, 'C' }, '\0', ksm_control, NULL, NULL, kernmenu_dispatch, MID_ClearAll },
+#ifdef FONTFORGE_CONFIG_DEVICETABLES
+    { { (unichar_t *) N_("Clear Device Table"), NULL, COLOR_DEFAULT, COLOR_DEFAULT, NULL, NULL, 0, 0, 0, 0, 0, 0, 1, 1, 0, 'o' }, '\0', ksm_control, NULL, NULL, kernmenu_dispatch, MID_ClearDevTab },
+    { { (unichar_t *) N_("Clear All Device Tables"), NULL, COLOR_DEFAULT, COLOR_DEFAULT, NULL, NULL, 0, 0, 0, 0, 0, 0, 1, 1, 0, 'o' }, '\0', ksm_control, NULL, NULL, kernmenu_dispatch, MID_ClearAllDevTab },
+#endif
+    { NULL }
+};
+
+static void KCD_PopupMenu(KernClassDlg *kcd,GEvent *event,int pos) {
+    kcd->st_pos = pos;
+    GMenuCreatePopupMenu(event->w,event, kernpopupmenu);
+}
+
 static void KCD_Mouse(KernClassDlg *kcd,GEvent *event) {
     static unichar_t space[200];
     char buf[30];
@@ -1507,6 +1569,8 @@ return;
 	GGadgetPreparePopup(kcd->gw,space);
     } else if ( event->u.mouse.x<kcd->xstart2 || event->u.mouse.y<kcd->ystart2 )
 return;
+    else if ( event->type==et_mousedown && event->u.mouse.button==3 )
+	KCD_PopupMenu(kcd,event,pos);
     else if ( event->type==et_mousedown )
 	kcd->st_pos = pos;
     else if ( event->type==et_mouseup ) {
@@ -1520,7 +1584,6 @@ static void KCD_Expose(KernClassDlg *kcd,GWindow pixmap,GEvent *event) {
     GRect rect, select;
     GRect clip,old1,old2;
     int len, i, j, x, y;
-    unichar_t ubuf[8];
     char buf[100];
     int32 tilen;
     GTextInfo **ti;
@@ -1563,10 +1626,9 @@ return;
 		0x808080);
 	if ( i+kcd->offtop<kcd->first_cnt ) {
 	    sprintf( buf, "%d", i+kcd->offtop );
-	    uc_strcpy(ubuf,buf);
-	    len = GDrawGetTextWidth(pixmap,ubuf,-1,NULL);
-	    GDrawDrawText(pixmap,kcd->xstart+(kcd->kernw-len)/2,kcd->ystart2+i*kcd->kernh+kcd->as+1,
-		    ubuf,-1,NULL,0xff0000);
+	    len = GDrawGetText8Width(pixmap,buf,-1,NULL);
+	    GDrawDrawBiText8(pixmap,kcd->xstart+(kcd->kernw-len)/2,kcd->ystart2+i*kcd->kernh+kcd->as+1,
+		    buf,-1,NULL,0xff0000);
 	}
     }
     for ( i=0 ; kcd->offleft+i<=kcd->second_cnt && (i-1)*kcd->kernw<kcd->fullwidth; ++i ) {
@@ -1574,10 +1636,9 @@ return;
 		0x808080);
 	if ( i+kcd->offleft<kcd->second_cnt ) {
 	    sprintf( buf, "%d", i+kcd->offleft );
-	    uc_strcpy(ubuf,buf);
-	    len = GDrawGetTextWidth(pixmap,ubuf,-1,NULL);
-	    GDrawDrawText(pixmap,kcd->xstart2+i*kcd->kernw+(kcd->kernw-len)/2,kcd->ystart+kcd->as+1,
-		ubuf,-1,NULL,0xff0000);
+	    len = GDrawGetText8Width(pixmap,buf,-1,NULL);
+	    GDrawDrawBiText8(pixmap,kcd->xstart2+i*kcd->kernw+(kcd->kernw-len)/2,kcd->ystart+kcd->as+1,
+		buf,-1,NULL,0xff0000);
 	}
     }
 
@@ -1595,10 +1656,9 @@ return;
 	continue;
 
 	    sprintf( buf, "%d", kcd->offsets[(i+kcd->offtop)*kcd->second_cnt+j+kcd->offleft] );
-	    uc_strcpy(ubuf,buf);
-	    len = GDrawGetTextWidth(pixmap,ubuf,-1,NULL);
-	    GDrawDrawText(pixmap,x+kcd->kernw-3-len,y+kcd->as+1,
-		ubuf,-1,NULL,0x000000);
+	    len = GDrawGetText8Width(pixmap,buf,-1,NULL);
+	    GDrawDrawBiText8(pixmap,x+kcd->kernw-3-len,y+kcd->as+1,
+		buf,-1,NULL,0x000000);
 	}
     }
 
@@ -1773,11 +1833,11 @@ static int subkern_e_h(GWindow gw, GEvent *event) {
 	if ( event->u.chr.keysym == GK_F1 || event->u.chr.keysym == GK_Help ) {
 	    help("metricsview.html#kernclass");
 return( true );
-	} else if ( event->u.chr.keysym=='q' && (event->u.chr.state&ksm_control)) {
-	    if ( event->u.chr.state&ksm_shift )
-		KC_DoCancel(kcd);
-	    else
-		MenuExit(NULL,NULL,NULL);
+	} else if ( GMenuIsCommand(event,H_("Quit|Ctl+Q") )) {
+	    MenuExit(NULL,NULL,NULL);
+return( true );
+	} else if ( GMenuIsCommand(event,H_("Close|Ctl+Shft+Q") )) {
+	    KC_DoCancel(kcd);
 return( true );
 	}
 return( false );
@@ -1802,11 +1862,11 @@ static int subkcd_e_h(GWindow gw, GEvent *event) {
 	if ( event->u.chr.keysym == GK_F1 || event->u.chr.keysym == GK_Help ) {
 	    help("metricsview.html#kernclass");
 return( true );
-	} else if ( event->u.chr.keysym=='q' && (event->u.chr.state&ksm_control)) {
-	    if ( event->u.chr.state&ksm_shift )
-		KC_DoCancel(kcd);
-	    else
-		MenuExit(NULL,NULL,NULL);
+	} else if ( GMenuIsCommand(event,H_("Quit|Ctl+Q") )) {
+	    MenuExit(NULL,NULL,NULL);
+return( true );
+	} else if ( GMenuIsCommand(event,H_("Close|Ctl+Shft+Q") )) {
+	    KC_DoCancel(kcd);
 return( true );
 	}
 return( false );
@@ -2026,9 +2086,9 @@ return( k );
 }
 
 static void FillShowKerningWindow(KernClassDlg *kcd, int for_class, SplineFont *sf) {
-    GGadgetCreateData gcd[30], hbox, flagbox, hvbox, buttonbox, mainbox[2];
-    GGadgetCreateData *harray[10], *hvarray[14], *flagarray[4], *buttonarray[9], *varray[12];
-    GTextInfo label[30];
+    GGadgetCreateData gcd[31], hbox, flagbox, hvbox, buttonbox, mainbox[2];
+    GGadgetCreateData *harray[10], *hvarray[15], *flagarray[4], *buttonarray[9], *varray[12];
+    GTextInfo label[31];
     int k,j;
     char buffer[20];
     GRect pos;
@@ -2115,17 +2175,13 @@ static void FillShowKerningWindow(KernClassDlg *kcd, int for_class, SplineFont *
     gcd[k++].creator = GLabelCreate;
     hvarray[2] = &gcd[k-1];
 
-#ifndef FONTFORGE_CONFIG_DEVICETABLES
-    gcd[k].gd.pos.x = 255; gcd[k].gd.pos.y = gcd[k-1].gd.pos.y-4;
-#else
-    gcd[k].gd.pos.x = 305; gcd[k].gd.pos.y = gcd[k-1].gd.pos.y-4;
-#endif
     gcd[k].gd.flags = gg_visible|gg_enabled ;
     gcd[k].gd.cid = CID_Magnifications;
     gcd[k].gd.u.list = magnifications;
     gcd[k].gd.handle_controlevent = KCD_MagnificationChanged;
     gcd[k++].creator = GListButtonCreate;
-    hvarray[3] = &gcd[k-1]; hvarray[4] = GCD_Glue; hvarray[5] = NULL;
+    hvarray[3] = &gcd[k-1]; hvarray[4] = GCD_Glue; hvarray[5] = GCD_Glue;
+    hvarray[6] = NULL;
 
     label[k].text = (unichar_t *) _("Kern Offset:");
     label[k].text_is_1byte = true;
@@ -2133,7 +2189,7 @@ static void FillShowKerningWindow(KernClassDlg *kcd, int for_class, SplineFont *
     gcd[k].gd.pos.x = 30; gcd[k].gd.pos.y = gcd[k-1].gd.pos.y+30;
     gcd[k].gd.flags = gg_visible|gg_enabled ;
     gcd[k++].creator = GLabelCreate;
-    hvarray[6] = &gcd[k-1];
+    hvarray[7] = &gcd[k-1];
 
     gcd[k].gd.pos.x = 90; gcd[k].gd.pos.y = gcd[k-1].gd.pos.y-4;
     gcd[k].gd.pos.width = 60;
@@ -2141,7 +2197,7 @@ static void FillShowKerningWindow(KernClassDlg *kcd, int for_class, SplineFont *
     gcd[k].gd.cid = CID_KernOffset;
     gcd[k].gd.handle_controlevent = KCD_KernOffChanged;
     gcd[k++].creator = GTextFieldCreate;
-    hvarray[7] = &gcd[k-1];
+    hvarray[8] = &gcd[k-1];
 
 #ifdef FONTFORGE_CONFIG_DEVICETABLES
     label[k].text = (unichar_t *) _("Device Table Correction:");
@@ -2150,7 +2206,7 @@ static void FillShowKerningWindow(KernClassDlg *kcd, int for_class, SplineFont *
     gcd[k].gd.pos.x = 185; gcd[k].gd.pos.y = gcd[k-2].gd.pos.y;
     gcd[k].gd.flags = gg_visible|gg_enabled ;
     gcd[k++].creator = GLabelCreate;
-    hvarray[8] = &gcd[k-1];
+    hvarray[9] = &gcd[k-1];
 
     label[k].text = (unichar_t *) "0";
     label[k].text_is_1byte = true;
@@ -2161,13 +2217,26 @@ static void FillShowKerningWindow(KernClassDlg *kcd, int for_class, SplineFont *
     gcd[k].gd.cid = CID_Correction;
     gcd[k].gd.handle_controlevent = KCD_CorrectionChanged;
     gcd[k++].creator = GTextFieldCreate;
-    hvarray[9] = &gcd[k-1];
+    hvarray[10] = &gcd[k-1];
+
+    label[k].text = (unichar_t *) "Clear";
+    label[k].text_is_1byte = true;
+    gcd[k].gd.label = &label[k];
+    gcd[k].gd.pos.x = 305; gcd[k].gd.pos.y = gcd[k-1].gd.pos.y-4;
+    gcd[k].gd.pos.width = 60;
+    gcd[k].gd.flags = gg_visible|gg_enabled|gg_utf8_popup ;
+    gcd[k].gd.popup_msg = (unichar_t *) _("Clear all device table corrections associated with this combination");
+    gcd[k].gd.cid = CID_ClearDevice;
+    gcd[k].gd.handle_controlevent = KCD_ClearDevice;
+    gcd[k++].creator = GButtonCreate;
+    hvarray[11] = &gcd[k-1];
 #else
-    hvarray[8] = GCD_Glue;
     hvarray[9] = GCD_Glue;
-#endif
     hvarray[10] = GCD_Glue;
-    hvarray[11] = NULL; hvarray[12] = NULL;
+    hvarray[11] = GCD_Glue;
+#endif
+    hvarray[12] = GCD_Glue;
+    hvarray[13] = NULL; hvarray[14] = NULL;
 
     hvbox.gd.flags = gg_enabled|gg_visible;
     hvbox.gd.u.boxelements = hvarray;
@@ -2246,13 +2315,11 @@ static void FillShowKerningWindow(KernClassDlg *kcd, int for_class, SplineFont *
     GHVBoxSetExpandableCol(buttonbox.ret,gb_expandgluesame);
     if ( !for_class ) {
 	GHVBoxSetExpandableCol(flagbox.ret,gb_expandglue);
-	GGadgetSetList(flagarray[1]->ret,SFSubtablesOfType(sf,gpos_pair,false),false);
+	GGadgetSetList(flagarray[1]->ret,SFSubtablesOfType(sf,gpos_pair,false,false),false);
     }
 }
-#endif
 
-void KernClassD(KernClass *kc, SplineFont *sf, int isv) {
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
+void KernClassD(KernClass *kc, SplineFont *sf, int layer, int isv) {
     GRect pos, subpos;
     GWindowAttrs wattrs;
     GGadgetCreateData gcd[46], classbox, hvbox, buttonbox, mainbox[2];
@@ -2268,6 +2335,7 @@ void KernClassD(KernClass *kc, SplineFont *sf, int isv) {
     static unichar_t kernw[] = { '-', '1', '2', '3', '4', '5', 0 };
     GWindow gw;
     char titlebuf[300];
+    static GFont *font;
 
     for ( kcd = sf->kcd; kcd!=NULL && kcd->orig!=kc; kcd = kcd->next );
     if ( kcd!=NULL ) {
@@ -2279,6 +2347,7 @@ return;
     kcd->orig = kc;
     kcd->subtable = kc->subtable;
     kcd->sf = sf;
+    kcd->layer = layer;
     kcd->isv = isv;
     kcd->next = sf->kcd;
     sf->kcd = kcd;
@@ -2323,11 +2392,15 @@ return;
 
     kc_width = GDrawPixelsToPoints(NULL,pos.width*100/GGadgetScale(100));
 
-    memset(&rq,'\0',sizeof(rq));
-    rq.point_size = 12;
-    rq.weight = 400;
-    rq.family_name = courier;
-    kcd->font = GDrawInstanciateFont(GDrawGetDisplayOfWindow(gw),&rq);
+    if ( font==NULL ) {
+	memset(&rq,'\0',sizeof(rq));
+	rq.point_size = 12;
+	rq.weight = 400;
+	rq.family_name = courier;
+	font = GDrawInstanciateFont(GDrawGetDisplayOfWindow(gw),&rq);
+	font = GResourceFindFont("KernClass.Font",font);
+    }
+    kcd->font = font;
     GDrawFontMetrics(kcd->font,&as,&ds,&ld);
     kcd->fh = as+ds; kcd->as = as;
     GDrawSetFont(gw,kcd->font);
@@ -2579,10 +2652,7 @@ return;
 
     GHVBoxFitWindow(mainbox[0].ret);
     GDrawSetVisible(kcd->gw,true);
-#endif
 }
-
-#ifndef FONTFORGE_CONFIG_NO_WINDOWING_UI
 
 static int KCL_New(GGadget *g, GEvent *e) {
     KernClassListDlg *kcld;
@@ -2593,7 +2663,7 @@ static int KCL_New(GGadget *g, GEvent *e) {
 	memset(&sd,0,sizeof(sd));
 	sd.flags = (kcld->isv ? sdf_verticalkern : sdf_horizontalkern ) |
 		sdf_kernclass;
-	SFNewLookupSubtableOfType(kcld->sf,gpos_pair,&sd);
+	SFNewLookupSubtableOfType(kcld->sf,gpos_pair,&sd,kcld->layer);
     }
 return( true );
 }
@@ -2653,7 +2723,7 @@ static int KCL_Edit(GGadget *g, GEvent *e) {
 	if ( sel==-1 )
 return( true );
 	for ( kc=kcld->isv?kcld->sf->vkerns:kcld->sf->kerns, i=0; i<sel; kc=kc->next, ++i );
-	KernClassD(kc,kcld->sf,kcld->isv);
+	KernClassD(kc,kcld->sf,kcld->layer,kcld->isv);
     }
 return( true );
 }
@@ -2704,7 +2774,7 @@ return( false );
 return( true );
 }
 
-void ShowKernClasses(SplineFont *sf,MetricsView *mv,int isv) {
+void ShowKernClasses(SplineFont *sf,MetricsView *mv,int layer,int isv) {
     KernClassListDlg *kcld;
     GRect pos;
     GWindowAttrs wattrs;
@@ -2724,6 +2794,7 @@ return;
 
     kcld = gcalloc(1,sizeof(KernClassListDlg));
     kcld->sf = sf;
+    kcld->layer = layer;
     kcld->isv = isv;
     if ( isv )
 	sf->vkcld = kcld;
@@ -2740,7 +2811,7 @@ return;
     wattrs.restrict_input_to_me = false;
     wattrs.undercursor = 1;
     wattrs.cursor = ct_pointer;
-    wattrs.utf8_window_title =  isv?_("VKern By Classes..."):_("Kern By Classes...");
+    wattrs.utf8_window_title =  isv?_("VKern By Classes"):_("Kern By Classes");
     wattrs.is_dlg = false;
     pos.x = pos.y = 0;
     temp = 40 + 300*GIntGetResource(_NUM_Buttonsize)/GGadgetScale(100);
@@ -2850,7 +2921,7 @@ return;
 /* *************************** Kern Pair Dialog  **************************** */
 /* ************************************************************************** */
 
-void KernPairD(SplineFont *sf,SplineChar *sc1,SplineChar *sc2,int isv) {
+void KernPairD(SplineFont *sf,SplineChar *sc1,SplineChar *sc2,int layer,int isv) {
     GRect pos;
     GWindowAttrs wattrs;
     KernClassDlg kcd;
@@ -2858,30 +2929,30 @@ void KernPairD(SplineFont *sf,SplineChar *sc1,SplineChar *sc2,int isv) {
     int gid;
 
     if ( sc1==NULL ) {
-	FontView *fv = sf->fv;
+	FontView *fv = (FontView *) sf->fv;
 	int start = fv->rowoff*fv->colcnt, end = start+fv->rowcnt*fv->colcnt;
 	int i;
-	for ( i=start; i<end && i<fv->map->enccount; ++i )
-	    if ( (gid=fv->map->map[i])!=-1 && sf->glyphs[gid]!=NULL &&
+	for ( i=start; i<end && i<fv->b.map->enccount; ++i )
+	    if ( (gid=fv->b.map->map[i])!=-1 && sf->glyphs[gid]!=NULL &&
 		    (isv ? sf->glyphs[gid]->vkerns : sf->glyphs[gid]->kerns)!=NULL )
 	break;
-	if ( i==end || i==fv->map->enccount ) {
-	    for ( i=0; i<fv->map->enccount; ++i )
-		if ( (gid=fv->map->map[i])!=-1 && sf->glyphs[gid]!=NULL &&
+	if ( i==end || i==fv->b.map->enccount ) {
+	    for ( i=0; i<fv->b.map->enccount; ++i )
+		if ( (gid=fv->b.map->map[i])!=-1 && sf->glyphs[gid]!=NULL &&
 			(isv ? sf->glyphs[gid]->vkerns : sf->glyphs[gid]->kerns)!=NULL )
 	    break;
 	}
-	if ( i==fv->map->enccount ) {
-	    for ( i=start; i<end && i<fv->map->enccount; ++i )
-		if ( (gid=fv->map->map[i])!=-1 && sf->glyphs[gid]!=NULL )
+	if ( i==fv->b.map->enccount ) {
+	    for ( i=start; i<end && i<fv->b.map->enccount; ++i )
+		if ( (gid=fv->b.map->map[i])!=-1 && sf->glyphs[gid]!=NULL )
 	    break;
-	    if ( i==end || i==fv->map->enccount ) {
-		for ( i=0; i<fv->map->enccount; ++i )
-		    if ( (gid=fv->map->map[i])!=-1 && sf->glyphs[gid]!=NULL )
+	    if ( i==end || i==fv->b.map->enccount ) {
+		for ( i=0; i<fv->b.map->enccount; ++i )
+		    if ( (gid=fv->b.map->map[i])!=-1 && sf->glyphs[gid]!=NULL )
 		break;
 	    }
 	}
-	if ( i!=fv->map->enccount )
+	if ( i!=fv->b.map->enccount )
 	    sc1 = sf->glyphs[gid];
     }
     if ( sc2==NULL && sc1!=NULL && (isv ? sc1->vkerns : sc1->kerns)!=NULL )
@@ -2889,6 +2960,7 @@ void KernPairD(SplineFont *sf,SplineChar *sc1,SplineChar *sc2,int isv) {
     
     memset(&kcd,0,sizeof(kcd));
     kcd.sf = sf;
+    kcd.layer = layer;
     kcd.scf = sc1;
     kcd.scs = sc2;
     kcd.isv = isv;
@@ -2901,7 +2973,7 @@ void KernPairD(SplineFont *sf,SplineChar *sc1,SplineChar *sc2,int isv) {
     wattrs.restrict_input_to_me = true;
     wattrs.undercursor = 1;
     wattrs.cursor = ct_pointer;
-    wattrs.utf8_window_title = _("Kern Pair Closeup...");
+    wattrs.utf8_window_title = _("Kern Pair Closeup");
     wattrs.is_dlg = true;
     pos.x = pos.y = 0;
     pos.width = GGadgetScale(GDrawPointsToPixels(NULL,KC_Width));
@@ -2934,89 +3006,10 @@ void KernPairD(SplineFont *sf,SplineChar *sc1,SplineChar *sc2,int isv) {
     GDrawSetUserData(kcd.gw,NULL);
     GDrawDestroyWindow(kcd.gw);
 }
-#endif		/* FONTFORGE_CONFIG_NO_WINDOWING_UI */
-
-int KernClassContains(KernClass *kc, char *name1, char *name2, int ordered ) {
-    int infirst=0, insecond=0, scpos1=0, kwpos1=0, scpos2=0, kwpos2=0;
-    int i;
-
-    for ( i=1; i<kc->first_cnt; ++i ) {
-	if ( PSTContains(kc->firsts[i],name1) ) {
-	    scpos1 = i;
-	    if ( ++infirst>=3 )		/* The name occurs twice??? */
-    break;
-	} else if ( PSTContains(kc->firsts[i],name2) ) {
-	    kwpos1 = i;
-	    if ( (infirst+=2)>=3 )
-    break;
-	}
-    }
-    if ( infirst==0 || infirst>3 )
-return( 0 );
-    for ( i=1; i<kc->second_cnt; ++i ) {
-	if ( PSTContains(kc->seconds[i],name1) ) {
-	    scpos2 = i;
-	    if ( ++insecond>=3 )
-    break;
-	} else if ( PSTContains(kc->seconds[i],name2) ) {
-	    kwpos2 = i;
-	    if ( (insecond+=2)>=3 )
-    break;
-	}
-    }
-    if ( insecond==0 || insecond>3 )
-return( 0 );
-    if ( (infirst&1) && (insecond&2) ) {
-	if ( kc->offsets[scpos1*kc->second_cnt+kwpos2]!=0 )
-return( kc->offsets[scpos1*kc->second_cnt+kwpos2] );
-    }
-    if ( !ordered ) {
-	if ( (infirst&2) && (insecond&1) ) {
-	    if ( kc->offsets[kwpos1*kc->second_cnt+scpos2]!=0 )
-return( kc->offsets[kwpos1*kc->second_cnt+scpos2] );
-	}
-    }
-return( 0 );
-}
 
 /* ************************************************************************** */
 /* *******************************   kerning   ****************************** */
 /* ************************************************************************** */
-
-static int KCFindName(char *name, char **classnames, int cnt ) {
-    int i;
-    char *pt, *end, ch;
-
-    for ( i=0; i<cnt; ++i ) {
-	if ( classnames[i]==NULL )
-    continue;
-	for ( pt = classnames[i]; *pt; pt=end+1 ) {
-	    end = strchr(pt,' ');
-	    if ( end==NULL ) end = pt+strlen(pt);
-	    ch = *end;
-	    *end = '\0';
-	    if ( strcmp(pt,name)==0 ) {
-		*end = ch;
-return( i );
-	    }
-	    *end = ch;
-	    if ( ch=='\0' )
-	break;
-	}
-    }
-return( 0 );
-}
-
-int KCFindIndex(KernClass *kc,char *name1, char *name2) {
-    int f,l;
-
-    f = KCFindName(name1,kc->firsts,kc->first_cnt);
-    l = KCFindName(name2,kc->seconds,kc->second_cnt);
-    if ( (f!=0 || kc->firsts[0]!=NULL) && l!=0 )
-return( f*kc->second_cnt+l );
-
-return( -1 );
-}
 
 KernClass *SFFindKernClass(SplineFont *sf,SplineChar *first,SplineChar *last,
 	int *index,int allow_zero) {
