@@ -1,4 +1,4 @@
-% $Id: mp.w 806 2008-12-23 16:22:29Z taco $
+% $Id: mp.w 690 2008-11-17 11:04:45Z taco $
 %
 % Copyright 2008 Taco Hoekwater.
 %
@@ -89,13 +89,13 @@ undergoes any modifications, so that it will be clear which version of
 @^extensions to \MP@>
 @^system dependencies@>
 
-@d default_banner "This is MetaPost, Version 1.102" /* printed when \MP\ starts */
+@d default_banner "This is MetaPost, Version 1.100" /* printed when \MP\ starts */
 @d true 1
 @d false 0
 
 @(mpmp.h@>=
-#define metapost_version "1.102"
-#define metapost_magic (('M'*256) + 'P')*65536 + 1102
+#define metapost_version "1.100"
+#define metapost_magic (('M'*256) + 'P')*65536 + 1100
 #define metapost_old_magic (('M'*256) + 'P')*65536 + 1080
 
 @ The external library header for \MP\ is |mplib.h|. It contains a
@@ -290,7 +290,6 @@ MP mp_initialize (MP_options *opt) {
 }
 
 @ @<Initializations after first line is read@>=
-mp_open_log_file(mp);
 mp_set_job_id(mp);
 mp_init_map_file(mp, mp->troff_mode);
 mp->history=mp_spotless; /* ready to go! */
@@ -870,7 +869,7 @@ static boolean mp_input_ln (MP mp, void *f ) {
     mp->last = mp->first+size;
     if ( mp->last>=mp->max_buf_stack ) { 
       mp->max_buf_stack=mp->last+1;
-      while ( mp->max_buf_stack>mp->buf_size ) {
+      while ( mp->max_buf_stack>=mp->buf_size ) {
         mp_reallocate_buffer(mp,(mp->buf_size+(mp->buf_size>>2)));
       }
     }
@@ -1801,8 +1800,7 @@ static void mp_do_print (MP mp, const char *ss, size_t len) { /* prints string |
     str_room((integer)(len*4));
   }
   while ( j<len ){ 
-    /* this was |xord((int)ss[j])| but that doesnt work */
-    mp_print_char(mp, (ASCII_code)ss[j]); j++;
+    mp_print_char(mp, xord((int)ss[j])); j++;
   }
 }
 
@@ -1917,7 +1915,7 @@ void mp_term_input (MP mp) { /* gets a line from the terminal */
     mp->term_offset=0; /* the user's line ended with \<\rm return> */
     decr(mp->selector); /* prepare to echo the input */
     if ( mp->last!=mp->first ) {
-      for (k=mp->first;k<mp->last;k++) {
+      for (k=mp->first;k<=mp->last-1;k++) {
         mp_print_char(mp, mp->buffer[k]);
       }
     }
@@ -3135,8 +3133,8 @@ and truncation operations.
 
 @<Internal library declarations@>=
 #define mp_floor_scaled(M,i) ((i)&(-65536))
-#define mp_round_unscaled(M,i) (i>0 ? (((i/32768)+1)/2) : (((i/32768)-1)/2))
-#define mp_round_fraction(M,i) (i>0 ? (((i/2048)+1)/2) : (((i/2048)-1)/2))
+#define mp_round_unscaled(M,i) (((i/32768)+1)/2)
+#define mp_round_fraction(M,i) (((i/2048)+1)/2)
 
 
 @* \[8] Algebraic and transcendental functions.
@@ -3875,12 +3873,10 @@ pointer hi_mem_min; /* the smallest location of one-word memory in use */
 
 @<Declare helpers@>=
 extern char *mp_strdup(const char *p) ;
-extern char *mp_strldup(const char *p, size_t l) ;
 extern void mp_xfree ( @= /*@@only@@*/ /*@@out@@*/ /*@@null@@*/ @> void *x);
 extern @= /*@@only@@*/ @> void *mp_xrealloc (MP mp, void *p, size_t nmem, size_t size) ;
 extern @= /*@@only@@*/ @> void *mp_xmalloc (MP mp, size_t nmem, size_t size) ;
 extern @= /*@@only@@*/ @> char *mp_xstrdup(MP mp, const char *s);
-extern @= /*@@only@@*/ @> char *mp_xstrldup(MP mp, const char *s, size_t l);
 extern void mp_do_snprintf(char *str, int size, const char *fmt, ...);
 
 @ The |max_size_test| guards against overflow, on the assumption that
@@ -3889,17 +3885,15 @@ extern void mp_do_snprintf(char *str, int size, const char *fmt, ...);
 @d max_size_test 0x7FFFFFFF
 
 @c
-char *mp_strldup(const char *p, size_t l) {
+char *mp_strdup(const char *p) {
   char *r;
+  size_t l;
   if (p==NULL) return NULL;
-  r = malloc ((size_t)(l*sizeof(char)+1));
+  l = strlen(p);
+  r = malloc (l*sizeof(char)+1);
   if (r==NULL)
     return NULL;
-  return memcpy (r,p,(size_t)(l+1));
-}
-char *mp_strdup(const char *p) {
-  if (p==NULL) return NULL;
-  return mp_strldup(p, strlen(p));
+  return memcpy (r,p,(l+1));
 }
 void mp_xfree (void *x) {
   if (x!=NULL) free(x);
@@ -3930,26 +3924,20 @@ void  *mp_xmalloc (MP mp, size_t nmem, size_t size) {
   }
   return w;
 }
-char *mp_xstrldup(MP mp, const char *s, size_t l) {
+char *mp_xstrdup(MP mp, const char *s) {
   char *w; 
   if (s==NULL)
     return NULL;
-  w = mp_strldup(s, l);
+  w = mp_strdup(s);
   if (w==NULL) {
     do_fprintf(mp->err_out,"Out of memory!\n");
     mp->history =mp_system_error_stop;    mp_jump_out(mp);
   }
   return w;
 }
-char *mp_xstrdup(MP mp, const char *s) {
-  if (s==NULL)  return NULL;
-  return mp_xstrldup(mp,s,strlen(s));
-}
-
 
 @ @<Internal library declarations@>=
 #ifdef HAVE_SNPRINTF
-extern int snprintf(char *str, size_t size, const char *format, ...);
 #define mp_snprintf (void)snprintf
 #else
 #define mp_snprintf mp_do_snprintf
@@ -5580,7 +5568,7 @@ if ( text(p)>0 ) {
   p=mp->hash_used;
 }
 str_room(l);
-for (k=j;k<j+l;k++) {
+for (k=j;k<=j+l-1;k++) {
   append_char(mp->buffer[k]);
 }
 text(p)=mp_make_string(mp); 
@@ -5598,7 +5586,7 @@ than two table probes, on the average, when the search is successful.
 
 @<Compute the hash code |h|@>=
 h=mp->buffer[j];
-for (k=j+1;k<j+l;k++){ 
+for (k=j+1;k<=j+l-1;k++){ 
   h=h+h+mp->buffer[k];
   while ( h>=mp->hash_prime ) h=h-mp->hash_prime;
 }
@@ -7823,7 +7811,7 @@ if ( k==0 ) k=n;
 } while (k!=n); /* now $\theta_n=\\{aa}+\\{bb}\cdot\theta_n$ */
 aa=mp_make_fraction(mp, aa,fraction_one-bb);
 mp->theta[n]=aa; mp->vv[0]=aa;
-for (k=1;k<n;k++) {
+for (k=1;k<=n-1;k++) {
   mp->vv[k]=mp->vv[k]+mp_take_fraction(mp, aa,mp->ww[k]);
 }
 goto FOUND;
@@ -14209,14 +14197,14 @@ used instead of the line in the file.
       && (mp->interaction>mp_nonstop_mode )) {
     wake_up_terminal; mp_print_ln(mp);
     if ( start<limit ) {
-      for (k=(size_t)start;k<(size_t)limit;k++) {
+      for (k=(size_t)start;k<=(size_t)(limit-1);k++) {
         mp_print_str(mp, mp->buffer[k]);
       } 
     }
     mp->first=(size_t)limit; prompt_input("=>"); /* wait for user response */
 @.=>@>
     if ( mp->last>mp->first ) {
-      for (k=mp->first;k<mp->last;k++) { /* move line down in buffer */
+      for (k=mp->first;k<=mp->last-1;k++) { /* move line down in buffer */
         mp->buffer[k+start-mp->first]=mp->buffer[k];
       }
       limit=(halfword)(start+mp->last-mp->first);
@@ -16039,9 +16027,9 @@ static void mp_print_file_name (MP mp, char * n, char * a, char * e) {
       ((n != NULL) && (strchr(n,' ') != NULL)) ||
       ((e != NULL) && (strchr(e,' ') != NULL)))
     must_quote = true;
-  if (must_quote) mp_print_char(mp, (ASCII_code)'"');
+  if (must_quote) mp_print_char(mp, '"');
   mp_print(mp, a); mp_print(mp, n); mp_print(mp, e);
-  if (must_quote) mp_print_char(mp, (ASCII_code)'"');
+  if (must_quote) mp_print_char(mp, '"');
 }
 
 @ Another system-dependent routine is needed to convert three internal
@@ -18911,7 +18899,7 @@ static void mp_do_nullary (MP mp,quarterword c) {
 static void mp_finish_read (MP mp) { /* copy |buffer| line to |cur_exp| */
   size_t k;
   str_room((int)mp->last-start);
-  for (k=(size_t)start;k<mp->last;k++) {
+  for (k=(size_t)start;k<=mp->last-1;k++) {
    append_char(mp->buffer[k]);
   }
   mp_end_file_reading(mp); mp->cur_type=mp_string_type; 
@@ -19414,7 +19402,7 @@ static void mp_str_to_num (MP mp,quarterword c) { /* converts a string to a numb
   } else { 
     if ( c==oct_op ) b=8; else b=16;
     n=0; bad_char=false;
-    for (k=mp->str_start[mp->cur_exp];k<str_stop(mp->cur_exp);k++) {
+    for (k=mp->str_start[mp->cur_exp];k<=str_stop(mp->cur_exp)-1;k++) {
       m=mp->str_pool[k];
       if ( (m>='0')&&(m<='9') ) m=m-'0';
       else if ( (m>='A')&&(m<='F') ) m=m-'A'+10;
@@ -21176,7 +21164,7 @@ static void mp_cat (MP mp,pointer p) {
   a=value(p); b=mp->cur_exp; k=length(a);
   needed=mp->pool_ptr+k+length(b);
   /* this will free some memory, hopefully */
-  if (mp->pool_ptr>(11*mp->old_pool_size)/10) {
+  if (mp->pool_ptr>1.1*mp->old_pool_size) {
       mp->old_pool_size = mp->pool_ptr;
       mp_do_compaction(mp, mp->pool_size);
   }
@@ -21186,10 +21174,10 @@ static void mp_cat (MP mp,pointer p) {
     }
     mp->max_pool_ptr=needed; 
   }
-  memcpy(mp->str_pool+mp->pool_ptr, mp->str_pool+mp->str_start[a],(size_t)k);
+  memcpy(mp->str_pool+mp->pool_ptr, mp->str_pool+mp->str_start[a],k);
   mp->pool_ptr+=k; 
   k=length(b);
-  memcpy(mp->str_pool+mp->pool_ptr, mp->str_pool+mp->str_start[b],(size_t)k);
+  memcpy(mp->str_pool+mp->pool_ptr, mp->str_pool+mp->str_start[b],k);
   mp->pool_ptr+=k;
   mp->cur_exp=mp_make_string(mp); delete_str_ref(b);
 }
@@ -21220,7 +21208,7 @@ static void mp_chop_string (MP mp,pointer p) {
       append_char(mp->str_pool[k]);
     }
   } else  {
-    for (k=mp->str_start[s]+a;k<mp->str_start[s]+b;k++)  {
+    for (k=mp->str_start[s]+a;k<=mp->str_start[s]+b-1;k++)  {
       append_char(mp->str_pool[k]);
     }
   }
@@ -24222,7 +24210,6 @@ eight_bits label_char[257]; /* characters for |label_loc| */
 short label_ptr; /* highest position occupied in |label_loc| */
 
 @ @<Allocate or initialize ...@>=
-mp->header_last=7;
 mp->header_size = 128; /* just for init */
 mp->header_byte = xmalloc(mp->header_size, sizeof(char));
 
@@ -24849,13 +24836,13 @@ static void mp_fix_design_size (MP mp) {
 @.illegal design size...@>
     d=040000000; mp->internal[mp_design_size]=d;
   }
-  if ( mp->header_byte[4]==0 && mp->header_byte[5]==0 &&
-       mp->header_byte[6]==0 && mp->header_byte[7]==0 ) {
+  if ( mp->header_byte[4]<0 ) if ( mp->header_byte[5]<0 )
+    if ( mp->header_byte[6]<0 ) if ( mp->header_byte[7]<0 ) {
      mp->header_byte[4]=d / 04000000;
      mp->header_byte[5]=(d / 4096) % 256;
      mp->header_byte[6]=(d / 16) % 256;
      mp->header_byte[7]=(d % 16)*16;
-  }
+  };
   mp->max_tfm_dimen=16*mp->internal[mp_design_size]-1-mp->internal[mp_design_size] / 010000000;
   if ( mp->max_tfm_dimen>=fraction_half ) mp->max_tfm_dimen=fraction_half-1;
 }
@@ -24961,7 +24948,7 @@ this code.
 
 @<Output the subfile sizes and header bytes@>=
 k=mp->header_last;
-LH=(k+4) / 4; /* this is the number of header words */
+LH=(k+3) / 4; /* this is the number of header words */
 if ( mp->bc>mp->ec ) mp->bc=1; /* if there are no characters, |ec=0| and |bc=1| */
 @<Compute the ligature/kern program offset and implant the
   left boundary label@>;
@@ -25006,11 +24993,9 @@ starting addresses; we have $-1=|label_loc|[0]<|label_loc|[1]\le\cdots
 
 @<Compute the ligature/kern program offset...@>=
 mp->bchar=mp_round_unscaled(mp, mp->internal[mp_boundary_char]);
-if ((mp->bchar<0)||(mp->bchar>255)) { 
-  mp->bchar=-1; mp->lk_started=false; lk_offset=0; 
-} else { 
-  mp->lk_started=true; lk_offset=1; 
-}
+if ((mp->bchar<0)||(mp->bchar>255))
+  { mp->bchar=-1; mp->lk_started=false; lk_offset=0; }
+else { mp->lk_started=true; lk_offset=1; };
 @<Find the minimum |lk_offset| and adjust all remainders@>;
 if ( mp->bch_label<undefined_label )
   { skip_byte(mp->nl)=qi(255); next_char(mp->nl)=qi(0);
@@ -25061,11 +25046,11 @@ if ( mp->lk_started ) { /* |lk_offset=1| for the special |bchar| */
     } while (! (mp->label_loc[mp->label_ptr]<mp->ll));
   }
 }
-for (k=0;k<mp->nl;k++) mp_tfm_qqqq(mp, mp->lig_kern[k]);
-for (k=0;k<mp->nk;k++) mp_tfm_four(mp, mp_dimen_out(mp, mp->kern[k]))
+for (k=0;k<=mp->nl-1;k++) mp_tfm_qqqq(mp, mp->lig_kern[k]);
+for (k=0;k<=mp->nk-1;k++) mp_tfm_four(mp, mp_dimen_out(mp, mp->kern[k]))
 
 @ @<Output the extensible character recipes...@>=
-for (k=0;k<mp->ne;k++) 
+for (k=0;k<=mp->ne-1;k++) 
   mp_tfm_qqqq(mp, mp->exten[k]);
 for (k=1;k<=mp->np;k++) {
   if ( k==1 ) {
@@ -25830,7 +25815,6 @@ struct mp_edge_object *mp_gr_export(MP mp, pointer h) {
     case mp_text_code:
       tt = (mp_text_object *)hq;
       gr_text_p(tt)       = str(mp_text_p(p));
-      gr_text_l(tt)       = (size_t)length(mp_text_p(p));
       gr_font_n(tt)       = (unsigned int)mp_font_n(p);
       gr_font_name(tt)    = mp_xstrdup(mp,mp->font_name[mp_font_n(p)]);
       gr_font_dsize(tt)   = (unsigned int)mp->font_dsize[mp_font_n(p)];
@@ -26099,7 +26083,7 @@ static void mp_close_files_and_terminate (MP mp) ;
 
 @ @<Close all open files in the |rd_file| and |wr_file| arrays@>=
 if (mp->rd_fname!=NULL) {
-  for (k=0;k<(int)mp->read_files;k++ ) {
+  for (k=0;k<=(int)mp->read_files-1;k++ ) {
     if ( mp->rd_fname[k]!=NULL ) {
       (mp->close_file)(mp,mp->rd_file[k]);
       xfree(mp->rd_fname[k]);      
@@ -26107,7 +26091,7 @@ if (mp->rd_fname!=NULL) {
  }
 }
 if (mp->wr_fname!=NULL) {
-  for (k=0;k<(int)mp->write_files;k++) {
+  for (k=0;k<=(int)mp->write_files-1;k++) {
     if ( mp->wr_fname[k]!=NULL ) {
      (mp->close_file)(mp,mp->wr_file[k]);
       xfree(mp->wr_fname[k]); 

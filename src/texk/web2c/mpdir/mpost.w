@@ -1,4 +1,4 @@
-% $Id: mpost.w 789 2008-12-22 14:37:37Z taco $
+% $Id: mpost.w 675 2008-10-21 12:01:33Z taco $
 %
 % Copyright 2008 Taco Hoekwater.
 %
@@ -206,7 +206,7 @@ static string normalize_quotes (const char *name, const char *mesg) {
 @c
 void recorder_start(char *jobname) {
     char cwd[1024];
-    recorder_name = (string)xmalloc((unsigned int)(strlen(jobname)+5));
+    recorder_name = (string)xmalloc(strlen(jobname)+5);
     strcpy(recorder_name, jobname);
     strcat(recorder_name, ".fls");
     recorder_file = xfopen(recorder_name, FOPEN_W_MODE);
@@ -538,25 +538,22 @@ if (!nokpse)
 fprintf(stdout,
 "\n"
 "Usage: mpost [OPTION] [&MEMNAME] [MPNAME[.mp]] [COMMANDS]\n"
-);
-fprintf(stdout,
 "\n"
 "  Run MetaPost on MPNAME, usually creating MPNAME.NNN (and perhaps\n"
 "  MPNAME.tfm), where NNN are the character numbers generated.\n"
 "  Any remaining COMMANDS are processed as MetaPost input,\n"
-"  after MPNAME is read.\n\n"
-"  If no arguments or options are specified, prompt for input.\n"
-"\n");
+"  after MPNAME is read.\n\n");
 fprintf(stdout,
+"  If no arguments or options are specified, prompt for input.\n"
+"\n"
 "  -ini                      be inimpost, for dumping mem files\n"
 "  -interaction=STRING       set interaction mode (STRING=batchmode/nonstopmode/\n"
 "                            scrollmode/errorstopmode)\n"
 "  -jobname=STRING           set the job name to STRING\n"
 "  -progname=STRING          set program (and mem) name to STRING\n"
-"  -tex=TEXPROGRAM           use TEXPROGRAM for text labels\n"
-"  [-no]-file-line-error     disable/enable file:line:error style messages\n"
-);
+"  -tex=TEXPROGRAM           use TEXPROGRAM for text labels\n");
 fprintf(stdout,
+"  [-no]-file-line-error     disable/enable file:line:error style messages\n"
 "  -kpathsea-debug=NUMBER    set path searching debugging flags according to\n"
 "                            the bits of NUMBER\n"
 "  -mem=MEMNAME or &MEMNAME  use MEMNAME instead of program name or a %%& line\n"
@@ -763,26 +760,13 @@ if ( options->mem_name == NULL )
 if ( options->job_name == NULL ) {
   char *m = NULL; /* head of potential |job_name| */
   char *n = NULL; /* a moving pointer */
-  if (options->command_line != NULL){
+  if (options->command_line != NULL && *(options->command_line) != '\\'){
     m = mpost_xstrdup(options->command_line);
     n = m;
-    if (*(options->command_line) != '\\') { /* this is the simple case */
-      while (*n != '\0' && *n != ' ') n++;
-      if (n>m) {
-        *n='\0';
-        job_name = mpost_xstrdup(m);
-      }
-    } else { /* this is still not perfect, but better */
-      char *mm =  strstr(m,"input ");
-      if (mm != NULL) {
-         mm += 6;
-         n = mm;
-         while (*n != '\0' && *n != ' ' && *n!=';') n++;
-         if (n>mm) {
-           *n='\0';
-           job_name = mpost_xstrdup(mm);
-        }
-      }
+    while (*n != '\0' && *n != ' ') n++;
+    if (n>m) {
+      *n='\0';
+      job_name = mpost_xstrdup(m);
     }
     free(m);
   }
@@ -794,15 +778,7 @@ if ( options->job_name == NULL ) {
   }
   if (job_name == NULL) {
     job_name = mpost_xstrdup("mpout");
-  } else {
-    size_t i = strlen(job_name);
-    if (i>3
-        && *(job_name+i-3)=='.' 
-        && *(job_name+i-2)=='m' 
-        && *(job_name+i-1)=='p')
-    *(job_name+i-3)='\0';
   }
-  options->job_name = job_name;
 } else {
   job_name = mpost_xstrdup(options->job_name);
 }

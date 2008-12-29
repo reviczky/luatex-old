@@ -106,8 +106,6 @@ tex/postlinebreak.o \
 tex/texnodes.o \
 tex/textoken.o \
 tex/texpdf.o \
-tex/math.o \
-tex/mlist.o \
 managed-sa.o \
 mathcodes.o \
 textcodes.o \

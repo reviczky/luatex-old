@@ -33,10 +33,6 @@
 #include <ustring.h>
 #include <stdio.h>
 
-#ifdef LUA_FF_LIB
-extern void LUAUI_LogError(const char *fmt,...);
-#endif
-
 #ifndef HAVE_ICONV_H
 
 /* I have written an limited iconv which will convert either to or from unichar_t */
@@ -153,11 +149,7 @@ return( (iconv_t)(-1) );
 return( (iconv_t)(-1) );
 #else
     } else if ( stuff.from!=e_ucs4 && stuff.to!=e_ucs4 ) {
-#ifdef LUA_FF_LIB
-          LUAUI_LogError("Bad call to gww_iconv_open, neither arg is UCS4 (%s->%s)", fromenc, toenc);
-#else
-       fprintf( stderr, "Bad call to gww_iconv_open, neither arg is UCS4\n" );
-#endif
+	fprintf( stderr, "Bad call to gww_iconv_open, neither arg is UCS4\n" );
 return( (iconv_t)(-1) );
 #endif
     }
