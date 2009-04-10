@@ -4,16 +4,16 @@ shift
 cd /opt/tex/luatex/tags
 if  test -d $a ; then
   find $a -name \*~ -exec rm \{\} \;
-  rm -rf $a/build $a/build-windows $a/linux $a/windows
+  rm -rf $a/build $a/build-windows
   ln -s $a luatex-$a
   tar cvj --exclude=.svn -f ../../luatex-$a.tar.bz2 luatex-$a/*
   cd luatex-$a
-  ./build.sh.linux "$@"
-  ./build.sh.cross "$@"
-  zip -j ../../../luatex-$a-win32-mingw.zip windows/texk/web2c/luatex.exe
-  cd linux/texk/web2c
+  ./build.sh "$@"
+  ./build.sh --mingw "$@"
+  zip -j ../../../luatex-$a-win32-mingw.zip build-windows/texk/web2c/luatex.exe
+  cd build/texk/web2c
   tar cjvf ../../../../../../luatex-$a-linux2.6-i386.tar.bz2 luatex
   cd ../../../..
-  rm -rf $a/build $a/build-windows $a/linux $a/windows
+  rm -rf $a/build $a/build-windows
   rm luatex-$a
 fi
