@@ -1,0 +1,37 @@
+## texk/web2c/mplibdir/am/mplib.am: Makefile fragment for MetaPost.
+
+## MetaPost
+##
+if MP
+bin_PROGRAMS += mpost
+endif MP
+EXTRA_PROGRAMS += mpost
+
+mp_ctangle = CWEBINPUTS=$(srcdir)/mplibdir $(ctangle)
+
+mpost_CPPFLAGS = -I$(srcdir)/mplibdir
+mpost_DEPENDENCIES = libmplib.a
+mpost_LDADD = libmplib.a $(KPATHSEA_LIBS) -lm
+
+## MetaPost C sources
+nodist_mpost_SOURCES = mpost.c $(mpxout_c_h)
+mpxout_c_h = mpxout.c mpxout.h
+
+mpost.c: ctangle$(EXEEXT) mplibdir/mpost.w
+	$(mp_ctangle) mpost.w
+
+$(mpxout_c_h): mpxout-ctangle
+mpxout-ctangle: ctangle$(EXEEXT) mplibdir/mpxout.w
+	$(mp_ctangle) mpxout.w
+	echo timestamp >$@
+	touch $(mpxout_c_h)
+
+## MetaPost CWeb sources
+mpost_web = mplibdir/mpost.w mplibdir/mpxout.w
+
+$(mpost_OBJECTS): $(nodist_mpost_SOURCES) libmplib.a
+
+EXTRA_DIST += $(mpost_web)
+
+DISTCLEANFILES += $(nodist_mpost_SOURCES) mpxout-ctangle
+
