@@ -53,8 +53,6 @@ extern double rint(double x);
 #  include "image/writejbig2.h"
 #  include "image/pdftoepdf.h"
 
-#  include "ocp/readocp.h"
-
 /**********************************************************************/
 
 typedef short shalfword;

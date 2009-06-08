@@ -1653,7 +1653,7 @@ print(" (format="); print(job_name); print_char(" ");
 @x
 @p begin @!{|start_here|}
 @y
-@d const_chk(#)==begin if # < inf@&_@&# then # := inf@&_@&# else
+@d const_chk(#)==begin if # < inf_@&# then # := inf_@&# else
                          if # > sup_@&# then # := sup_@&# end
 
 {|setup_bound_var| stuff duplicated in \.{mf.ch}.}
@@ -2035,7 +2035,7 @@ stop_at_space:=true;
 @ These are used when we regenerate the representation of the first 256
 strings.
 
-@<Global...@>=
+@<Global...@> =
 @!save_str_ptr: str_number;
 @!save_pool_ptr: pool_pointer;
 @!shellenabledp: cinttype;
@@ -2067,7 +2067,7 @@ end;
 
 @ Are we printing extra info as we read the format file?
 
-@<Glob...@>=
+@<Glob...@> =
 @!debug_format_file: boolean;
 
 
