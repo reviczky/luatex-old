@@ -262,15 +262,6 @@
 @define function read_ocp_file();
 @define function read_data_file();
 
-@define function read_ocp_info();
-@define procedure init_null_ocp();
-@define function ocp_name();
-@define function ocp_area();
-@define function ocp_external();
-@define function ocp_external_arg();
-@define function ocp_state_base();
-@define function ocp_table_base();
-
 @define var ocp_tables;
 
 @define procedure allocate_ocp_table ();
@@ -423,7 +414,7 @@
 @define procedure set_char_tag();
 @define function char_remainder();
 
-@define function get_charinfo_short();
+@define function char_info_short();
 
 @define function has_packet();
 @define procedure do_vf_packet();
@@ -907,14 +898,3 @@
 @define function id_lookup();
 
 @define procedure tex_def_font();
-
-{ alignments }
-
-@define procedure initialize_alignments;
-@define procedure init_align;
-@define procedure align_peek;
-@define function fin_col;
-@define procedure fin_row;
-@define const span_code;
-@define const cr_code;
-@define const cr_cr_code;
