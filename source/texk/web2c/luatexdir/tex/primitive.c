@@ -39,6 +39,7 @@ static const char _svn_version[] =
 #define hash_is_full (hash_used==hash_base)     /* test if all positions are occupied */
 #define hash_size 65536
 
+#define span_code 1114113
 #define unless_code 32          /* amount added for `\.{\\unless}' prefix */
 #define protected_token 0x1C00001       /* $2^{21}\cdot|end_match|+1$ */
 #define offset_ocp_name 1
@@ -413,16 +414,6 @@ pointer id_lookup(integer j, integer l)
     pointer p;                  /* index in |hash| array */
 
     h = compute_hash((char *) (buffer + j), l, hash_prime);
-#ifdef VERBOSE
-    {
-        unsigned char *todo = xmalloc(l+2);
-        strncpy(todo,(buffer + j), l);
-        todo[l]='\0';
-        todo[l+1]='\0';
-        fprintf(stdout,"id_lookup(%s)\n",todo);
-        free(todo);
-    }
-#endif
     p = h + hash_base;          /* we start searching here; note that |0<=h<hash_prime| */
     while (1) {
         if (text(p) > 0)

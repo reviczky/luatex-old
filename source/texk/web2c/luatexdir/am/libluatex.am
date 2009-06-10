@@ -93,16 +93,12 @@ libluatex_a_SOURCES = \
 	luatexdir/managed-sa.h \
 	luatexdir/mathcodes.c \
 	luatexdir/nodes.h \
-	luatexdir/ocp/readocp.c \
-	luatexdir/ocp/readocp.h \
 	luatexdir/pdf/pagetree.c \
 	luatexdir/pdf/pagetree.h \
 	luatexdir/pdf/pdfpage.c \
 	luatexdir/pdf/pdfpage.h \
 	luatexdir/primitive.h \
 	luatexdir/ptexmac.h \
-	luatexdir/tex/align.c \
-	luatexdir/tex/align.h \
 	luatexdir/tex/filename.c \
 	luatexdir/tex/linebreak.c \
 	luatexdir/tex/math.c \
