@@ -30,14 +30,20 @@ static const char _svn_version[] =
 /* as usual, the file starts with a bunch of #defines that mimic pascal @ds */
 
 #define level_one 1
+#define flush_string() do { decr(str_ptr); pool_ptr=str_start_macro(str_ptr); } while (0)
+#define cur_length (pool_ptr - str_start_macro(str_ptr))
+#define append_char(a) str_pool[pool_ptr++]=(a)
 
 #define next(a) hash[(a)].lhfield       /* link for coalesced lists */
 #define text(a) hash[(a)].rh    /* string number for control sequence name */
 #define hash_is_full (hash_used==hash_base)     /* test if all positions are occupied */
 #define hash_size 65536
 
+#define span_code 1114113
 #define unless_code 32          /* amount added for `\.{\\unless}' prefix */
 #define protected_token 0x1C00001       /* $2^{21}\cdot|end_match|+1$ */
+#define offset_ocp_name 1
+#define ocp_name(A) ocp_tables[(A)][offset_ocp_name]
 
 #define skip_base      get_skip_base()
 #define mu_skip_base   get_mu_skip_base()
@@ -132,7 +138,7 @@ pointer prim_lookup(str_number s)
     integer h;                  /* hash code */
     pointer p;                  /* index in |hash| array */
     pool_pointer j, l;
-    if (s < STRING_OFFSET) {
+    if (s < string_offset) {
         p = s;
         if ((p < 0) || (get_prim_eq_type(p) == undefined_cs_cmd)) {
             p = undefined_primitive;
@@ -142,12 +148,12 @@ pointer prim_lookup(str_number s)
         if (s == str_ptr)
             l = cur_length;
         else
-            l = str_length(s);
+            l = length(s);
         h = compute_hash((char *) (str_pool + j), l, prim_prime);
         p = h + prim_base;      /* we start searching here; note that |0<=h<hash_prime| */
         while (1) {
             if (prim_text(p) > 0)
-                if (str_length(prim_text(p)) == l)
+                if (length(prim_text(p)) == l)
                     if (str_eq_str(prim_text(p), s))
                         goto FOUND;
             if (prim_next(p) == 0) {
@@ -181,7 +187,7 @@ boolean is_primitive(str_number csname)
 {
     integer n, m;
     m = prim_lookup(csname);
-    n = string_lookup(makecstring(csname), str_length(csname));
+    n = string_lookup(makecstring(csname), length(csname));
     return ((n != undefined_cs_cmd) &&
             (m != undefined_primitive) &&
             (eq_type(n) == prim_eq_type(m)) && (equiv(n) == prim_equiv(m)));
@@ -327,7 +333,7 @@ primitive(str_number ss, quarterword c, halfword o, halfword off,
     integer prim_val;           /* needed to fill |prim_eqtb| */
     char *thes;
     assert(o >= off);
-    if (ss < STRING_OFFSET) {
+    if (ss < string_offset) {
         if (ss > 127)
             tconfusion("prim"); /* should be ASCII */
         append_char(ss);
@@ -408,20 +414,10 @@ pointer id_lookup(integer j, integer l)
     pointer p;                  /* index in |hash| array */
 
     h = compute_hash((char *) (buffer + j), l, hash_prime);
-#ifdef VERBOSE
-    {
-        unsigned char *todo = xmalloc(l + 2);
-        strncpy(todo, (buffer + j), l);
-        todo[l] = '\0';
-        todo[l + 1] = '\0';
-        fprintf(stdout, "id_lookup(%s)\n", todo);
-        free(todo);
-    }
-#endif
     p = h + hash_base;          /* we start searching here; note that |0<=h<hash_prime| */
     while (1) {
         if (text(p) > 0)
-            if (str_length(text(p)) == l)
+            if (length(text(p)) == l)
                 if (str_eq_buf(text(p), j))
                     goto FOUND;
         if (next(p) == 0) {

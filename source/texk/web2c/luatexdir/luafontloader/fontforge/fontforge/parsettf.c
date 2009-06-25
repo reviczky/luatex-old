@@ -38,9 +38,6 @@ SplineFont *_SFReadTTFInfo(FILE *ttf, int flags,enum openflags openflags, char *
 void THPatchSplineChar(SplineChar *sc);
 #endif
 
-int THtest_duplicate_glyph_names = 0;
-int THread_ttf_glyph_data  = 0;
-
 char *SaveTablesPref;
 int ask_user_for_cmap = false;
 
@@ -2188,23 +2185,26 @@ return( sc );
     sc->xmax = getushort(ttf);
     sc->ymax = getushort(ttf);
     sc->lsidebearing = sc->xmin;
+#else
+    /* xmin = */ sc->lsidebearing = getushort(ttf);
+    /* ymin = */ getushort(ttf);
+    /* xmax = */ getushort(ttf);
+    /* ymax = */ /* sc->lsidebearing = */ getushort(ttf);	/* what was this for? */
 #endif
-    if (THread_ttf_glyph_data) {
-      if ( path_cnt>=0 )
+    if ( path_cnt>=0 )
 	readttfsimpleglyph(ttf,info,sc,path_cnt);
-      else
+    else
 	readttfcompositglyph(ttf,info,sc,info->glyph_start+end);
-      if ( start>end ) {
+    if ( start>end ) {
 	LogError(_("Bad glyph (%d), disordered 'loca' table (start comes after end)\n"), gid );
 	info->bad_glyph_data = true;
-      } else if ( ftell(ttf)>info->glyph_start+end ) {
+    } else if ( ftell(ttf)>info->glyph_start+end ) {
 	LogError(_("Bad glyph (%d), its definition extends beyond the space allowed for it\n"), gid );
 	info->bad_glyph_data = true;
-      }
-      
-      /* find the bb */
-      THPatchSplineChar(sc);
     }
+
+    /* find the bb */
+    THPatchSplineChar(sc);
     
 return( sc );
 }
@@ -4129,7 +4129,6 @@ static int umodenc(int enc,int modtype, struct ttfinfo *info) {
 return( -1 );
     if ( modtype<=1 /* Unicode */ ) {
 	/* No conversion needed, already unicode */;
-#ifdef FROM_CJK_ICONV
     } else if ( modtype==2 /* SJIS */ ) {
 	if ( enc<=127 ) {
 	    /* Latin */
@@ -4187,10 +4186,6 @@ return( -1 );
 	    enc = unicode_from_johab[enc-0x8400];
 	else if ( enc>0x100 )
 	    enc = badencoding(info);
-#else
-    } else {
-	    enc = badencoding(info);
-#endif
     }
     if ( enc==0 )
 	enc = -1;
@@ -5216,7 +5211,7 @@ static void readttfpostnames(FILE *ttf,struct ttfinfo *info) {
 	    name = NULL;
 	} else {
 	    name = StdGlyphName(buffer,info->chars[i]->unicodeenc,info->uni_interp,NULL);
-	    if (THtest_duplicate_glyph_names && anynames ) {
+	    if ( anynames ) {
 		for ( j=0; j<info->glyph_cnt; ++j ) {
 		    if ( info->chars[j]!=NULL && j!=i && info->chars[j]->name!=NULL ) {
 			if ( strcmp(info->chars[j]->name,name)==0 ) {

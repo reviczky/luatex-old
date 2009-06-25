@@ -34,10 +34,17 @@ extern char *utf8_idpb(char *w, unsigned int i);
 #define wake_up_terminal() ;
 #define clear_terminal() ;
 
+#define cur_length (pool_ptr - str_start_macro(str_ptr))
+
 #define batch_mode 0            /* omits all stops and omits terminal output */
 #define nonstop_mode 1          /* omits all stops */
 #define scroll_mode 2           /* omits error stops */
 #define error_stop_mode 3       /* stops at every opportunity to interact */
+#define biggest_char 1114111
+
+/* put |ASCII_code| \# at the end of |str_pool| */
+#define append_char(A) str_pool[pool_ptr++]=(A)
+#define str_room(A) check_pool_overflow((pool_ptr+(A)))
 
 /*
   In order to isolate the system-dependent aspects of file names, the
@@ -109,7 +116,7 @@ static boolean more_name(ASCII_code c)
 
 static void end_name(void)
 {
-    if (str_ptr + 3 > (max_strings + STRING_OFFSET))
+    if (str_ptr + 3 > (max_strings + string_offset))
         overflow_string("number of strings", max_strings - init_str_ptr);
     /* @:TeX capacity exceeded number of strings}{\quad number of strings@> */
 
@@ -155,7 +162,7 @@ void scan_file_name(void)
         /* If |cur_chr| is a space and we're not scanning a token list, check
            whether we're at the end of the buffer. Otherwise we end up adding
            spurious spaces to file names in some cases. */
-        if ((cur_chr == ' ') && (istate != token_list) && (iloc > ilimit)
+        if ((cur_chr == ' ') && (state != token_list) && (loc > limit)
             && !quoted_filename)
             break;
         if (cur_chr > 127) {
@@ -253,7 +260,7 @@ void prompt_file_name(char *s, char *e)
     end_name();
     if (cur_ext == get_nullstr())
         cur_ext = maketexstring(e);
-    if (str_length(cur_name) == 0)
+    if (length(cur_name) == 0)
         cur_name = saved_cur_name;
     pack_cur_name();
 }

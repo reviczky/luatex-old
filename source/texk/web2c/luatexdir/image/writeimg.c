@@ -32,10 +32,6 @@
 #include <../lua51/lua.h>
 #include <../lua51/lauxlib.h>
 
-#include "commands.h"
-
-#define pdf_image_resolution int_par(param_pdf_image_resolution_code)
-
 static const char _svn_version[] =
     "$Id$ "
     "$URL$";
@@ -301,9 +297,14 @@ void free_image_dict(image_dict * p)
 
 /**********************************************************************/
 
-void read_img(PDF pdf, 
-              image_dict * idict, integer minor_version,
-              integer inclusion_errorlevel)
+void pdf_print_resname_prefix()
+{
+    if (pdf_resname_prefix != 0)
+        pdf_printf(makecstring(pdf_resname_prefix));
+}
+
+void read_img(image_dict * idict, integer pdf_minor_version,
+              integer pdf_inclusion_errorlevel)
 {
     char *filepath;
     int callback_id;
@@ -330,21 +331,20 @@ void read_img(PDF pdf,
     /* read image */
     switch (img_type(idict)) {
     case IMG_TYPE_PDF:
-        assert(pdf!=NULL); /* TODO! */
-        read_pdf_info(pdf, idict, minor_version, inclusion_errorlevel);
+        read_pdf_info(idict, pdf_minor_version, pdf_inclusion_errorlevel);
         img_group_ref(idict) = epdf_lastGroupObjectNum;
         break;
     case IMG_TYPE_PNG:
-        read_png_info(pdf, idict, IMG_CLOSEINBETWEEN);
+        read_png_info(idict, IMG_CLOSEINBETWEEN);
         break;
     case IMG_TYPE_JPG:
-        read_jpg_info(pdf, idict, IMG_CLOSEINBETWEEN);
+        read_jpg_info(idict, IMG_CLOSEINBETWEEN);
         break;
     case IMG_TYPE_JBIG2:
-        if (minor_version < 4) {
+        if (pdf_minor_version < 4) {
             pdftex_fail
                 ("JBIG2 images only possible with at least PDF 1.4; you are generating PDF 1.%i",
-                 (int) minor_version);
+                 (int) pdf_minor_version);
         }
         read_jbig2_info(idict);
         break;
@@ -402,7 +402,7 @@ void scale_img(image * img)
         w = x;
         h = y;
     } else {
-        default_res = fix_int(pdf_image_resolution, 0, 65535);
+        default_res = fix_int(get_pdf_image_resolution(), 0, 65535);
         if (default_res > 0 && (xr == 0 || yr == 0)) {
             xr = default_res;
             yr = default_res;
@@ -457,7 +457,7 @@ void scale_img(image * img)
     img_set_scaled(img);
 }
 
-void out_img(PDF pdf, image * img, pdfstructure * p, scaledpos * pos)
+void out_img(image * img, pdfstructure * p, scaledpos * pos)
 {
     float a[6];                 /* transformation matrix */
     float xoff, yoff, tmp;
@@ -563,20 +563,20 @@ void out_img(PDF pdf, image * img, pdfstructure * p, scaledpos * pos)
     (void) calc_pdfpos(p, &tmppos);
     cm[4] = p->cm[4];
     cm[5] = p->cm[5];
-    pdf_goto_pagemode(pdf);
+    pdf_goto_pagemode();
     if (pdf_page_group_val < 1)
         pdf_page_group_val = img_group_ref(idict);      /* added from web for 1.40.8 */
-    pdf_printf(pdf,"q\n");
-    pdf_print_cm(pdf, cm);
-    pdf_printf(pdf,"/Im");
-    pdf_print_int(pdf, img_index(idict));
-    pdf_print_resname_prefix(pdf);
-    pdf_printf(pdf," Do\nQ\n");
+    pdf_printf("q\n");
+    pdf_print_cm(cm);
+    pdf_printf("/Im");
+    pdf_print_int(img_index(idict));
+    pdf_print_resname_prefix();
+    pdf_printf(" Do\nQ\n");
     if (img_state(idict) < DICT_OUTIMG)
         img_state(idict) = DICT_OUTIMG;
 }
 
-void write_img(PDF pdf, image_dict * idict)
+void write_img(image_dict * idict)
 {
     assert(idict != NULL);
     if (img_state(idict) < DICT_WRITTEN) {
@@ -584,20 +584,20 @@ void write_img(PDF pdf, image_dict * idict)
             tex_printf(" <%s", img_filepath(idict));
         switch (img_type(idict)) {
         case IMG_TYPE_PNG:
-            write_png(pdf,idict);
+            write_png(idict);
             break;
         case IMG_TYPE_JPG:
-            write_jpg(pdf,idict);
+            write_jpg(idict);
             break;
         case IMG_TYPE_JBIG2:
-            write_jbig2(pdf,idict);
+            write_jbig2(idict);
             break;
         case IMG_TYPE_PDF:
-            write_epdf(pdf, idict);
+            write_epdf(idict);
             epdf_lastGroupObjectNum = img_group_ref(idict);
             break;
         case IMG_TYPE_PDFSTREAM:
-            write_pdfstream(pdf, idict);
+            write_pdfstream(idict);
             break;
         default:
             pdftex_fail("internal error: unknown image type (1)");
@@ -605,10 +605,10 @@ void write_img(PDF pdf, image_dict * idict)
         if (tracefilenames)
             tex_printf(">");
         if (img_type(idict) == IMG_TYPE_PDF) {
-            write_additional_epdf_objects(pdf);
+            write_additional_epdf_objects();
         } else {
             if (img_type(idict) == IMG_TYPE_PNG) {
-                write_additional_png_objects(pdf);
+                write_additional_png_objects();
             }
         }
     }
@@ -626,23 +626,23 @@ void check_pdfstream_dict(image_dict * idict)
         img_state(idict) = DICT_FILESCANNED;
 }
 
-void write_pdfstream(PDF pdf, image_dict * idict)
+void write_pdfstream(image_dict * idict)
 {
     char s[256];
     assert(img_pdfstream_ptr(idict) != NULL);
     assert(img_is_bbox(idict));
-    pdf_puts(pdf,"/Type /XObject\n/Subtype /Form\n");
+    pdf_puts("/Type /XObject\n/Subtype /Form\n");
     if (img_attr(idict) != NULL && strlen(img_attr(idict)) > 0)
-        pdf_printf(pdf,"%s\n", img_attr(idict));
-    pdf_puts(pdf,"/FormType 1\n");
+        pdf_printf("%s\n", img_attr(idict));
+    pdf_puts("/FormType 1\n");
     sprintf(s, "/BBox [%.8f %.8f %.8f %.8f]\n", int2bp(img_bbox(idict)[0]),
             int2bp(img_bbox(idict)[1]), int2bp(img_bbox(idict)[2]),
             int2bp(img_bbox(idict)[3]));
-    pdf_printf(pdf,stripzeros(s));
-    pdf_begin_stream(pdf);
+    pdf_printf(stripzeros(s));
+    pdf_begin_stream();
     if (img_pdfstream_stream(idict) != NULL)
-        pdf_puts(pdf, img_pdfstream_stream(idict));
-    pdf_end_stream(pdf);
+        pdf_puts(img_pdfstream_stream(idict));
+    pdf_end_stream();
 }
 
 /**********************************************************************/
@@ -751,13 +751,12 @@ void dumpimagemeta(void)
     }
 }
 
-void undumpimagemeta(PDF pdf, integer pdfversion, integer pdfinclusionerrorlevel)
+void undumpimagemeta(integer pdfversion, integer pdfinclusionerrorlevel)
 {
     int cur_image, i;
     image *img;
     image_dict *idict;
 
-    assert (pdf!=NULL);
     undumpinteger(img_limit);
 
     img_array = xtalloc(img_limit, img_entry);
@@ -801,18 +800,17 @@ void undumpimagemeta(PDF pdf, integer pdfversion, integer pdfinclusionerrorlevel
         default:
             pdftex_fail("unknown type of image");
         }
-        read_img(pdf, idict, pdfversion, pdfinclusionerrorlevel);
+        read_img(idict, pdfversion, pdfinclusionerrorlevel);
     }
 }
 
 /**********************************************************************/
 /* stuff to be accessible from TeX */
 
-integer read_image(PDF pdf,
-                   integer objnum, integer index, char *filename,
-                   integer page_num, char *page_name, char *attr,
+integer read_image(integer objnum, integer index, str_number filename,
+                   integer page_num, str_number page_name, str_number attr,
                    integer colorspace, integer page_box,
-                   integer minor_version, integer inclusion_errorlevel)
+                   integer pdf_minor_version, integer pdf_inclusion_errorlevel)
 {
     image_dict *idict;
     image *a = new_image();
@@ -827,14 +825,14 @@ integer read_image(PDF pdf,
     img_pagenum(idict) = page_num;
     /* img_totalpages set by read_img() */
     if (page_name != 0)
-        img_pagename(idict) = xstrdup(page_name);
-    cur_file_name = filename;
+        img_pagename(idict) = xstrdup(makecstring(page_name));
+    cur_file_name = makecfilename(filename);
     assert(cur_file_name != NULL);
-    img_filename(idict) = xstrdup(filename);
+    img_filename(idict) = xstrdup(cur_file_name);
     if (attr != 0)
-        img_attr(idict) = xstrdup(attr);
+        img_attr(idict) = xstrdup(makecstring(attr));
     img_pagebox(idict) = page_box;
-    read_img(pdf, idict, minor_version, inclusion_errorlevel);
+    read_img(idict, pdf_minor_version, pdf_inclusion_errorlevel);
     img_unset_scaled(a);
     return img_arrayidx(a);
 }
@@ -852,18 +850,18 @@ void scale_image(integer ref)
     scale_img(img_array[ref]);
 }
 
-void out_image(PDF pdf, integer ref, scaled hpos, scaled vpos)
+void out_image(integer ref, scaled hpos, scaled vpos)
 {
     image *a = img_array[ref];
     scaledpos pos;
     pos.h = hpos;
     pos.v = vpos;
-    out_img(pdf, a, pstruct, &pos);
+    out_img(a, pstruct, &pos);
 }
 
-void write_image(PDF pdf, integer ref)
+void write_image(integer ref)
 {
-    write_img(pdf, img_dict(img_array[ref]));
+    write_img(img_dict(img_array[ref]));
 }
 
 integer image_pages(integer ref)

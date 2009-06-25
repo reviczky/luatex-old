@@ -30,7 +30,35 @@
 static const char _svn_version[] =
     "$Id$ $URL$";
 
+#define append_char(A) str_pool[pool_ptr++]=(A)
+#define cur_length (pool_ptr - str_start_macro(str_ptr))
+#define flush_char() pool_ptr--
+
+#define stretching 1
+#define shrinking 2
+
 #define adjust_pre subtype
+
+typedef enum {
+    pdf_dest_xyz = 0,
+    pdf_dest_fit,
+    pdf_dest_fith,
+    pdf_dest_fitv,
+    pdf_dest_fitb,
+    pdf_dest_fitbh,
+    pdf_dest_fitbv,
+    pdf_dest_fitr,
+} pdf_destination_types;
+
+
+#define obj_obj_data(A)         pdf_mem[obj_data_ptr((A)) + 0]
+#define obj_obj_is_stream(A)    pdf_mem[obj_data_ptr((A)) + 1]
+#define obj_obj_stream_attr(A)  pdf_mem[obj_data_ptr((A)) + 2]
+#define obj_obj_is_file(A)      pdf_mem[obj_data_ptr((A)) + 3]
+#define obj_xform_width(A)      pdf_mem[obj_data_ptr((A)) + 0]
+#define obj_xform_height(A)     pdf_mem[obj_data_ptr((A)) + 1]
+#define obj_xform_depth(A)      pdf_mem[obj_data_ptr((A)) + 2]
+
 
 #define MAX_CHAIN_SIZE 13
 

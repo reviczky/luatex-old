@@ -41,7 +41,17 @@ static const char _svn_version[] =
 #define space_factor  aux.hh.lhfield
 #define incompleat_noad aux.cint
 
+#define stretching 1
+#define shrinking 2
+
+#define append_char(A) str_pool[pool_ptr++]=(A)
+#define flush_char pool_ptr--   /* forget the last character in the pool */
+#define cur_length (pool_ptr - str_start_macro(str_ptr))
 #define saved(A) save_stack[save_ptr+(A)].cint
+
+#define vmode 1
+#define hmode (vmode+max_command_cmd+1)
+#define mmode (hmode+max_command_cmd+1)
 
 #define cur_fam int_par(param_cur_fam_code)
 #define text_direction zeqtb[static_int_base + param_text_direction_code].cint
@@ -481,16 +491,16 @@ const char *math_param_names[] = {
     "relopenspacing", "relclosespacing", "relpunctspacing", "relinnerspacing",
     "openordspacing", "openopspacing", "openbinspacing", "openrelspacing",
     "openopenspacing", "openclosespacing", "openpunctspacing",
-    "openinnerspacing",
+        "openinnerspacing",
     "closeordspacing", "closeopspacing", "closebinspacing", "closerelspacing",
     "closeopenspacing", "closeclosespacing", "closepunctspacing",
-    "closeinnerspacing",
+        "closeinnerspacing",
     "punctordspacing", "punctopspacing", "punctbinspacing", "punctrelspacing",
     "punctopenspacing", "punctclosespacing", "punctpunctspacing",
-    "punctinnerspacing",
+        "punctinnerspacing",
     "innerordspacing", "inneropspacing", "innerbinspacing", "innerrelspacing",
     "inneropenspacing", "innerclosespacing", "innerpunctspacing",
-    "innerinnerspacing",
+        "innerinnerspacing",
     NULL
 };
 
@@ -543,16 +553,16 @@ void show_math_node(pointer p)
         tprint_esc("mathchoice");
         append_char('D');
         show_node_list(display_mlist(p));
-        flush_char();
+        flush_char;
         append_char('T');
         show_node_list(text_mlist(p));
-        flush_char();
+        flush_char;
         append_char('S');
         show_node_list(script_mlist(p));
-        flush_char();
+        flush_char;
         append_char('s');
         show_node_list(script_script_mlist(p));
-        flush_char();
+        flush_char;
         break;
     case simple_noad:
     case radical_noad:
@@ -645,7 +655,7 @@ void print_subsidiary_data(pointer p, ASCII_code c)
                 break;
             }
         }
-        flush_char();             /* remove |c| from the recursion history */
+        flush_char;             /* remove |c| from the recursion history */
     }
 }
 

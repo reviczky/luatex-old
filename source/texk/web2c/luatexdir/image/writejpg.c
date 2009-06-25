@@ -115,7 +115,7 @@ static void close_and_cleanup_jpg(image_dict * idict)
     img_jpg_ptr(idict) = NULL;
 }
 
-void read_jpg_info(PDF pdf, image_dict * idict, img_readtype_e readtype)
+void read_jpg_info(image_dict * idict, img_readtype_e readtype)
 {
     int i, units = 0;
     unsigned char jpg_id[] = "JFIF";
@@ -176,7 +176,7 @@ void read_jpg_info(PDF pdf, image_dict * idict, img_readtype_e readtype)
         case M_SOF15:
             pdftex_fail("unsupported type of compression");
         case M_SOF2:
-            if (pdf->minor_version <= 2)
+            if (fixed_pdf_minor_version <= 2)
                 pdftex_fail("cannot use progressive DCT with PDF-1.2");
         case M_SOF0:
         case M_SOF1:
@@ -225,56 +225,56 @@ void read_jpg_info(PDF pdf, image_dict * idict, img_readtype_e readtype)
     assert(0);
 }
 
-static void reopen_jpg(PDF pdf, image_dict * idict)
+static void reopen_jpg(image_dict * idict)
 {
     integer width, height, xres, yres;
     width = img_xsize(idict);
     height = img_ysize(idict);
     xres = img_xres(idict);
     yres = img_yres(idict);
-    read_jpg_info(pdf, idict, IMG_KEEPOPEN);
+    read_jpg_info(idict, IMG_KEEPOPEN);
     if (width != img_xsize(idict) || height != img_ysize(idict)
         || xres != img_xres(idict) || yres != img_yres(idict))
         pdftex_fail("writejpg: image dimensions have changed");
 }
 
-void write_jpg(PDF pdf, image_dict * idict)
+void write_jpg(image_dict * idict)
 {
     long unsigned l;
     FILE *f;
     assert(idict != NULL);
     if (img_file(idict) == NULL)
-        reopen_jpg(pdf, idict);
+        reopen_jpg(idict);
     assert(img_jpg_ptr(idict) != NULL);
-    pdf_puts(pdf,"/Type /XObject\n/Subtype /Image\n");
+    pdf_puts("/Type /XObject\n/Subtype /Image\n");
     if (img_attr(idict) != NULL && strlen(img_attr(idict)) > 0)
-        pdf_printf(pdf,"%s\n", img_attr(idict));
-    pdf_printf(pdf,"/Width %i\n/Height %i\n/BitsPerComponent %i\n/Length %i\n",
+        pdf_printf("%s\n", img_attr(idict));
+    pdf_printf("/Width %i\n/Height %i\n/BitsPerComponent %i\n/Length %i\n",
                (int) img_xsize(idict),
                (int) img_ysize(idict),
                (int) img_colordepth(idict), (int) img_jpg_ptr(idict)->length);
-    pdf_puts(pdf,"/ColorSpace ");
+    pdf_puts("/ColorSpace ");
     if (img_colorspace(idict) != 0) {
-        pdf_printf(pdf,"%i 0 R\n", (int) img_colorspace(idict));
+        pdf_printf("%i 0 R\n", (int) img_colorspace(idict));
     } else {
         switch (img_jpg_color(idict)) {
         case JPG_GRAY:
-            pdf_puts(pdf,"/DeviceGray\n");
+            pdf_puts("/DeviceGray\n");
             break;
         case JPG_RGB:
-            pdf_puts(pdf,"/DeviceRGB\n");
+            pdf_puts("/DeviceRGB\n");
             break;
         case JPG_CMYK:
-            pdf_puts(pdf,"/DeviceCMYK\n/Decode [1 0 1 0 1 0 1 0]\n");
+            pdf_puts("/DeviceCMYK\n/Decode [1 0 1 0 1 0 1 0]\n");
             break;
         default:
             pdftex_fail("Unsupported color space %i",
                         (int) img_jpg_color(idict));
         }
     }
-    pdf_puts(pdf,"/Filter /DCTDecode\n>>\nstream\n");
+    pdf_puts("/Filter /DCTDecode\n>>\nstream\n");
     for (l = img_jpg_ptr(idict)->length, f = img_file(idict); l > 0; l--)
-        pdf_out(pdf,xgetc(f));
-    pdf_end_stream(pdf);
+        pdfout(xgetc(f));
+    pdf_end_stream();
     close_and_cleanup_jpg(idict);
 }

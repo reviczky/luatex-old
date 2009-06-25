@@ -46,10 +46,6 @@ extern "C" {
 #include "openbsd-compat.h"
 #include "image.h"
 #include "../utils/avlstuff.h"
-#include "../pdf/pdftypes.h"
-
-    extern void pdf_room(PDF, integer);
-#define pdf_out(B,A) do { pdf_room(B,1); B->buf[B->ptr++] = A; } while (0)
 
     extern void unrefPdfDocument(char *);
 
@@ -64,44 +60,48 @@ extern "C" {
     extern integer pdf_box_spec_art;
 
     extern longinteger pdf_stream_length;
+    extern longinteger pdf_ptr;
     extern integer pool_ptr;
     typedef unsigned char eight_bits;
+    extern eight_bits *pdf_buf;
+    extern integer pdf_buf_size;
     extern integer pdf_os_mode;
     extern eight_bits pdf_last_byte;
+    extern integer fixed_inclusion_copy_font;
 
     extern char notdef[];
+
+    extern integer fixed_replace_font;
 
     extern int is_subsetable(struct fm_entry *);
     extern struct fm_entry *lookup_fontmap(char *);
     extern integer get_fontfile(struct fm_entry *);
     extern integer get_fontname(struct fm_entry *);
     extern integer pdf_new_objnum(void);
-    extern void read_pdf_info(PDF, image_dict *, integer, integer);
+    extern void read_pdf_info(image_dict *, integer, integer);
     extern void embed_whole_font(struct fd_entry *);
     extern void epdf_check_mem(void);
     extern void epdf_free(void);
-    __attribute__ ((format(printf, 2, 3)))
-    extern void pdf_printf(PDF, const char *fmt, ...);
-    extern void pdf_puts(PDF, const char *);
-    extern void pdf_begin_stream(PDF);
-    extern void pdf_end_obj(PDF);
-    extern void pdf_end_stream(PDF);
-    extern void pdf_flush(PDF);
-
+    __attribute__ ((format(printf, 1, 2)))
+    extern void pdf_printf(const char *fmt, ...);
+    extern void pdf_puts(const char *);
+    extern void pdf_begin_stream(void);
+    extern void pdf_end_obj(void);
+    extern void pdf_end_stream(void);
+    extern void pdf_flush(void);
     __attribute__ ((noreturn, format(printf, 1, 2)))
     extern void pdftex_fail(const char *fmt, ...);
     __attribute__ ((format(printf, 1, 2)))
     extern void pdftex_warn(const char *fmt, ...);
     __attribute__ ((format(printf, 1, 2)))
     extern void tex_printf(const char *, ...);
-
-    extern void write_epdf(PDF, image_dict *);
-    extern void write_additional_epdf_objects(PDF);
-    extern void pdf_begin_dict(PDF, integer, bool);
-    extern void pdf_begin_obj(PDF, integer, bool);
-    extern void pdf_create_obj(integer, integer);
-    extern void pdf_new_dict(PDF, integer, integer, bool);
-    extern void pdf_os_get_os_buf(integer);
+    extern void write_epdf(image_dict *);
+    extern void write_additional_epdf_objects(void);
+    extern void zpdf_begin_dict(integer, bool);
+    extern void zpdf_begin_obj(integer, bool);
+    extern void zpdf_create_obj(integer, integer);
+    extern void zpdf_new_dict(integer, integer, bool);
+    extern void zpdf_os_get_os_buf(integer);
 
 /* epdf.c */
     extern void epdf_mark_glyphs(struct fd_entry *, char *);
@@ -110,7 +110,7 @@ extern "C" {
     extern int get_fn_objnum(struct fd_entry *);
 
 /* write_enc.c */
-    extern void epdf_write_enc(PDF, char **, integer);
+    extern void epdf_write_enc(char **, integer);
 
 /* utils.c */
     extern char *convertStringToPDFString(char *in, int len);

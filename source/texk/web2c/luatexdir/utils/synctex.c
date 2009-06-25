@@ -84,7 +84,6 @@ Version 1
 Tue Jul 1 15:23:00 UTC 2008
 
 */
-/* *INDENT-OFF* */
 
 #   define SYNCTEX_VERSION 1
 
@@ -1479,4 +1478,3 @@ void synctex_node_recorder(halfword p)
 #   else
 #       warning "SyncTeX is disabled"
 #   endif
-/* *INDENT-ON* */

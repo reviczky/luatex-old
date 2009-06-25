@@ -30,6 +30,15 @@ extern int readbinfile(FILE * f, unsigned char **b, integer * s);
 #define read_ocp_file  readbinfile
 #define read_data_file readbinfile
 
+extern int **ocp_tables;
+
+extern void allocate_ocp_table();
+extern void dump_ocp_table();
+extern void undump_ocp_table();
+
+extern void run_external_ocp();
+extern void b_test_in();
+
 /* Additions to texmfmp.h for pdfTeX */
 
 /* mark a char in font */
@@ -37,6 +46,11 @@ extern int readbinfile(FILE * f, unsigned char **b, integer * s);
 
 /* test whether a char in font is marked */
 #define pdf_char_marked char_used
+
+/* writepdf() always writes by fwrite() */
+#define       write_pdf(a, b) \
+  (void) fwrite ((char *) &pdf_buf[a], sizeof (pdf_buf[a]), \
+                 (int) ((b) - (a) + 1), pdf_file)
 
 #define tex_b_open_in(f) \
     open_input (&(f), kpse_tex_format, FOPEN_RBIN_MODE)

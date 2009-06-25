@@ -113,11 +113,6 @@ extern halfword do_set_attribute(halfword p, int i, int val);
 #  define shrink_order(a)   subtype((a)+3)
 #  define glue_ref_count(a) vlink((a)+3)
 
-#  define width_offset 2
-#  define depth_offset 3
-#  define height_offset 4
-#  define list_offset 6
-
 typedef enum {
     cond_math_glue = 98,        /* special |subtype| to suppress glue in the next node */
     mu_glue,                    /* |subtype| for math glue */
@@ -584,6 +579,10 @@ typedef enum {
 #  define local_par_dir(a)         vinfo((a)+5)
 
 
+#  define pdf_literal_data(a)  vlink((a)+2)
+#  define pdf_literal_mode(a)  type((a)+2)
+#  define pdf_literal_type(a)  subtype((a)+2)
+
 /* type of literal data */
 #  define lua_refid_literal      1      /* not a |normal| string */
 
@@ -593,7 +592,6 @@ typedef enum {
     set_origin = 0,
     direct_page,
     direct_always,
-    scan_special,
 } ctm_transform_modes;
 
 
@@ -607,28 +605,10 @@ typedef enum {
 #  define pdf_dest_node_size 8
 #  define pdf_thread_node_size 8
 
-/*
-when a whatsit node representing annotation is created, words |1..3| are
-width, height and depth of this annotation; after shipping out words |1..4|
-are rectangle specification of annotation. For whatsit node representing
-destination |pdf_ann_left| and |pdf_ann_top| are used for some types of destinations
-*/
-
-/* coordinates of destinations/threads/annotations (in whatsit node) */
-#  define pdf_ann_left(a)      varmem[(a) + 2].cint
-#  define pdf_ann_top(a)       varmem[(a) + 3].cint
-#  define pdf_ann_right(a)     varmem[(a) + 4].cint
-#  define pdf_ann_bottom(a)    varmem[(a) + 5].cint
-
 #  define pdf_width(a)         varmem[(a) + 2].cint
 #  define pdf_height(a)        varmem[(a) + 3].cint
 #  define pdf_depth(a)         varmem[(a) + 4].cint
 
-#  define pdf_literal_data(a)  vlink((a)+2)
-#  define pdf_literal_mode(a)  type((a)+2)
-#  define pdf_literal_type(a)  subtype((a)+2)
-
-#  define pdf_ximage_idx(a)    vinfo((a) + 5) /* image index in array */ /* replaces next? */
 #  define pdf_ximage_objnum(a) vinfo((a) + 5)   /* this will be removed soon */
 #  define pdf_ximage_ref(a)    vinfo((a) + 5)
 #  define pdf_xform_objnum(a)  vinfo((a) + 5)
@@ -790,12 +770,6 @@ typedef enum {
 #  define begin_point     end_span+span_node_size
 #  define end_point       begin_point+glyph_node_size
 #  define var_mem_stat_max (end_point+glyph_node_size-1)
-
-#define stretching 1
-#define shrinking 2
-
-#define is_running(A) ((A)==null_flag) /* tests for a running dimension */
-
 
 
 #endif

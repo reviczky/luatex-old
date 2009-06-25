@@ -185,10 +185,6 @@ typedef enum {
 #define last_cmd data_cmd
 } tex_command_code;
 
-#define vmode 1
-#define hmode (vmode+max_command_cmd+1)
-#define mmode (hmode+max_command_cmd+1)
-
 
 typedef enum {
     int_val_level = 0,          /* integer values */
@@ -413,10 +409,10 @@ typedef enum {
     param_pdf_image_resolution_code,    /* default image resolution */
     param_pdf_pk_resolution_code,       /* default resolution of PK font */
     param_pdf_unique_resname_code,      /* generate unique names for resouces */
-    obsolete_pdf_option_always_use_pdfpagebox_code,        /* if the PDF inclusion should always use a specific PDF page box */
-    obsolete_pdf_option_pdf_inclusion_errorlevel_code,     /* if the PDF inclusion should treat pdfs newer than |pdf_minor_version| as an error */
+    param_pdf_option_always_use_pdfpagebox_code,        /* if the PDF inclusion should always use a specific PDF page box */
+    param_pdf_option_pdf_inclusion_errorlevel_code,     /* if the PDF inclusion should treat pdfs newer than |pdf_minor_version| as an error */
     param_pdf_minor_version_code,       /* fractional part of the PDF version produced */
-    obsolete_pdf_force_pagebox_code,       /* if the PDF inclusion should always use a specific PDF page box */
+    param_pdf_force_pagebox_code,       /* if the PDF inclusion should always use a specific PDF page box */
     param_pdf_pagebox_code,     /* default pagebox to use for PDF inclusion */
     param_pdf_inclusion_errorlevel_code,        /* if the PDF inclusion should treat pdfs newer than |pdf_minor_version| as an error */
     param_pdf_gamma_code,
@@ -555,4 +551,4 @@ typedef enum {
     fin_row_group               /* box code for a provisory line in an alignment */
 } tex_group_codes;
 
-#define max_group_code local_box_group /* which is wrong, but is what the web says */
+#define max_group_code local_box_group

@@ -30,7 +30,7 @@ static const char __svn_version[] =
 
 #define lround(a) (long) floor((a) + 0.5)
 #define setpdffloat(a,b,c) {(a).m = (b); (a).e = (c);}
-#define pdf2double(a) ((double) (a).m / ten_pow[(a).e])
+#define pdf2double(a) ((double) (a).m / exp10_arr[(a).e])
 
 /* eternal constants */
 #define one_bp ((double) 65536 * (double) 72.27 / 72)   /* number of sp per 1bp */
@@ -41,6 +41,8 @@ static const char __svn_version[] =
 
 pdfstructure *pstruct = NULL;
 
+static long *exp10_arr = NULL;
+
 /**********************************************************************/
 
 static pdfstructure *new_pdfstructure()
@@ -50,23 +52,29 @@ static pdfstructure *new_pdfstructure()
 
 static void calc_k1(pdfstructure * p)
 {
-    p->k1 = ten_pow[p->pdf.h.e] / one_bp;
+    p->k1 = exp10_arr[p->pdf.h.e] / one_bp;
 }
 
 static void calc_k2(pdfstructure * p)
 {
     p->tm[0].m =
-        lround(pdf2double(p->hz) * pdf2double(p->ext) * ten_pow[p->tm[0].e]);
+        lround(pdf2double(p->hz) * pdf2double(p->ext) * exp10_arr[p->tm[0].e]);
     p->k2 =
-        ten_pow[e_tj +
-                p->cw.e] / (ten_pow[p->pdf.h.e] * pdf2double(p->fs) *
-                            pdf2double(p->tm[0]));
+        exp10_arr[e_tj +
+                  p->cw.e] / (exp10_arr[p->pdf.h.e] * pdf2double(p->fs) *
+                              pdf2double(p->tm[0]));
 }
 
-void pdf_page_init(PDF pdf)
+void pdf_page_init()
 {
     pdfstructure *p;
-    int decimal_digits = pdf->decimal_digits;
+    int i, decimal_digits = fixed_decimal_digits;
+    if (exp10_arr == NULL) {
+        exp10_arr = xmalloc(10 * sizeof(long));
+        exp10_arr[0] = 1;
+        for (i = 1; i < 10; i++)
+            exp10_arr[i] = 10 * exp10_arr[i - 1];
+    }
     if (pstruct == NULL)
         pstruct = new_pdfstructure();
     p = pstruct;
@@ -84,7 +92,7 @@ void pdf_page_init(PDF pdf)
     setpdffloat(p->cm[4], 0, decimal_digits);   /* horizontal movement on page */
     setpdffloat(p->cm[5], 0, decimal_digits);   /* vertical movement on page */
     /* for placement inside BT...ET */
-    setpdffloat(p->tm[0], ten_pow[6], 6);       /* mantissa holds HZ expand * ExtendFont */
+    setpdffloat(p->tm[0], exp10_arr[6], 6);     /* mantissa holds HZ expand * ExtendFont */
     setpdffloat(p->tm[1], 0, 0);
     setpdffloat(p->tm[2], 0, 3);        /* mantissa holds SlantFont, 0 = default */
     setpdffloat(p->tm[3], 1, 0);
@@ -172,7 +180,7 @@ boolean calc_pdfpos(pdfstructure * p, scaledpos * pos)
             new.h = lround((pos->h * p->k1 - p->pdf_tj_pos.h.m) * p->k2);
             new.v = lround(pos->v * p->k1);
             p->tj_delta.m =
-                -lround((new.h - p->cw.m) / ten_pow[p->cw.e - p->tj_delta.e]);
+                -lround((new.h - p->cw.m) / exp10_arr[p->cw.e - p->tj_delta.e]);
             p->tm[5].m = new.v - p->pdf_bt_pos.v.m;     /* p->tm[4] is meaningless */
             if (p->tj_delta.m != 0 || new.v != p->pdf.v.m)
                 move_pdfpos = TRUE;
@@ -182,7 +190,7 @@ boolean calc_pdfpos(pdfstructure * p, scaledpos * pos)
             new.v = lround((p->pdf_tj_pos.v.m - pos->v * p->k1) * p->k2);
             p->tm[4].m = new.h - p->pdf_bt_pos.h.m;     /* p->tm[5] is meaningless */
             p->tj_delta.m =
-                -lround((new.v - p->cw.m) / ten_pow[p->cw.e - p->tj_delta.e]);
+                -lround((new.v - p->cw.m) / exp10_arr[p->cw.e - p->tj_delta.e]);
             if (p->tj_delta.m != 0 || new.h != p->pdf.h.m)
                 move_pdfpos = TRUE;
             break;
@@ -198,80 +206,80 @@ boolean calc_pdfpos(pdfstructure * p, scaledpos * pos)
 
 /**********************************************************************/
 
-void print_pdffloat(PDF pdf, pdffloat * f)
+void print_pdffloat(pdffloat * f)
 {
     char a[24];
     int e = f->e, i, j;
     long l, m = f->m;
     if (m < 0) {
-        pdf_printf(pdf, "-");
+        pdf_printf("-");
         m *= -1;
     }
-    l = m / ten_pow[e];
-    pdf_print_int(pdf, l);
-    l = m % ten_pow[e];
+    l = m / exp10_arr[e];
+    pdf_print_int(l);
+    l = m % exp10_arr[e];
     if (l != 0) {
-        pdf_printf(pdf, ".");
-        j = snprintf(a, 23, "%ld", l + ten_pow[e]);
+        pdf_printf(".");
+        j = snprintf(a, 23, "%ld", l + exp10_arr[e]);
         assert(j < 23);
         for (i = e; i > 0; i--) {
             if (a[i] != '0')
                 break;
             a[i] = '\0';
         }
-        pdf_printf(pdf, "%s", a + 1);
+        pdf_printf("%s", a + 1);
     }
 }
 
-static void print_pdf_matrix(PDF pdf, pdffloat * tm)
+static void print_pdf_matrix(pdffloat * tm)
 {
     int i;
     for (i = 0; i < 5; i++) {
-        print_pdffloat(pdf, tm + i);
-        pdf_printf(pdf, " ");
+        print_pdffloat(tm + i);
+        pdf_printf(" ");
     }
-    print_pdffloat(pdf, tm + i);
+    print_pdffloat(tm + i);
 }
 
-void pdf_print_cm(PDF pdf, pdffloat * cm)
+void pdf_print_cm(pdffloat * cm)
 {
-    print_pdf_matrix(pdf, cm);
-    pdf_printf(pdf, " cm\n");
+    print_pdf_matrix(cm);
+    pdf_printf(" cm\n");
 }
 
-static void pdf_print_tm(PDF pdf, pdffloat * tm)
+static void pdf_print_tm(pdffloat * tm)
 {
-    print_pdf_matrix(pdf, tm);
-    pdf_printf(pdf, " Tm ");
+    print_pdf_matrix(tm);
+    pdf_printf(" Tm ");
 }
 
-static void set_pos(PDF pdf, pdfstructure * p, scaledpos * pos)
+static void set_pos(pdfstructure * p, scaledpos * pos)
 {
     boolean move;
     assert(is_pagemode(p));
     move = calc_pdfpos(p, pos);
     if (move == TRUE) {
-        pdf_print_cm(pdf, p->cm);
+        pdf_print_cm(p->cm);
         p->pdf.h.m += p->cm[4].m;
         p->pdf.v.m += p->cm[5].m;
     }
 }
 
-static void set_pos_temp(PDF pdf, pdfstructure * p, scaledpos * pos)
+static void set_pos_temp(pdfstructure * p, scaledpos * pos)
 {
     boolean move;
     assert(is_pagemode(p));
     move = calc_pdfpos(p, pos);
     if (move == TRUE)
-        pdf_print_cm(pdf, p->cm);
+        pdf_print_cm(p->cm);
 }
 
-void pdf_set_pos(PDF pdf, scaled h, scaled v)
+void pdf_set_pos(scaled h, scaled v)
 {
     scaledpos pos;
     pos.h = h;
     pos.v = v;
-    set_pos(pdf, pstruct, &pos);
+    set_pos(pstruct, &pos);
 }
 
 /**********************************************************************/
@@ -281,166 +289,165 @@ static long pdf_char_width(pdfstructure * p, internal_font_number f, int i)
     /* use exactly this formula also for calculating the /Width array values */
     return
         lround((double) char_width(f, i) / font_size(f) *
-               ten_pow[e_tj + p->cw.e]);
+               exp10_arr[e_tj + p->cw.e]);
 }
 
-void pdf_print_charwidth(PDF pdf, internal_font_number f, int i)
+void pdf_print_charwidth(internal_font_number f, int i)
 {
     pdffloat cw;
     assert(pdf_font_blink(f) == null_font);     /* must use unexpanded font! */
     cw.m = pdf_char_width(pstruct, f, i);
     cw.e = pstruct->cw.e;
-    print_pdffloat(pdf, &cw);
+    print_pdffloat(&cw);
 }
 
 /**********************************************************************/
 
-static void begin_text(PDF pdf, pdfstructure * p)
+static void begin_text(pdfstructure * p)
 {
     assert(is_pagemode(p));
     p->pdf_bt_pos = p->pdf;
-    pdf_printf(pdf, "BT\n");
+    pdf_printf("BT\n");
     p->mode = PMODE_TEXT;
 }
 
-static void end_text(PDF pdf, pdfstructure * p)
+static void end_text(pdfstructure * p)
 {
     assert(is_textmode(p));
-    pdf_printf(pdf, "ET\n");
+    pdf_printf("ET\n");
     p->pdf = p->pdf_bt_pos;
     p->mode = PMODE_PAGE;
 }
 
-static void begin_charmode(PDF pdf, pdfstructure * p)
+static void begin_charmode(pdfstructure * p)
 {
     assert(is_chararraymode(p));
-    pdf_printf(pdf, "(");
+    pdf_printf("(");
     p->mode = PMODE_CHAR;
 }
 
-static void end_charmode(PDF pdf, pdfstructure * p)
+static void end_charmode(pdfstructure * p)
 {
     assert(is_charmode(p));
-    pdf_printf(pdf, ")");
+    pdf_printf(")");
     p->mode = PMODE_CHARARRAY;
 }
 
-static void begin_chararray(PDF pdf, pdfstructure * p)
+static void begin_chararray(pdfstructure * p)
 {
     assert(is_textmode(p));
     p->pdf_tj_pos = p->pdf;
     p->cw.m = 0;
-    pdf_printf(pdf, "[");
+    pdf_printf("[");
     p->mode = PMODE_CHARARRAY;
 }
 
-static void end_chararray(PDF pdf, pdfstructure * p)
+static void end_chararray(pdfstructure * p)
 {
     assert(is_chararraymode(p));
-    pdf_printf(pdf, "]TJ\n");
+    pdf_printf("]TJ\n");
     p->pdf = p->pdf_tj_pos;
     p->mode = PMODE_TEXT;
 }
 
-void pdf_end_string_nl(PDF pdf)
+void pdf_end_string_nl()
 {
     if (is_charmode(pstruct))
-        end_charmode(pdf, pstruct);
+        end_charmode(pstruct);
     if (is_chararraymode(pstruct))
-        end_chararray(pdf, pstruct);
+        end_chararray(pstruct);
 }
 
 /**********************************************************************/
 
-static void goto_pagemode(PDF pdf, pdfstructure * p)
+static void goto_pagemode(pdfstructure * p)
 {
     assert(p != NULL);
     if (!is_pagemode(p)) {
         if (is_charmode(p))
-            end_charmode(pdf, p);
+            end_charmode(p);
         if (is_chararraymode(p))
-            end_chararray(pdf, p);
+            end_chararray(p);
         if (is_textmode(p))
-            end_text(pdf, p);
+            end_text(p);
         assert(is_pagemode(p));
     }
 }
 
-void pdf_goto_pagemode(PDF pdf)
+void pdf_goto_pagemode()
 {
-    goto_pagemode(pdf, pstruct);
+    goto_pagemode(pstruct);
 }
 
-static void goto_textmode(PDF pdf, pdfstructure * p)
+static void goto_textmode(pdfstructure * p)
 {
     scaledpos origin = {
         0, 0
     };
     if (!is_textmode(p)) {
         if (is_pagemode(p)) {
-            set_pos(pdf, p, &origin);        /* reset to page origin */
-            begin_text(pdf, p);
+            set_pos(p, &origin);        /* reset to page origin */
+            begin_text(p);
         } else {
             if (is_charmode(p))
-                end_charmode(pdf, p);
+                end_charmode(p);
             if (is_chararraymode(p))
-                end_chararray(pdf, p);
+                end_chararray(p);
         }
         assert(is_textmode(p));
     }
 }
 
-void pos_finish(PDF pdf, pdfstructure * p)
+void pos_finish(pdfstructure * p)
 {
-    goto_pagemode(pdf, p);
+    goto_pagemode(p);
 }
 
 /**********************************************************************/
 
-static void place_rule(PDF pdf,
-                       pdfstructure * p, scaledpos * pos, scaled wd, scaled ht)
+static void place_rule(pdfstructure * p, scaledpos * pos, scaled wd, scaled ht)
 {
     pdfpos dim;
     scaledpos tmppos = *pos;
-    goto_pagemode(pdf, p);
+    goto_pagemode(p);
     dim.h.m = lround(wd * p->k1);
     dim.h.e = p->pdf.h.e;
     dim.v.m = lround(ht * p->k1);
     dim.v.e = p->pdf.v.e;
-    pdf_printf(pdf, "q\n");
+    pdf_printf("q\n");
     if (ht <= one_bp) {
         tmppos.v += lround(0.5 * ht);
-        set_pos_temp(pdf, p, &tmppos);
-        pdf_printf(pdf, "[]0 d 0 J ");
-        print_pdffloat(pdf, &(dim.v));
-        pdf_printf(pdf, " w 0 0 m ");
-        print_pdffloat(pdf, &(dim.h));
-        pdf_printf(pdf, " 0 l S\n");
+        set_pos_temp(p, &tmppos);
+        pdf_printf("[]0 d 0 J ");
+        print_pdffloat(&(dim.v));
+        pdf_printf(" w 0 0 m ");
+        print_pdffloat(&(dim.h));
+        pdf_printf(" 0 l S\n");
     } else if (wd <= one_bp) {
         tmppos.h += lround(0.5 * wd);
-        set_pos_temp(pdf, p, &tmppos);
-        pdf_printf(pdf, "[]0 d 0 J ");
-        print_pdffloat(pdf, &(dim.h));
-        pdf_printf(pdf, " w 0 0 m 0 ");
-        print_pdffloat(pdf, &(dim.v));
-        pdf_printf(pdf, " l S\n");
+        set_pos_temp(p, &tmppos);
+        pdf_printf("[]0 d 0 J ");
+        print_pdffloat(&(dim.h));
+        pdf_printf(" w 0 0 m 0 ");
+        print_pdffloat(&(dim.v));
+        pdf_printf(" l S\n");
     } else {
-        set_pos_temp(pdf, p, &tmppos);
-        pdf_printf(pdf, "0 0 ");
-        print_pdffloat(pdf, &(dim.h));
-        pdf_printf(pdf, " ");
-        print_pdffloat(pdf, &(dim.v));
-        pdf_printf(pdf, " re f\n");
+        set_pos_temp(p, &tmppos);
+        pdf_printf("0 0 ");
+        print_pdffloat(&(dim.h));
+        pdf_printf(" ");
+        print_pdffloat(&(dim.v));
+        pdf_printf(" re f\n");
     }
-    pdf_printf(pdf, "Q\n");
+    pdf_printf("Q\n");
 }
 
-void pdf_place_rule(PDF pdf, scaled h, scaled v, scaled wd, scaled ht)
+void pdf_place_rule(scaled h, scaled v, scaled wd, scaled ht)
 {
     scaledpos pos;
     pos.h = h;
     pos.v = v;
-    place_rule(pdf, pstruct, &pos, wd, ht);
+    place_rule(pstruct, &pos, wd, ht);
 }
 
 /**********************************************************************/
@@ -452,50 +459,49 @@ static void setup_fontparameters(pdfstructure * p, internal_font_number f)
     p->tj_delta.e = p->cw.e - 1;        /* "- 1" makes less corrections inside []TJ */
     /* no need to be more precise than TeX (1sp) */
     while (p->tj_delta.e > 0
-           && (double) font_size(f) / ten_pow[p->tj_delta.e + e_tj] < 0.5)
+           && (double) font_size(f) / exp10_arr[p->tj_delta.e + e_tj] < 0.5)
         p->tj_delta.e--;        /* happens for very tiny fonts */
-    assert(p->cw.e >= p->tj_delta.e);   /* else we would need, e. g., ten_pow[-1] */
-    p->fs.m = lround(font_size(f) / one_bp * ten_pow[p->fs.e]);
-    p->hz.m = pdf_font_expand_ratio(f) + ten_pow[p->hz.e];
+    assert(p->cw.e >= p->tj_delta.e);   /* else we would need, e. g., exp10_arr[-1] */
+    p->fs.m = lround(font_size(f) / one_bp * exp10_arr[p->fs.e]);
+    p->hz.m = pdf_font_expand_ratio(f) + exp10_arr[p->hz.e];
     calc_k2(p);
 }
 
-static void set_textmatrix(PDF pdf, pdfstructure * p, scaledpos * pos)
+static void set_textmatrix(pdfstructure * p, scaledpos * pos)
 {
     boolean move;
     assert(is_textmode(p));
     move = calc_pdfpos(p, pos);
     if (move == TRUE) {
-        pdf_print_tm(pdf, p->tm);
+        pdf_print_tm(p->tm);
         p->pdf.h.m = p->pdf_bt_pos.h.m + p->tm[4].m;    /* Tm replaces */
         p->pdf.v.m = p->pdf_bt_pos.v.m + p->tm[5].m;
     }
 }
 
-static void set_font(PDF pdf, pdfstructure * p)
+static void set_font(pdfstructure * p)
 {
-    pdf_printf(pdf, "/F%d", (int) p->f_pdf);
-    pdf_print_resname_prefix(pdf);
-    pdf_printf(pdf, " ");
-    print_pdffloat(pdf, &(p->fs));
-    pdf_printf(pdf, " Tf ");
+    pdf_printf("/F%d", (int) p->f_pdf);
+    pdf_print_resname_prefix();
+    pdf_printf(" ");
+    print_pdffloat(&(p->fs));
+    pdf_printf(" Tf ");
 }
 
 /**********************************************************************/
 
 static void
-place_glyph(PDF pdf, 
-            pdfstructure * p, scaledpos * pos, internal_font_number f,
+place_glyph(pdfstructure * p, scaledpos * pos, internal_font_number f,
             integer c)
 {
     boolean move;
     if (f != p->f_cur || is_textmode(p) || is_pagemode(p)) {
-        goto_textmode(pdf, p);
+        goto_textmode(p);
         if (f != p->f_cur)
             setup_fontparameters(p, f);
-        set_font(pdf, p);
-        set_textmatrix(pdf, p, pos);
-        begin_chararray(pdf, p);
+        set_font(p);
+        set_textmatrix(p, pos);
+        begin_chararray(p);
     }
     assert(is_charmode(p) || is_chararraymode(p));
     move = calc_pdfpos(p, pos);
@@ -505,9 +511,9 @@ place_glyph(PDF pdf,
             || (p->wmode == WMODE_V
                 && (p->pdf_bt_pos.h.m + p->tm[4].m) != p->pdf.h.m)
             || abs(p->tj_delta.m) >= 1000000) {
-            goto_textmode(pdf, p);
-            set_textmatrix(pdf, p, pos);
-            begin_chararray(pdf, p);
+            goto_textmode(p);
+            set_textmatrix(p, pos);
+            begin_chararray(p);
             move = calc_pdfpos(p, pos);
         }
         if (move == TRUE) {
@@ -516,40 +522,40 @@ place_glyph(PDF pdf,
                    || (p->wmode == WMODE_V
                        && (p->pdf_bt_pos.h.m + p->tm[4].m) == p->pdf.h.m));
             if (is_charmode(p))
-                end_charmode(pdf, p);
+                end_charmode(p);
             assert(p->tj_delta.m != 0);
-            print_pdffloat(pdf, &(p->tj_delta));
-            p->cw.m -= p->tj_delta.m * ten_pow[p->cw.e - p->tj_delta.e];
+            print_pdffloat(&(p->tj_delta));
+            p->cw.m -= p->tj_delta.m * exp10_arr[p->cw.e - p->tj_delta.e];
         }
     }
     if (is_chararraymode(p))
-        begin_charmode(pdf, p);
-    pdf_print_char(pdf, f, c);       /* this also does pdf_mark_char() */
+        begin_charmode(p);
+    pdf_print_char(f, c);       /* this also does pdf_mark_char() */
     p->cw.m += pdf_char_width(p, p->f_pdf, c);  /* aka adv_char_width() */
 }
 
-void pdf_place_glyph(PDF pdf, internal_font_number f, integer c)
+void pdf_place_glyph(internal_font_number f, integer c)
 {
     if (char_exists(f, c))
-        place_glyph(pdf, pstruct, &pos, f, c);
+        place_glyph(pstruct, &pos, f, c);
 }
 
 /**********************************************************************/
 
-static void place_form(PDF pdf, pdfstructure * p, scaledpos * pos, integer i)
+static void place_form(pdfstructure * p, scaledpos * pos, integer i)
 {
-    goto_pagemode(pdf, p);
-    pdf_printf(pdf, "q\n");
-    set_pos_temp(pdf, p, pos);
-    pdf_printf(pdf, "/Fm%d", (int) i);
-    pdf_print_resname_prefix(pdf);
-    pdf_printf(pdf, " Do\nQ\n");
+    goto_pagemode(p);
+    pdf_printf("q\n");
+    set_pos_temp(p, pos);
+    pdf_printf("/Fm%d", (int) i);
+    pdf_print_resname_prefix();
+    pdf_printf(" Do\nQ\n");
 }
 
-void pdf_place_form(PDF pdf, scaled h, scaled v, integer i)
+void pdf_place_form(scaled h, scaled v, integer i)
 {
     scaledpos pos;
     pos.h = h;
     pos.v = v;
-    place_form(pdf, pstruct, &pos, i);
+    place_form(pstruct, &pos, i);
 }

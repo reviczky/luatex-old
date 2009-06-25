@@ -98,11 +98,11 @@ static const char _svn_version[] =
 
 /* go out \.{VF} processing with an error message */
 #define bad_vf(a) { xfree(vf_buffer); print_nlp();  \
-    tprint("Error in processing VF font (");  \
-    tprint(font_name(f));       \
-    tprint(".vf): ");       \
-    tprint(a);          \
-    tprint(", virtual font will be ignored"); \
+    print_string("Error in processing VF font (");  \
+    print_string(font_name(f));       \
+    print_string(".vf): ");       \
+    print_string(a);          \
+    print_string(", virtual font will be ignored"); \
     print_ln();  return; }
 
 #define lua_bad_vf(a) { xfree(vf_buffer);   \
@@ -176,8 +176,10 @@ boolean auto_expand_vf(internal_font_number f); /* forward */
     l = itmp;                                    \
 }
 
-void pdf_check_vf(internal_font_number f)
+void pdf_check_vf_cur_val(void)
 {
+    internal_font_number f;
+    f = cur_val;
     if (font_type(f) == virtual_font_type)
         pdf_error(maketexstring("font"),
                   maketexstring("command cannot be used with virtual font"));
@@ -188,16 +190,16 @@ vf_local_font_warning(internal_font_number f, internal_font_number k, char *s,
                       integer a, integer b)
 {
     print_nlp();
-    tprint(s);
-    tprint(" in local font ");
-    tprint(font_name(k));
-    tprint(" (");
+    print_string(s);
+    print_string(" in local font ");
+    print_string(font_name(k));
+    print_string(" (");
     print_int(b);
-    tprint(" != ");
+    print_string(" != ");
     print_int(a);
-    tprint(") in virtual font ");
-    tprint(font_name(f));
-    tprint(".vf ignored.");
+    print_string(") in virtual font ");
+    print_string(font_name(f));
+    print_string(".vf ignored.");
 }
 
 
@@ -255,12 +257,12 @@ vf_def_font(internal_font_number f, unsigned char *vf_buffer, integer * vf_cr)
         tmp_b0--;
         (*vf_cr)++;             /* skip the font path */
     }
-    str_room(tmp_b1);
+    string_room(tmp_b1);
     while (tmp_b1 > 0) {
         tmp_b1--;
         junk = vf_buffer[(*vf_cr)];
         (*vf_cr)++;
-        append_char(junk);
+        append_pool_char(junk);
     }
     s = make_string();
     k = tfm_lookup(s, fs);
@@ -375,9 +377,9 @@ int open_vf_file(char *fn, unsigned char **vbuffer, integer * vsize)
   ((tmp_b0 != font_check_0(f)) || (tmp_b1 != font_check_1(f)) ||  \
    (tmp_b2 != font_check_2(f)) || (tmp_b3 != font_check_3(f)))) { \
       print_nlp();              \
-      tprint("checksum mismatch in font ");     \
-      tprint(font_name(f));         \
-      tprint(".vf ignored "); } }
+      print_string("checksum mismatch in font ");     \
+      print_string(font_name(f));         \
+      print_string(".vf ignored "); } }
 
 #define test_dsize()                                   \
 {                                                      \
@@ -385,9 +387,9 @@ int open_vf_file(char *fn, unsigned char **vbuffer, integer * vsize)
     vf_read(4, read_tmp);                              \
     if ((read_tmp / 16) != font_dsize(f)) {            \
         print_nlp();                                   \
-        tprint("design size mismatch in font "); \
-        tprint(font_name(f));                    \
-        tprint(".vf ignored");                   \
+        print_string("design size mismatch in font "); \
+        print_string(font_name(f));                    \
+        print_string(".vf ignored");                   \
     }                                                  \
 }
 
@@ -778,9 +780,9 @@ void do_vf(internal_font_number f)
         if (tfm_width != char_width(f, cc)) {
             if (tfm_width != char_width(f, cc)) {
                 print_nlp();
-                tprint("character width mismatch in font ");
-                tprint(font_name(f));
-                tprint(".vf ignored");
+                print_string("character width mismatch in font ");
+                print_string(font_name(f));
+                print_string(".vf ignored");
             }
         }
         k = count_packet_bytes(vf_buffer, vf_cur, packet_length);
@@ -1447,7 +1449,7 @@ str_number expand_font_name(internal_font_number f, integer e)
     int old_setting;
     old_setting = selector;
     selector = new_string;
-    tprint(font_name(f));
+    print_string(font_name(f));
     if (e > 0) {
         print_char('+');
     }

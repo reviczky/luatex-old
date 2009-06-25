@@ -114,7 +114,7 @@ extern extinfo *copy_variants(extinfo * o);
 extern extinfo *new_variant(int glyph, int startconnect, int endconnect,
                             int advance, int repeater);
 
-extern charinfo_short get_charinfo_short(internal_font_number f, integer c);
+extern charinfo_short char_info_short(internal_font_number f, integer c);
 
 
 
@@ -582,6 +582,8 @@ extern int find_font_id(char *nom, scaled s);
 
 /* for and from vfpacket.c */
 
+#  define scan_special 3 /* look into special text */   /* this is a hack */
+
 typedef enum { packet_char_code,
     packet_font_code,
     packet_pop_code,
@@ -598,7 +600,7 @@ typedef enum { packet_char_code,
 
 extern scaled store_scaled_f(scaled sq, integer fw);
 
-extern void do_vf_packet(PDF pdf, internal_font_number vf_f, integer c);
+extern void do_vf_packet(internal_font_number vf_f, integer c);
 extern int vf_packet_bytes(charinfo * co);
 
 charinfo *copy_charinfo(charinfo * ci);

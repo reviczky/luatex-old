@@ -137,6 +137,7 @@ versions of the program.
   {string of length |file_name_size|; tells where the string pool appears}
 @y
 @d file_name_size == max_halfword-1 { has to be big enough to force namelength into integer }
+@d ssup_error_line = 255
 @d ssup_max_strings == 262143
 {Larger values than 65536 cause the arrays consume much more memory.}
 
@@ -384,6 +385,7 @@ tini@/
 @!nest_size:integer; {maximum number of semantic levels simultaneously active}
 @!save_size:integer; {space for saving values outside of current group; must be
   at most |max_halfword|}
+@!dvi_buf_size:integer; {size of the output buffer; must be a multiple of 8}
 @!expand_depth:integer; {limits recursive calls of the |expand| procedure}
 @!parsefirstlinep:cinttype; {parse the first line for options}
 @!filelineerrorstylep:cinttype; {format messages as file:line:error}
@@ -457,9 +459,9 @@ will return with |last > first|.
 label exit;
 begin t_open_in;
 if last > first then
-  begin iloc := first;
-  while (iloc < last) and (buffer[iloc]=' ') do incr(iloc);
-  if iloc < last then
+  begin loc := first;
+  while (loc < last) and (buffer[loc]=' ') do incr(loc);
+  if loc < last then
     begin init_terminal := true; goto exit;
     end;
   end;
@@ -469,6 +471,35 @@ if last > first then
     write(term_out,'! End of file on the terminal... why?');
 @y
     writeln(term_out,'! End of file on the terminal... why?');
+@z
+
+@x
+@!str_pool:packed array[pool_pointer] of packed_ASCII_code; {the characters}
+@!str_start : array[str_number] of pool_pointer; {the starting pointers}
+@y
+@!str_pool: ^packed_ASCII_code; {the characters}
+@!str_start : ^pool_pointer; {the starting pointers}
+@z
+
+@x
+@p @!init function get_strings_started:boolean; {initializes the string pool,
+@y
+@p @t\4@>@<Declare additional routines for string recycling@>@/
+
+@!init function get_strings_started:boolean; {initializes the string pool,
+@z
+
+@x
+would like string @'32 to be the single character @'32 instead of the
+@y
+would like string @'32 to be printed as the single character @'32
+instead of the
+@z
+
+@x
+@!trick_buf:array[0..error_line] of packed_ASCII_code; {circular buffer for
+@y
+@!trick_buf:array[0..ssup_error_line] of packed_ASCII_code; {circular buffer for
 @z
 
 @x
@@ -752,6 +783,19 @@ hash_high:=0;
 @z
 
 @x
+else if p>=undefined_control_sequence then print_esc("IMPOSSIBLE.")
+@y
+else if ((p>=undefined_control_sequence)and(p<=eqtb_size))or(p>eqtb_top) then
+  print_esc("IMPOSSIBLE.")
+@z
+
+@x
+else if (text(p)<0)or(text(p)>=str_ptr) then print_esc("NONEXISTENT.")
+@y
+else if (text(p)>=str_ptr) then print_esc("NONEXISTENT.")
+@z
+
+@x
 @!save_stack : array[0..save_size] of memory_word;
 @y
 @!save_stack : ^memory_word;
@@ -771,10 +815,64 @@ if (hash_offset<0)or(hash_offset>hash_base) then bad:=42;
 @z
 
 @x
-incr(in_open); push_input; iindex:=in_open;
+@!input_stack : array[0..stack_size] of in_state_record;
 @y
-incr(in_open); push_input; iindex:=in_open;
-source_filename_stack[iindex]:=0;full_source_filename_stack[iindex]:=0;
+@!input_stack : ^in_state_record;
+@z
+
+@x
+@!input_file : array[1..max_in_open] of alpha_file;
+@!line : integer; {current line number in the current source file}
+@!line_stack : array[1..max_in_open] of integer;
+@y
+@!input_file : ^alpha_file;
+@!line : integer; {current line number in the current source file}
+@!line_stack : ^integer;
+@!source_filename_stack : ^str_number;
+@!full_source_filename_stack : ^str_number;
+@z
+
+@x
+  begin print_nl("Runaway ");
+@.Runaway...@>
+  case scanner_status of
+  defining: begin print("definition"); p:=def_ref;
+    end;
+  matching: begin print("argument"); p:=temp_token_head;
+    end;
+  aligning: begin print("preamble"); p:=hold_token_head;
+    end;
+  absorbing: begin print("text"); p:=def_ref;
+    end;
+  end; {there are no other cases}
+@y
+  begin
+@.Runaway...@>
+  case scanner_status of
+  defining: begin print_nl("Runaway definition"); p:=def_ref;
+    end;
+  matching: begin print_nl("Runaway argument"); p:=temp_token_head;
+    end;
+  aligning: begin print_nl("Runaway preamble"); p:=hold_token_head;
+    end;
+  absorbing: begin print_nl("Runaway text"); p:=def_ref;
+    end;
+  end; {there are no other cases}
+@z
+
+@x
+@!param_stack:array [0..param_size] of pointer;
+  {token list pointers for parameters}
+@y
+@!param_stack: ^pointer;
+  {token list pointers for parameters}
+@z
+
+@x
+incr(in_open); push_input; index:=in_open;
+@y
+incr(in_open); push_input; index:=in_open;
+source_filename_stack[index]:=0;full_source_filename_stack[index]:=0;
 @z
 
 @x
@@ -830,20 +928,20 @@ In C, the default paths are specified separately.
 
 @x
 @d append_to_name(#)==begin c:=#; incr(k);
-  if k<=file_name_size then nameoffile[k]:=c;
+  if k<=file_name_size then nameoffile[k]:=xchr[c];
   end
 @y
 @d append_to_name(#)==begin c:=#; if not (c="""") then begin incr(k);
-  if k<=file_name_size then nameoffile[k]:=c;
+  if k<=file_name_size then nameoffile[k]:=xchr[c];
   end end
 @z
 
 @x
-for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(str_pool[j]);
+for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(so(str_pool[j]));
 @y
 if nameoffile then libcfree (nameoffile);
 nameoffile:= xmallocarray (packed_ASCII_code, length(a)+length(n)+length(e)+1);
-for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(str_pool[j]);
+for j:=str_start_macro(a) to str_start_macro(a+1)-1 do append_to_name(so(str_pool[j]));
 @z
 
 @x
@@ -894,14 +992,47 @@ nameoffile[namelength+1]:=0;
 @z
 
 @x
-  pack_buffered_name(0,iloc,j-1); {try first without the system file area}
+  pack_buffered_name(0,loc,j-1); {try first without the system file area}
   if w_open_in(fmt_file) then goto found;
-  pack_buffered_name(format_area_length,iloc,j-1);
+  pack_buffered_name(format_area_length,loc,j-1);
     {now try the system format file area}
   if w_open_in(fmt_file) then goto found;
 @y
-  pack_buffered_name(0,iloc,j-1); {Kpathsea does everything}
+  pack_buffered_name(0,loc,j-1); {Kpathsea does everything}
   if w_open_in(fmt_file) then goto found;
+@z
+
+@x
+  wterm_ln('Sorry, I can''t find that format;',' will try PLAIN.');
+@y
+  wterm ('Sorry, I can''t find the format `');
+  fputs (stringcast(nameoffile + 1), stdout);
+  wterm ('''; will try `');
+  fputs (TEX_format_default + 1, stdout);
+  wterm_ln ('''.');
+@z
+
+@x
+  wterm_ln('I can''t find the PLAIN format file!');
+@.I can't find PLAIN...@>
+@y
+  wterm ('I can''t find the format file `');
+  fputs (TEX_format_default + 1, stdout);
+  wterm_ln ('''!');
+@.I can't find the format...@>
+@z
+
+@x
+@d ensure_dvi_open==if output_file_name=0 then
+@y
+@d log_name == texmf_log_name
+@d ensure_dvi_open==if output_file_name=0 then
+@z
+
+@x
+@!months:packed array [1..36] of char; {abbreviations of month names}
+@y
+@!months:^char;
 @z
 
 @x
@@ -915,21 +1046,56 @@ recorder_change_filename(stringcast(nameoffile+1));
 @z
 
 @x
+slow_print(format_ident); print("  ");
+@y
+wlog(versionstring);
+slow_print(format_ident); print("  ");
+@z
+
+@x
+months:='JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC';
+@y
+months := ' JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC';
+@z
+
+@x
+end
+@y
+if shellenabledp then begin
+  wlog_cr;
+  wlog(' ');
+  if restrictedshell then begin
+    wlog('restricted ');
+  end;
+  wlog('\write18 enabled.')
+  end;
+if filelineerrorstylep then begin
+  wlog_cr;
+  wlog(' file:line:error style messages enabled.')
+  end;
+if parsefirstlinep then begin
+  wlog_cr;
+  wlog(' %&-line parsing enabled.');
+  end;
+end
+@z
+
+@x
   prompt_file_name('input file name','.tex');
 @y
   prompt_file_name('input file name','');
 @z
 
 @x
-iname:=a_make_name_string(cur_file);
+name:=a_make_name_string(cur_file);
 @y
-iname:=a_make_name_string(cur_file);
-source_filename_stack[in_open]:=iname;
+name:=a_make_name_string(cur_file);
+source_filename_stack[in_open]:=name;
 full_source_filename_stack[in_open]:=makefullnamestring;
-if iname=str_ptr-1 then {we can try to conserve string pool space now}
-  begin temp_str:=search_string(iname);
+if name=str_ptr-1 then {we can try to conserve string pool space now}
+  begin temp_str:=search_string(name);
   if temp_str>0 then
-    begin iname:=temp_str; flush_string;
+    begin name:=temp_str; flush_string;
     end;
   end;
 @z
@@ -941,10 +1107,123 @@ if iname=str_ptr-1 then {we can try to conserve string pool space now}
 @z
 
 @x
-if iname=str_ptr-1 then {we can conserve string pool space now}
-  begin flush_string; iname:=cur_name;
+if name=str_ptr-1 then {we can conserve string pool space now}
+  begin flush_string; name:=cur_name;
   end;
 @y
+@z
+
+@x
+@!ocp_list_info:array[ocp_list_index] of memory_word;
+  {the big collection of ocp list data}
+@!ocp_listmem_ptr:ocp_list_index; {first unused word of |ocp_list_info|}
+@!ocp_listmem_run_ptr:ocp_list_index; {temp unused word of |ocp_list_info|}
+@!ocp_lstack_info:array[ocp_lstack_index] of memory_word;
+  {the big collection of ocp lstack data}
+@!ocp_lstackmem_ptr:ocp_lstack_index; {first unused word of |ocp_lstack_info|}
+@!ocp_lstackmem_run_ptr:ocp_lstack_index; {temp unused word of |ocp_lstack_info|}
+@!ocp_list_ptr:internal_ocp_list_number; {largest internal ocp list number in use}
+@!ocp_list_list:array[internal_ocp_list_number] of ocp_list_index;
+@y
+@!ocp_list_info:^memory_word;
+  {the big collection of ocp list data}
+@!ocp_listmem_ptr:ocp_list_index; {first unused word of |ocp_list_info|}
+@!ocp_listmem_run_ptr:ocp_list_index; {temp unused word of |ocp_list_info|}
+@!ocp_lstack_info:^memory_word;
+  {the big collection of ocp lstack data}
+@!ocp_lstackmem_ptr:ocp_lstack_index; {first unused word of |ocp_lstack_info|}
+@!ocp_lstackmem_run_ptr:ocp_lstack_index; {temp unused word of |ocp_lstack_info|}
+@!ocp_list_ptr:internal_ocp_list_number; {largest internal ocp list number in use}
+@!ocp_list_list:^ocp_list_index;
+@z
+
+@x
+@!dvi_buf:array[dvi_index] of real_eight_bits; {buffer for \.{DVI} output}
+@!half_buf:dvi_index; {half of |dvi_buf_size|}
+@!dvi_limit:dvi_index; {end of the current half buffer}
+@!dvi_ptr:dvi_index; {the next available buffer address}
+@y
+@!dvi_buf:^real_eight_bits; {buffer for \.{DVI} output}
+@!half_buf:integer; {half of |dvi_buf_size|}
+@!dvi_limit:integer; {end of the current half buffer}
+@!dvi_ptr:integer; {the next available buffer address}
+@z
+
+@x
+@p procedure write_dvi(@!a,@!b:dvi_index);
+var k:dvi_index;
+begin for k:=a to b do write(dvi_file,dvi_buf[k]);
+end;
+@y
+In C, we use a macro to call |fwrite| or |write| directly, writing all
+the bytes in one shot.  Much better even than writing four
+bytes at a time.
+@z
+
+@x
+  old_setting:=selector; selector:=new_string;
+@y
+if output_comment then
+  begin l:=strlen(output_comment); dvi_out(l);
+  for s:=0 to l-1 do dvi_out(output_comment[s]);
+  end
+else begin {the default code is unchanged}
+  old_setting:=selector; selector:=new_string;
+@z
+
+@x
+  pool_ptr:=str_start_macro(str_ptr); {flush the current string}
+@y
+  pool_ptr:=str_start_macro(str_ptr); {flush the current string}
+end;
+@z
+
+@x
+dvi_out(eop); incr(total_pages); cur_s:=-1;
+@y
+dvi_out(eop); incr(total_pages); cur_s:=-1;
+ifdef ('IPC')
+if ipcon>0 then
+  begin if dvi_limit=half_buf then
+    begin write_dvi(half_buf, dvi_buf_size-1);
+    flush_dvi;
+    dvi_gone:=dvi_gone+half_buf;
+    end;
+  if dvi_ptr>0 then
+    begin write_dvi(0, dvi_ptr-1);
+    flush_dvi;
+    dvi_offset:=dvi_offset+dvi_ptr; dvi_gone:=dvi_gone+dvi_ptr;
+    end;
+  dvi_ptr:=0; dvi_limit:=dvi_buf_size;
+  ipcpage(dvi_gone);
+  end;
+endif ('IPC');
+@z
+
+@x
+  k:=4+((dvi_buf_size-dvi_ptr) mod 4); {the number of 223's}
+@y
+ifdef ('IPC')
+  k:=7-((3+dvi_offset+dvi_ptr) mod 4); {the number of 223's}
+endif ('IPC')
+ifndef ('IPC')
+  k:=4+((dvi_buf_size-dvi_ptr) mod 4); {the number of 223's}
+endifn ('IPC')
+@z
+
+@x
+    print_nl("Output written on "); slow_print(output_file_name);
+@y
+    print_nl("Output written on "); print_file_name(0, output_file_name, 0);
+@z
+
+@x
+    print(" ("); print_int(total_pages); print(" page");
+    if total_pages<>1 then print_char("s");
+@y
+    print(" ("); print_int(total_pages);
+    if total_pages<>1 then print(" pages")
+    else print(" page");
 @z
 
 @x
@@ -1103,8 +1382,7 @@ undump_things(format_engine[0], x);
 format_engine[x-1]:=0; {force string termination, just in case}
 if strcmp(stringcast(engine_name), stringcast(format_engine)) then
   begin wake_up_terminal;
-  wterm_cr;
-  fprintf(term_out,'---! %s was written by %s',stringcast(nameoffile+1), format_engine);
+  wterm_ln('---! ', stringcast(nameoffile+1), ' was written by ', format_engine);
   libcfree(format_engine);
   goto bad_fmt;
 end;
@@ -1113,8 +1391,7 @@ undump_int(x);
 format_debug('string pool checksum')(x);
 if x<>@$ then begin {check that strings are the same}
   wake_up_terminal;
-  wterm_cr;
-  fprintf(term_out,'---! %s was written by an older version',stringcast(nameoffile+1));
+  wterm_ln('---! ', stringcast(nameoffile+1), ' was written by an older version');
   goto bad_fmt;
 end;
 undump_int(x);
@@ -1278,6 +1555,83 @@ make_pdftex_banner
 @z
 
 @x
+for k:=0 to active_max_ptr-1 do dump_wd(active_info[k]);
+if active_max_ptr>0 then begin
+  print_ln; print_int(active_max_ptr); print(" words of active ocps");
+  end;
+
+@ @<Undump the active ocp information@>=
+undump_size(0)(active_mem_size)('active start point')(active_min_ptr);
+undump_size(0)(active_mem_size)('active mem size')(active_max_ptr);
+for k:=0 to active_max_ptr-1 do undump_wd(active_info[k]);
+@y
+if active_max_ptr>0 then
+  dump_things(active_info[0], active_max_ptr);
+if active_max_ptr>0 then begin
+  print_ln; print_int(active_max_ptr); print(" words of active ocps");
+  end;
+
+@ @<Undump the active ocp information@>=
+undump_size(0)(active_mem_size)('active start point')(active_min_ptr);
+undump_size(0)(active_mem_size)('active mem size')(active_max_ptr);
+if active_max_ptr>0 then
+  undump_things(active_info[0], active_max_ptr);
+@z
+
+@x
+@ @<Dump the ocp list information@>=
+dump_int(ocp_listmem_ptr);
+for k:=0 to ocp_listmem_ptr-1 do dump_wd(ocp_list_info[k]);
+dump_int(ocp_list_ptr);
+for k:=null_ocp_list to ocp_list_ptr do begin
+  dump_int(ocp_list_list[k]);
+  if null_ocp_list<>ocp_list_ptr then begin
+    print_nl("\ocplist"); 
+    print_esc(ocp_list_id_text(k)); 
+    print_char("=");
+    print_ocp_list(ocp_list_list[k]);
+    end;
+  end;
+dump_int(ocp_lstackmem_ptr);
+for k:=0 to ocp_lstackmem_ptr-1 do dump_wd(ocp_lstack_info[k])
+@y
+@ @<Dump the ocp list information@>=
+dump_int(ocp_listmem_ptr);
+dump_things(ocp_list_info[0], ocp_listmem_ptr);
+dump_int(ocp_list_ptr);
+dump_things(ocp_list_list[null_ocp_list], ocp_list_ptr+1-null_ocp_list);
+for k:=null_ocp_list to ocp_list_ptr do begin
+  if null_ocp_list<>ocp_list_ptr then begin
+    print_nl("\ocplist"); 
+    print_esc(ocp_list_id_text(k)); 
+    print_char("=");
+    print_ocp_list(ocp_list_list[k]);
+    end;
+  end;
+dump_int(ocp_lstackmem_ptr);
+dump_things(ocp_lstack_info[0], ocp_lstackmem_ptr)
+@z
+
+@x
+@ @<Undump the ocp list information@>=
+undump_size(1)(1000000)('ocp list mem size')(ocp_listmem_ptr);
+for k:=0 to ocp_listmem_ptr-1 do undump_wd(ocp_list_info[k]);
+undump_size(ocp_list_base)(ocp_list_biggest)('ocp list max')(ocp_list_ptr);
+for k:=null_ocp_list to ocp_list_ptr do
+  undump_int(ocp_list_list[k]);
+undump_size(1)(1000000)('ocp lstack mem size')(ocp_lstackmem_ptr);
+for k:=0 to ocp_lstackmem_ptr-1 do undump_wd(ocp_lstack_info[k])
+@y
+@ @<Undump the ocp list information@>=
+undump_size(1)(1000000)('ocp list mem size')(ocp_listmem_ptr);
+undump_things(ocp_list_info[0], ocp_listmem_ptr);
+undump_size(0)(1000000)('ocp list max')(ocp_list_ptr);
+undump_things(ocp_list_list[null_ocp_list], ocp_list_ptr+1-null_ocp_list);
+undump_size(0)(1000000)('ocp lstack mem size')(ocp_lstackmem_ptr);
+undump_things(ocp_lstack_info[0], ocp_lstackmem_ptr)
+@z
+
+@x
 undump(batch_mode)(error_stop_mode)(interaction);
 @y
 undump(batch_mode)(error_stop_mode)(interaction);
@@ -1299,7 +1653,7 @@ print(" (format="); print(job_name); print_char(" ");
 @x
 @p begin @!{|start_here|}
 @y
-@d const_chk(#)==begin if # < inf@&_@&# then # := inf@&_@&# else
+@d const_chk(#)==begin if # < inf_@&# then # := inf_@&# else
                          if # > sup_@&# then # := sup_@&# end
 
 {|setup_bound_var| stuff duplicated in \.{mf.ch}.}
@@ -1358,6 +1712,7 @@ begin @!{|start_here|}
   const_chk (hash_extra);
   const_chk (obj_tab_size);
   const_chk (pdf_mem_size);
+  const_chk (dest_names_size);
   const_chk (pk_dpi);
   if error_line > ssup_error_line then error_line := ssup_error_line;
 
@@ -1376,12 +1731,25 @@ begin @!{|start_here|}
   full_source_filename_stack:=xmallocarray (str_number, max_in_open);
   param_stack:=xmallocarray (halfword, param_size);
   dvi_buf:=xmallocarray (real_eight_bits, dvi_buf_size);
-  initialize_ocplist_arrays(ocp_list_size);
-  initialize_ocp_buffers(ocp_buf_size, ocp_stack_size);
+  ocp_list_info:=xmallocarray (memory_word, ocp_list_size);
+  memset(ocp_list_info,0,sizeof(memory_word)* ocp_list_size);
+  ocp_lstack_info:=xmallocarray (memory_word, ocp_list_size);
+  memset(ocp_lstack_info,0,sizeof(memory_word)* ocp_list_size);
+  ocp_list_list:=xmallocarray (ocp_list_index, ocp_list_size);
+  otp_init_input_buf:=xmallocarray (quarterword, ocp_buf_size);
+  otp_input_buf:=xmallocarray (quarterword, ocp_buf_size);
+  otp_output_buf:=xmallocarray (quarterword, ocp_buf_size);
+  otp_stack_buf:=xmallocarray (quarterword, ocp_stack_size);
+  otp_calcs:=xmallocarray (halfword, ocp_stack_size);
+  otp_states:=xmallocarray (halfword, ocp_stack_size);
   obj_tab:=xmallocarray (obj_entry, inf_obj_tab_size); {will grow dynamically}
-  set_obj_offset(0,0);
+  obj_offset(0):=0;
   pdf_mem:=xmallocarray (integer, inf_pdf_mem_size); {will grow dynamically}
-  init_dest_names;
+  dest_names:=xmallocarray (dest_name_entry, inf_dest_names_size); {will grow dynamically}
+  pdf_op_buf:=xmallocarray (real_eight_bits, pdf_op_buf_size);
+  pdf_os_buf:=xmallocarray (real_eight_bits, inf_pdf_os_buf_size); {will grow dynamically}
+  pdf_os_objnum:=xmallocarray (integer, pdf_os_max_objs);
+  pdf_os_objoff:=xmallocarray (integer, pdf_os_max_objs);
 @+Init
   fixmem:=xmallocarray (smemory_word, fix_mem_init+1);
   memset (voidcast(fixmem), 0, (fix_mem_init+1)*sizeof(smemory_word));
@@ -1426,9 +1794,33 @@ end {|main_body|};
 @z
 
 @x
-     slow_print(texmf_log_name); print_char(".");
+  if format_ident=0 then wterm_ln(' (no format preloaded)')
+  else  begin slow_print(format_ident); print_ln;
+    end;
 @y
-     print_file_name(0, texmf_log_name, 0); print_char(".");
+  wterm(versionstring);
+  if format_ident>0 then slow_print(format_ident);
+  print_ln;
+  if shellenabledp then begin
+    wterm(' ');
+    if restrictedshell then begin
+      wterm('restricted ');
+    end;
+    wterm_ln('\write18 enabled.');
+  end;
+@z
+
+@x
+write_svnversion(luatex_svnversion);
+@y
+wterm(versionstring);
+write_svnversion(luatex_svnversion);
+@z
+
+@x
+     slow_print(log_name); print_char(".");
+@y
+     print_file_name(0, log_name, 0); print_char(".");
 @z
 
 @x
@@ -1438,6 +1830,14 @@ end {|main_body|};
 print_ln;
 if (edit_name_start<>0) and (interaction>batch_mode) then
   calledit(str_pool,edit_name_start,edit_name_length,edit_line);
+@z
+
+@x
+  wlog_ln(' ',cs_count:1,' multiletter control sequences out of ',
+    hash_size:1);@/
+@y
+  wlog_ln(' ',cs_count:1,' multiletter control sequences out of ',
+    hash_size:1, '+', hash_extra:1);@/
 @z
 
 @x
@@ -1453,9 +1853,9 @@ if (edit_name_start<>0) and (interaction>batch_mode) then
 @z
 
 @x
-if (format_ident=0)or(buffer[iloc]="&") then
+if (format_ident=0)or(buffer[loc]="&") then
 @y
-if (format_ident=0)or(buffer[iloc]="&")or dump_line then
+if (format_ident=0)or(buffer[loc]="&")or dump_line then
 @z
 
 @x
@@ -1489,6 +1889,69 @@ tini@/
 @z
 
 @x
+begin @<Expand macros in the token list
+@y
+@!d:integer; {number of characters in incomplete current string}
+@!clobbered:boolean; {system string is ok?}
+@!runsystem_ret:integer; {return value from |runsystem|}
+begin @<Expand macros in the token list
+@z
+
+@x
+if write_open[j] then selector:=j
+@y
+if j=18 then selector := new_string
+else if write_open[j] then selector:=j
+@z
+
+@x
+flush_list(def_ref); selector:=old_setting;
+@y
+flush_list(def_ref);
+if j=18 then
+  begin if (tracing_online<=0) then
+    selector:=log_only  {Show what we're doing in the log file.}
+  else selector:=term_and_log;  {Show what we're doing.}
+  {If the log file isn't open yet, we can only send output to the terminal.
+   Calling |open_log_file| from here seems to result in bad data in the log.}
+  if not log_opened then selector:=term_only;
+  print_nl("runsystem(");
+  for d:=0 to cur_length-1 do
+    begin {|print| gives up if passed |str_ptr|, so do it by hand.}
+    print(so(str_pool[str_start_macro(str_ptr)+d])); {N.B.: not |print_char|}
+    end;
+  print(")...");
+  if shellenabledp then begin
+    str_room(1); append_char(0); {Append a null byte to the expansion.}
+    clobbered:=false;
+    for d:=0 to cur_length-1 do {Convert to external character set.}
+      begin 
+        str_pool[str_start_macro(str_ptr)+d]:=xchr[str_pool[str_start_macro(str_ptr)+d]];
+        if (str_pool[str_start_macro(str_ptr)+d]=null_code)
+           and (d<cur_length-1) then clobbered:=true;
+        {minimal checking: NUL not allowed in argument string of |system|()}
+      end;
+    if clobbered then print("clobbered")
+    else begin {We have the command.  See if we're allowed to execute it,
+         and report in the log.  We don't check the actual exit status of
+         the command, or do anything with the output.}
+      runsystem_ret := runsystem(stringcast(addressof(
+                                         str_pool[str_start_macro(str_ptr)])));
+      if runsystem_ret = -1 then print("quotation error in system command")
+      else if runsystem_ret = 0 then print("disabled (restricted)")
+      else if runsystem_ret = 1 then print("executed")
+      else if runsystem_ret = 2 then print("executed (allowed)")
+    end;
+  end else begin
+    print("disabled"); {|shellenabledp| false}
+  end;
+  print_char("."); print_nl(""); print_ln;
+  pool_ptr:=str_start_macro(str_ptr);  {erase the string}
+end;
+selector:=old_setting;
+@z
+
+@x
 @!eof_seen : array[1..max_in_open] of boolean; {has eof been seen?}
 @y
 @!eof_seen : ^boolean; {has eof been seen?}
@@ -1500,6 +1963,52 @@ tini@/
 @y
 @!grp_stack : ^save_pointer; {initial |cur_boundary|}
 @!if_stack : ^pointer; {initial |cond_ptr|}
+@z
+
+@x
+@!otp_init_input_buf:array[0..20000] of quarterword;
+
+@!otp_input_start:halfword;
+@!otp_input_last:halfword;
+@!otp_input_end:halfword;
+@!otp_input_buf:array[0..20000] of quarterword;
+
+@!otp_output_end:halfword;
+@!otp_output_buf:array[0..20000] of quarterword;
+
+@!otp_stack_used:halfword;
+@!otp_stack_last:halfword;
+@!otp_stack_new:halfword;
+@!otp_stack_buf:array[0..1000] of quarterword;
+
+@!otp_pc:halfword;
+
+@!otp_calc_ptr:halfword;
+@!otp_calcs:array[0..1000] of halfword;
+@!otp_state_ptr:halfword;
+@!otp_states:array[0..1000] of halfword;
+@y
+@!otp_init_input_buf:^quarterword;
+
+@!otp_input_start:halfword;
+@!otp_input_last:halfword;
+@!otp_input_end:halfword;
+@!otp_input_buf:^quarterword;
+
+@!otp_output_end:halfword;
+@!otp_output_buf:^quarterword;
+
+@!otp_stack_used:halfword;
+@!otp_stack_last:halfword;
+@!otp_stack_new:halfword;
+@!otp_stack_buf:^quarterword;
+
+@!otp_pc:halfword;
+
+@!otp_calc_ptr:halfword;
+@!otp_calcs:^halfword;
+@!otp_state_ptr:halfword;
+@!otp_states:^halfword;
 @z
 
 @x
@@ -1526,7 +2035,7 @@ stop_at_space:=true;
 @ These are used when we regenerate the representation of the first 256
 strings.
 
-@<Global...@>=
+@<Global...@> =
 @!save_str_ptr: str_number;
 @!save_pool_ptr: pool_pointer;
 @!shellenabledp: cinttype;
@@ -1558,7 +2067,7 @@ end;
 
 @ Are we printing extra info as we read the format file?
 
-@<Glob...@>=
+@<Glob...@> =
 @!debug_format_file: boolean;
 
 
@@ -1578,7 +2087,7 @@ begin
   else begin
     print_nl (""); print (full_source_filename_stack[level]); print (":");
     if level=in_open then print_int (line)
-    else print_int (line_stack[iindex+1-(in_open-level)]);
+    else print_int (line_stack[index+1-(in_open-level)]);
     print (": ");
   end;
 end;
@@ -1598,6 +2107,54 @@ if (cur_val<0)or((cur_val>15)and(cur_val<>18)) then
     ("I changed this one to zero."); int_error(cur_val); cur_val:=0;
   end;
 end;
+
+@* \[54/web2c-string] The string recycling routines.  \TeX{} uses 2
+upto 4 {\it new\/} strings when scanning a filename in an \.{\\input},
+\.{\\openin}, or \.{\\openout} operation.  These strings are normally
+lost because the reference to them are not saved after finishing the
+operation.  |search_string| searches through the string pool for the
+given string and returns either 0 or the found string number.
+
+@<Declare additional routines for string recycling@>=
+function search_string(@!search:str_number):str_number;
+label found;
+var result: str_number;
+@!s: str_number; {running index}
+@!len: integer; {length of searched string}
+begin result:=0; len:=length(search);
+if len=0 then  {trivial case}
+  begin result:=""; goto found;
+  end
+else  begin s:=search-1;  {start search with newest string below |s|; |search>1|!}
+  while s>=string_offset do  {first |string_offset| strings depend on implementation!!}
+    begin if length(s)=len then
+      if str_eq_str(s,search) then
+        begin result:=s; goto found;
+        end;
+    decr(s);
+    end;
+  end;
+found:search_string:=result;
+end;
+
+@ The following routine is a variant of |make_string|.  It searches
+the whole string pool for a string equal to the string currently built
+and returns a found string.  Otherwise a new string is created and
+returned.  Be cautious, you can not apply |flush_string| to a replaced
+string!
+
+@<Declare additional routines for string recycling@>=
+function slow_make_string : str_number;
+label exit;
+var s: str_number; {result of |search_string|}
+@!t: str_number; {new string}
+begin t:=make_string; s:=search_string(t);
+if s>0 then
+  begin flush_string; slow_make_string:=s; return;
+  end;
+slow_make_string:=t;
+exit:end;
+
 
 @* \[54] System-dependent changes.
 @z

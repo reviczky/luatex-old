@@ -37,7 +37,6 @@ Version 1
 Thu Jun 19 09:39:21 UTC 2008
 
 */
-/* *INDENT-OFF* */
 
 #  ifndef __SYNCTEX_HEADER__
 #    define __SYNCTEX_HEADER__
@@ -112,4 +111,3 @@ extern void synctex_node(halfword p, halfword this_box);
 extern void synctex_current(void);
 
 #  endif
-/* *INDENT-ON* */

@@ -39,53 +39,19 @@ extern double rint(double x);
 /* pdftexlib macros */
 #  include "ptexmac.h"
 
-#  include "pdf/pdftypes.h"
-
 /* synctex */
 #  include "utils/synctex.h"
 
 #  include "utils/avlstuff.h"
 #  include "image/writeimg.h"
 #  include "openbsd-compat.h"
-#  include "dvi/dvigen.h"
 #  include "pdf/pagetree.h"
-#  include "pdf/pdfgen.h"
 #  include "pdf/pdfpage.h"
-#  include "pdf/pdftables.h"
-
-#  include "pdf/pdfaction.h"
-#  include "pdf/pdfannot.h"
-#  include "pdf/pdfcolorstack.h"
-#  include "pdf/pdfdest.h"
-#  include "pdf/pdffont.h"
-#  include "pdf/pdfimage.h"
-#  include "pdf/pdflink.h"
-#  include "pdf/pdflistout.h"
-#  include "pdf/pdfliteral.h"
-#  include "pdf/pdfobj.h"
-#  include "pdf/pdfoutline.h"
-#  include "pdf/pdfsaverestore.h"
-#  include "pdf/pdfsetmatrix.h"
-#  include "pdf/pdfshipout.h"
-#  include "pdf/pdfthread.h"
-#  include "pdf/pdfxform.h"
-
 #  include "font/luatexfont.h"
 #  include "font/mapfile.h"
 #  include "utils/utils.h"
 #  include "image/writejbig2.h"
 #  include "image/pdftoepdf.h"
-
-#  include "ocp/ocp.h"
-#  include "ocp/ocplist.h"
-#  include "ocp/runocp.h"
-#  include "ocp/readocp.h"
-
-#  include "tex/align.h"
-#  include "tex/directions.h"
-#  include "tex/inputstack.h"
-#  include "tex/stringpool.h"
-#  include "tex/printing.h"
 
 /**********************************************************************/
 
@@ -104,7 +70,20 @@ extern void print_file_name(str_number, str_number, str_number);
 /* lua/luainit.c */
 extern void write_svnversion(char *a);
 
+/* utils/writezip.c */
+extern void write_zip(boolean);
+extern void zip_free(void);
+
 /**********************************************************************/
+
+typedef enum {
+    no_print = 16,
+    term_only = 17,
+    log_only = 18,
+    term_and_log = 19,
+    pseudo = 20,
+    new_string = 21
+} selector_settings;
 
 /* language stuff */
 
@@ -155,6 +134,32 @@ extern halfword compound_word_break(halfword t, int clang);
 extern halfword new_ligkern(halfword head, halfword tail);
 extern halfword handle_ligaturing(halfword head, halfword tail);
 extern halfword handle_kerning(halfword head, halfword tail);
+
+#  define push_dir(a)                           \
+  { dir_tmp=new_dir((a));                       \
+    vlink(dir_tmp)=dir_ptr; dir_ptr=dir_tmp;    \
+    dir_ptr=dir_tmp;                            \
+  }
+
+#  define push_dir_node(a)                      \
+  { dir_tmp=new_node(whatsit_node,dir_node);    \
+    dir_dir(dir_tmp)=dir_dir((a));              \
+    dir_level(dir_tmp)=dir_level((a));          \
+    dir_dvi_h(dir_tmp)=dir_dvi_h((a));          \
+    dir_dvi_ptr(dir_tmp)=dir_dvi_ptr((a));      \
+    vlink(dir_tmp)=dir_ptr; dir_ptr=dir_tmp;    \
+  }
+
+#  define pop_dir_node()                        \
+  { dir_tmp=dir_ptr;                            \
+    dir_ptr=vlink(dir_tmp);                     \
+    flush_node(dir_tmp);                        \
+  }
+
+#  define dir_parallel(a,b) (((a) % 2)==((b) % 2))
+#  define dir_orthogonal(a,b) (((a) % 2)!=((b) % 2))
+
+#  define is_rotated(a) dir_parallel(dir_secondary[(a)],dir_tertiary[(a)])
 
 void initialize_active(void);
 
@@ -235,7 +240,7 @@ void lua_node_filter_s(int filterid, char *extrainfo);
 int lua_linebreak_callback(int is_broken, halfword head_node,
                            halfword * new_head);
 
-void lua_pdf_literal(PDF pdf, int i);
+void lua_pdf_literal(int i);
 void copy_pdf_literal(pointer r, pointer p);
 void free_pdf_literal(pointer p);
 void show_pdf_literal(pointer p);
@@ -359,6 +364,13 @@ void run_mlist_to_hlist(pointer p, integer m_style, boolean penalties);
 void fixup_math_parameters(integer fam_id, integer size_id, integer f,
                            integer lvl);
 
+/* tex/texpdf.c */
+void pdf_print_char(internal_font_number f, integer c);
+void pdf_print(str_number n);
+void pdf_print_str(str_number n);
+void pdf_print_int(longinteger n);
+void pdf_print_real(integer m, integer d);
+
 /* tex/textoken.c */
 
 #  define  NO_CAT_TABLE      -2
@@ -368,6 +380,7 @@ extern boolean str_eq_cstr(str_number, char *, size_t);
 void get_next(void);
 extern void check_outer_validity(void);
 boolean scan_keyword(char *);
+void scan_direction(void);
 halfword active_to_cs(int, int);
 void get_token_lua(void);
 int get_char_cat_code(int);
