@@ -1,0 +1,42 @@
+2009-07-16  Martin Schröder <martin@oneiros.de>
+
+	Import libpng-1.2.38.
+
+	* configure.ac: switch libpng version number.
+	* svn mv libpng-1.2.37 libpng-1.2.38: update source tree.
+	* update files in libpng-1.2.38.
+
+2009-06-19  Peter Breitenlohner  <peb@mppmu.mpg.de>
+
+	* configure.ac: enable compiler warnings.
+	* Makefile.am (AM_CFLAGS): enable compiler warnings.
+	* libpng-1.2.37/png.c (png_64bit_product): declare as static.
+
+2009-06-04  Martin Schröder <martin@oneiros.de>
+
+	Import libpng-1.2.37.
+
+	* configure.ac: switch libpng version number.
+	* svn mv libpng-1.2.36 libpng-1.2.37: update source tree.
+	* update files in libpng-1.2.37.
+
+2009-05-08  Peter Breitenlohner  <peb@mppmu.mpg.de>
+
+	Import libpng-1.2.36.
+
+	* configure.ac: switch libpng version number.
+	* libpng-1.2.36/ (new): new source tree.
+	* libpng-1.2.35/ (removed): old source tree.
+
+2009-03-30  Peter Breitenlohner  <peb@mppmu.mpg.de>
+
+	Import libpng-1.2.35.
+
+	* configure.ac: switch libpng version number.
+	* libpng-1.2.35/ (new): new source tree.
+	* libpng-1.2.34/ (removed): old source tree.
+
+2009-03-20  Peter Breitenlohner  <peb@mppmu.mpg.de>
+
+	Adapt to TL2009 build system.
+
