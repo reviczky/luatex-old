@@ -25,22 +25,13 @@ static const char _svn_version[] =
 
 extern int get_command_id(char *);
 
+#define  protected_token 0x1C00001
+
 #define  is_valid_token(L,i)  (lua_istable(L,i) && lua_objlen(L,i)==3)
 #define  get_token_cmd(L,i)  lua_rawgeti(L,i,1)
 #define  get_token_chr(L,i)  lua_rawgeti(L,i,2)
 #define  get_token_cs(L,i)   lua_rawgeti(L,i,3)
 #define  is_active_string(s) (strlen((char *)s)>3 && *s==0xEF && *(s+1)==0xBF && *(s+2)==0xBF)
-
-
-static unsigned char *get_cs_text(integer cs)
-{
-    if (cs == null_cs)
-        return (unsigned char *)"\\csname\\endcsname";
-    else if ((cs_text(cs) < 0) || (cs_text(cs) >= str_ptr))
-        return (unsigned char *)"";
-    else
-        return (unsigned char *)makecstring(cs_text(cs));
-}
 
 
 static int test_expandable(lua_State * L)
@@ -89,14 +80,15 @@ static int test_protected(lua_State * L)
 static int test_activechar(lua_State * L)
 {
     if (is_valid_token(L, -1)) {
-        unsigned char *s;
+        str_number n;
         integer cs = 0;
         get_token_cs(L, -1);
         if (lua_isnumber(L, -1)) {
             cs = lua_tointeger(L, -1);
         }
         lua_pop(L, 1);
-        if (cs != 0 && ((s = get_cs_text(cs)) != (unsigned char *)NULL)) {
+        if (cs != 0 && (n = zget_cs_text(cs)) && n > 0) {
+            unsigned char *s = (unsigned char *) makecstring(n);
             if (is_active_string(s)) {
                 free(s);
                 lua_pushboolean(L, 1);
@@ -130,8 +122,8 @@ static int run_get_command_name(lua_State * L)
 
 static int run_get_csname_name(lua_State * L)
 {
-    int cs, cmd;
-    unsigned char *s;
+    int cs, cmd, n;
+
     if (is_valid_token(L, -1)) {
         get_token_cmd(L, -1);
         if (lua_isnumber(L, -1)) {
@@ -145,7 +137,8 @@ static int run_get_csname_name(lua_State * L)
         }
         lua_pop(L, 1);
 
-        if (cs != 0 && ((s = get_cs_text(cs)) != (unsigned char *)NULL)) {
+        if (cs != 0 && (n = zget_cs_text(cs)) && n >= 0) {
+            unsigned char *s = (unsigned char *) makecstring(n);
             if (is_active_string(s))
                 lua_pushstring(L, (char *) (s + 3));
             else

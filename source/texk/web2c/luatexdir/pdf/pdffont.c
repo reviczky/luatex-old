@@ -25,7 +25,8 @@ static const char __svn_version[] =
     "$Id$"
     "$URL$";
 
-#define font_id_text(A) cs_text(font_id_base+(A))  /* a frozen font identifier's name */
+#define text(A) hash[(A)].rh
+#define font_id_text(A) text(font_id_base+(A))  /* a frozen font identifier's name */
 
 integer pk_dpi;                 /* PK pixel density value from \.{texmf.cnf} */
 
@@ -480,7 +481,7 @@ void new_letterspaced_font(small_number a)
     get_r_token();
     u = cur_cs;
     if (u >= hash_base)
-        t = cs_text(u);
+        t = text(u);
     else
         t = maketexstring("FONT");
     define(u, set_font_cmd, null_font);
@@ -502,7 +503,7 @@ void make_font_copy(small_number a)
     get_r_token();
     u = cur_cs;
     if (u >= hash_base)
-        t = cs_text(u);
+        t = text(u);
     else
         t = maketexstring("FONT");
     define(u, set_font_cmd, null_font);

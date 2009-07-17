@@ -99,6 +99,7 @@ static const char _svn_version[] =
 #define dir_save      cur_list.dirs_field
 
 #define check_filter(A) if (!output_active) lua_node_filter_s(buildpage_filter_callback,(A))
+#define text(a) hash[(a)].rh
 
 #define var_code 7              /* math code meaning ``use the current family'' */
 
@@ -349,7 +350,7 @@ void main_control(void)
             scanner_status = normal;
             get_token_lua();
             scanner_status = t;
-            cur_cs = prim_lookup(cs_text(cur_cs));
+            cur_cs = prim_lookup(text(cur_cs));
             if (cur_cs != undefined_primitive) {
                 cur_cmd = get_prim_eq_type(cur_cs);
                 cur_chr = get_prim_equiv(cur_cs);
@@ -894,21 +895,6 @@ void main_control(void)
     }                           /* end of the big |switch| statement */
 
     goto BIG_SWITCH;            /* restart */
-}
-
-/*
-Now we are ready to declare our new procedure |ship_out|.  It will call
-|pdf_ship_out| if the integer parameter |pdf_output| is positive; otherwise it
-will call |dvi_ship_out|, which is the \TeX\ original |ship_out|.
-*/
-
-void ship_out(halfword p)
-{                               /* output the box |p| */
-    fix_pdfoutput();
-    if (int_par(pdf_output_code) > 0)
-        pdf_ship_out(static_pdf, p, true);
-    else
-        dvi_ship_out(p);
 }
 
 
@@ -2828,8 +2814,7 @@ void assign_internal_value(int a, halfword p, integer cur_val)
 {
     halfword n;
     if ((p >= int_base) && (p < attribute_base)) {
-        switch ((p - int_base)) {
-        case cat_code_table_code:
+        if (p == (int_base + cat_code_table_code)) {
             if (valid_catcode_table(cur_val)) {
                 if (cur_val != int_par(cat_code_table_code))
                     word_define(p, cur_val);
@@ -2840,48 +2825,22 @@ void assign_internal_value(int a, halfword p, integer cur_val)
                      "using \\savecatcodetable or \\initcatcodetable, or to table 0");
                 error();
             }
-            break;
-        case output_box_code:
-            if ((cur_val > 65535) | (cur_val < 0)) {
-                print_err("Invalid \\outputbox");
-                help1("The value for \\outputbox has to be between 0 and 65535.");
-                error();
-            } else {
-                word_define(p, cur_val);
-            }
-            break;
-        case new_line_char_code:
-            if (cur_val > 127) {
-                print_err("Invalid \\newlinechar");
-                help1("The value for \\newlinechar has to be between 0 and 127.");
-                error();
-            } else if (cur_val < 0) {
-                word_define(p, -1);
-            } else {
-                word_define(p, cur_val);
-            }
-            break;
-        case end_line_char_code:
+        } else if ((p == (int_base + output_box_code)
+                    && ((cur_val > 65535) | (cur_val < 0)))) {
+            print_err("Invalid \\outputbox");
+            help1("The value for \\outputbox has to be between 0 and 65535.");
+            error();
+        } else if (((p == new_line_char) && ((cur_val > 127) || (cur_val < 0)))) {
+            print_err("Invalid \newlinechar");
+            help1("The value for \\newlinechar has to be between 0 and 127.");
+            error();
+        } else if (p == end_line_char) {
             if ((cur_val < 0) || (cur_val > biggest_char))
                 word_define(p, -1);
             else
                 word_define(p, 13);
-            break;
-        case pdf_compress_level_code:
-            static_pdf->compress_level = cur_val;
+        } else {
             word_define(p, cur_val);
-            break;
-        case pdf_objcompresslevel_code:
-            static_pdf->objcompresslevel = cur_val;
-            word_define(p, cur_val);
-            break;
-        case language_code:
-            word_define(int_base + cur_lang_code, cur_val);
-            word_define(p, cur_val);
-            break;
-        default:
-            word_define(p, cur_val);
-            break;
         }
         /* If we are defining subparagraph penalty levels while we are
            in hmode, then we put out a whatsit immediately, otherwise
@@ -2897,6 +2856,8 @@ void assign_internal_value(int a, halfword p, integer cur_val)
             eq_word_define(int_base + no_local_whatsits_code,
                            no_local_whatsits + 1);
         }
+        if (p == int_base + language_code)
+            word_define(int_base + cur_lang_code, cur_val);
 
     } else if ((p >= dimen_base) && (p < eqtb_size)) {
         if (p == (dimen_base + page_left_offset_code)) {
@@ -3326,8 +3287,8 @@ void shift_case(void)
                 i = get_lc_code(c);
             if (i != 0)
                 set_token_info(p, t - c + i);
-        } else if (is_active_cs(cs_text(t - cs_token_flag))) {
-            c = active_cs_value(cs_text(t - cs_token_flag));
+        } else if (is_active_cs(text(t - cs_token_flag))) {
+            c = active_cs_value(text(t - cs_token_flag));
             if (b == uc_code_base)
                 i = get_uc_code(c);
             else
@@ -3800,11 +3761,11 @@ void initialize(void)
         hash_high = 0;
         cs_count = 0;
         set_eq_type(frozen_dont_expand, dont_expand_cmd);
-        cs_text(frozen_dont_expand) = maketexstring("notexpanded:");
+        text(frozen_dont_expand) = maketexstring("notexpanded:");
         set_eq_type(frozen_primitive, ignore_spaces_cmd);
         set_equiv(frozen_primitive, 1);
         set_eq_level(frozen_primitive, level_one);
-        cs_text(frozen_primitive) = maketexstring("primitive");
+        text(frozen_primitive) = maketexstring("primitive");
         create_null_font();
         font_bytes = 0;
         init_null_ocp(get_nullstr(), maketexstring("nullocp"));
@@ -3822,9 +3783,9 @@ void initialize(void)
         pdf_image_apply_gamma = 0;
         pdf_px_dimen = one_bp;
         pdf_draftmode = 0;
-        cs_text(frozen_protection) = maketexstring("inaccessible");
+        text(frozen_protection) = maketexstring("inaccessible");
         format_ident = maketexstring(" (INITEX)");
-        cs_text(end_write) = maketexstring("endwrite");
+        text(end_write) = maketexstring("endwrite");
         set_eq_level(end_write, level_one);
         set_eq_type(end_write, outer_call_cmd);
         set_equiv(end_write, null);

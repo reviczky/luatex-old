@@ -23,7 +23,9 @@ static const char _svn_version[] =
     "$Id$"
     "$URL$";
 
-#define font_id_text(A) cs_text(font_id_base+(A))
+#define next(A) hash[(A)].lhfield
+#define text(A) hash[(A)].rh
+#define font_id_text(A) text(font_id_base+(A))
 #define prev_depth cur_list.aux_field.cint
 
 /*
@@ -241,7 +243,7 @@ void store_fmt_file(void)
     dump_int(hash_used);
     cs_count = frozen_control_sequence - 1 - hash_used + hash_high;
     for (p = hash_base; p <= hash_used; p++) {
-        if (cs_text(p) != 0) {
+        if (text(p) != 0) {
             dump_int(p);
             dump_hh(hash[p]);
             incr(cs_count);

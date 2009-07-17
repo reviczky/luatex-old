@@ -36,7 +36,7 @@ static const char _svn_version[] =
 static char *font_error_message(pointer u, char *nom, scaled s)
 {
     char *str = xmalloc(256);
-    char *c = makecstring(cs_text(u));
+    char *c = makecstring(zget_cs_text(u));
     char *extra = "metric data not found or bad";
     if (s >= 0) {
         snprintf(str, 255, "Font \\%s=%s at %gpt not loadable: %s", c, nom,
@@ -150,7 +150,7 @@ int read_font_info(pointer u, str_number nom, scaled s, integer natural_dir)
             "so I will ignore the font specification.",
             "[Wizards can fix TFM files using TFtoPL/PLtoTF.]",
             "You might try inserting a different font spec;",
-            "e.g., type `I\\font<same font id>=<substitute font name>'.",
+            "e.g., type `I\font<same font id>=<substitute font name>'.",
             NULL
         };
         if (int_par(suppress_fontnotfound_error_code) == 0) {

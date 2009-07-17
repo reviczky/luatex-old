@@ -26,21 +26,7 @@
 static const char _svn_version[] =
     "$Id$ $URL$";
 
-
-/*
-When the user defines \.{\\font\\f}, say, \TeX\ assigns an internal number
-to the user's font~\.{\\f}. Adding this number to |font_id_base| gives the
-|eqtb| location of a ``frozen'' control sequence that will always select
-the font.
-*/
-
-integer font_bytes;
-
-void set_cur_font(internal_font_number f)
-{
-    int a = 0;                  /* never global */
-    define(cur_font_loc, data_cmd, f);
-}
+#define text(a) hash[(a)].rh    /* string number for control sequence name */
 
 char *scaled_to_string(scaled s)
 {                               /* prints scaled real, rounded to five digits */
@@ -94,7 +80,7 @@ void tex_def_font(small_number a)
     get_r_token();
     u = cur_cs;
     if (u >= null_cs)
-        t = cs_text(u);
+        t = text(u);
     else
         t = maketexstring("FONT");
     if (a >= 4) {
@@ -197,5 +183,5 @@ void tex_def_font(small_number a)
     f = read_font_info(u, cur_name, s, natural_dir);
     equiv(u) = f;
     eqtb[font_id_base + f] = eqtb[u];
-    cs_text(font_id_base + f) = t;
+    text(font_id_base + f) = t;
 }
