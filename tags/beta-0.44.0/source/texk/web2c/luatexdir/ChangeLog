@@ -1,0 +1,76 @@
+2009-06-03  Taco Hoekwater <taco@luatex.org>
+ 	
+	* luatexdir/luafontloader/fontforge/fontforge/namelist.c (psaltnames): add
+        a dimension specifier, for AIX portability.
+
+2009-06-03  Taco Hoekwater <taco@luatex.org>
+ 	
+	* luatexdir: import of luatex release 0.40.2.
+	This affects many files in subdirectories.
+
+2009-05-30  Peter Breitenlohner <peb@mppmu.mpg.de>
+
+	* am/luatex.am (install-exec-hook, uninstall-hook):
+	avoid dangling symlinks.
+
+2009-05-25  Peter Breitenlohner <peb@mppmu.mpg.de>
+
+	* am/luatex.am (uninstall-hook): new target to uninstall texlua[c]
+	symlinks.
+
+2009-05-25  Karl Berry  <karl@tug.org>
+
+	* am/luatex.am (install-exec-hook): new target to install texlua[c]
+	symlinks.
+
+2009-05-08  Taco Hoekwater <taco@luatex.org>
+ 	
+	* luatexdir: import of the current state of luatex, 0.40.1.
+	This affects many files in subdirectories.
+
+2009-05-05  Peter Breitenlohner <peb@mppmu.mpg.de>
+
+	* image/pdftoepdf.cc, utils/utils.c: adapt for poppler.
+
+	patches from Norbert Preinig <preining@logic.at>
+
+2009-04-27  Taco Hoekwater <taco@luatex.org>
+
+	* pdf/pdfpage.c: rename exp10 to exp10_arr to solve a 
+	conflict with cygwin's <math.h>.
+	* font/texfont.h: add #undef quad before definition to suppress a
+	compiler warning under cygwin. 
+
+2009-04-22  Taco Hoekwater <taco@luatex.org>
+
+	* luatexdir: import of the current state of luatex, 0.40.0. 
+	This affects many files in subdirectories.
+
+2009-04-16  Taco Hoekwater <taco@luatex.org>
+
+	* image/image.h: remove the trick that forced a local png.h
+
+2009-04-16  Taco Hoekwater <taco@luatex.org>
+
+	* luatexdir: import of the current state of luatex, 0.39.0. 
+	This affects many files in subdirectories.
+
+2009-03-27  Peter Breitenlohner <peb@mppmu.mpg.de>
+
+	* am/luatex.am (luatex_c_h): avoid to split the C code
+	(from Taco).
+
+2009-03-27  Taco Hoekwater <taco@luatex.org>
+
+	* luatexdir: import of the current state of luatex, 0.37.0. 
+	This affects many files in subdirectories.
+
+2009-03-05  Peter Breitenlohner <peb@mppmu.mpg.de>
+
+	* image/pdftoepdf.cc: Uninclude <config.h>, included later
+	by "epdf.h".
+
+2009-03-03  Peter Breitenlohner  <peb@mppmu.mpg.de>
+
+	* luatangle.ch: use kpse_open_file to locate input files,
+	in order to respect WEBINPUTS (ported from tangle.ch).
