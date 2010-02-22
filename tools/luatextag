@@ -5,7 +5,7 @@ cd /opt/tex/luatex/tags
 if  test -d $a ; then
   find $a -name \*~ -exec rm \{\} \;
   rm -rf $a/build $a/build-windows
-  cd $a && source/texk/web2c/luatexdir/getluatexsvnversion.sh tags/$a && cd ..
+  (cd $a/source ; ./texk/web2c/luatexdir/getluatexsvnversion.sh )
   ln -s $a luatex-$a
   tar cvj --exclude=.svn -f ../../luatex-$a.tar.bz2 luatex-$a/*
   cd luatex-$a
