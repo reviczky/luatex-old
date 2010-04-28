@@ -64,8 +64,6 @@ extern "C" {
 
     extern char *xstrdup(const char *);
 
-    typedef enum { FE_FAIL, FE_RETURN_NULL } file_error_mode;
-
 /* the following code is extremly ugly but needed for including web2c/config.h */
 
     typedef const char *const_string;   /* including kpathsea/types.h doesn't work on some systems */
@@ -77,7 +75,7 @@ extern "C" {
 #    undef CONFIG_H             /* header file */
 #  endif
 
-#  include <web2c/c-auto.h>     /* define SIZEOF_LONG */
+#  include <c-auto.h>     /* define SIZEOF_LONG */
 
 #  include "openbsd-compat.h"
 #  include "image.h"
@@ -170,6 +168,6 @@ struct PdfDocument {
     int occurences;             // number of references to the PdfDocument; it can be deleted when occurences == 0
 };
 
-PdfDocument *refPdfDocument(char *file_path, file_error_mode fe);
+PdfDocument *refPdfDocument(char *file_path);
 
 #endif                          /* EPDF_H */
