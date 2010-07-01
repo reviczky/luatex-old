@@ -22,9 +22,9 @@
 #ifndef PDFSHIPOUT_H
 #  define PDFSHIPOUT_H
 
-extern shipping_mode_e global_shipping_mode;        /* set to |shipping_mode| when |ship_out| starts */
+extern boolean is_shipping_page;        /* set to |shipping_page| when |ship_out| starts */
 extern scaledpos shipbox_refpos;        /* for \gleaders */
 
-extern void ship_out(PDF pdf, halfword p, shipping_mode_e shipping_mode);
+extern void ship_out(PDF pdf, halfword p, boolean shipping_page);
 
 #endif

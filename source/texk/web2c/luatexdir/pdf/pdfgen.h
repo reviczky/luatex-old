@@ -76,8 +76,6 @@ typedef enum {
     zip_finish = 2              /* finish \.{ZIP} compression */
 } zip_write_states;
 
-typedef enum { NOT_SHIPPING, SHIPPING_PAGE, SHIPPING_FORM } shipping_mode_e;
-
 extern int pdf_output_option;
 extern int pdf_output_value;
 extern int pdf_draftmode_option;
@@ -101,14 +99,11 @@ extern void fix_pdf_minorversion(PDF);
 /* do the same as |pdf_quick_out| and flush the PDF buffer if necessary */
 #  define pdf_out(pdf,A) do { pdf_room(pdf,1); pdf_quick_out(pdf,A); } while (0)
 
-#  if 0
-/* see function pdf_out_block() */
-#    define pdf_out_block_macro(pdf,A,n) do {               \
+#  define pdf_out_block(pdf,A,n) do {                       \
         pdf_room(pdf,(int)(n));                             \
         (void)memcpy((pdf->buf+pdf->ptr),(A),(size_t)(n));  \
         pdf->ptr+=(int)(n);                                 \
     } while (0)
-#  endif
 
 /*
 Basic printing procedures for PDF output are very similiar to \TeX\ basic
@@ -133,6 +128,7 @@ suffix |_ln| append a new-line character to the PDF output.
         pdf_print_nl(pdf);                        \
     } while (0)
 
+extern void pdf_puts(PDF, const char *);
 extern __attribute__ ((format(printf, 2, 3)))
 void pdf_printf(PDF, const char *, ...);
 
@@ -155,13 +151,9 @@ extern void pdf_print_mag_bp(PDF, scaled);
 extern void addto_page_resources(PDF pdf, pdf_obj_type t, int k);
 extern pdf_object_list *get_page_resources_list(PDF pdf, pdf_obj_type t);
 
-extern void pdf_out_block(PDF pdf, const char *s, size_t n);
-
-#  define pdf_puts(pdf, s) pdf_out_block((pdf), (s), strlen(s))
-
 #  define pdf_print_resname_prefix(pdf) do {        \
         if (pdf->resname_prefix != NULL)            \
-            pdf_puts(pdf, pdf->resname_prefix);     \
+            pdf_puts(pdf,pdf->resname_prefix);      \
     } while (0)
 
 extern void pdf_print_fw_int(PDF, longinteger, int);
@@ -223,9 +215,8 @@ extern void check_o_mode(PDF pdf, const char *s, int o_mode, boolean errorflag);
 
 extern void set_job_id(PDF, int, int, int, int);
 extern char *get_resname_prefix(PDF);
-extern void pdf_begin_page(PDF pdf);
-extern void pdf_end_page(PDF pdf);
-extern void print_pdf_table_string(PDF pdf, const char *s);
+extern void pdf_begin_page(PDF pdf, boolean shipping_page);
+extern void pdf_end_page(PDF pdf, boolean shipping_page);
 
 extern void fix_o_mode(PDF pdf);
 extern void ensure_output_state(PDF pdf, output_state s);
@@ -236,10 +227,13 @@ extern halfword pdf_catalog_toks;       /* additional keys of Catalog dictionary
 extern halfword pdf_catalog_openaction;
 extern halfword pdf_names_toks; /* additional keys of Names dictionary */
 extern halfword pdf_trailer_toks;       /* additional keys of Trailer dictionary */
+extern halfword pdf_pageattributes_toks;        /* additional keys of Page dictionary */
+extern halfword pdf_pageresources_toks; /* additional keys of Resources dictionary */
+extern halfword pdf_pagesattributes_toks;       /* additional keys of Pages dictionary */
 extern void scan_pdfcatalog(PDF pdf);
 extern void finish_pdf_file(PDF pdf, int luatex_version,
                             str_number luatex_revision);
 
-extern shipping_mode_e global_shipping_mode;
+extern boolean is_shipping_page;
 
 #endif                          /* PDFGEN_H */

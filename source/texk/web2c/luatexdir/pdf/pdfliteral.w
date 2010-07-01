@@ -97,8 +97,6 @@ static boolean str_in_cstr(str_number s, const char *r, unsigned i)
 @ @c
 void pdf_literal(PDF pdf, str_number s, int literal_mode, boolean warn)
 {
-    unsigned char *ss;
-    size_t l;
     pool_pointer j = 0;         /* current character code position, initialized to make the compiler happy */
     if (s >= STRING_OFFSET) {   /* needed for |out_save| */
         j = 0;
@@ -139,9 +137,15 @@ void pdf_literal(PDF pdf, str_number s, int literal_mode, boolean warn)
         break;
     }
     if (s >= STRING_OFFSET) {
-        ss = str_string(s);
-        l = str_length(s) - (size_t) j;
-        pdf_out_block(pdf, (const char *) (ss + j), l);
+        unsigned char *ss = str_string(s);
+        size_t l = str_length(s) - (size_t) j;
+        if (l < max_single_pdf_print) {
+            pdf_out_block(pdf, (ss + j), l);
+        } else {
+
+            while (l--)
+                pdf_out(pdf, *(ss + j++));
+        }
     } else {
         assert(s < 256);
         pdf_out(pdf, s);

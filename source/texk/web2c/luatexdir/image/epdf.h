@@ -47,8 +47,6 @@
 #  endif
 #  include "Object.h"
 #  include "Stream.h"
-#  include "Gfx.h"
-#  include "Annot.h"
 #  include "Array.h"
 #  include "Dict.h"
 #  include "XRef.h"
@@ -66,8 +64,6 @@ extern "C" {
 
     extern char *xstrdup(const char *);
 
-    typedef enum { FE_FAIL, FE_RETURN_NULL } file_error_mode;
-
 /* the following code is extremly ugly but needed for including web2c/config.h */
 
     typedef const char *const_string;   /* including kpathsea/types.h doesn't work on some systems */
@@ -79,7 +75,7 @@ extern "C" {
 #    undef CONFIG_H             /* header file */
 #  endif
 
-#  include <c-auto.h>           /* define SIZEOF_LONG */
+#  include <c-auto.h>     /* define SIZEOF_LONG */
 
 #  include "openbsd-compat.h"
 #  include "image.h"
@@ -92,15 +88,13 @@ extern "C" {
     /* pdfgen.c */
     __attribute__ ((format(printf, 2, 3)))
     extern void pdf_printf(PDF, const char *fmt, ...);
+    extern void pdf_puts(PDF, const char *);
     extern void pdf_begin_obj(PDF, int, bool);
     extern void pdf_end_obj(PDF);
     extern void pdf_begin_stream(PDF);
     extern void pdf_end_stream(PDF);
     extern void pdf_room(PDF, int);
-    extern void pdf_out_block(PDF pdf, const char *s, size_t n);
-
-#  define pdf_out(B, A) do { pdf_room(B, 1); B->buf[B->ptr++] = A; } while (0)
-#  define pdf_puts(pdf, s) pdf_out_block((pdf), (s), strlen(s))
+#  define pdf_out(B,A) do { pdf_room(B,1); B->buf[B->ptr++] = A; } while (0)
 
     /* pdftables.c */
     extern int pdf_new_objnum(PDF);
@@ -135,9 +129,6 @@ extern "C" {
 // and &obj to get a pointer to the object.
 // It is no longer necessary to call Object::free explicitely.
 
-#  if 0
-// PdfObject is replaced by xpdf's Object type, with manual obj.free()
-
 // *INDENT-OFF*
 class PdfObject {
   public:
@@ -159,7 +150,6 @@ class PdfObject {
     Object iObject;
 };
 // *INDENT-ON*
-#  endif
 
 /**********************************************************************/
 
@@ -175,10 +165,9 @@ struct PdfDocument {
     PDFDoc *doc;
     InObj *inObjList;           // temporary linked list
     avl_table *ObjMapTree;      // permanent over luatex run
-    unsigned int occurences;    // number of references to the PdfDocument; it can be deleted when occurences == 0
-    unsigned int pc;            // counter to track PDFDoc generation or deletion
+    int occurences;             // number of references to the PdfDocument; it can be deleted when occurences == 0
 };
 
-PdfDocument *refPdfDocument(char *file_path, file_error_mode fe);
+PdfDocument *refPdfDocument(char *file_path);
 
 #endif                          /* EPDF_H */

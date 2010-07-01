@@ -54,6 +54,9 @@ They have the following properties:
 #define DIRECT_PAGE 1
 #define DIRECT_ALWAYS 2
 
+/* remember shipout mode: page/form */
+boolean page_mode;
+
 typedef struct {
     char **page_stack;
     char **form_stack;
@@ -173,7 +176,7 @@ static int colorstackset(int colstack_no, str_number s)
 {
     colstack_type *colstack = get_colstack(colstack_no);
 
-    if (global_shipping_mode == SHIPPING_PAGE) {
+    if (page_mode) {
         xfree(colstack->page_current);
         colstack->page_current = makecstring(s);
     } else {
@@ -188,7 +191,7 @@ int colorstackcurrent(int colstack_no)
 {
     colstack_type *colstack = get_colstack(colstack_no);
 
-    if (global_shipping_mode == SHIPPING_PAGE) {
+    if (page_mode) {
         put_cstring_on_str_pool(colstack->page_current);
     } else {
         put_cstring_on_str_pool(colstack->form_current);
@@ -201,7 +204,7 @@ static int colorstackpush(int colstack_no, str_number s)
 {
     colstack_type *colstack = get_colstack(colstack_no);
     char *str;
-    if (global_shipping_mode == SHIPPING_PAGE) {
+    if (page_mode) {
         if (colstack->page_used == colstack->page_size) {
             colstack->page_size += STACK_INCREMENT;
             colstack->page_stack = xretalloc(colstack->page_stack,
@@ -240,7 +243,7 @@ int colorstackpop(int colstack_no)
 {
     colstack_type *colstack = get_colstack(colstack_no);
 
-    if (global_shipping_mode == SHIPPING_PAGE) {
+    if (page_mode) {
         if (colstack->page_used == 0) {
             pdftex_warn("pop empty color page stack %u",
                         (unsigned int) colstack_no);
@@ -268,7 +271,7 @@ void colorstackpagestart(void)
     int i, j;
     colstack_type *colstack;
 
-    if (global_shipping_mode == SHIPPING_PAGE) {
+    if (page_mode) {
         /* see procedure |pdf_out_colorstack_startpage| */
         return;
     }

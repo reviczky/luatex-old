@@ -22,8 +22,6 @@ static const char _svn_version[] =
     "$Id$ "
     "$URL$";
 
-// define DEBUG
-
 #include "epdf.h"
 
 #define one_hundred_bp  6578176 // one_hundred_bp = 7227 * 65536 / 72
@@ -64,121 +62,41 @@ static PdfDocument *findPdfDocument(char *file_path)
     return pdf_doc;
 }
 
-#define PDF_CHECKSUM_SIZE 32
-
-static char *get_file_checksum(char *a, file_error_mode fe)
-{
-    struct stat finfo;
-    char *ck = NULL;
-    if (stat(a, &finfo) == 0) {
-        off_t size = finfo.st_size;
-        time_t mtime = finfo.st_mtime;
-        ck = (char *) malloc(PDF_CHECKSUM_SIZE);
-        if (ck == NULL)
-            pdftex_fail("PDF inclusion: out of memory while processing '%s'",
-                        a);
-        snprintf(ck, PDF_CHECKSUM_SIZE, "%llu_%llu", (unsigned long long) size,
-                 (unsigned long long) mtime);
-    } else {
-        switch (fe) {
-        case FE_FAIL:
-            pdftex_fail("PDF inclusion: could not stat() file '%s'", a);
-            break;
-        case FE_RETURN_NULL:
-            if (ck != NULL)
-                free(ck);
-            ck = NULL;
-            break;
-        default:
-            assert(0);
-        }
-    }
-    return ck;
-}
-
 // Returns pointer to PdfDocument structure for PDF file.
-// Creates a new PdfDocument structure if it doesn't exist yet.
-// When fe = FE_RETURN_NULL, the function returns NULL in error case.
+// Creates a new structure if it doesn't exist yet.
 
-PdfDocument *refPdfDocument(char *file_path, file_error_mode fe)
+char *get_file_checksum(char *a);
+
+PdfDocument *refPdfDocument(char *file_path)
 {
-    char *checksum;
-    PdfDocument *pdf_doc;
-    PDFDoc *doc = NULL;
-    GString *docName = NULL;
-    int new_flag = 0;
-    if ((checksum = get_file_checksum(file_path, fe)) == NULL) {
-        assert(fe == FE_RETURN_NULL);
-        return (PdfDocument *) NULL;
-    }
-    assert(checksum != NULL);
-    if ((pdf_doc = findPdfDocument(file_path)) == NULL) {
-#ifdef DEBUG
-        fprintf(stderr, "\nDEBUG: New PdfDocument %s\n", file_path);
-#endif
-        new_flag = 1;
+    PdfDocument *pdf_doc = findPdfDocument(file_path);
+    if (pdf_doc == NULL) {
+        if (PdfDocumentTree == NULL)
+            PdfDocumentTree =
+                avl_create(CompPdfDocument, NULL, &avl_xallocator);
         pdf_doc = new PdfDocument;
         pdf_doc->file_path = xstrdup(file_path);
-        pdf_doc->checksum = checksum;
-        pdf_doc->doc = NULL;
-        pdf_doc->inObjList = NULL;
-        pdf_doc->ObjMapTree = NULL;
-        pdf_doc->occurences = 0;        // 0 = unreferenced
-        pdf_doc->pc = 0;
-    } else {
-#ifdef DEBUG
-        fprintf(stderr, "\nDEBUG: Found PdfDocument %s (%d)\n",
-                pdf_doc->file_path, pdf_doc->occurences);
-#endif
-        assert(pdf_doc->checksum != NULL);
-        if (strncmp(pdf_doc->checksum, checksum, PDF_CHECKSUM_SIZE) != 0) {
-            pdftex_fail("PDF inclusion: file has changed '%s'", file_path);
-        }
-        free(checksum);
-    }
-    assert(pdf_doc != NULL);
-    if (pdf_doc->doc == NULL) {
-#ifdef DEBUG
-        fprintf(stderr, "\nDEBUG: New PDFDoc %s (%d)\n",
-                pdf_doc->file_path, pdf_doc->occurences);
-#endif
-        docName = new GString(file_path);
-        doc = new PDFDoc(docName);      // takes ownership of docName
-        pdf_doc->pc++;
-
-        if (!doc->isOk() || !doc->okToPrint()) {
-            switch (fe) {
-            case FE_FAIL:
-                pdftex_fail("xpdf: reading PDF image failed");
-                break;
-            case FE_RETURN_NULL:
-                delete doc;
-                delete docName;
-                if (new_flag == 1) {
-                    if (pdf_doc->file_path != NULL)
-                        free(pdf_doc->file_path);
-                    if (pdf_doc->checksum != NULL)
-                        free(pdf_doc->checksum);
-                    delete pdf_doc;
-                }
-                return (PdfDocument *) NULL;
-                break;
-            default:
-                assert(0);
-            }
-        }
-        pdf_doc->doc = doc;
-    }
-    // PDF file could be opened without problems, checksum ok.
-    if (PdfDocumentTree == NULL)
-        PdfDocumentTree = avl_create(CompPdfDocument, NULL, &avl_xallocator);
-    if ((PdfDocument *) avl_find(PdfDocumentTree, pdf_doc) == NULL) {
+        pdf_doc->checksum = get_file_checksum(file_path);
         void **aa = avl_probe(PdfDocumentTree, pdf_doc);
         assert(aa != NULL);
+        pdf_doc->ObjMapTree = NULL;
+        pdf_doc->doc = NULL;
     }
+    if (pdf_doc->doc == NULL) {
+        GString *docName = new GString(pdf_doc->file_path);
+        pdf_doc->doc = new PDFDoc(docName);     // takes ownership of docName
+        if (!pdf_doc->doc->isOk() || !pdf_doc->doc->okToPrint())
+            pdftex_fail("xpdf: reading PDF image failed");
+        pdf_doc->inObjList = NULL;
+        pdf_doc->occurences = 0;        // 0 = unreferenced
+    }
+#ifdef DEBUG
+    fprintf(stderr, "\nluatex Debug: Creating %s (%d)\n",
+            pdf_doc->file_path, pdf_doc->occurences);
+#endif
     pdf_doc->occurences++;
 #ifdef DEBUG
-    fprintf(stderr, "\nDEBUG: Incrementing %s (%d)\n",
+    fprintf(stderr, "\nluatex Debug: Incrementing %s (%d)\n",
             pdf_doc->file_path, pdf_doc->occurences);
 #endif
     return pdf_doc;
@@ -375,14 +293,13 @@ static void copyName(PDF pdf, char *s)
 static void copyArray(PDF pdf, PdfDocument * pdf_doc, Array * array)
 {
     int i, l;
-    Object obj1;
+    PdfObject obj1;
     pdf_puts(pdf, "[");
     for (i = 0, l = array->getLength(); i < l; ++i) {
         array->getNF(i, &obj1);
-        if (!obj1.isName())
+        if (!obj1->isName())
             pdf_puts(pdf, " ");
         copyObject(pdf, pdf_doc, &obj1);
-        obj1.free();
     }
     pdf_puts(pdf, "]");
 }
@@ -390,14 +307,13 @@ static void copyArray(PDF pdf, PdfDocument * pdf_doc, Array * array)
 static void copyDict(PDF pdf, PdfDocument * pdf_doc, Dict * dict)
 {
     int i, l;
-    Object obj1;
+    PdfObject obj1;
     pdf_puts(pdf, "<<");
     for (i = 0, l = dict->getLength(); i < l; ++i) {
         copyName(pdf, dict->getKey(i));
         pdf_puts(pdf, " ");
         dict->getValNF(i, &obj1);
         copyObject(pdf, pdf_doc, &obj1);
-        obj1.free();
         pdf_puts(pdf, "\n");
     }
     pdf_puts(pdf, ">>");
@@ -476,16 +392,15 @@ static void writeRefs(PDF pdf, PdfDocument * pdf_doc)
 {
     InObj *r, *n;
     XRef *xref;
-    Object obj1;
     xref = pdf_doc->doc->getXRef();
     for (r = pdf_doc->inObjList; r != NULL;) {
+        PdfObject obj1;
         xref->fetch(r->ref.num, r->ref.gen, &obj1);
-        if (obj1.isStream())
+        if (obj1->isStream())
             pdf_begin_obj(pdf, r->num, 0);
         else
             pdf_begin_obj(pdf, r->num, 2);      // \pdfobjcompresslevel = 2 is for this
         copyObject(pdf, pdf_doc, &obj1);
-        obj1.free();
         pdf_puts(pdf, "\n");
         pdf_end_obj(pdf);
         n = r->next;
@@ -521,6 +436,26 @@ static PDFRectangle *get_pagebox(Page * page, int pagebox_spec)
     return page->getMediaBox(); // to make the compiler happy
 }
 
+#define PDF_CHECKSUM_SIZE 32
+char *get_file_checksum(char *a)
+{
+    struct stat finfo;
+    char *ck = NULL;
+    if (stat(a, &finfo) == 0) {
+        off_t size = finfo.st_size;
+        time_t mtime = finfo.st_mtime;
+        ck = (char *) malloc(PDF_CHECKSUM_SIZE);
+        if (ck == NULL)
+            pdftex_fail("PDF inclusion: out of memory while processing '%s'",
+                        a);
+        snprintf(ck, PDF_CHECKSUM_SIZE, "%llu_%llu", (unsigned long long) size,
+                 (unsigned long long) mtime);
+    } else {
+        pdftex_fail("PDF inclusion: could not stat() file '%s'", a);
+    }
+    return ck;
+}
+
 // Reads various information about the PDF and sets it up for later inclusion.
 // This will fail if the PDF version of the PDF is higher than
 // minor_pdf_version_wanted or page_name is given and can not be found.
@@ -534,6 +469,7 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
     PdfDocument *pdf_doc;
     Page *page;
     int rotate;
+    char *checksum;
     PDFRectangle *pagebox;
 #ifdef HAVE_GETPDFMAJORVERSION
     int pdf_major_version_found, pdf_minor_version_found;
@@ -550,8 +486,15 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
         globalParams->setErrQuiet(gFalse);
         isInit = gTrue;
     }
+    // calculate a checksum string
+    checksum = get_file_checksum(img_filepath(idict));
     // open PDF file
-    pdf_doc = refPdfDocument(img_filepath(idict), FE_FAIL);
+    pdf_doc = refPdfDocument(img_filepath(idict));
+    if (strncmp(pdf_doc->checksum, checksum, PDF_CHECKSUM_SIZE) != 0) {
+        pdftex_fail("PDF inclusion: file has changed '%s'",
+                    img_filename(idict));
+    }
+    free(checksum);
     // check PDF version
     // this works only for PDF 1.x -- but since any versions of PDF newer
     // than 1.x will not be backwards compatible to PDF 1.x, pdfTeX will
@@ -560,15 +503,13 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
     pdf_major_version_found = pdf_doc->doc->getPDFMajorVersion();
     pdf_minor_version_found = pdf_doc->doc->getPDFMinorVersion();
     if ((pdf_major_version_found > 1)
-        || (pdf_minor_version_found > minor_pdf_version_wanted)) {
+     || (pdf_minor_version_found > minor_pdf_version_wanted)) {
         const char *msg =
             "PDF inclusion: found PDF version <%d.%d>, but at most version <1.%d> allowed";
         if (pdf_inclusion_errorlevel > 0) {
-            pdftex_fail(msg, pdf_major_version_found, pdf_minor_version_found,
-                        minor_pdf_version_wanted);
+            pdftex_fail(msg, pdf_major_version_found, pdf_minor_version_found, minor_pdf_version_wanted);
         } else {
-            pdftex_warn(msg, pdf_major_version_found, pdf_minor_version_found,
-                        minor_pdf_version_wanted);
+            pdftex_warn(msg, pdf_major_version_found, pdf_minor_version_found, minor_pdf_version_wanted);
         }
     }
 #else
@@ -666,30 +607,38 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
 // Here the included PDF is copied, so most errors that can happen
 // during PDF inclusion will arise here.
 
-void write_epdf(PDF pdf, image_dict * idict)
+static void write_epdf1(PDF pdf, image_dict * idict)
 {
     PdfDocument *pdf_doc;
     Page *page;
     Ref *pageref;
     Dict *pageDict;
-    Object obj1, pageobj, contents;
+    PdfObject info, contents, obj1, pageObj, dictObj;
     PDFRectangle *pagebox;
     int i, l;
     float bbox[4];
+    char *checksum;
     char s[256];
-    const char *pagedictkeys[] =
+    char *pagedictkeys[] =
         { "Group", "LastModified", "Metadata", "PieceInfo", "Resources",
         "SeparationInfo", NULL
     };
-    assert(idict != NULL);
 
+    assert(idict != NULL);
+    // calculate a checksum string
+    checksum = get_file_checksum(img_filepath(idict));
     // open PDF file
-    pdf_doc = refPdfDocument(img_filepath(idict), FE_FAIL);
+    pdf_doc = refPdfDocument(img_filepath(idict));
+    if (strncmp(pdf_doc->checksum, checksum, PDF_CHECKSUM_SIZE) != 0) {
+        pdftex_fail("PDF inclusion: file has changed '%s'",
+                    img_filename(idict));
+    }
+    free(checksum);
     page = pdf_doc->doc->getCatalog()->getPage(img_pagenum(idict));
     pageref = pdf_doc->doc->getCatalog()->getPageRef(img_pagenum(idict));
     assert(pageref != NULL);    // was checked already in read_pdf_info()
-    pdf_doc->doc->getXRef()->fetch(pageref->num, pageref->gen, &pageobj);
-    pageDict = pageobj.getDict();
+    pdf_doc->doc->getXRef()->fetch(pageref->num, pageref->gen, &pageObj);
+    pageDict = pageObj->getDict();
 
     // write the Page header
     pdf_puts(pdf, "/Type /XObject\n/Subtype /Form\n");
@@ -703,13 +652,12 @@ void write_epdf(PDF pdf, image_dict * idict)
                                         strlen(pdf_doc->file_path)));
     pdf_printf(pdf, "/%s.PageNumber %i\n", pdfkeyprefix,
                (int) img_pagenum(idict));
-    pdf_doc->doc->getDocInfoNF(&obj1);
-    if (obj1.isRef()) {
+    pdf_doc->doc->getDocInfoNF(&info);
+    if (info->isRef()) {
         // the info dict must be indirect (PDF Ref p. 61)
         pdf_printf(pdf, "/%s.InfoDict ", pdfkeyprefix);
-        pdf_printf(pdf, "%d 0 R\n", addInObj(pdf, pdf_doc, obj1.getRef()));
+        pdf_printf(pdf, "%d 0 R\n", addInObj(pdf, pdf_doc, info->getRef()));
     }
-    obj1.free();
     if (img_is_bbox(idict)) {
         bbox[0] = int2bp(img_bbox(idict)[0]);
         bbox[1] = int2bp(img_bbox(idict)[1]);
@@ -731,35 +679,32 @@ void write_epdf(PDF pdf, image_dict * idict)
     // Now all relevant parts of the Page dictionary are copied:
 
     // Resources validity check
-    pageDict->lookupNF((char *) "Resources", &obj1);
-    if (obj1.isNull()) {
+    pageDict->lookupNF("Resources", &dictObj);
+    if (dictObj->isNull()) {
         // Resources can be missing (files without them have been spotted
         // in the wild); in which case the /Resouces of the /Page will be used.
         // "This practice is not recommended".
         pdftex_warn
             ("PDF inclusion: /Resources missing. 'This practice is not recommended' (PDF Ref.)");
     }
-    obj1.free();
 
     // Metadata validity check (as a stream it must be indirect)
-    pageDict->lookupNF((char *) "Metadata", &obj1);
-    if (!obj1.isNull() && !obj1.isRef())
+    pageDict->lookupNF("Metadata", &dictObj);
+    if (!dictObj->isNull() && !dictObj->isRef())
         pdftex_warn("PDF inclusion: /Metadata must be indirect object");
-    obj1.free();
 
     // copy selected items in Page dictionary
     for (i = 0; pagedictkeys[i] != NULL; i++) {
-        pageDict->lookupNF((char *) pagedictkeys[i], &obj1);
-        if (!obj1.isNull()) {
+        pageDict->lookupNF(pagedictkeys[i], &dictObj);
+        if (!dictObj->isNull()) {
             pdf_printf(pdf, "/%s ", pagedictkeys[i]);
-            copyObject(pdf, pdf_doc, &obj1);    // preserves indirection
+            copyObject(pdf, pdf_doc, &dictObj); // preserves indirection
         }
-        obj1.free();
     }
 
     // write the Page contents
     page->getContents(&contents);
-    if (contents.isStream()) {
+    if (contents->isStream()) {
         // Variant A: get stream and recompress under control
         // of \pdfcompresslevel
         //
@@ -769,40 +714,37 @@ void write_epdf(PDF pdf, image_dict * idict)
 
         // Variant B: copy stream without recompressing
         //
-        contents.streamGetDict()->lookup((char *) "F", &obj1);
-        if (!obj1.isNull()) {
+        contents->streamGetDict()->lookup((char *) "F", &obj1);
+        if (!obj1->isNull()) {
             pdftex_fail("PDF inclusion: Unsupported external stream");
         }
-        obj1.free();
-        contents.streamGetDict()->lookup((char *) "Length", &obj1);
-        assert(!obj1.isNull());
+        contents->streamGetDict()->lookup((char *) "Length", &obj1);
+        assert(!obj1->isNull());
         pdf_puts(pdf, "/Length ");
         copyObject(pdf, pdf_doc, &obj1);
-        obj1.free();
         pdf_puts(pdf, "\n");
-        contents.streamGetDict()->lookup((char *) "Filter", &obj1);
-        if (!obj1.isNull()) {
+        contents->streamGetDict()->lookup((char *) "Filter", &obj1);
+        if (!obj1->isNull()) {
             pdf_puts(pdf, "/Filter ");
             copyObject(pdf, pdf_doc, &obj1);
-            obj1.free();
             pdf_puts(pdf, "\n");
-            contents.streamGetDict()->lookup((char *) "DecodeParms", &obj1);
-            if (!obj1.isNull()) {
+            contents->streamGetDict()->lookup((char *) "DecodeParms", &obj1);
+            if (!obj1->isNull()) {
                 pdf_puts(pdf, "/DecodeParms ");
                 copyObject(pdf, pdf_doc, &obj1);
                 pdf_puts(pdf, "\n");
             }
-            obj1.free();
-        } else
-            obj1.free();
+        }
         pdf_puts(pdf, ">>\nstream\n");
-        copyStreamStream(pdf, contents.getStream()->getBaseStream());
+        copyStreamStream(pdf, contents->getStream()->getBaseStream());
         pdf_end_stream(pdf);
-    } else if (contents.isArray()) {
+    } else if (contents->isArray()) {
         pdf_begin_stream(pdf);
-        for (i = 0, l = contents.arrayGetLength(); i < l; ++i) {
-            copyStreamStream(pdf, (contents.arrayGet(i, &obj1))->getStream());
-            obj1.free();
+        for (i = 0, l = contents->arrayGetLength(); i < l; ++i) {
+            PdfObject contentsobj;
+            copyStreamStream(pdf,
+                             (contents->
+                              arrayGet(i, &contentsobj))->getStream());
             if (i < (l - 1)) {
                 // put a space between streams to be on the safe side (streams
                 // should have a trailing space here, but one never knows)
@@ -816,9 +758,13 @@ void write_epdf(PDF pdf, image_dict * idict)
     }
     // write out all indirect objects
     writeRefs(pdf, pdf_doc);
-    contents.free();
-    pageobj.free();
-    // unrefPdfDocument() must come after contents.free() and pageobj.free()!
+}
+
+// this relay function is needed to keep some destructor quiet (???)
+
+void write_epdf(PDF pdf, image_dict * idict)
+{
+    write_epdf1(pdf, idict);
     unrefPdfDocument(img_filepath(idict));
 }
 
@@ -834,12 +780,8 @@ static void deletePdfDocumentPdfDoc(PdfDocument * pdf_doc)
         n = r->next;
         delete r;
     }
-#ifdef DEBUG
-    fprintf(stderr, "\nDEBUG: Deleting PDFDoc %s\n", pdf_doc->file_path);
-#endif
     delete pdf_doc->doc;
     pdf_doc->doc = NULL;
-    pdf_doc->pc++;
 }
 
 static void destroyPdfDocument(void *pa, void * /*pb */ )
@@ -856,13 +798,16 @@ void unrefPdfDocument(char *file_path)
 {
     PdfDocument *pdf_doc = findPdfDocument(file_path);
     assert(pdf_doc != NULL);
-    assert(pdf_doc->occurences != 0);   // aim for point landing
+    assert(pdf_doc->occurences > 0);    // aim for point landing
     pdf_doc->occurences--;
 #ifdef DEBUG
-    fprintf(stderr, "\nDEBUG: Decrementing %s (%d)\n",
+    fprintf(stderr, "\nluatex Debug: Decrementing %s (%d)\n",
             pdf_doc->file_path, pdf_doc->occurences);
 #endif
     if (pdf_doc->occurences == 0) {
+#ifdef DEBUG
+        fprintf(stderr, "\nluatex Debug: Deleting %s\n", pdf_doc->file_path);
+#endif
         assert(pdf_doc->inObjList == NULL);     // should be eaten up already
         deletePdfDocumentPdfDoc(pdf_doc);
     }
