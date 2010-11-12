@@ -7,7 +7,8 @@ if  test -d $a ; then
   rm -rf $a/build $a/build-windows
   (cd $a/source ; ./texk/web2c/luatexdir/getluatexsvnversion.sh )
   ln -s $a luatex-$a
-  tar cvj --exclude=.svn -f ../../luatex-$a.tar.bz2 luatex-$a/*
+  tar cvj --exclude=.svn -f ../../luatex-$a-doc.tar.bz2 luatex-$a/manual/
+  tar cvj --exclude=.svn --exclude=luatex-$a/manual -f ../../luatex-$a-source.tar.bz2 luatex-$a/*
   cd luatex-$a
   ./build.sh "$@"
   ./build.sh --mingw "$@"
