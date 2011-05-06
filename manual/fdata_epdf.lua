@@ -559,7 +559,7 @@ local fdata_epdf = {
       },
       is = {
         type = "function",
-        shortdesc = "Check if Dict is of given /Type.",
+        shortdesc = "TODO",
         arguments = {
           {type = "Dict", name = "dict", optional = false, },
           {type = "string", name = "string", optional = false, },
@@ -633,31 +633,6 @@ local fdata_epdf = {
         },
         returnvalues = {
           {type = "Object", name = "var", optional = false, },
-        },
-      },
-    },
-------------------------------------------------------------------------
-    Link = {
-      isOK = {
-        type = "function",
-        shortdesc = "Check if Link object is ok.",
-        arguments = {
-          {type = "Link", name = "link", optional = false, },
-        },
-        returnvalues = {
-          {type = "boolean", name = "var", optional = false, },
-        },
-      },
-      inRect = {
-        type = "function",
-        shortdesc = "Check if point is inside the link rectangle.",
-        arguments = {
-          {type = "Link", name = "link", optional = false, },
-          {type = "number", name = "number", optional = false, },
-          {type = "number", name = "number", optional = false, },
-        },
-        returnvalues = {
-          {type = "boolean", name = "var", optional = false, },
         },
       },
     },
@@ -805,30 +780,6 @@ local fdata_epdf = {
       },
     },
 ------------------------------------------------------------------------
-    Links = {
-      getNumLinks = {
-        type = "function",
-        shortdesc = "Get number of links.",
-        arguments = {
-          {type = "Links", name = "links", optional = false, },
-        },
-        returnvalues = {
-          {type = "integer", name = "var", optional = false, },
-        },
-      },
-      getLink = {
-        type = "function",
-        shortdesc = "Get link by number.",
-        arguments = {
-          {type = "Links", name = "links", optional = false, },
-          {type = "integer", name = "integer", optional = false, },
-        },
-        returnvalues = {
-          {type = "Link", name = "var", optional = false, },
-        },
-      },
-    },
-------------------------------------------------------------------------
     Object = {
       initBool = {
         type = "function",
@@ -891,7 +842,7 @@ local fdata_epdf = {
       },
       initArray = {
         type = "function",
-        shortdesc = "Initialize an Array-type object with an empty array.",
+        shortdesc = "Initialize an Array-type object.",
         arguments = {
           {type = "Object", name = "object", optional = false, },
           {type = "XRef", name = "xref", optional = false, },
@@ -901,7 +852,7 @@ local fdata_epdf = {
       },
       initDict = {
         type = "function",
-        shortdesc = "Initialize a Dict-type object with an empty dictionary.",
+        shortdesc = "Initialize a Dict-type object.",
         arguments = {
           {type = "Object", name = "object", optional = false, },
           {type = "XRef", name = "xref", optional = false, },
@@ -1401,10 +1352,9 @@ local fdata_epdf = {
       },
       streamIs = {
         type = "function",
-        shortdesc = "Check if object contains a stream whose dictionary is of given /Type.",
+        shortdesc = "TODO",
         arguments = {
           {type = "Object", name = "object", optional = false, },
-          {type = "string", name = "string", optional = false, },
         },
         returnvalues = {
           {type = "boolean", name = "var", optional = false, },

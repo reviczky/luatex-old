@@ -1,7 +1,7 @@
 % writejpg.w
 
 % Copyright 1996-2006 Han The Thanh <thanh@@pdftex.org>
-% Copyright 2006-2011 Taco Hoekwater <taco@@luatex.org>
+% Copyright 2006-2010 Taco Hoekwater <taco@@luatex.org>
 
 % This file is part of LuaTeX.
 
@@ -249,59 +249,41 @@ static void reopen_jpg(PDF pdf, image_dict * idict)
 @ @c
 void write_jpg(PDF pdf, image_dict * idict)
 {
-    size_t l;
+    long unsigned l;
+    FILE *f;
     assert(idict != NULL);
     if (img_file(idict) == NULL)
         reopen_jpg(pdf, idict);
     assert(img_jpg_ptr(idict) != NULL);
-    pdf_begin_obj(pdf, img_objnum(idict), OBJSTM_NEVER);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "XObject");
-    pdf_dict_add_name(pdf, "Subtype", "Image");
+    pdf_puts(pdf, "/Type /XObject\n/Subtype /Image\n");
     if (img_attr(idict) != NULL && strlen(img_attr(idict)) > 0)
-        pdf_printf(pdf, "\n%s\n", img_attr(idict));
-    pdf_dict_add_int(pdf, "Width", (int) img_xsize(idict));
-    pdf_dict_add_int(pdf, "Height", (int) img_ysize(idict));
-    pdf_dict_add_int(pdf, "BitsPerComponent", (int) img_colordepth(idict));
-    pdf_dict_add_int(pdf, "Length", (int) img_jpg_ptr(idict)->length);
+        pdf_printf(pdf, "%s\n", img_attr(idict));
+    pdf_printf(pdf, "/Width %i\n/Height %i\n/BitsPerComponent %i\n/Length %i\n",
+               (int) img_xsize(idict),
+               (int) img_ysize(idict),
+               (int) img_colordepth(idict), (int) img_jpg_ptr(idict)->length);
+    pdf_puts(pdf, "/ColorSpace ");
     if (img_colorspace(idict) != 0) {
-        pdf_dict_add_ref(pdf, "ColorSpace", (int) img_colorspace(idict));
+        pdf_printf(pdf, "%i 0 R\n", (int) img_colorspace(idict));
     } else {
         switch (img_jpg_color(idict)) {
         case JPG_GRAY:
-            pdf_dict_add_name(pdf, "ColorSpace", "DeviceGray");
+            pdf_puts(pdf, "/DeviceGray\n");
             break;
         case JPG_RGB:
-            pdf_dict_add_name(pdf, "ColorSpace", "DeviceRGB");
+            pdf_puts(pdf, "/DeviceRGB\n");
             break;
         case JPG_CMYK:
-            pdf_dict_add_name(pdf, "ColorSpace", "DeviceCMYK");
-            pdf_add_name(pdf, "Decode");
-            pdf_begin_array(pdf);
-            pdf_add_int(pdf, 1);
-            pdf_add_int(pdf, 0);
-            pdf_add_int(pdf, 1);
-            pdf_add_int(pdf, 0);
-            pdf_add_int(pdf, 1);
-            pdf_add_int(pdf, 0);
-            pdf_add_int(pdf, 1);
-            pdf_add_int(pdf, 0);
-            pdf_end_array(pdf);
+            pdf_puts(pdf, "/DeviceCMYK\n/Decode [1 0 1 0 1 0 1 0]\n");
             break;
         default:
             pdftex_fail("Unsupported color space %i",
                         (int) img_jpg_color(idict));
         }
     }
-    pdf_dict_add_name(pdf, "Filter", "DCTDecode");
-    pdf_end_dict(pdf);
-    pdf_begin_stream(pdf);
-    assert(pdf->zip_write_state == no_zip);
-    l = (size_t) img_jpg_ptr(idict)->length;
-    xfseek(img_file(idict), 0, SEEK_SET, img_filepath(idict));
-    if (read_file_to_buf(pdf, img_file(idict), l) != l)
-        pdftex_fail("writejpg: fread failed");
+    pdf_puts(pdf, "/Filter /DCTDecode\n>>\nstream\n");
+    for (l = img_jpg_ptr(idict)->length, f = img_file(idict); l > 0; l--)
+        pdf_out(pdf, xgetc(f));
     pdf_end_stream(pdf);
-    pdf_end_obj(pdf);
     close_and_cleanup_jpg(idict);
 }

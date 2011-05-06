@@ -1,6 +1,6 @@
-% writetype2.w
+% writetype0.w
 %
-% Copyright 2006-2011 Taco Hoekwater <taco@@luatex.org>
+% Copyright 2006-2010 Taco Hoekwater <taco@@luatex.org>
 %
 % This file is part of LuaTeX.
 %
@@ -378,19 +378,16 @@ void make_tt_subset(PDF pdf, fd_entry * fd, unsigned char *buffer, int buflen)
 
     /* squeeze in the cidgidmap */
     if (cidtogidmap != NULL) {
-        cidtogid_obj = (unsigned long) pdf_create_obj(pdf, obj_type_others, 0);
-        pdf_begin_obj(pdf, (int) cidtogid_obj, OBJSTM_NEVER);
-        pdf_begin_dict(pdf);
-        pdf_dict_add_int(pdf, "Length", ((last_cid + 1) * 2));
+        cidtogid_obj = (unsigned long) pdf_new_objnum(pdf);
+        pdf_begin_dict(pdf, (int) cidtogid_obj, 0);
+        pdf_printf(pdf, "/Length %i\n", ((last_cid + 1) * 2));
         pdf_end_dict(pdf);
-        assert(0);              /* code unused */
-        pdf_begin_stream(pdf);
+        pdf_printf(pdf, "stream\n");
         pdf_room(pdf, (int) ((last_cid + 1) * 2));
         for (i = 0; i < ((int) (last_cid + 1) * 2); i++) {
             pdf_quick_out(pdf, cidtogidmap[i]);
         }
-        pdf_end_stream(pdf);
-        pdf_end_obj(pdf);
+        pdf_printf(pdf, "\nendstream\n");
     }
 
     /* the tff subset */
@@ -400,43 +397,37 @@ void make_tt_subset(PDF pdf, fd_entry * fd, unsigned char *buffer, int buflen)
     pdf_release_obj(fontfile);
 
     /* CIDSet: a table of bits indexed by cid, bytes with high order bit first, 
-       each (set) bit is a (present) CID. */
+       each (set) bit is a (present) CID. */	
     if (is_subsetted(fd->fm)) {
-        cidset = pdf_create_obj(pdf, obj_type_others, 0);
-        if (cidset != 0) {
-            size_t l = (last_cid / 8) + 1;
-            char *stream = xmalloc(l);
-            memset(stream, 0, l);
-            for (cid = 1; cid <= (long) last_cid; cid++) {
-                if (used_chars[cid]) {
-                    stream[(cid / 8)] |= (1 << (7 - (cid % 8)));
-                }
-            }
-            pdf_begin_obj(pdf, cidset, OBJSTM_NEVER);
-            pdf_begin_dict(pdf);
-            pdf_dict_add_streaminfo(pdf);
-            pdf_end_dict(pdf);
-            pdf_begin_stream(pdf);
-            pdf_out_block(pdf, stream, l);
-            pdf_end_stream(pdf);
-            pdf_end_obj(pdf);
-        }
+      cidset = pdf_new_objnum(pdf);
+      if (cidset != 0) {
+       size_t l = (last_cid/8)+1;
+       char *stream = xmalloc(l);
+       memset(stream, 0, l);
+       for (cid = 1; cid <= (long) last_cid; cid++) {
+           if (used_chars[cid]) {
+	      stream[(cid / 8)] |= (1 << (7 - (cid % 8)));
+           }
+       }
+       pdf_begin_dict(pdf, cidset, 0);
+       pdf_begin_stream(pdf);
+       pdf_out_block(pdf, stream, l);
+       pdf_end_stream(pdf);
+      }
     }
 
     /* TODO other stuff that needs fixing: */
 
     /* DW, W, DW2, and W2 */
 #if 0
-    if (opt_flags & CIDFONT_FORCE_FIXEDPITCH) {
-        pdf_add_dict(font->fontdict,
-                     pdf_new_name("DW"), pdf_new_number(1000.0));
-    } else {
-        add_TTCIDHMetrics(font->fontdict, glyphs, used_chars, cidtogidmap,
-                          last_cid);
-        if (v_used_chars)
-            add_TTCIDVMetrics(font->fontdict, glyphs, used_chars, cidtogidmap,
-                              last_cid);
-    }
+       if (opt_flags & CIDFONT_FORCE_FIXEDPITCH) {
+       pdf_add_dict(font->fontdict,
+       pdf_new_name("DW"), pdf_new_number(1000.0));
+       } else {
+       add_TTCIDHMetrics(font->fontdict, glyphs, used_chars, cidtogidmap, last_cid);
+       if (v_used_chars)
+       add_TTCIDVMetrics(font->fontdict, glyphs, used_chars, cidtogidmap, last_cid);
+       }
 #endif
 
     xfree(used_chars);

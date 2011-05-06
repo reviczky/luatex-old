@@ -1,7 +1,7 @@
 /* epdf.h
 
    Copyright 1996-2006 Han The Thanh <thanh@pdftex.org>
-   Copyright 2006-2011 Taco Hoekwater <taco@luatex.org>
+   Copyright 2006-2010 Taco Hoekwater <taco@luatex.org>
    This file is part of LuaTeX.
 
    LuaTeX is free software; you can redistribute it and/or modify it under
@@ -80,57 +80,37 @@ extern "C" {
 #  include "lua51/lua.h"
 #  include "lua51/lauxlib.h"
 
-    /* pdfgen.w */
-    extern int ten_pow[10];
+    /* pdfgen.c */
     __attribute__ ((format(printf, 2, 3)))
     extern void pdf_printf(PDF, const char *fmt, ...);
-    extern void pdf_begin_obj(PDF, int, int);
+    extern void pdf_begin_obj(PDF, int, bool);
     extern void pdf_end_obj(PDF);
-    extern void pdf_begin_dict(PDF);
-    extern void pdf_end_dict(PDF);
-    extern void pdf_begin_array(PDF);
-    extern void pdf_end_array(PDF);
-    extern void pdf_add_null(PDF);
-    extern void pdf_add_bool(PDF, int i);
-    extern void pdf_add_int(PDF, int i);
-    extern void pdf_add_ref(PDF, int num);
-    extern void pdf_add_name(PDF, const char *name);
-    extern void pdf_dict_add_streaminfo(PDF);
     extern void pdf_begin_stream(PDF);
     extern void pdf_end_stream(PDF);
     extern void pdf_room(PDF, int);
     extern void pdf_out_block(PDF pdf, const char *s, size_t n);
 
-    extern void pdf_dict_add_int(PDF, const char *key, int i);
-    extern void pdf_dict_add_ref(PDF, const char *key, int num);
-    extern void pdf_dict_add_name(PDF, const char *key, const char *val);
-    extern void pdf_dict_add_streaminfo(PDF);
-
 #  define pdf_out(B, A) do { pdf_room(B, 1); B->buf[B->ptr++] = A; } while (0)
-#  define pdf_quick_out(pdf,A) pdf->buf[pdf->ptr++]=(unsigned char)A
 #  define pdf_puts(pdf, s) pdf_out_block((pdf), (s), strlen(s))
 
-    /* pdfpage.w */
-    extern void print_pdffloat(PDF pdf, pdffloat f);
-
-    /* pdftables.w */
-    extern int pdf_create_obj(PDF pdf, int t, int i);
+    /* pdftables.c */
+    extern int pdf_new_objnum(PDF);
 
     /* pdftoepdf.cc */
     extern void read_pdf_info(image_dict *, int, int, img_readtype_e);
     extern void write_epdf(PDF, image_dict *);
     extern void unrefPdfDocument(char *);
     extern void epdf_free(void);
-    extern void copyReal(PDF pdf, double d);
 
-    /* utils.w */
+    /* utils.c */
     __attribute__ ((format(printf, 1, 2)))
     extern void pdftex_warn(const char *fmt, ...);
     __attribute__ ((noreturn, format(printf, 1, 2)))
     extern void pdftex_fail(const char *fmt, ...);
     extern char *convertStringToPDFString(char *in, int len);
+    extern char *stripzeros(char *a);
 
-    /* lepdflib.w */
+    /* lepdflib.c */
     int luaopen_epdf(lua_State * L);
 
 };

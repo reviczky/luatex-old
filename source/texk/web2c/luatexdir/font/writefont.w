@@ -177,16 +177,15 @@ static void write_fontmetrics(PDF pdf, fd_entry * fd)
 {
     int i;
     fix_fontmetrics(fd);
-    pdf_add_name(pdf, font_key[FONTBBOX1_CODE].pdfname);
-    pdf_begin_array(pdf);
-    pdf_printf(pdf, "%i %i %i %i", (int) fd->font_dim[FONTBBOX1_CODE].val,
+    pdf_printf(pdf, "/%s [%i %i %i %i]\n", font_key[FONTBBOX1_CODE].pdfname,
+               (int) fd->font_dim[FONTBBOX1_CODE].val,
                (int) fd->font_dim[FONTBBOX2_CODE].val,
                (int) fd->font_dim[FONTBBOX3_CODE].val,
                (int) fd->font_dim[FONTBBOX4_CODE].val);
-    pdf_end_array(pdf);
     for (i = 0; i < GEN_KEY_NUM; i++)
         if (fd->font_dim[i].set)
-            pdf_dict_add_int(pdf, font_key[i].pdfname, fd->font_dim[i].val);
+            pdf_printf(pdf, "/%s %i\n", font_key[i].pdfname,
+                       fd->font_dim[i].val);
 }
 
 @ 
@@ -201,22 +200,15 @@ static void preset_fontname(fo_entry * fo, internal_font_number f)
         fo->fd->fontname = xstrdup(fo->fm->tfm_name);
 }
 
-static void pdf_dict_add_fontname(PDF pdf, const char *key, fd_entry * fd)
+static void write_fontname(PDF pdf, fd_entry * fd, const char *key)
 {
-    char *s;
-    size_t l1 = 0, l2;
     assert(fd->fontname != NULL);
-    assert(key != NULL);
+    pdf_puts(pdf, "/");
+    if (key != NULL)
+        pdf_printf(pdf, "%s /", key);
     if (fd->subset_tag != NULL)
-        l1 = strlen(fd->subset_tag);
-    l2 = strlen(fd->fontname);
-    s = xmalloc(l1 + l2 + 2);
-    if (l1 > 0)
-        snprintf(s, l1 + l2 + 2, "%s+%s", fd->subset_tag, fd->fontname);
-    else
-        snprintf(s, l2 + 1, "%s", fd->fontname);
-    pdf_dict_add_name(pdf, key, s);
-    xfree(s);
+        pdf_printf(pdf, "%s+", fd->subset_tag);
+    pdf_printf(pdf, "%s\n", fd->fontname);
 }
 
 @ 
@@ -368,15 +360,15 @@ static void write_charwidth_array(PDF pdf, fo_entry * fo,
     struct avl_traverser t;
     assert(fo->tx_tree != NULL);
     assert(fo->cw_objnum == 0);
-    fo->cw_objnum = pdf_create_obj(pdf, obj_type_others, 0);
-    pdf_begin_obj(pdf, fo->cw_objnum, OBJSTM_ALWAYS);
+    fo->cw_objnum = pdf_new_objnum(pdf);
+    pdf_begin_obj(pdf, fo->cw_objnum, 1);
     avl_t_init(&t, fo->tx_tree);
     fip = (int *) avl_t_first(&t, fo->tx_tree);
     assert(fip != NULL);
-    pdf_begin_array(pdf);
+    pdf_puts(pdf, "[");
     for (ip = fip, j = *ip; ip != NULL; ip = (int *) avl_t_next(&t)) {
         if (ip != fip)
-            pdf_out(pdf, ' ');
+            pdf_puts(pdf, " ");
         i = *ip;
         while (j < i - 1) {
             pdf_puts(pdf, "0 ");
@@ -385,7 +377,7 @@ static void write_charwidth_array(PDF pdf, fo_entry * fo,
         j = i;
         pdf_print_charwidth(pdf, f, i);
     }
-    pdf_end_array(pdf);
+    pdf_puts(pdf, "]\n");
     pdf_end_obj(pdf);
 }
 
@@ -448,35 +440,30 @@ static void write_fontfile(PDF pdf, fd_entry * fd)
     if (!fd->ff_found)
         return;
     assert(fd->ff_objnum == 0);
-    fd->ff_objnum = pdf_create_obj(pdf, obj_type_others, 0);
-    pdf_begin_obj(pdf, fd->ff_objnum, OBJSTM_NEVER);    /* font file stream */
-    pdf_begin_dict(pdf);
+    fd->ff_objnum = pdf_new_objnum(pdf);
+    pdf_begin_dict(pdf, fd->ff_objnum, 0);      /* font file stream */
     if (is_cidkeyed(fd->fm)) {
         /* No subtype is used for TrueType-based OpenType fonts */
         if (is_opentype(fd->fm) || is_type1(fd->fm))
-            pdf_dict_add_name(pdf, "Subtype", "CIDFontType0C");
+            pdf_puts(pdf, "/Subtype /CIDFontType0C\n");
 #if 0
-        else
-            pdf_dict_add_name(pdf, "Subtype", "OpenType");
+         else
+           pdf_puts(pdf,"/Subtype /OpenType\n"); 
 #endif
     } else {
-        if (is_type1(fd->fm)) {
-            pdf_dict_add_int(pdf, "Length1", (int) t1_length1);
-            pdf_dict_add_int(pdf, "Length2", (int) t1_length2);
-            pdf_dict_add_int(pdf, "Length3", (int) t1_length3);
-        } else if (is_truetype(fd->fm))
-            pdf_dict_add_int(pdf, "Length1", (int) ttf_length);
+        if (is_type1(fd->fm))
+            pdf_printf(pdf, "/Length1 %i\n/Length2 %i\n/Length3 %i\n",
+                       (int) t1_length1, (int) t1_length2, (int) t1_length3);
+        else if (is_truetype(fd->fm))
+            pdf_printf(pdf, "/Length1 %i\n", (int) ttf_length);
         else if (is_opentype(fd->fm))
-            pdf_dict_add_name(pdf, "Subtype", "Type1C");
+            pdf_puts(pdf, "/Subtype /Type1C\n");
         else
             assert(0);
     }
-    pdf_dict_add_streaminfo(pdf);
-    pdf_end_dict(pdf);
     pdf_begin_stream(pdf);
     fb_flush(pdf);
     pdf_end_stream(pdf);
-    pdf_end_obj(pdf);
 }
 
 @
@@ -508,15 +495,14 @@ static void write_fontdescriptor(PDF pdf, fd_entry * fd)
     struct avl_traverser t;
     int fd_flags;
     assert(fd != NULL && fd->fm != NULL);
-    cidset = 0;                 /* possibly updated by |write_fontfile| */
+    cidset = 0; /* possibly updated by |write_fontfile| */
     if (is_fontfile(fd->fm) && is_included(fd->fm))
         write_fontfile(pdf, fd);        /* this will set |fd->ff_found| if font file is found */
     if (fd->fd_objnum == 0)
-        fd->fd_objnum = pdf_create_obj(pdf, obj_type_others, 0);
-    pdf_begin_obj(pdf, fd->fd_objnum, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "FontDescriptor");
-    pdf_dict_add_fontname(pdf, "FontName", fd);
+        fd->fd_objnum = pdf_new_objnum(pdf);
+    pdf_begin_dict(pdf, fd->fd_objnum, 1);
+    pdf_puts(pdf, "/Type /FontDescriptor\n");
+    write_fontname(pdf, fd, "FontName");
     if (fd->fm->fd_flags != FD_FLAGS_NOT_SET_IN_MAPLINE)
         fd_flags = (int) fd->fm->fd_flags;
     else if (fd->ff_found)
@@ -531,15 +517,15 @@ static void write_fontdescriptor(PDF pdf, fd_entry * fd)
              fd->fm->ps_name != NULL ? fd->fm->ps_name : "No name given",
              fd->fm->tfm_name, fd_flags);
     }
-    pdf_dict_add_int(pdf, "Flags", fd_flags);
+    pdf_printf(pdf, "/Flags %i\n", fd_flags);
     write_fontmetrics(pdf, fd);
     if (is_cidkeyed(fd->fm)) {
         if (is_type1(fd->fm))
-            pdf_dict_add_ref(pdf, "FontFile3", (int) fd->ff_objnum);
+            pdf_printf(pdf, "/FontFile3 %i 0 R\n", (int) fd->ff_objnum);
         else if (is_truetype(fd->fm))
-            pdf_dict_add_ref(pdf, "FontFile2", (int) fd->ff_objnum);
+            pdf_printf(pdf, "/FontFile2 %i 0 R\n", (int) fd->ff_objnum);
         else if (is_opentype(fd->fm))
-            pdf_dict_add_ref(pdf, "FontFile3", (int) fd->ff_objnum);
+            pdf_printf(pdf, "/FontFile3 %i 0 R\n", (int) fd->ff_objnum);
         else
             assert(0);
     } else {
@@ -548,32 +534,29 @@ static void write_fontdescriptor(PDF pdf, fd_entry * fd)
                 /* /CharSet is optional; names may appear in any order */
                 assert(fd->gl_tree != NULL);
                 avl_t_init(&t, fd->gl_tree);
-                pdf_add_name(pdf, "CharSet");
-                pdf_out(pdf, '(');
+                pdf_puts(pdf, "/CharSet (");
                 for (glyph = (char *) avl_t_first(&t, fd->gl_tree);
                      glyph != NULL; glyph = (char *) avl_t_next(&t))
-                    pdf_add_name(pdf, glyph);
-                pdf_out(pdf, ')');
-                pdf->cave = 0;
+                    pdf_printf(pdf, "/%s", glyph);
+                pdf_puts(pdf, ")\n");
             }
             if (is_type1(fd->fm))
-                pdf_dict_add_ref(pdf, "FontFile", (int) fd->ff_objnum);
+                pdf_printf(pdf, "/FontFile %i 0 R\n", (int) fd->ff_objnum);
             else if (is_truetype(fd->fm))
-                pdf_dict_add_ref(pdf, "FontFile2", (int) fd->ff_objnum);
+                pdf_printf(pdf, "/FontFile2 %i 0 R\n", (int) fd->ff_objnum);
             else if (is_opentype(fd->fm))
-                pdf_dict_add_ref(pdf, "FontFile3", (int) fd->ff_objnum);
+                pdf_printf(pdf, "/FontFile3 %i 0 R\n", (int) fd->ff_objnum);
             else
                 assert(0);
         }
     }
-    if (cidset != 0)
-        pdf_dict_add_ref(pdf, "CIDSet", cidset);
+    if (cidset !=0)
+        pdf_printf(pdf, "/CIDSet %i 0 R\n", cidset);
     /* TODO: Other optional keys for CID fonts.
        The most interesting one is
        \.{/Style << /Panose <12-byte string>>>}
      */
     pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
 }
 
 static void write_fontdescriptors(PDF pdf)
@@ -608,36 +591,34 @@ static void write_fontdictionary(PDF pdf, fo_entry * fo)
                                 fo->fm->tfm_name);
         }
     }
-    pdf_begin_obj(pdf, fo->fo_objnum, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "Font");
+    pdf_begin_dict(pdf, fo->fo_objnum, 1);
+    pdf_puts(pdf, "/Type /Font\n");
+    pdf_puts(pdf, "/Subtype /");
     if (is_type1(fo->fm))
-        pdf_dict_add_name(pdf, "Subtype", "Type1");
+        pdf_printf(pdf, "%s\n", "Type1");
     else if (is_truetype(fo->fm))
-        pdf_dict_add_name(pdf, "Subtype", "TrueType");
+        pdf_printf(pdf, "%s\n", "TrueType");
     else if (is_opentype(fo->fm))
-        pdf_dict_add_name(pdf, "Subtype", "Type1");
+        pdf_printf(pdf, "%s\n", "Type1");
     else
         assert(0);
     assert(fo->fd != NULL && fo->fd->fd_objnum != 0);
-    pdf_dict_add_fontname(pdf, "BaseFont", fo->fd);
-    pdf_dict_add_ref(pdf, "FontDescriptor", (int) fo->fd->fd_objnum);
+    write_fontname(pdf, fo->fd, "BaseFont");
+    pdf_printf(pdf, "/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
     assert(fo->cw_objnum != 0);
-    pdf_dict_add_int(pdf, "FirstChar", (int) fo->first_char);
-    pdf_dict_add_int(pdf, "LastChar", (int) fo->last_char);
-    pdf_dict_add_ref(pdf, "Widths", (int) fo->cw_objnum);
+    pdf_printf(pdf, "/FirstChar %i\n/LastChar %i\n/Widths %i 0 R\n",
+               (int) fo->first_char, (int) fo->last_char, (int) fo->cw_objnum);
     if ((is_type1(fo->fm) || is_opentype(fo->fm)) && fo->fe != NULL
         && fo->fe->fe_objnum != 0)
-        pdf_dict_add_ref(pdf, "Encoding", (int) fo->fe->fe_objnum);
+        pdf_printf(pdf, "/Encoding %i 0 R\n", (int) fo->fe->fe_objnum);
     if (fo->tounicode_objnum != 0)
-        pdf_dict_add_ref(pdf, "ToUnicode", (int) fo->tounicode_objnum);
+        pdf_printf(pdf, "/ToUnicode %i 0 R\n", (int) fo->tounicode_objnum);
     if (pdf_font_attr(fo->tex_font) != get_nullstr() &&
         pdf_font_attr(fo->tex_font) != 0) {
         pdf_print(pdf, pdf_font_attr(fo->tex_font));
-        pdf_out(pdf, '\n');
+        pdf_puts(pdf, "\n");
     }
     pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
 }
 
 static void write_fontdictionaries(PDF pdf)
@@ -680,7 +661,7 @@ static void create_fontdictionary(PDF pdf, internal_font_number f)
         fo->fe = get_fe_entry(fo->fm->encname); /* returns |NULL| if .enc file couldn't be opened */
         if (fo->fe != NULL && (is_type1(fo->fm) || is_opentype(fo->fm))) {
             if (fo->fe->fe_objnum == 0)
-                fo->fe->fe_objnum = pdf_create_obj(pdf, obj_type_others, 0);    /* then it will be written out */
+                fo->fe->fe_objnum = pdf_new_objnum(pdf);        /* then it will be written out */
             /* mark encoding pairs used by TeX to optimize encoding vector */
             fo->fe->tx_tree = mark_chars(fo, fo->fe->tx_tree, f);
         }
@@ -920,28 +901,24 @@ static void write_cid_charwidth_array(PDF pdf, fo_entry * fo)
     struct avl_traverser t;
 
     assert(fo->cw_objnum == 0);
-    fo->cw_objnum = pdf_create_obj(pdf, obj_type_others, 0);
-    pdf_begin_obj(pdf, fo->cw_objnum, OBJSTM_ALWAYS);
+    fo->cw_objnum = pdf_new_objnum(pdf);
+    pdf_begin_obj(pdf, fo->cw_objnum, 1);
     avl_t_init(&t, fo->fd->gl_tree);
     glyph = (glw_entry *) avl_t_first(&t, fo->fd->gl_tree);
     assert(glyph != NULL);
     i = (int) glyph->id;
-    pdf_begin_array(pdf);
-    pdf_add_int(pdf, i);
-    pdf_begin_array(pdf);
+    pdf_printf(pdf, "[ %i [", i);
     for (; glyph != NULL; glyph = (glw_entry *) avl_t_next(&t)) {
         j = glyph->wd;
         if (glyph->id > (unsigned) (i + 1)) {
-            pdf_end_array(pdf);
-            pdf_add_int(pdf, glyph->id);
-            pdf_begin_array(pdf);
+            pdf_printf(pdf, "] %i [", glyph->id);
             j = glyph->wd;
         }
         if (glyph->id == (unsigned) (i + 1))
-            pdf_out(pdf, ' ');
+            pdf_puts(pdf, " ");
 
         if (j < 0) {
-            pdf_out(pdf, '-');
+            pdf_puts(pdf, "-");
             j = -j;
         }
 
@@ -951,8 +928,7 @@ static void write_cid_charwidth_array(PDF pdf, fo_entry * fo)
 
         i = (int) glyph->id;
     }
-    pdf_end_array(pdf);
-    pdf_end_array(pdf);
+    pdf_puts(pdf, "]]\n");
     pdf_end_obj(pdf);
 }
 
@@ -989,53 +965,44 @@ void write_cid_fontdictionary(PDF pdf, fo_entry * fo, internal_font_number f)
 
     fo->tounicode_objnum = write_cid_tounicode(pdf, fo, f);
 
-    pdf_begin_obj(pdf, fo->fo_objnum, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "Font");
-    pdf_dict_add_name(pdf, "Subtype", "Type0");
-    pdf_dict_add_name(pdf, "Encoding", "Identity-H");
-    pdf_dict_add_fontname(pdf, "BaseFont", fo->fd);
-    i = pdf_create_obj(pdf, obj_type_others, 0);
-    pdf_add_name(pdf, "DescendantFonts");
-    pdf_begin_array(pdf);
-    pdf_add_ref(pdf, i);
-    pdf_end_array(pdf);
+    pdf_begin_dict(pdf, fo->fo_objnum, 1);
+    pdf_puts(pdf, "/Type /Font\n");
+    pdf_puts(pdf, "/Subtype /Type0\n");
+    pdf_puts(pdf, "/Encoding /Identity-H\n");
+    write_fontname(pdf, fo->fd, "BaseFont");
+    i = pdf_new_objnum(pdf);
+    pdf_printf(pdf, "/DescendantFonts [%i 0 R]\n", i);
     /* todo: the ToUnicode CMap */
     if (fo->tounicode_objnum != 0)
-        pdf_dict_add_ref(pdf, "ToUnicode", (int) fo->tounicode_objnum);
-    pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
+        pdf_printf(pdf, "/ToUnicode %i 0 R\n", (int) fo->tounicode_objnum);
 
-    pdf_begin_obj(pdf, i, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "Font");
-    if (is_opentype(fo->fm) || is_type1(fo->fm)) {
-        pdf_dict_add_name(pdf, "Subtype", "CIDFontType0");
-    } else {
-        pdf_dict_add_name(pdf, "Subtype", "CIDFontType2");
-        pdf_dict_add_name(pdf, "CIDToGIDMap", "Identity");
-    }
-    pdf_dict_add_fontname(pdf, "BaseFont", fo->fd);
-    pdf_dict_add_ref(pdf, "FontDescriptor", (int) fo->fd->fd_objnum);
-    pdf_dict_add_ref(pdf, "W", (int) fo->cw_objnum);
-    pdf_add_name(pdf, "CIDSystemInfo");
-    pdf_begin_dict(pdf);
-    pdf_dict_add_string(pdf, "Registry",
-                        (font_cidregistry(f) ? font_cidregistry(f) : "Adobe"));
-    pdf_dict_add_string(pdf, "Ordering",
-                        (font_cidordering(f) ? font_cidordering(f) :
-                         "Identity"));
-    pdf_dict_add_int(pdf, "Supplement", (int) font_cidsupplement(f));
     pdf_end_dict(pdf);
+
+    pdf_begin_dict(pdf, i, 1);
+    pdf_puts(pdf, "/Type /Font\n");
+    if (is_opentype(fo->fm) || is_type1(fo->fm)) {
+        pdf_puts(pdf, "/Subtype /CIDFontType0\n");
+    } else {
+        pdf_puts(pdf, "/Subtype /CIDFontType2\n");
+        pdf_printf(pdf, "/CIDToGIDMap /Identity\n");
+    }
+    write_fontname(pdf, fo->fd, "BaseFont");
+    pdf_printf(pdf, "/FontDescriptor %i 0 R\n", (int) fo->fd->fd_objnum);
+    pdf_printf(pdf, "/W %i 0 R\n", (int) fo->cw_objnum);
+    pdf_printf(pdf, "/CIDSystemInfo <<\n");
+    pdf_printf(pdf, "/Registry (%s)\n",
+               (font_cidregistry(f) ? font_cidregistry(f) : "Adobe"));
+    pdf_printf(pdf, "/Ordering (%s)\n",
+               (font_cidordering(f) ? font_cidordering(f) : "Identity"));
+    pdf_printf(pdf, "/Supplement %u\n", (unsigned int) font_cidsupplement(f));
+    pdf_printf(pdf, ">>\n");
 
     /* I doubt there is anything useful that could be written here */
 #if 0
-    if (pdf_font_attr(fo->tex_font) != get_nullstr()) {
-        pdf_out(pdf, '\n');
-        pdf_print(pdf_font_attr(fo->tex_font));
-        pdf_out(pdf, '\n');
-    }
+       if (pdf_font_attr(fo->tex_font) != get_nullstr()) {
+       pdf_print(pdf_font_attr(fo->tex_font));
+       pdf_puts(pdf,"\n");
+       }
 #endif
     pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
 }

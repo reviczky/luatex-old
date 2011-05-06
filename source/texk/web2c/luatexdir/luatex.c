@@ -21,10 +21,10 @@ static const char _svn_version[] =
 #define TeX
 
 int luatex_svn = luatex_svn_revision;
-int luatex_version = 71;        /* \.{\\luatexversion}  */
+int luatex_version = 70;        /* \.{\\luatexversion}  */
 int luatex_revision = '0';      /* \.{\\luatexrevision}  */
 int luatex_date_info = -extra_version_info;     /* the compile date is negated */
-const char *luatex_version_string = "beta-0.71.0";
+const char *luatex_version_string = "beta-0.70.0";
 const char *engine_name = "luatex";     /* the name of this engine */
 
 #include <kpathsea/c-ctype.h>
@@ -576,9 +576,6 @@ static void ipc_open_out(void)
 {
 #ifdef WIN32
   u_long mode = 1;
-#define SOCK_NONBLOCK(s) ioctlsocket (s, FIONBIO, &mode)
-#else
-#define SOCK_NONBLOCK(s) fcntl (s, F_SETFL, O_NONBLOCK)
 #endif
 #  ifdef IPC_DEBUG
     fputs("tex: Opening socket for IPC output ...\n", stderr);
@@ -594,8 +591,13 @@ static void ipc_open_out(void)
 
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock >= 0) {
-        if (connect(sock, ipc_addr, ipc_addr_len) != 0
-            || SOCK_NONBLOCK (sock) < 0) {
+        if (connect(sock, ipc_addr, ipc_addr_len) != 0 ||
+#ifdef WIN32
+        ioctlsocket (sock, FIONBIO, &mode) < 0
+#else
+        fcntl (sock, F_SETFL, O_NONBLOCK) < 0
+#endif
+           ) {
             close(sock);
             sock = -1;
             return;

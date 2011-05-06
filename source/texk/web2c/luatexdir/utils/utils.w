@@ -273,7 +273,6 @@ scaled ext_xn_over_d(scaled x, scaled n, scaled d)
 @ function strips trailing zeros in string with numbers; 
 leading zeros are not stripped (as in real life) 
 @c
-#if 0
 char *stripzeros(char *a)
 {
     enum { NONUM, DOTNONUM, INT, DOT, LEADDOT, FRAC } s = NONUM, t = NONUM;
@@ -340,7 +339,6 @@ char *stripzeros(char *a)
     *q = '\0';
     return a;
 }
-#endif
 
 @ @c
 void initversionstring(char **versions)

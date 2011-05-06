@@ -54,11 +54,10 @@ static const char *ErrorCodeNames[] = { "None", "OpenFile", "BadCatalog",
 #define M_Annots           "Annots"
 #define M_Array            "Array"
 #define M_Catalog          "Catalog"
-#define M_Dict             "Dict"
 #define M_EmbFile          "EmbFile"
+#define M_Dict             "Dict"
 #define M_GooString        "GooString"
 #define M_LinkDest         "LinkDest"
-#define M_Link             "Link"
 #define M_Links            "Links"
 #define M_Object           "Object"
 #define M_Page             "Page"
@@ -66,8 +65,8 @@ static const char *ErrorCodeNames[] = { "None", "OpenFile", "BadCatalog",
 #define M_PDFRectangle     "PDFRectangle"
 #define M_Ref              "Ref"
 #define M_Stream           "Stream"
-#define M_XRefEntry        "XRefEntry"
 #define M_XRef             "XRef"
+#define M_XRefEntry        "XRefEntry"
 
 //**********************************************************************
 
@@ -90,10 +89,9 @@ new_poppler_userdata(AnnotBorder);
 new_poppler_userdata(Annots);
 new_poppler_userdata(Array);
 new_poppler_userdata(Catalog);
-new_poppler_userdata(Dict);
 new_poppler_userdata(EmbFile);
+new_poppler_userdata(Dict);
 //new_poppler_userdata(GooString);
-new_poppler_userdata(Link);
 new_poppler_userdata(LinkDest);
 new_poppler_userdata(Links);
 new_poppler_userdata(Object);
@@ -780,7 +778,6 @@ static int m_EmbFile_streamObject(lua_State * L)
     uout = new_Object_userdata(L);
     uout->d = new Object();     // automatic init to type "none"
     ((EmbFile *) uin->d)->streamObject().copy((Object *) uout->d);
-    uout->atype = ALLOC_LEPDF;
     uout->pc = uin->pc;
     uout->pd = uin->pd;
     return 1;
@@ -1035,36 +1032,6 @@ static const struct luaL_Reg GooString_m[] = {
 };
 
 //**********************************************************************
-// Link
-
-m_poppler_get_BOOL(Link, isOk);
-
-static int m_Link_inRect(lua_State * L)
-{
-    udstruct *uin;
-    double x, y;
-    uin = (udstruct *) luaL_checkudata(L, 1, M_Link);
-    if (uin->pd != NULL && uin->pd->pc != uin->pc)
-        pdfdoc_changed_error(L);
-    x = luaL_checknumber(L, 2);
-    y = luaL_checknumber(L, 3);
-    if (((Link *) uin->d)->inRect(x, y))
-        lua_pushboolean(L, 1);
-    else
-        lua_pushboolean(L, 0);
-    return 1;
-}
-
-m_poppler__tostring(Link);
-
-static const struct luaL_Reg Link_m[] = {
-    {"isOk", m_Link_isOk},
-    {"inRect", m_Link_inRect},
-    {"__tostring", m_Link__tostring},
-    {NULL, NULL}                // sentinel
-};
-
-//**********************************************************************
 // LinkDest
 
 static const char *LinkDestKindNames[] =
@@ -1148,37 +1115,9 @@ static const struct luaL_Reg LinkDest_m[] = {
 //**********************************************************************
 // Links
 
-m_poppler_get_INT(Links, getNumLinks);
-
-static int m_Links_getLink(lua_State * L)
-{
-    Link *link;
-    int i, len;
-    udstruct *uin, *uout;
-    uin = (udstruct *) luaL_checkudata(L, 1, M_Links);
-    if (uin->pd != NULL && uin->pd->pc != uin->pc)
-        pdfdoc_changed_error(L);
-    i = luaL_checkint(L, 2);
-    len = ((Links *) uin->d)->getNumLinks();
-    if (i > 0 && i <= len) {
-        link = ((Links *) uin->d)->getLink(i - 1);
-        if (link != NULL) {
-            uout = new_Link_userdata(L);
-            uout->d = link;
-            uout->pc = uin->pc;
-            uout->pd = uin->pd;
-        } else
-            lua_pushnil(L);
-    } else
-        lua_pushnil(L);
-    return 1;
-}
-
 m_poppler__tostring(Links);
 
 static const struct luaL_Reg Links_m[] = {
-    {"getNumLinks", m_Links_getNumLinks},
-    {"getLink", m_Links_getLink},
     {"__tostring", m_Links__tostring},
     {NULL, NULL}                // sentinel
 };
@@ -2317,23 +2256,19 @@ static int m_PDFDoc_findPage(lua_State * L)
 
 static int m_PDFDoc_getLinks(lua_State * L)
 {
-    int i, pages;
+    int i;
     Links *links;
     udstruct *uin, *uout;
     uin = (udstruct *) luaL_checkudata(L, 1, M_PDFDoc);
     if (uin->pd != NULL && uin->pd->pc != uin->pc)
         pdfdoc_changed_error(L);
     i = luaL_checkint(L, 2);
-    pages = ((PdfDocument *) uin->d)->doc->getNumPages();
-    if (i > 0 && i <= pages) {
-        links = ((PdfDocument *) uin->d)->doc->getLinks(i);
-        if (links != NULL) {
-            uout = new_Links_userdata(L);
-            uout->d = links;
-            uout->pc = uin->pc;
-            uout->pd = uin->pd;
-        } else
-            lua_pushnil(L);
+    links = ((PdfDocument *) uin->d)->doc->getLinks(i);
+    if (links != NULL) {
+        uout = new_Links_userdata(L);
+        uout->d = links;
+        uout->pc = uin->pc;
+        uout->pd = uin->pd;
     } else
         lua_pushnil(L);
     return 1;
@@ -2412,8 +2347,6 @@ static int m_PDFDoc_getDocInfoNF(lua_State * L)
 m_PDFDoc_INT(getPDFMajorVersion);
 m_PDFDoc_INT(getPDFMinorVersion);
 
-m_poppler__tostring(PDFDoc);
-
 static int m_PDFDoc__gc(lua_State * L)
 {
     udstruct *uin;
@@ -2457,7 +2390,6 @@ static const struct luaL_Reg PDFDoc_m[] = {
     {"getDocInfoNF", m_PDFDoc_getDocInfoNF},
     {"getPDFMajorVersion", m_PDFDoc_getPDFMajorVersion},
     {"getPDFMinorVersion", m_PDFDoc_getPDFMinorVersion},
-    {"__tostring", m_PDFDoc__tostring},
     {"__gc", m_PDFDoc__gc},     // finalizer
     {NULL, NULL}                // sentinel
 };
@@ -2733,10 +2665,7 @@ static const struct luaL_Reg XRef_m[] = {
 //**********************************************************************
 // XRefEntry
 
-m_poppler__tostring(XRefEntry);
-
 static const struct luaL_Reg XRefEntry_m[] = {
-    {"__tostring", m_XRefEntry__tostring},
     {NULL, NULL}                // sentinel
 };
 
@@ -2758,10 +2687,9 @@ int luaopen_epdf(lua_State * L)
     register_meta(Annots);
     register_meta(Array);
     register_meta(Catalog);
-    register_meta(Dict);
     register_meta(EmbFile);
+    register_meta(Dict);
     register_meta(GooString);
-    register_meta(Link);
     register_meta(LinkDest);
     register_meta(Links);
     register_meta(Object);

@@ -1,7 +1,7 @@
 % writet3.w
 
 % Copyright 1996-2006 Han The Thanh <thanh@@pdftex.org>
-% Copyright 2006-2011 Taco Hoekwater <taco@@luatex.org>
+% Copyright 2006-2010 Taco Hoekwater <taco@@luatex.org>
 
 % This file is part of LuaTeX.
 
@@ -187,11 +187,7 @@ static boolean writepk(PDF pdf, internal_font_number f)
         ury = cd.cheight + lly;
         update_bbox(llx, lly, urx, ury, t3_glyph_num == 0);
         t3_glyph_num++;
-        t3_char_procs[cd.charcode] = pdf_create_obj(pdf, obj_type_others, 0);
-        pdf_begin_obj(pdf, t3_char_procs[cd.charcode], OBJSTM_NEVER);
-        pdf_begin_dict(pdf);
-        pdf_dict_add_streaminfo(pdf);
-        pdf_end_dict(pdf);
+        t3_char_procs[cd.charcode] = pdf_new_dict(pdf, obj_type_others, 0, 0);
         pdf_begin_stream(pdf);
         pdf_print_real(pdf, (int) t3_char_widths[cd.charcode], 2);
         pdf_printf(pdf, " 0 %i %i %i %i d1\n",
@@ -219,7 +215,6 @@ static boolean writepk(PDF pdf, internal_font_number f)
         pdf_puts(pdf, "\nEI\nQ\n");
       end_stream:
         pdf_end_stream(pdf);
-        pdf_end_obj(pdf);
     }
     xfree(cd.raster);
     cur_file_name = NULL;
@@ -230,8 +225,8 @@ static boolean writepk(PDF pdf, internal_font_number f)
 @c
 void writet3(PDF pdf, internal_font_number f)
 {
+
     int i;
-    char s[32];
     int wptr, eptr, cptr;
     int first_char, last_char;
     int pk_font_scale;
@@ -258,121 +253,77 @@ void writet3(PDF pdf, internal_font_number f)
         if (pdf_char_marked(f, i))
             break;
     last_char = i;
-
-    /* Type 3 font dictionary */
-    pdf_begin_obj(pdf, pdf_font_num(f), OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "Font");
-    pdf_dict_add_name(pdf, "Subtype", "Type3");
-    snprintf(s, 31, "F%i", (int) f);
-    pdf_dict_add_name(pdf, "Name", s);
+    pdf_begin_dict(pdf, pdf_font_num(f), 1);    /* Type 3 font dictionary */
+    pdf_puts(pdf, "/Type /Font\n/Subtype /Type3\n");
+    pdf_printf(pdf, "/Name /F%i\n", (int) f);
     if (pdf_font_attr(f) != get_nullstr() && pdf_font_attr(f) != 0) {
-        pdf_out(pdf, '\n');
         pdf_print(pdf, pdf_font_attr(f));
-        pdf_out(pdf, '\n');
+        pdf_puts(pdf, "\n");
     }
     if (is_pk_font) {
         pk_font_scale =
             get_pk_font_scale(f, pdf->decimal_digits, pdf->pk_scale_factor);
-        pdf_add_name(pdf, "FontMatrix");
-        pdf_begin_array(pdf);
+        pdf_puts(pdf, "/FontMatrix [");
         pdf_print_real(pdf, pk_font_scale, 5);
         pdf_puts(pdf, " 0 0 ");
         pdf_print_real(pdf, pk_font_scale, 5);
-        pdf_puts(pdf, " 0 0");
-        pdf_end_array(pdf);
-    } else {
-        pdf_add_name(pdf, "FontMatrix");
-        pdf_begin_array(pdf);
-        pdf_printf(pdf, "%g 0 0 %g 0 0",
+        pdf_puts(pdf, " 0 0]\n");
+    } else
+        pdf_printf(pdf, "/FontMatrix [%g 0 0 %g 0 0]\n",
                    (double) t3_font_scale, (double) t3_font_scale);
-        pdf_end_array(pdf);
-    }
-    pdf_add_name(pdf, font_key[FONTBBOX1_CODE].pdfname);
-    pdf_begin_array(pdf);
-    pdf_add_int(pdf, (int) t3_b0);
-    pdf_add_int(pdf, (int) t3_b1);
-    pdf_add_int(pdf, (int) t3_b2);
-    pdf_add_int(pdf, (int) t3_b3);
-    pdf_end_array(pdf);
-    pdf_add_name(pdf, "Resources");
-    pdf_begin_dict(pdf);
-    pdf_add_name(pdf, "ProcSet");
-    pdf_begin_array(pdf);
-    pdf_add_name(pdf, "PDF");
-    if (t3_image_used)
-        pdf_add_name(pdf, "ImageB");
-    pdf_end_array(pdf);
+    pdf_printf(pdf, "/%s [ %i %i %i %i ]\n",
+               font_key[FONTBBOX1_CODE].pdfname,
+               (int) t3_b0, (int) t3_b1, (int) t3_b2, (int) t3_b3);
+    pdf_printf(pdf, "/Resources << /ProcSet [ /PDF %s] >>\n",
+               t3_image_used ? "/ImageB " : "");
+    pdf_printf(pdf, "/FirstChar %i\n/LastChar %i\n", first_char, last_char);
+    wptr = pdf_new_objnum(pdf);
+    eptr = pdf_new_objnum(pdf);
+    cptr = pdf_new_objnum(pdf);
+    pdf_printf(pdf, "/Widths %i 0 R\n/Encoding %i 0 R\n/CharProcs %i 0 R\n",
+               (int) wptr, (int) eptr, (int) cptr);
     pdf_end_dict(pdf);
-    pdf_dict_add_int(pdf, "FirstChar", first_char);
-    pdf_dict_add_int(pdf, "LastChar", last_char);
-    wptr = pdf_create_obj(pdf, obj_type_others, 0);
-    eptr = pdf_create_obj(pdf, obj_type_others, 0);
-    cptr = pdf_create_obj(pdf, obj_type_others, 0);
-    pdf_dict_add_ref(pdf, "Widths", (int) wptr);
-    pdf_dict_add_ref(pdf, "Encoding", (int) eptr);
-    pdf_dict_add_ref(pdf, "CharProcs", (int) cptr);
-    pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
-
-    /* chars width array */
-    pdf_begin_obj(pdf, wptr, OBJSTM_ALWAYS);
-    pdf_begin_array(pdf);
+    pdf_begin_obj(pdf, wptr, 1);        /* chars width array */
+    pdf_puts(pdf, "[");
     if (is_pk_font)
         for (i = first_char; i <= last_char; i++) {
             pdf_print_real(pdf, (int) t3_char_widths[i], 2);
-            pdf_out(pdf, ' ');
+            pdf_puts(pdf, " ");
     } else
         for (i = first_char; i <= last_char; i++)
-            pdf_add_int(pdf, (int) t3_char_widths[i]);
-    pdf_end_array(pdf);
+            pdf_printf(pdf, "%i ", (int) t3_char_widths[i]);
+    pdf_puts(pdf, "]\n");
     pdf_end_obj(pdf);
-
-    /* encoding dictionary */
-    pdf_begin_obj(pdf, eptr, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "Encoding");
-    pdf_add_name(pdf, "Differences");
-    pdf_begin_array(pdf);
-    pdf_add_int(pdf, first_char);
+    pdf_begin_dict(pdf, eptr, 1);       /* encoding dictionary */
+    pdf_printf(pdf, "/Type /Encoding\n/Differences [%i", first_char);
     if (t3_char_procs[first_char] == 0) {
-        pdf_add_name(pdf, notdef);
+        pdf_printf(pdf, "/%s", notdef);
         is_notdef = true;
     } else {
-        snprintf(s, 31, "a%i", first_char);
-        pdf_add_name(pdf, s);
+        pdf_printf(pdf, "/a%i", first_char);
         is_notdef = false;
     }
     for (i = first_char + 1; i <= last_char; i++) {
         if (t3_char_procs[i] == 0) {
             if (!is_notdef) {
-                pdf_add_int(pdf, i);
-                pdf_add_name(pdf, notdef);
+                pdf_printf(pdf, " %i/%s", i, notdef);
                 is_notdef = true;
             }
         } else {
             if (is_notdef) {
-                pdf_add_int(pdf, i);
+                pdf_printf(pdf, " %i", i);
                 is_notdef = false;
             }
-            snprintf(s, 31, "a%i", i);
-            pdf_add_name(pdf, s);
+            pdf_printf(pdf, "/a%i", i);
         }
     }
-    pdf_end_array(pdf);
+    pdf_puts(pdf, "]\n");
     pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
-
-    /* CharProcs dictionary */
-    pdf_begin_obj(pdf, cptr, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
+    pdf_begin_dict(pdf, cptr, 1);       /* CharProcs dictionary */
     for (i = first_char; i <= last_char; i++)
-        if (t3_char_procs[i] != 0) {
-            snprintf(s, 31, "a%i", (int) i);
-            pdf_dict_add_ref(pdf, s, (int) t3_char_procs[i]);
-        }
+        if (t3_char_procs[i] != 0)
+            pdf_printf(pdf, "/a%i %i 0 R\n", (int) i, (int) t3_char_procs[i]);
     pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
     if (tracefilenames)
         tex_printf(">");
     cur_file_name = NULL;
