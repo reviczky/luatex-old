@@ -142,7 +142,7 @@ int pdf_create_obj(PDF pdf, int t, int i)
     if (i < 0) {
         ss = makecstring(-i);
         avl_put_str_obj(pdf, ss, pdf->obj_ptr, t);
-    } else if (i > 0)
+    } else
         avl_put_int_obj(pdf, i, pdf->obj_ptr, t);
     if (t <= HEAD_TAB_MAX) {
         obj_link(pdf, pdf->obj_ptr) = pdf->head_tab[t];
@@ -179,7 +179,7 @@ int find_obj(PDF pdf, int t, int i, boolean byname)
    |vlist_out|.
 
 @c
-int pdf_get_obj(PDF pdf, int t, int i, boolean byname)
+int get_obj(PDF pdf, int t, int i, boolean byname)
 {
     int r;
     str_number s;
@@ -206,8 +206,15 @@ int pdf_get_obj(PDF pdf, int t, int i, boolean byname)
     return r;
 }
 
-@ object checking 
+@ create a new object and return its number 
+
 @c
+int pdf_new_objnum(PDF pdf)
+{
+    int k = pdf_create_obj(pdf, obj_type_others, 0);
+    return k;
+}
+
 void check_obj_exists(PDF pdf, int objnum)
 {
     if (objnum < 0 || objnum > pdf->obj_ptr)

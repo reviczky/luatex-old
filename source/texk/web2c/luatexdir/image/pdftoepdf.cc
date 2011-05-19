@@ -1,7 +1,7 @@
 /* pdftoepdf.cc
 
    Copyright 1996-2006 Han The Thanh <thanh@pdftex.org>
-   Copyright 2006-2011 Taco Hoekwater <taco@luatex.org>
+   Copyright 2006-2010 Taco Hoekwater <taco@luatex.org>
 
    This file is part of LuaTeX.
 
@@ -253,7 +253,7 @@ static int addInObj(PDF pdf, PdfDocument * pdf_doc, Ref ref)
     n = new InObj;
     n->ref = ref;
     n->next = NULL;
-    n->num = pdf_create_obj(pdf, obj_type_others, 0);
+    n->num = pdf_new_objnum(pdf);
     addObjMap(pdf_doc, ref, n->num);
     if (pdf_doc->inObjList == NULL)
         pdf_doc->inObjList = n;
@@ -269,7 +269,7 @@ static int addInObj(PDF pdf, PdfDocument * pdf_doc, Ref ref)
 }
 
 //**********************************************************************
-// Function converts double to pdffloat; very small and very large numbers
+// Function converts double to string; very small and very large numbers
 // are NOT converted to scientific notation.
 // n must be a number or real conforming to the implementation limits
 // of PDF as specified in appendix C.1 of the PDF Ref.
@@ -278,26 +278,56 @@ static int addInObj(PDF pdf, PdfDocument * pdf_doc, Ref ref)
 // maximum value of reals is +2^15
 // smalles values of reals is 1/(2^16)
 
-static pdffloat conv_double_to_pdffloat(double n)
+static char *convertNumToPDF(double n)
 {
-    pdffloat a;
-    a.e = 6;
-    if (n < 0)
-        a.m = -(long) (-n * ten_pow[a.e] + 0.5);
-    else
-        a.m = (long) (n * ten_pow[a.e] + 0.5);
-    return a;
+    static const int precision = 6;
+    static const int fact = (int) 1E6;  // must be 10^precision
+    static const double epsilon = 0.5E-6;       // 2epsilon must be 10^-precision
+    static char buf[64];
+    // handle very small values: return 0
+    if (fabs(n) < epsilon) {
+        buf[0] = '0';
+        buf[1] = '\0';
+    } else {
+        char ints[64];
+        int bindex = 0, sindex = 0;
+        int ival, fval;
+        // handle the sign part if n is negative
+        if (n < 0) {
+            buf[bindex++] = '-';
+            n = -n;
+        }
+        n += epsilon;           // for rounding
+        // handle the integer part, simply with sprintf
+        ival = (int) floor(n);
+        n -= ival;
+        sprintf(ints, "%d", ival);
+        while (ints[sindex] != 0)
+            buf[bindex++] = ints[sindex++];
+        // handle the fractional part up to 'precision' digits
+        fval = (int) floor(n * fact);
+        if (fval) {
+            // set a dot
+            buf[bindex++] = '.';
+            sindex = bindex + precision;
+            buf[sindex--] = '\0';
+            // fill up trailing zeros with the string terminator NULL
+            while (((fval % 10) == 0) && (sindex >= bindex)) {
+                buf[sindex--] = '\0';
+                fval /= 10;
+            }
+            // fill up the fractional part back to front
+            while (sindex >= bindex) {
+                buf[sindex--] = (fval % 10) + '0';
+                fval /= 10;
+            }
+        } else
+            buf[bindex++] = '\0';
+    }
+    return (char *) buf;
 }
 
 static void copyObject(PDF, PdfDocument *, Object *);
-
-void copyReal(PDF pdf, double d)
-{
-    if (pdf->cave)
-        pdf_out(pdf, ' ');
-    print_pdffloat(pdf, conv_double_to_pdffloat(d));
-    pdf->cave = true;
-}
 
 static void copyString(PDF pdf, GooString * string)
 {
@@ -306,10 +336,8 @@ static void copyString(PDF pdf, GooString * string)
     size_t i, l;
     p = string->getCString();
     l = (size_t) string->getLength();
-    if (pdf->cave)
-        pdf_out(pdf, ' ');
     if (strlen(p) == l) {
-        pdf_out(pdf, '(');
+        pdf_puts(pdf, "(");
         for (; *p != 0; p++) {
             c = (unsigned char) *p;
             if (c == '(' || c == ')' || c == '\\')
@@ -319,21 +347,20 @@ static void copyString(PDF pdf, GooString * string)
             else
                 pdf_out(pdf, c);
         }
-        pdf_out(pdf, ')');
+        pdf_puts(pdf, ")");
     } else {
-        pdf_out(pdf, '<');
+        pdf_puts(pdf, "<");
         for (i = 0; i < l; i++) {
             c = (unsigned char) string->getChar(i);
             pdf_printf(pdf, "%.2x", (int) c);
         }
-        pdf_out(pdf, '>');
+        pdf_puts(pdf, ">");
     }
-    pdf->cave = true;
 }
 
 static void copyName(PDF pdf, char *s)
 {
-    pdf_out(pdf, '/');
+    pdf_puts(pdf, "/");
     for (; *s != 0; s++) {
         if (isdigit(*s) || isupper(*s) || islower(*s) || *s == '_' ||
             *s == '.' || *s == '-' || *s == '+')
@@ -341,74 +368,72 @@ static void copyName(PDF pdf, char *s)
         else
             pdf_printf(pdf, "#%.2X", *s & 0xFF);
     }
-    pdf->cave = true;
 }
 
 static void copyArray(PDF pdf, PdfDocument * pdf_doc, Array * array)
 {
     int i, l;
     Object obj1;
-    pdf_begin_array(pdf);
+    pdf_puts(pdf, "[");
     for (i = 0, l = array->getLength(); i < l; ++i) {
         array->getNF(i, &obj1);
+        if (!obj1.isName())
+            pdf_puts(pdf, " ");
         copyObject(pdf, pdf_doc, &obj1);
         obj1.free();
     }
-    pdf_end_array(pdf);
+    pdf_puts(pdf, "]");
 }
 
 static void copyDict(PDF pdf, PdfDocument * pdf_doc, Dict * dict)
 {
     int i, l;
     Object obj1;
-    pdf_begin_dict(pdf);
+    pdf_puts(pdf, "<<");
     for (i = 0, l = dict->getLength(); i < l; ++i) {
         copyName(pdf, dict->getKey(i));
+        pdf_puts(pdf, " ");
         dict->getValNF(i, &obj1);
         copyObject(pdf, pdf_doc, &obj1);
         obj1.free();
+        pdf_puts(pdf, "\n");
     }
-    pdf_end_dict(pdf);
+    pdf_puts(pdf, ">>");
 }
 
 static void copyStreamStream(PDF pdf, Stream * str)
 {
-    int c, i, len = 1024;
+    int c;
     str->reset();
-    i = len;
     while ((c = str->getChar()) != EOF) {
-        if (i == len) {
-            pdf_room(pdf, len);
-            i = 0;
-        }
-        pdf_quick_out(pdf, c);
-        i++;
+        pdf_out(pdf, c);
+        pdf->last_byte = c;
     }
 }
 
 static void copyStream(PDF pdf, PdfDocument * pdf_doc, Stream * stream)
 {
     copyDict(pdf, pdf_doc, stream->getDict());
-    pdf_begin_stream(pdf);
-    assert(pdf->zip_write_state == no_zip);
+    pdf_puts(pdf, "stream\n");
     copyStreamStream(pdf, stream->getUndecodedStream());
-    pdf_end_stream(pdf);
+    if (pdf->last_byte != '\n')
+        pdf_puts(pdf, "\n");
+    pdf_puts(pdf, "endstream"); // can't simply write pdf_end_stream()
 }
 
 static void copyObject(PDF pdf, PdfDocument * pdf_doc, Object * obj)
 {
     switch (obj->getType()) {
     case objBool:
-        pdf_add_bool(pdf, (int) obj->getBool());
+        pdf_printf(pdf, "%s", obj->getBool()? "true" : "false");
         break;
     case objInt:
-        pdf_add_int(pdf, obj->getInt());
+        pdf_printf(pdf, "%i", obj->getInt());
         break;
     case objReal:
-        copyReal(pdf, obj->getReal());
+        pdf_printf(pdf, "%s", convertNumToPDF(obj->getReal()));
         break;
         // not needed:
-        // case objNum:
         // GBool isNum() { return type == objInt || type == objReal; }
     case objString:
         copyString(pdf, obj->getString());
@@ -417,7 +442,7 @@ static void copyObject(PDF pdf, PdfDocument * pdf_doc, Object * obj)
         copyName(pdf, obj->getName());
         break;
     case objNull:
-        pdf_add_null(pdf);
+        pdf_puts(pdf, "null");
         break;
     case objArray:
         copyArray(pdf, pdf_doc, obj->getArray());
@@ -429,7 +454,7 @@ static void copyObject(PDF pdf, PdfDocument * pdf_doc, Object * obj)
         copyStream(pdf, pdf_doc, obj->getStream());
         break;
     case objRef:
-        pdf_add_ref(pdf, addInObj(pdf, pdf_doc, obj->getRef()));
+        pdf_printf(pdf, "%d 0 R", addInObj(pdf, pdf_doc, obj->getRef()));
         break;
     case objCmd:
     case objError:
@@ -448,18 +473,18 @@ static void copyObject(PDF pdf, PdfDocument * pdf_doc, Object * obj)
 static void writeRefs(PDF pdf, PdfDocument * pdf_doc)
 {
     InObj *r, *n;
-    Object obj1;
     XRef *xref;
-    PDFDoc *doc = pdf_doc->doc;
-    xref = doc->getXRef();
+    Object obj1;
+    xref = pdf_doc->doc->getXRef();
     for (r = pdf_doc->inObjList; r != NULL;) {
         xref->fetch(r->ref.num, r->ref.gen, &obj1);
         if (obj1.isStream())
-            pdf_begin_obj(pdf, r->num, OBJSTM_NEVER);
+            pdf_begin_obj(pdf, r->num, 0);
         else
             pdf_begin_obj(pdf, r->num, 2);      // \pdfobjcompresslevel = 2 is for this
         copyObject(pdf, pdf_doc, &obj1);
         obj1.free();
+        pdf_puts(pdf, "\n");
         pdf_end_obj(pdf);
         n = r->next;
         delete r;
@@ -505,7 +530,6 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
               int pdf_inclusion_errorlevel, img_readtype_e readtype)
 {
     PdfDocument *pdf_doc;
-    PDFDoc *doc;
     Page *page;
     int rotate;
     PDFRectangle *pagebox;
@@ -522,13 +546,12 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
     }
     // open PDF file
     pdf_doc = refPdfDocument(img_filepath(idict), FE_FAIL);
-    doc = pdf_doc->doc;
     // check PDF version
     // this works only for PDF 1.x -- but since any versions of PDF newer
     // than 1.x will not be backwards compatible to PDF 1.x, pdfTeX will
     // then have to changed drastically anyway.
-    pdf_major_version_found = doc->getPDFMajorVersion();
-    pdf_minor_version_found = doc->getPDFMinorVersion();
+    pdf_major_version_found = pdf_doc->doc->getPDFMajorVersion();
+    pdf_minor_version_found = pdf_doc->doc->getPDFMinorVersion();
     if ((pdf_major_version_found > 1)
         || (pdf_minor_version_found > minor_pdf_version_wanted)) {
         const char *msg =
@@ -541,16 +564,17 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
                         minor_pdf_version_wanted);
         }
     }
-    img_totalpages(idict) = doc->getCatalog()->getNumPages();
+    img_totalpages(idict) = pdf_doc->doc->getCatalog()->getNumPages();
     if (img_pagename(idict)) {
         // get page by name
         GooString name(img_pagename(idict));
-        LinkDest *link = doc->findDest(&name);
+        LinkDest *link = pdf_doc->doc->findDest(&name);
         if (link == NULL || !link->isOk())
             pdftex_fail("PDF inclusion: invalid destination <%s>",
                         img_pagename(idict));
         Ref ref = link->getPageRef();
-        img_pagenum(idict) = doc->getCatalog()->findPage(ref.num, ref.gen);
+        img_pagenum(idict) =
+            pdf_doc->doc->getCatalog()->findPage(ref.num, ref.gen);
         if (img_pagenum(idict) == 0)
             pdftex_fail("PDF inclusion: destination is not a page <%s>",
                         img_pagename(idict));
@@ -563,7 +587,7 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
                         (int) img_pagenum(idict));
     }
     // get the required page
-    page = doc->getCatalog()->getPage(img_pagenum(idict));
+    page = pdf_doc->doc->getCatalog()->getPage(img_pagenum(idict));
 
     // get the pagebox coordinates (media, crop,...) to use.
     pagebox = get_pagebox(page, img_pagebox(idict));
@@ -582,10 +606,10 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
         ysize = pagebox->y1 - pagebox->y2;
     }
     // The following 4 parameters are raw. Do _not_ modify by /Rotate!
-    img_xsize(idict) = bp2sp(xsize);
-    img_ysize(idict) = bp2sp(ysize);
-    img_xorig(idict) = bp2sp(xorig);
-    img_yorig(idict) = bp2sp(yorig);
+    img_xsize(idict) = bp2int(xsize);
+    img_ysize(idict) = bp2int(ysize);
+    img_xorig(idict) = bp2int(xorig);
+    img_yorig(idict) = bp2int(yorig);
 
     // Handle /Rotate parameter. Only multiples of 90 deg. are allowed
     // (PDF Ref. v1.3, p. 78).
@@ -625,14 +649,13 @@ read_pdf_info(image_dict * idict, int minor_pdf_version_wanted,
 void write_epdf(PDF pdf, image_dict * idict)
 {
     PdfDocument *pdf_doc;
-    PDFDoc *doc;
     Page *page;
     Ref *pageref;
     Dict *pageDict;
     Object obj1, contents, pageobj, pagesobj1, pagesobj2, *op1, *op2, *optmp;
     PDFRectangle *pagebox;
     int i, l;
-    double bbox[4];
+    float bbox[4];
     char s[256];
     const char *pagedictkeys[] =
         { "Group", "LastModified", "Metadata", "PieceInfo", "Resources",
@@ -642,43 +665,36 @@ void write_epdf(PDF pdf, image_dict * idict)
 
     // open PDF file
     pdf_doc = refPdfDocument(img_filepath(idict), FE_FAIL);
-    doc = pdf_doc->doc;
-    page = doc->getCatalog()->getPage(img_pagenum(idict));
-    pageref = doc->getCatalog()->getPageRef(img_pagenum(idict));
+    page = pdf_doc->doc->getCatalog()->getPage(img_pagenum(idict));
+    pageref = pdf_doc->doc->getCatalog()->getPageRef(img_pagenum(idict));
     assert(pageref != NULL);    // was checked already in read_pdf_info()
-    doc->getXRef()->fetch(pageref->num, pageref->gen, &pageobj);
+    pdf_doc->doc->getXRef()->fetch(pageref->num, pageref->gen, &pageobj);
     pageDict = pageobj.getDict();
 
     // write the Page header
-    pdf_begin_obj(pdf, img_objnum(idict), OBJSTM_NEVER);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "XObject");
-    pdf_dict_add_name(pdf, "Subtype", "Form");
-
+    pdf_puts(pdf, "/Type /XObject\n/Subtype /Form\n");
     if (img_attr(idict) != NULL && strlen(img_attr(idict)) > 0)
-        pdf_printf(pdf, "\n%s\n", img_attr(idict));
-    pdf_dict_add_int(pdf, "FormType", 1);
+        pdf_printf(pdf, "%s\n", img_attr(idict));
+    pdf_puts(pdf, "/FormType 1\n");
 
     // write additional information
-    snprintf(s, 30, "%s.FileName", pdfkeyprefix);
-    pdf_add_name(pdf, s);
-    pdf_printf(pdf, " (%s)",
+    pdf_printf(pdf, "/%s.FileName (%s)\n", pdfkeyprefix,
                convertStringToPDFString(pdf_doc->file_path,
                                         strlen(pdf_doc->file_path)));
-    snprintf(s, 30, "%s.PageNumber", pdfkeyprefix);
-    pdf_dict_add_int(pdf, s, (int) img_pagenum(idict));
-    doc->getDocInfoNF(&obj1);
+    pdf_printf(pdf, "/%s.PageNumber %i\n", pdfkeyprefix,
+               (int) img_pagenum(idict));
+    pdf_doc->doc->getDocInfoNF(&obj1);
     if (obj1.isRef()) {
         // the info dict must be indirect (PDF Ref p. 61)
-        snprintf(s, 30, "%s.InfoDict", pdfkeyprefix);
-        pdf_dict_add_ref(pdf, s, addInObj(pdf, pdf_doc, obj1.getRef()));
+        pdf_printf(pdf, "/%s.InfoDict ", pdfkeyprefix);
+        pdf_printf(pdf, "%d 0 R\n", addInObj(pdf, pdf_doc, obj1.getRef()));
     }
     obj1.free();
     if (img_is_bbox(idict)) {
-        bbox[0] = sp2bp(img_bbox(idict)[0]);
-        bbox[1] = sp2bp(img_bbox(idict)[1]);
-        bbox[2] = sp2bp(img_bbox(idict)[2]);
-        bbox[3] = sp2bp(img_bbox(idict)[3]);
+        bbox[0] = int2bp(img_bbox(idict)[0]);
+        bbox[1] = int2bp(img_bbox(idict)[1]);
+        bbox[2] = int2bp(img_bbox(idict)[2]);
+        bbox[3] = int2bp(img_bbox(idict)[3]);
     } else {
         // get the pagebox coordinates (media, crop,...) to use.
         pagebox = get_pagebox(page, img_pagebox(idict));
@@ -687,13 +703,9 @@ void write_epdf(PDF pdf, image_dict * idict)
         bbox[2] = pagebox->x2;
         bbox[3] = pagebox->y2;
     }
-    pdf_add_name(pdf, "BBox");
-    pdf_begin_array(pdf);
-    copyReal(pdf, bbox[0]);
-    copyReal(pdf, bbox[1]);
-    copyReal(pdf, bbox[2]);
-    copyReal(pdf, bbox[3]);
-    pdf_end_array(pdf);
+    sprintf(s, "/BBox [%.8f %.8f %.8f %.8f]\n", bbox[0], bbox[1], bbox[2],
+            bbox[3]);
+    pdf_puts(pdf, stripzeros(s));
     // The /Matrix calculation is replaced by transforms in out_img().
 
     // Now all relevant parts of the Page dictionary are copied:
@@ -708,7 +720,7 @@ void write_epdf(PDF pdf, image_dict * idict)
     for (i = 0; pagedictkeys[i] != NULL; i++) {
         pageDict->lookupNF((char *) pagedictkeys[i], &obj1);
         if (!obj1.isNull()) {
-            pdf_add_name(pdf, pagedictkeys[i]);
+            pdf_printf(pdf, "/%s ", pagedictkeys[i]);
             copyObject(pdf, pdf_doc, &obj1);    // preserves indirection
         }
         obj1.free();
@@ -727,7 +739,7 @@ void write_epdf(PDF pdf, image_dict * idict)
             obj1.free();
             op1->dictLookupNF((char *) "Resources", &obj1);
             if (!obj1.isNull()) {
-                pdf_add_name(pdf, (const char *) "Resources");
+                pdf_puts(pdf, "/Resources ");
                 copyObject(pdf, pdf_doc, &obj1);
                 break;
             }
@@ -749,9 +761,9 @@ void write_epdf(PDF pdf, image_dict * idict)
         // Variant A: get stream and recompress under control
         // of \pdfcompresslevel
         //
-        // pdf_begin_stream();
+        // pdfbeginstream();
         // copyStreamStream(contents->getStream());
-        // pdf_end_stream();
+        // pdfendstream();
 
         // Variant B: copy stream without recompressing
         //
@@ -762,29 +774,28 @@ void write_epdf(PDF pdf, image_dict * idict)
         obj1.free();
         contents.streamGetDict()->lookup((char *) "Length", &obj1);
         assert(!obj1.isNull());
-        pdf_add_name(pdf, (const char *) "Length");
+        pdf_puts(pdf, "/Length ");
         copyObject(pdf, pdf_doc, &obj1);
         obj1.free();
+        pdf_puts(pdf, "\n");
         contents.streamGetDict()->lookup((char *) "Filter", &obj1);
         if (!obj1.isNull()) {
-            pdf_add_name(pdf, (const char *) "Filter");
+            pdf_puts(pdf, "/Filter ");
             copyObject(pdf, pdf_doc, &obj1);
             obj1.free();
+            pdf_puts(pdf, "\n");
             contents.streamGetDict()->lookup((char *) "DecodeParms", &obj1);
             if (!obj1.isNull()) {
-                pdf_add_name(pdf, (const char *) "DecodeParms");
+                pdf_puts(pdf, "/DecodeParms ");
                 copyObject(pdf, pdf_doc, &obj1);
+                pdf_puts(pdf, "\n");
             }
         }
         obj1.free();
-        pdf_end_dict(pdf);
-        pdf_begin_stream(pdf);
+        pdf_puts(pdf, ">>\nstream\n");
         copyStreamStream(pdf, contents.getStream()->getBaseStream());
         pdf_end_stream(pdf);
-        pdf_end_obj(pdf);
     } else if (contents.isArray()) {
-        pdf_dict_add_streaminfo(pdf);
-        pdf_end_dict(pdf);
         pdf_begin_stream(pdf);
         for (i = 0, l = contents.arrayGetLength(); i < l; ++i) {
             copyStreamStream(pdf, (contents.arrayGet(i, &obj1))->getStream());
@@ -792,17 +803,13 @@ void write_epdf(PDF pdf, image_dict * idict)
             if (i < (l - 1)) {
                 // put a space between streams to be on the safe side (streams
                 // should have a trailing space here, but one never knows)
-                pdf_out(pdf, ' ');
+                pdf_puts(pdf, " ");
             }
         }
         pdf_end_stream(pdf);
-        pdf_end_obj(pdf);
     } else {                    // the contents are optional, but we need to include an empty stream
-        pdf_dict_add_streaminfo(pdf);
-        pdf_end_dict(pdf);
         pdf_begin_stream(pdf);
         pdf_end_stream(pdf);
-        pdf_end_obj(pdf);
     }
     // write out all indirect objects
     writeRefs(pdf, pdf_doc);

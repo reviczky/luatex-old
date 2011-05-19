@@ -261,27 +261,22 @@ static void reopen_jp2(image_dict * idict)
 void write_jp2(PDF pdf, image_dict * idict)
 {
     long unsigned l;
+    FILE *f;
     assert(idict != NULL);
     if (img_file(idict) == NULL)
         reopen_jp2(idict);
-    assert(img_jp2_ptr(idict) != NULL);
-    pdf_begin_obj(pdf, img_objnum(idict), OBJSTM_NEVER);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_name(pdf, "Type", "XObject");
-    pdf_dict_add_name(pdf, "Subtype", "Image");
-    if (img_attr(idict) != NULL && strlen(img_attr(idict)) > 0)
-        pdf_printf(pdf, "\n%s\n", img_attr(idict));
-    pdf_dict_add_int(pdf, "Width", (int) img_xsize(idict));
-    pdf_dict_add_int(pdf, "Height", (int) img_ysize(idict));
-    pdf_dict_add_int(pdf, "Length", (int) img_jp2_ptr(idict)->length);
-    pdf_dict_add_name(pdf, "Filter", "JPXDecode");
-    pdf_end_dict(pdf);
-    pdf_begin_stream(pdf);
-    l = (long unsigned int) img_jp2_ptr(idict)->length;
     xfseek(img_file(idict), 0, SEEK_SET, img_filepath(idict));
-    if (read_file_to_buf(pdf, img_file(idict), l) != l)
-        pdftex_fail("writejp2: fread failed");
+    assert(img_jp2_ptr(idict) != NULL);
+    pdf_puts(pdf, "/Type /XObject\n/Subtype /Image\n");
+    if (img_attr(idict) != NULL && strlen(img_attr(idict)) > 0)
+        pdf_printf(pdf, "%s\n", img_attr(idict));
+    pdf_printf(pdf, "/Width %i\n/Height %i\n/Length %i\n",
+               (int) img_xsize(idict),
+               (int) img_ysize(idict), (int) img_jp2_ptr(idict)->length);
+    pdf_puts(pdf, "/Filter /JPXDecode\n>>\nstream\n");
+    for (l = (long unsigned int) img_jp2_ptr(idict)->length, f =
+         img_file(idict); l > 0; l--)
+        pdf_out(pdf, xgetc(f));
     pdf_end_stream(pdf);
-    pdf_end_obj(pdf);
     close_and_cleanup_jp2(idict);
 }

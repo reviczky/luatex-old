@@ -585,6 +585,7 @@ static void write_image_or_node(lua_State * L, wrtype_e writetype)
         tail_append(n);
         break;                  /* image */
     case WR_IMMEDIATEWRITE:
+        pdf_begin_dict(static_pdf, img_objnum(ad), 0);
         write_img(static_pdf, ad);
         break;                  /* image */
     case WR_NODE:              /* image */

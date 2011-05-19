@@ -5,7 +5,7 @@
 % check numbers
 % check \luatex command
 
-\nopdfcompression
+%\nopdfcompression
 %\loggingall
 \environment luatexref-env
 \logo[DFONT]   {dfont}
@@ -23,7 +23,7 @@
 
 \setvariables
   [document]
-  [beta=0.66.0]
+  [beta=0.70.0]
 
 \starttext
 
@@ -2068,9 +2068,7 @@ by the \type{epdf} library, currently these are
 \type{EmbFile},
 \type{Dict},
 \type{GString},
-\type{Link},
 \type{LinkDest},
-\type{Links},
 \type{Object},
 \type{ObjectStream},
 \type{Page},
@@ -2206,13 +2204,6 @@ All object constructors:
 <Object>  = <Dict>:getValNF(<integer>)
 \stopfunctioncall
 
-\type{Link} methods:
-
-\startfunctioncall
-<boolean>  = <Link>:isOK()
-<boolean>  = <Link>:inRect(<number>, <number>)
-\stopfunctioncall
-
 \type{LinkDest} methods:
 
 \startfunctioncall
@@ -2230,13 +2221,6 @@ All object constructors:
 <boolean>  = <LinkDest>:getChangeLeft()
 <boolean>  = <LinkDest>:getChangeTop()
 <boolean>  = <LinkDest>:getChangeZoom()
-\stopfunctioncall
-
-\type{Links} methods:
-
-\startfunctioncall
-<integer>  = <Links>:getNumLinks()
-<Link>     = <Links>:getLink(<integer>)
 \stopfunctioncall
 
 \type{Object} methods:
@@ -2298,7 +2282,7 @@ All object constructors:
 <string>  = <Object>:dictgetKey(<integer>)
 <Object>  = <Object>:dictgetVal(<integer>)
 <Object>  = <Object>:dictgetValNF(<integer>)
-<boolean> = <Object>:streamIs(<string>)
+<boolean> = <Object>:streamIs()
           = <Object>:streamReset()
 <integer> = <Object>:streamGetChar()
 <integer> = <Object>:streamLookChar()

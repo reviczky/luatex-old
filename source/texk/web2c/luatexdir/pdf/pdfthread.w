@@ -36,9 +36,8 @@ void append_bead(PDF pdf, halfword p)
     int a, b, c, t;
     if (global_shipping_mode == SHIPPING_FORM)
         pdf_error("ext4", "threads cannot be inside an XForm");
-    t = pdf_get_obj(pdf, obj_type_thread, pdf_thread_id(p),
-                    pdf_thread_named_id(p));
-    b = pdf_create_obj(pdf, obj_type_others, 0);
+    t = get_obj(pdf, obj_type_thread, pdf_thread_id(p), pdf_thread_named_id(p));
+    b = pdf_new_objnum(pdf);
     obj_bead_ptr(pdf, b) = pdf_get_mem(pdf, pdfmem_bead_size);
     set_obj_bead_page(pdf, b, pdf->last_page);
     set_obj_bead_data(pdf, b, p);
@@ -144,13 +143,12 @@ void end_thread(PDF pdf, halfword p)
 @c
 void thread_title(PDF pdf, int t)
 {
-    pdf_add_name(pdf, "Title");
-    pdf_out(pdf, '(');
+    pdf_printf(pdf, "/Title (");
     if (obj_info(pdf, t) < 0)
         pdf_print(pdf, -obj_info(pdf, t));
     else
         pdf_print_int(pdf, obj_info(pdf, t));
-    pdf_out(pdf, ')');
+    pdf_printf(pdf, ")\n");
 }
 
 void pdf_fix_thread(PDF pdf, int t)
@@ -168,32 +166,23 @@ void pdf_fix_thread(PDF pdf, int t)
     tprint(" has been referenced but does not exist, replaced by a fixed one");
     print_ln();
     print_ln();
-    a = pdf_create_obj(pdf, obj_type_others, 0);
-    pdf_begin_obj(pdf, a, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_dict_add_ref(pdf, "T", t);
-    pdf_dict_add_ref(pdf, "V", a);
-    pdf_dict_add_ref(pdf, "N", a);
-    pdf_dict_add_ref(pdf, "P", pdf->last_page);
-    pdf_add_name(pdf, "R");
-    pdf_begin_array(pdf);
-    pdf_add_int(pdf, 0);
-    pdf_add_int(pdf, 0);
-    pdf_add_bp(pdf, page_width);
-    pdf_add_bp(pdf, page_height);
-    pdf_end_array(pdf);
+    a = pdf_new_dict(pdf, obj_type_others, 0, 0);
+    pdf_indirect_ln(pdf, "T", t);
+    pdf_indirect_ln(pdf, "V", a);
+    pdf_indirect_ln(pdf, "N", a);
+    pdf_indirect_ln(pdf, "P", pdf->last_page);
+    pdf_printf(pdf, "/R [0 0 ");
+    pdf_print_bp(pdf, page_width);
+    pdf_out(pdf, ' ');
+    pdf_print_bp(pdf, page_height);
+    pdf_printf(pdf, "]\n");
     pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
-
-    pdf_begin_obj(pdf, t, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
-    pdf_add_name(pdf, "I");
-    pdf_begin_dict(pdf);
+    pdf_begin_dict(pdf, t, 1);
+    pdf_printf(pdf, "/I << \n");
     thread_title(pdf, t);
+    pdf_printf(pdf, ">>\n");
+    pdf_indirect_ln(pdf, "F", a);
     pdf_end_dict(pdf);
-    pdf_dict_add_ref(pdf, "F", a);
-    pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
 }
 
 void out_thread(PDF pdf, int t)
@@ -204,8 +193,7 @@ void out_thread(PDF pdf, int t)
         pdf_fix_thread(pdf, t);
         return;
     }
-    pdf_begin_obj(pdf, t, OBJSTM_ALWAYS);
-    pdf_begin_dict(pdf);
+    pdf_begin_dict(pdf, t, 1);
     a = obj_thread_first(pdf, t);
     b = a;
     last_attr = 0;
@@ -217,28 +205,25 @@ void out_thread(PDF pdf, int t)
     if (last_attr != 0) {
         pdf_print_ln(pdf, last_attr);
     } else {
-        pdf_add_name(pdf, "I");
-        pdf_begin_dict(pdf);
+        pdf_printf(pdf, "/I << \n");
         thread_title(pdf, t);
-        pdf_end_dict(pdf);
+        pdf_printf(pdf, ">>\n");
     }
-    pdf_dict_add_ref(pdf, "F", a);
+    pdf_indirect_ln(pdf, "F", a);
     pdf_end_dict(pdf);
-    pdf_end_obj(pdf);
     do {
-        pdf_begin_obj(pdf, a, OBJSTM_ALWAYS);
-        pdf_begin_dict(pdf);
+        pdf_begin_dict(pdf, a, 1);
         if (a == b)
-            pdf_dict_add_ref(pdf, "T", t);
-        pdf_dict_add_ref(pdf, "V", obj_bead_prev(pdf, a));
-        pdf_dict_add_ref(pdf, "N", obj_bead_next(pdf, a));
-        pdf_dict_add_ref(pdf, "P", obj_bead_page(pdf, a));
-        pdf_dict_add_ref(pdf, "R", obj_bead_rect(pdf, a));
+            pdf_indirect_ln(pdf, "T", t);
+        pdf_indirect_ln(pdf, "V", obj_bead_prev(pdf, a));
+        pdf_indirect_ln(pdf, "N", obj_bead_next(pdf, a));
+        pdf_indirect_ln(pdf, "P", obj_bead_page(pdf, a));
+        pdf_indirect_ln(pdf, "R", obj_bead_rect(pdf, a));
         pdf_end_dict(pdf);
-        pdf_end_obj(pdf);
         a = obj_bead_next(pdf, a);
     } while (a != b);
 }
+
 
 @ @c
 void scan_thread_id(void)
@@ -275,16 +260,15 @@ void print_bead_rectangles(PDF pdf)
     int l;
     if ((k = get_page_resources_list(pdf, obj_type_bead)) != NULL) {
         while (k != NULL) {
-            l = pdf_create_obj(pdf, obj_type_others, 0);
-            pdf_begin_obj(pdf, l, OBJSTM_ALWAYS);
-            pdf_begin_array(pdf);
+            l = pdf_new_obj(pdf, obj_type_others, 0, 1);
+            pdf_out(pdf, '[');
             i = obj_bead_data(pdf, k->info);    /* pointer to a whatsit or whatsit-like node */
-            pdf_add_rect_spec(pdf, i);
+            pdf_print_rect_spec(pdf, i);
             if (subtype(i) == pdf_thread_data_node)     /* thanh says it mis be destroyed here */
                 flush_node(i);
-            pdf_end_array(pdf);
-            pdf_end_obj(pdf);
+            pdf_printf(pdf, "]\n");
             set_obj_bead_rect(pdf, k->info, l); /* rewrite |obj_bead_data| */
+            pdf_end_obj(pdf);
             k = k->link;
         }
     }
