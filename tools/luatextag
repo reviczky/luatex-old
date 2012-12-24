@@ -10,12 +10,9 @@ if  test -d $a ; then
   tar cvj --exclude=.svn -f ../../luatex-$a-doc.tar.bz2 luatex-$a/manual/
   tar cvj --exclude=.svn --exclude=luatex-$a/manual -f ../../luatex-$a-source.tar.bz2 luatex-$a/*
   cd luatex-$a
-  ./build.sh "$@"
   ./build.sh --mingw "$@"
   zip -j ../../../luatex-$a-win32-mingw.zip build-windows/texk/web2c/luatex.exe
-  cd build/texk/web2c
-  tar cjvf ../../../../../../luatex-$a-linux2.6-i386.tar.bz2 luatex
-  cd ../../../..
-  rm -rf $a/build $a/build-windows
+  cd ..
+  rm -rf $a/build-windows
   rm luatex-$a
 fi
