@@ -26,7 +26,6 @@
  */
 
 #include <stdio.h>
-#include "basics.h"
 #include "ustring.h"
 #include "fileutil.h"
 #include "gfile.h"
@@ -165,7 +164,7 @@ return( (char *)oldname );
 char *GFileAppendFile(char *dir,char *name,int isdir) {
     char *ret, *pt;
 
-    ret = xmalloc((strlen(dir)+strlen(name)+3));
+    ret = galloc((strlen(dir)+strlen(name)+3));
     strcpy(ret,dir);
     pt = ret+strlen(ret);
     if ( pt>ret && pt[-1]!='/' )
@@ -407,7 +406,7 @@ return( name );
 unichar_t *u_GFileAppendFile(unichar_t *dir,unichar_t *name,int isdir) {
     unichar_t *ret, *pt;
 
-    ret = xmalloc((u_strlen(dir)+u_strlen(name)+3)*sizeof(unichar_t));
+    ret = galloc((u_strlen(dir)+u_strlen(name)+3)*sizeof(unichar_t));
     u_strcpy(ret,dir);
     pt = ret+u_strlen(ret);
     if ( pt>ret && pt[-1]!='/' )
