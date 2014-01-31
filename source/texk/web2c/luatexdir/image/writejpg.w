@@ -20,8 +20,8 @@
 
 @ @c
 static const char _svn_version[] =
-    "$Id$"
-    "$URL$";
+    "$Id: writejpg.w 4442 2012-05-25 22:40:34Z hhenkel $"
+    "$URL: https://foundry.supelec.fr/svn/luatex/branches/ex-glyph/source/texk/web2c/luatexdir/image/writejpg.w $";
 
 #include "ptexlib.h"
 #include <assert.h>

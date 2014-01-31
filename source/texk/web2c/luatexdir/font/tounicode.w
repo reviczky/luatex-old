@@ -20,8 +20,8 @@
 
 @ @c
 static const char _svn_version[] =
-    "$Id$"
-    "$URL$";
+    "$Id: tounicode.w 4643 2013-09-16 20:33:56Z hhenkel $"
+    "$URL: https://foundry.supelec.fr/svn/luatex/branches/ex-glyph/source/texk/web2c/luatexdir/font/tounicode.w $";
 
 #include "ptexlib.h"
 

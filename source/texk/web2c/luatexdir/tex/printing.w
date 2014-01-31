@@ -19,8 +19,8 @@
 
 @ @c
 static const char _svn_version[] =
-    "$Id$"
-    "$URL$";
+    "$Id: printing.w 4722 2014-01-03 09:32:35Z taco $"
+    "$URL: https://foundry.supelec.fr/svn/luatex/trunk/source/texk/web2c/luatexdir/tex/printing.w $";
 
 #include "ptexlib.h"
 #include "lua/luatex-api.h"     /* for ptexbanner */
@@ -462,9 +462,17 @@ void print_banner(const char *v, int ver)
     callback_id = callback_defined(start_run_callback);
     if (callback_id == 0) {
         if (ver < 0)
+#ifdef LuajitTeX
+            fprintf(term_out, "This is LuajitTeX, Version %s ", v);
+#else
             fprintf(term_out, "This is LuaTeX, Version %s ", v);
+#endif
         else
+#ifdef LuajitTeX
+             fprintf(term_out, "This is LuajitTeX, Version %s%s (rev %d) ", v,
+#else
              fprintf(term_out, "This is LuaTeX, Version %s%s (rev %d) ", v,
+#endif
                      WEB2CVERSION, ver);
         if (format_ident > 0)
             print(format_ident);
@@ -491,9 +499,17 @@ void log_banner(const char *v, int ver)
     if (month > 12)
         month = 0;
     if (ver < 0)
+#ifdef LuajitTeX
+        fprintf(log_file, "This is LuajitTeX, Version %s ", v);
+#else
         fprintf(log_file, "This is LuaTeX, Version %s ", v);
+#endif
     else
+#ifdef LuajitTeX
+        fprintf(log_file, "This is LuajitTeX, Version %s%s (rev %d) ", v, 
+#else
         fprintf(log_file, "This is LuaTeX, Version %s%s (rev %d) ", v, 
+#endif
 	                  WEB2CVERSION, ver);
     print(format_ident);
     print_char(' ');
@@ -699,7 +715,6 @@ void print_cs(int p)
         if (p == null_cs) {
             tprint_esc("csname");
             tprint_esc("endcsname");
-            print_char(' ');
         } else {
             tprint_esc("IMPOSSIBLE.");
         }

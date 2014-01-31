@@ -104,6 +104,7 @@ fi
 lua_socketlibs=$socketlibs
 kpse_save_LIBS=$LIBS
 KPSE_LUA52_DEFINES
+KPSE_LUAJIT_DEFINES
 LIBS=$kpse_save_LIBS
 if test "x$kpse_cv_have_win32" = xno; then
   AC_SEARCH_LIBS([gethostbyname], [nsl])
@@ -140,6 +141,15 @@ fi
 AM_CONDITIONAL([USE_DLOPEN], [test "x$ac_cv_header_dlfcn_h" = xyes])
 AC_SUBST([lua_socketlibs])
 AC_SUBST([ipc_socketlibs])
+
+dnl linker flags for luajittex
+AM_CONDITIONAL([luajittex_darwin64],[case "$host_os" in
+   *darwin*)
+      test "x$host_cpu" == xx86_64 ;;
+   *)
+      ! test 1;;
+esac])
+
 
 KPSE_CHECK_FRAMEWORK([ApplicationServices], [CTFontRef font])
 KPSE_FONTCONFIG_FLAGS
@@ -287,6 +297,7 @@ KPSE_TECKIT_FLAGS
 KPSE_ICU_FLAGS
 KPSE_HARFBUZZ_FLAGS
 KPSE_GRAPHITE2_FLAGS
+KPSE_LUAJIT_FLAGS
 
 # Check size of off_t (using <kpathsea/config.h>)
 KPSE_ADD_FLAGS([kpathsea])

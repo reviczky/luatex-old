@@ -33,8 +33,8 @@
 #include <locale.h>
 
 static const char _svn_version[] =
-    "$Id$ "
-    "$URL$";
+    "$Id: luafflib.c 4744 2014-01-11 11:42:36Z luigi $ "
+    "$URL: https://foundry.supelec.fr/svn/luatex/trunk/source/texk/web2c/luatexdir/luafontloader/src/luafflib.c $";
 
 extern char **gww_errors;
 extern int gww_error_count;
@@ -2306,21 +2306,19 @@ void do_ff_info(lua_State * L, SplineFont * sf)
     dump_stringfield(L, "weight", sf->weight);
 
     dump_intfield(L, "units_per_em", sf->units_per_em);
-    /* These are not assigned in info... */ 
-    /*dump_intfield(L, "design_range_bottom", sf->design_range_bottom);*/
-    /*dump_intfield(L, "design_range_top", sf->design_range_top);*/
-    /*dump_intfield(L, "design_size", sf->design_size);*/
+    dump_intfield(L, "design_range_bottom", sf->design_range_bottom);
+    dump_intfield(L, "design_range_top", sf->design_range_top);
+    dump_intfield(L, "design_size", sf->design_size);
 
     lua_createtable(L, 0, 40);
     handle_pfminfo(L, sf->pfminfo);
     lua_setfield(L, -2, "pfminfo");
 
-    /* Do we need this ? */
-    if (sf->names != NULL) { 
-         lua_newtable(L); 
-         handle_ttflangname(L, sf->names); 
-         lua_setfield(L, -2, "names"); 
-    } 
+    if (sf->names != NULL) {
+        lua_newtable(L);
+        handle_ttflangname(L, sf->names);
+        lua_setfield(L, -2, "names");
+    }
 }
 
 typedef enum {
