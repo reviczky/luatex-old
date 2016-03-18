@@ -430,7 +430,7 @@ to also use -engine, or nothing will be returned; in particular,\n\
 -expand-braces=STRING  output variable and brace expansion of STRING.\n\
 -expand-path=STRING    output complete path expansion of STRING.\n\
 -expand-var=STRING     output variable expansion of STRING.\n\
--format=NAME           use file type NAME (list shown by -help-formats).\n\
+-format=NAME           use file type NAME (see list below).\n\
 -help                  display this message and exit.\n\
 -help-formats          display information about all supported file formats.\n\
 -interactive           ask for additional filenames to look up.\n\
@@ -441,8 +441,7 @@ to also use -engine, or nothing will be returned; in particular,\n\
 -progname=STRING       set program name to STRING.\n\
 -safe-in-name=STRING   check if STRING is ok to open for input.\n\
 -safe-out-name=STRING  check if STRING is ok to open for output.\n\
--show-path=NAME        output search path for file type NAME\n\
-                         (list shown by -help-formats).\n\
+-show-path=NAME        output search path for file type NAME (list below).\n\
 -subdir=STRING         only output matches whose directory ends with STRING.\n\
 -var-value=STRING      output the value of variable $STRING.\n\
 -version               display version information number and exit.\n \
@@ -714,12 +713,9 @@ main (int argc,  string *argv)
      || strstr(kpse->program_name,"uptex") || strstr(kpse->program_name,"uplatex")
      || strstr(kpse->program_name,"dvipdfm") || strstr(kpse->program_name,"extractbb")
      || strstr(kpse->program_name,"xbb") || strstr(kpse->program_name,"ebb")
-     || strstr(kpse->program_name,"dvips") || strstr(kpse->program_name,"upmendex"))
+     || strstr(kpse->program_name,"dvips"))
   {
-    if (strstr(kpse->program_name,"upmendex"))
-      enc = "utf-8";
-    else
-      enc = kpathsea_var_value (kpse, "command_line_encoding");
+    enc = kpathsea_var_value (kpse, "command_line_encoding");
     if (get_command_line_args_utf8(enc, &ac, &av)) {
       optind = 0;
       read_command_line (kpse, ac, av);

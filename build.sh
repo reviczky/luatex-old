@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# $Id$
+# $Id: build.sh 5081 2014-11-07 18:38:33Z luigi $
 #
 # Copyright (c) 2005-2011 Martin Schröder <martin@luatex.org>
 # Copyright (c) 2009-2014 Taco Hoekwater <taco@luatex.org>
@@ -33,10 +33,7 @@
 #      --arch=     : crosscompile for ARCH on OS X
 #      --clang     : use clang & clang++
 #      --debug     : CFLAGS="-g -O0" --warnings=max --nostrip
-#      --debugopt  : CFLAGS="-g -O3" --warnings=max --nostrip
 $DEBUG
-#export CFLAGS="-D_FORTIFY_SOURCE=2 -O3"
-#export CXXFLAGS="-D_FORTIFY_SOURCE=2 -O3"
 
 # try to find bash, in case the standard shell is not capable of
 # handling the generated configure's += variable assignments
@@ -47,7 +44,7 @@ then
 fi
 
 # try to find gnu make; we may need it
-MAKE=make
+MAKE=make;
 if make -v 2>&1| grep "GNU Make" >/dev/null
 then 
   echo "Your make is a GNU-make; I will use that"
@@ -71,8 +68,8 @@ MACCROSS=FALSE
 CLANG=FALSE
 CONFHOST=
 CONFBUILD=
-JOBS_IF_PARALLEL=${JOBS_IF_PARALLEL:-8}
-MAX_LOAD_IF_PARALLEL=${MAX_LOAD_IF_PARALLEL:-8}
+JOBS_IF_PARALLEL=${JOBS_IF_PARALLEL:-3}
+MAX_LOAD_IF_PARALLEL=${MAX_LOAD_IF_PARALLEL:-2}
 TARGET_CC=gcc
 TARGET_TCFLAGS=
 
@@ -85,7 +82,6 @@ until [ -z "$1" ]; do
     --nojit     ) BUILDJIT=FALSE     ;;
     --make      ) ONLY_MAKE=TRUE     ;;
     --nostrip   ) STRIP_LUATEX=FALSE ;;
-    --debugopt  ) STRIP_LUATEX=FALSE; WARNINGS=max ; CFLAGS="-O3 -g -g3 $CFLAGS" ; CXXFLAGS="-O3 -g -g3 $CXXFLAGS"  ;;
     --debug     ) STRIP_LUATEX=FALSE; WARNINGS=max ; CFLAGS="-O0 -g -g3 $CFLAGS" ; CXXFLAGS="-O0 -g -g3 $CXXFLAGS"  ;;
     --clang     ) export CC=clang; export CXX=clang++ ; TARGET_CC=$CC ; CLANG=TRUE ;;
     --warnings=*) WARNINGS=`echo $1 | sed 's/--warnings=\(.*\)/\1/' `        ;;
@@ -109,19 +105,11 @@ LUATEXEXE=luatex
 case `uname` in
   MINGW32*   ) LUATEXEXEJIT=luajittex.exe ; LUATEXEXE=luatex.exe ;;
   CYGWIN*    ) LUATEXEXEJIT=luajittex.exe ; LUATEXEXE=luatex.exe ;;
-  Darwin     ) STRIP="strip -u -r" ;;
 esac
 
 WARNINGFLAGS=--enable-compiler-warnings=$WARNINGS
 
 B=build
-
-## Useful for cross-compilation for ARM
-if [ "x$CONFHOST" != "x" ]
-then
- B="build-$CONFHOST"
- B=`printf "$B"| sed 's/--host=//'`
-fi
 
 if [ "$CLANG" = "TRUE" ]
 then
@@ -231,8 +219,6 @@ then
 fi
 
 
-
-
 if [ "$ONLY_MAKE" = "FALSE" ]
 then
 TL_MAKE=$MAKE ../source/configure  $CONFHOST $CONFBUILD  $WARNINGFLAGS\
@@ -240,8 +226,8 @@ TL_MAKE=$MAKE ../source/configure  $CONFHOST $CONFBUILD  $WARNINGFLAGS\
     --enable-silent-rules \
     --disable-all-pkgs \
     --disable-shared    \
-    --disable-ptex \
     --disable-largefile \
+    --disable-ptex \
     --disable-ipc \
     --enable-dump-share  \
     --enable-mp  \

@@ -12,7 +12,7 @@ EXTRA_DIST = $(ZZIPLIB_TREE)
 
 ## Changes applied to the original source tree
 ##
-EXTRA_DIST += zziplib-PATCHES
+EXTRA_DIST += $(ZZIPLIB_TREE)-PATCHES
 
 # Files not to be distributed
 include $(srcdir)/../../am/dist_hook.am
@@ -47,7 +47,6 @@ TESTS = zziplib.test
 check_PROGRAMS = unzzip
 dist_check_SCRIPTS = zziplib.test
 endif build
-zziplib.log: unzzip$(EXEEXT)
 
 distclean-local:
 	rm -rf test

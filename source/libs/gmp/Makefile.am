@@ -1,8 +1,7 @@
 ## Proxy Makefile.am to build GNU MP for TeX Live.
 ##
-##   Copyright (C) 2016 Karl Berry <tex-live@tug.org>
-##   Copyright (C) 2014-2015 Peter Breitenlohner <tex-live@tug.org>
 ##   Copyright (C) 2014 Taco Hoekwater <taco@metatex.org>
+##   Copyright (C) 2014, 2015 Peter Breitenlohner <tex-live@tug.org>
 ##
 ##   This file is free software; the copyright holder
 ##   gives unlimited permission to copy and/or distribute it,
@@ -14,7 +13,7 @@ EXTRA_DIST = $(GMP_TREE)
 
 ## Changes applied to the original source tree
 ##
-EXTRA_DIST += gmp-PATCHES
+EXTRA_DIST += $(GMP_TREE)-PATCHES
 
 # Files not to be distributed
 include $(srcdir)/../../am/dist_hook.am
@@ -87,7 +86,6 @@ mpn_sources = \
 	@GMP_TREE@/mpn/generic/bdiv_q.c \
 	@GMP_TREE@/mpn/generic/binvert.c \
 	@GMP_TREE@/mpn/generic/cmp.c \
-	@GMP_TREE@/mpn/generic/com.c \
 	@GMP_TREE@/mpn/generic/dcpi1_bdiv_q.c \
 	@GMP_TREE@/mpn/generic/dcpi1_bdiv_qr.c \
 	@GMP_TREE@/mpn/generic/dcpi1_div_q.c \
@@ -123,8 +121,8 @@ mpn_sources = \
 	@GMP_TREE@/mpn/generic/mul.c \
 	@GMP_TREE@/mpn/generic/mul_1.c \
 	@GMP_TREE@/mpn/generic/mul_basecase.c \
-	@GMP_TREE@/mpn/generic/mul_fft.c \
 	@GMP_TREE@/mpn/generic/mul_n.c \
+	@GMP_TREE@/mpn/generic/mul_fft.c \
 	@GMP_TREE@/mpn/generic/mullo_basecase.c \
 	@GMP_TREE@/mpn/generic/mullo_n.c \
 	@GMP_TREE@/mpn/generic/mulmod_bnm1.c \
@@ -145,8 +143,6 @@ mpn_sources = \
 	@GMP_TREE@/mpn/generic/set_str.c \
 	@GMP_TREE@/mpn/generic/sqr.c \
 	@GMP_TREE@/mpn/generic/sqr_basecase.c \
-	@GMP_TREE@/mpn/generic/sqrlo.c \
-	@GMP_TREE@/mpn/generic/sqrlo_basecase.c \
 	@GMP_TREE@/mpn/generic/sqrmod_bnm1.c \
 	@GMP_TREE@/mpn/generic/sqrtrem.c \
 	@GMP_TREE@/mpn/generic/sub.c \
@@ -154,16 +150,16 @@ mpn_sources = \
 	@GMP_TREE@/mpn/generic/sub_n.c \
 	@GMP_TREE@/mpn/generic/submul_1.c \
 	@GMP_TREE@/mpn/generic/tdiv_qr.c \
-	@GMP_TREE@/mpn/generic/toom22_mul.c \
 	@GMP_TREE@/mpn/generic/toom2_sqr.c \
+	@GMP_TREE@/mpn/generic/toom22_mul.c \
+	@GMP_TREE@/mpn/generic/toom3_sqr.c \
 	@GMP_TREE@/mpn/generic/toom32_mul.c \
 	@GMP_TREE@/mpn/generic/toom33_mul.c \
-	@GMP_TREE@/mpn/generic/toom3_sqr.c \
+	@GMP_TREE@/mpn/generic/toom4_sqr.c \
 	@GMP_TREE@/mpn/generic/toom42_mul.c \
 	@GMP_TREE@/mpn/generic/toom42_mulmid.c \
 	@GMP_TREE@/mpn/generic/toom43_mul.c \
 	@GMP_TREE@/mpn/generic/toom44_mul.c \
-	@GMP_TREE@/mpn/generic/toom4_sqr.c \
 	@GMP_TREE@/mpn/generic/toom53_mul.c \
 	@GMP_TREE@/mpn/generic/toom63_mul.c \
 	@GMP_TREE@/mpn/generic/toom6_sqr.c \
@@ -182,8 +178,7 @@ mpn_sources = \
 	@GMP_TREE@/mpn/generic/toom_interpolate_5pts.c \
 	@GMP_TREE@/mpn/generic/toom_interpolate_6pts.c \
 	@GMP_TREE@/mpn/generic/toom_interpolate_7pts.c \
-	@GMP_TREE@/mpn/generic/toom_interpolate_8pts.c \
-	@GMP_TREE@/mpn/generic/zero_p.c
+	@GMP_TREE@/mpn/generic/toom_interpolate_8pts.c
 
 mpn_unused = \
 	$(logops_n_sources) \
@@ -204,6 +199,7 @@ mpn_unused = \
 	@GMP_TREE@/mpn/generic/bsqrtinv.c \
 	@GMP_TREE@/mpn/generic/cnd_add_n.c \
 	@GMP_TREE@/mpn/generic/cnd_sub_n.c \
+	@GMP_TREE@/mpn/generic/com.c \
 	@GMP_TREE@/mpn/generic/comb_tables.c \
 	@GMP_TREE@/mpn/generic/copyd.c \
 	@GMP_TREE@/mpn/generic/copyi.c \
@@ -469,7 +465,6 @@ check_PROGRAMS = gmptest
 dist_check_SCRIPTS = gmp.test
 TESTS = gmp.test
 endif build
-gmp.log: gmptest$(EXEEXT)
 
 gmptest_SOURCES = gmptest.c
 

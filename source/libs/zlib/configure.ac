@@ -1,6 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl
-dnl   Copyright (C) 2016 Karl Berry <tex-live@tug.org>
 dnl   Copyright (C) 2009-2013 Peter Breitenlohner <tex-live@tug.org>
 dnl
 dnl   This file is free software; the copyright holder
@@ -10,7 +9,7 @@ dnl
 m4_include([version.ac])[] dnl define zlib_version
 AC_INIT([zlib (TeX Live)], zlib_version, [tex-k@tug.org])
 AC_PREREQ([2.65])
-AC_CONFIG_SRCDIR([zlib-src/zlib.h])
+AC_CONFIG_SRCDIR([zlib-]zlib_version[/zlib.h])
 AC_CONFIG_AUX_DIR([../../build-aux])
 AC_CONFIG_MACRO_DIR([../../m4])
 
@@ -32,7 +31,7 @@ fi
 
 AC_HEADER_STDC
 if test "x$ac_cv_header_stdc" != xyes; then
-  AC_MSG_ERROR([Sorry, can't do anything for you without header_stdc])
+  AC_MSG_ERROR([Sorry, can't do anything for you])
 fi
 
 AC_CHECK_HEADER([errno.h],
@@ -40,7 +39,7 @@ AC_CHECK_HEADER([errno.h],
                 [ZLIB_DEFINES="-DNO_ERRNO_H"])
 
 AC_CHECK_HEADERS([unistd.h])
-ZCONF_SRC=[zlib-src/zconf.h.in]
+ZCONF_SRC=[zlib-]zlib_version[/zconf.h.in]
 if test x"$ac_cv_header_unistd_h" = xyes; then
   zconf_sh='sed <$srcdir/'"$ZCONF_SRC"' "/^#ifdef HAVE_UNISTD_H.* may be/s/def HAVE_UNISTD_H\\(.*\\) may be/ 1\\1 was/" >'
 else
@@ -71,7 +70,7 @@ fi
 
 AC_SUBST([ZLIB_DEFINES])
 
-AC_SUBST([ZLIB_TREE], [zlib-src])
+AC_SUBST([ZLIB_TREE], [zlib-]zlib_version)
 
 if test -f $srcdir/$ZLIB_TREE/zconf.h; then
   AC_MSG_ERROR([Sorry, you must remove the file $ZLIB_TREE/zconf.h])

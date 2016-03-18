@@ -1,5 +1,5 @@
 /* mlist.h
-
+   
    Copyright 1996-2006 Han The Thanh <thanh@pdftex.org>
    Copyright 2006-2009 Taco Hoekwater <taco@luatex.org>
 
@@ -24,12 +24,11 @@
 
 extern int cur_size;
 
-extern void run_mlist_to_hlist(halfword, boolean, int);
-extern void mlist_to_hlist(halfword, boolean, int);
+extern void run_mlist_to_hlist(halfword, int, boolean);
 extern void fixup_math_parameters(int fam_id, int size_id, int f, int lvl);
 
-extern scaled get_math_quad_style(int a);
-extern scaled get_math_quad_size(int a);
+extern scaled get_math_quad(int a);
 
+extern void mlist_to_hlist_args(halfword, int, boolean);
 
 #endif

@@ -179,7 +179,6 @@ am__objects_3 = @POPPLER_TREE@/poppler/Annot.$(OBJEXT) \
 	@POPPLER_TREE@/poppler/ProfileData.$(OBJEXT) \
 	@POPPLER_TREE@/poppler/Rendition.$(OBJEXT) \
 	@POPPLER_TREE@/poppler/SecurityHandler.$(OBJEXT) \
-	@POPPLER_TREE@/poppler/SignatureInfo.$(OBJEXT) \
 	@POPPLER_TREE@/poppler/Sound.$(OBJEXT) \
 	@POPPLER_TREE@/poppler/StdinCachedFile.$(OBJEXT) \
 	@POPPLER_TREE@/poppler/StdinPDFDocBuilder.$(OBJEXT) \
@@ -277,7 +276,7 @@ am__DIST_COMMON = $(srcdir)/../../am/dist_hook.am \
 	$(top_srcdir)/../../build-aux/depcomp \
 	$(top_srcdir)/../../build-aux/install-sh \
 	$(top_srcdir)/../../build-aux/missing \
-	$(top_srcdir)/poppler-src/poppler/poppler-config.h.in \
+	$(top_srcdir)/poppler-0.32.0/poppler/poppler-config.h.in \
 	../../build-aux/compile ../../build-aux/config.guess \
 	../../build-aux/config.sub ../../build-aux/depcomp \
 	../../build-aux/install-sh ../../build-aux/ltmain.sh \
@@ -428,7 +427,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-EXTRA_DIST = $(POPPLER_TREE) poppler-PATCHES
+EXTRA_DIST = $(POPPLER_TREE) $(POPPLER_TREE)-PATCHES
 NEVER_DIST = `find . $(NEVER_NAMES)`
 
 # Files not to be distributed
@@ -519,7 +518,6 @@ poppler_libpoppler_a_sources = \
 	@POPPLER_TREE@/poppler/ProfileData.cc \
 	@POPPLER_TREE@/poppler/Rendition.cc \
 	@POPPLER_TREE@/poppler/SecurityHandler.cc \
-	@POPPLER_TREE@/poppler/SignatureInfo.cc \
 	@POPPLER_TREE@/poppler/Sound.cc \
 	@POPPLER_TREE@/poppler/StdinCachedFile.cc \
 	@POPPLER_TREE@/poppler/StdinPDFDocBuilder.cc \
@@ -599,7 +597,7 @@ poppler-config.h: stamp-h2
 	@test -f $@ || rm -f stamp-h2
 	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) stamp-h2
 
-stamp-h2: $(top_srcdir)/poppler-src/poppler/poppler-config.h.in $(top_builddir)/config.status
+stamp-h2: $(top_srcdir)/poppler-0.32.0/poppler/poppler-config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h2
 	cd $(top_builddir) && $(SHELL) ./config.status poppler-config.h
 
@@ -820,9 +818,6 @@ clean-noinstLIBRARIES:
 @POPPLER_TREE@/poppler/SecurityHandler.$(OBJEXT):  \
 	@POPPLER_TREE@/poppler/$(am__dirstamp) \
 	@POPPLER_TREE@/poppler/$(DEPDIR)/$(am__dirstamp)
-@POPPLER_TREE@/poppler/SignatureInfo.$(OBJEXT):  \
-	@POPPLER_TREE@/poppler/$(am__dirstamp) \
-	@POPPLER_TREE@/poppler/$(DEPDIR)/$(am__dirstamp)
 @POPPLER_TREE@/poppler/Sound.$(OBJEXT):  \
 	@POPPLER_TREE@/poppler/$(am__dirstamp) \
 	@POPPLER_TREE@/poppler/$(DEPDIR)/$(am__dirstamp)
@@ -942,7 +937,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@@POPPLER_TREE@/poppler/$(DEPDIR)/ProfileData.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@@POPPLER_TREE@/poppler/$(DEPDIR)/Rendition.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@@POPPLER_TREE@/poppler/$(DEPDIR)/SecurityHandler.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@@POPPLER_TREE@/poppler/$(DEPDIR)/SignatureInfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@@POPPLER_TREE@/poppler/$(DEPDIR)/Sound.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@@POPPLER_TREE@/poppler/$(DEPDIR)/StdinCachedFile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@@POPPLER_TREE@/poppler/$(DEPDIR)/StdinPDFDocBuilder.Po@am__quote@

@@ -1,6 +1,5 @@
 ## Proxy Makefile.am to build poppler for TeX Live.
 ##
-##   Copyright (C) 2016 Karl Berry <tex-live@tug.org>
 ##   Copyright (C) 2011-2015 Peter Breitenlohner <tex-live@tug.org>
 ##
 ##   This file is free software; the copyright holder
@@ -13,7 +12,7 @@ EXTRA_DIST = $(POPPLER_TREE)
 
 ## Changes applied to the original source tree
 ##
-EXTRA_DIST += poppler-PATCHES
+EXTRA_DIST += $(POPPLER_TREE)-PATCHES
 
 # Files not to be distributed
 include $(srcdir)/../../am/dist_hook.am
@@ -58,8 +57,6 @@ fofi_libfofi_a_sources = \
 	@POPPLER_TREE@/fofi/FoFiTrueType.cc \
 	@POPPLER_TREE@/fofi/FoFiType1.cc \
 	@POPPLER_TREE@/fofi/FoFiType1C.cc
-
-
 
 poppler_libpoppler_a_sources = \
 	@POPPLER_TREE@/poppler/Annot.cc \
@@ -111,7 +108,6 @@ poppler_libpoppler_a_sources = \
 	@POPPLER_TREE@/poppler/ProfileData.cc \
 	@POPPLER_TREE@/poppler/Rendition.cc \
 	@POPPLER_TREE@/poppler/SecurityHandler.cc \
-	@POPPLER_TREE@/poppler/SignatureInfo.cc \
 	@POPPLER_TREE@/poppler/Sound.cc \
 	@POPPLER_TREE@/poppler/StdinCachedFile.cc \
 	@POPPLER_TREE@/poppler/StdinPDFDocBuilder.cc \

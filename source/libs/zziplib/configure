@@ -585,7 +585,7 @@ PACKAGE_STRING='zziplib (TeX Live) 0.13.62'
 PACKAGE_BUGREPORT='tex-k@tug.org'
 PACKAGE_URL=''
 
-ac_unique_file="zziplib-src/zziplib.spec"
+ac_unique_file="zziplib-0.13.62/zziplib.spec"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>
@@ -4156,13 +4156,13 @@ else
 if test "x$enable_compiler_warnings" != xno; then
   kpse_cv_warning_cflags="-Wimplicit -Wreturn-type"
   case `$CC -dumpversion` in #(
-  3.4.* | 4.* | 5.*) :
+  3.4.* | 4.*) :
     kpse_cv_warning_cflags="$kpse_cv_warning_cflags -Wdeclaration-after-statement" ;; #(
   *) :
      ;;
 esac
   case `$CC -dumpversion` in #(
-  3.[234].* | 4.* | 5.*) :
+  3.[234].* | 4.*) :
     kpse_cv_warning_cflags="$kpse_cv_warning_cflags -Wno-unknown-pragmas" ;; #(
   *) :
      ;;
@@ -4174,7 +4174,7 @@ esac
       kpse_cv_warning_cflags="$kpse_cv_warning_cflags -Wparentheses -Wswitch -Wtrigraphs -Wpointer-arith"
       kpse_cv_warning_cflags="$kpse_cv_warning_cflags -Wcast-qual -Wcast-align -Wwrite-strings"
       case `$CC -dumpversion` in #(
-  3.4.* | 4.* | 5.*) :
+  3.4.* | 4.*) :
     kpse_cv_warning_cflags="$kpse_cv_warning_cflags -Wold-style-definition" ;; #(
   *) :
      ;;
@@ -6804,7 +6804,7 @@ LIBS=$kpse_save_LIBS
 echo timestamp >config.force
 fi
 
-ZZIPLIB_TREE=zziplib-src
+ZZIPLIB_TREE=zziplib-0.13.62
 
 
 # -----------------------------------------------------------------------

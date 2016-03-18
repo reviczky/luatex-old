@@ -13,7 +13,7 @@ EXTRA_DIST = $(MPFR_TREE)
 
 ## Changes applied to the original source tree
 ##
-EXTRA_DIST += mpfr-PATCHES
+EXTRA_DIST += $(MPFR_TREE)-PATCHES
 
 # Files not to be distributed
 include $(srcdir)/../../am/dist_hook.am
@@ -254,7 +254,6 @@ check_PROGRAMS = mpfrtest
 dist_check_SCRIPTS = mpfr.test
 TESTS = mpfr.test
 endif build
-mpfr.log: mpfrtest$(EXEEXT)
 
 mpfrtest_SOURCES = mpfrtest.c
 
