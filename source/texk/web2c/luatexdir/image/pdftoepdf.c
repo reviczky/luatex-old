@@ -367,24 +367,24 @@ static int addInObj(PDF pdf, PdfDocument * pdf_doc, ppref * ref)
 
 static void copyObject(PDF, PdfDocument *, ppobj *);
 
-static void copyString(PDF pdf, ppstring str)
+static void copyString(PDF pdf, ppstring *str)
 {
     pdf_check_space(pdf);
-    switch (ppstring_type((void *)(str))) {
+    switch (ppstring_type(str)) {
         case PPSTRING_PLAIN:
             pdf_out(pdf, '(');
-            pdf_out_block(pdf, (const char *) str, ppstring_size((void *)(str)));
+            pdf_out_block(pdf, (const char *) (str->data), ppstring_size(str));
             pdf_out(pdf, ')');
             break;
         case PPSTRING_BASE16:
             pdf_out(pdf, '<');
-            pdf_out_block(pdf, (const char *) str, ppstring_size((void *)(str)));
+            pdf_out_block(pdf, (const char *) (str->data), ppstring_size(str));
             pdf_out(pdf, '>');
             break;
         case PPSTRING_BASE85:
             pdf_out(pdf, '<');
             pdf_out(pdf, '~');
-            pdf_out_block(pdf, (const char *) str, ppstring_size((void *)(str)));
+            pdf_out_block(pdf, (const char *) (str->data), ppstring_size(str));
             pdf_out(pdf, '~');
             pdf_out(pdf, '>');
             break;
@@ -395,7 +395,7 @@ static void copyString(PDF pdf, ppstring str)
 /*
 static void copyName(PDF pdf, ppname *name)
 {
-    pdf_add_name(pdf, (const char *) name);
+    pdf_add_name(pdf, (const char *) (name->data) );
 }
 */
 
@@ -416,7 +416,7 @@ static void copyDict(PDF pdf, PdfDocument * pdf_doc, ppdict *dict)
     int n = dict->size;
     pdf_begin_dict(pdf);
     for (i=0; i<n; ++i) {
-        pdf_add_name(pdf, (const char *) ppdict_key(dict,i));
+        pdf_add_name(pdf, (const char *) ((ppdict_key(dict,i))->data) );
         copyObject(pdf, pdf_doc, ppdict_at(dict,i));
     }
     pdf_end_dict(pdf);
@@ -462,7 +462,7 @@ static void copyStream(PDF pdf, PdfDocument * pdf_doc, ppstream * stream)
                 "FlateDecode", "LZWDecode", NULL
             };
             int k;
-            const char *val = ppobj_get_name(obj);
+            const char *val = (ppobj_get_name(obj))->data;
             for (k = 0; codecs[k] != NULL; k++) {
                 if (strcmp(val,codecs[k]) == 0) {
                     known = 1;
@@ -478,7 +478,7 @@ static void copyStream(PDF pdf, PdfDocument * pdf_doc, ppstream * stream)
             int i;
             pdf_begin_dict(pdf);
             for (i=0; i<dict->size; ++i) {
-                const char *key = ppdict_key(dict,i);
+                const char *key = (ppdict_key(dict,i))->data;
                 int copy = 1;
                 int k;
                 for (k = 0; ignoredkeys[k] != NULL; k++) {
@@ -523,7 +523,7 @@ static void copyObject(PDF pdf, PdfDocument * pdf_doc, ppobj * obj)
             pdf_add_real(pdf,obj->number);                      /* ppobj_get_num_value(obj) */
             break;
         case PPNAME:
-            pdf_add_name(pdf, (const char *) obj->name);        /* ppobj_get_name(obj) */
+            pdf_add_name(pdf, (const char *) ((obj->name)->data) );        /* ppobj_get_name(obj) */
             break;
         case PPSTRING:
             copyString(pdf, obj->string);                       /* ppobj_get_string(obj) */
